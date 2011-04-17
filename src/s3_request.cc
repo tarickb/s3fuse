@@ -8,6 +8,7 @@
 #include <stdexcept>
 #include <boost/lexical_cast.hpp>
 
+#include "s3_debug.hh"
 #include "s3_request.hh"
 #include "s3_util.hh"
 
@@ -37,7 +38,7 @@ namespace
   }
 }
 
-s3_request::s3_request(http_method method)
+request::request(http_method method)
   : _aws_key(g_aws_key),
     _aws_secret(g_aws_secret),
     _response_code(0),
@@ -53,7 +54,7 @@ s3_request::s3_request(http_method method)
     // curl_easy_setopt(_curl, CURLOPT_VERBOSE, 1);
     curl_easy_setopt(_curl, CURLOPT_NOPROGRESS, 1);
     curl_easy_setopt(_curl, CURLOPT_FOLLOWLOCATION, 1);
-    curl_easy_setopt(_curl, CURLOPT_HEADERFUNCTION, &s3_request::add_header_to_map);
+    curl_easy_setopt(_curl, CURLOPT_HEADERFUNCTION, &request::add_header_to_map);
     curl_easy_setopt(_curl, CURLOPT_HEADERDATA, &_response_headers);
     curl_easy_setopt(_curl, CURLOPT_ERRORBUFFER, _curl_error);
     curl_easy_setopt(_curl, CURLOPT_FILETIME, 1);
@@ -81,12 +82,12 @@ s3_request::s3_request(http_method method)
   }
 }
 
-s3_request::~s3_request()
+request::~request()
 {
   curl_easy_cleanup(_curl);
 }
 
-size_t s3_request::add_header_to_map(char *data, size_t size, size_t items, void *context)
+size_t request::add_header_to_map(char *data, size_t size, size_t items, void *context)
 {
   header_map *headers = static_cast<header_map *>(context);
   size_t full_size = size * items;
@@ -114,7 +115,7 @@ size_t s3_request::add_header_to_map(char *data, size_t size, size_t items, void
   return size * items;
 }
 
-void s3_request::set_url(const string &url, const string &query_string)
+void request::set_url(const string &url, const string &query_string)
 {
   string curl_url = g_url_prefix + url;
 
@@ -126,10 +127,10 @@ void s3_request::set_url(const string &url, const string &query_string)
   _url = url;
   curl_easy_setopt(_curl, CURLOPT_URL, curl_url.c_str());
 
-  cerr << "s3_request: url: " << curl_url << endl;
+  S3_DEBUG("request::set_url", "url: [%s]\n", curl_url.c_str());
 }
 
-void s3_request::set_output_file(FILE *f)
+void request::set_output_file(FILE *f)
 {
   if (f) {
     curl_easy_setopt(_curl, CURLOPT_WRITEFUNCTION, NULL);
@@ -140,7 +141,7 @@ void s3_request::set_output_file(FILE *f)
   }
 }
 
-void s3_request::set_input_file(FILE *f, size_t size)
+void request::set_input_file(FILE *f, size_t size)
 {
   if (f) {
     curl_easy_setopt(_curl, CURLOPT_READFUNCTION, NULL);
@@ -153,7 +154,7 @@ void s3_request::set_input_file(FILE *f, size_t size)
   }
 }
 
-void s3_request::build_request_time()
+void request::build_request_time()
 {
   time_t sys_time;
   tm gm_time;
@@ -166,7 +167,7 @@ void s3_request::build_request_time()
   _headers["Date"] = time_str;
 }
 
-void s3_request::build_signature()
+void request::build_signature()
 {
   string sig = "AWS " + _aws_key + ":";
   string to_sign = _method + "\n" + _headers["Content-MD5"] + "\n" + _headers["Content-Type"] + "\n" + _headers["Date"] + "\n";
@@ -179,7 +180,7 @@ void s3_request::build_signature()
   _headers["Authorization"] = string("AWS ") + _aws_key + ":" + util::sign(_aws_secret, to_sign);
 }
 
-void s3_request::run()
+void request::run()
 {
   curl_slist *headers = NULL;
 
@@ -201,10 +202,6 @@ void s3_request::run()
   curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code);
   curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified);
 
-  // TODO: remove cerr
   // TODO: add loop for timeouts and whatnot
-
-  if (_response_code != 200)
-    cerr << "s3_request: response_code: " << _response_code << endl;
 }
 

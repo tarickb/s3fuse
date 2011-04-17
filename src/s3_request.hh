@@ -16,13 +16,13 @@ namespace s3
     HTTP_PUT
   };
 
-  class s3_request
+  class request
   {
   public:
     typedef std::map<std::string, std::string> header_map;
 
-    s3_request(http_method method);
-    ~s3_request();
+    request(http_method method);
+    ~request();
 
     void set_url(const std::string &url, const std::string &query_string);
     inline void set_header(const std::string &name, const std::string &value) { _headers[name] = value; }
