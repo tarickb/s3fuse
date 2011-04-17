@@ -51,7 +51,7 @@ request::request(http_method method)
 
   try {
     // TODO: make optional
-    // curl_easy_setopt(_curl, CURLOPT_VERBOSE, 1);
+    curl_easy_setopt(_curl, CURLOPT_VERBOSE, 1);
     curl_easy_setopt(_curl, CURLOPT_NOPROGRESS, 1);
     curl_easy_setopt(_curl, CURLOPT_FOLLOWLOCATION, 1);
     curl_easy_setopt(_curl, CURLOPT_HEADERFUNCTION, &request::add_header_to_map);

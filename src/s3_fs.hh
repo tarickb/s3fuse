@@ -20,6 +20,7 @@ namespace s3
 
     int get_stats(const std::string &path, struct stat *s);
     int read_directory(const std::string &path, fuse_fill_dir_t filler, void *buf);
+    int create_object(const std::string &path, mode_t mode);
 
   private:
     struct file_stats

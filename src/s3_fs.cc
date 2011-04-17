@@ -12,6 +12,9 @@ using namespace std;
 
 using namespace s3;
 
+// TODO: try/catch everywhere!
+// TODO: check error codes after run()
+
 namespace
 {
   const int BLOCK_SIZE = 512;
@@ -20,10 +23,35 @@ namespace
   int g_default_uid = 1000;
   int g_default_gid = 1000;
   int g_default_mode = 0755;
+
+  void get_object_metadata(request *req, mode_t *mode, uid_t *uid, gid_t *gid)
+  {
+    const string &mode_str = req->get_response_header("x-amz-meta-s3fuse-mode");
+    const string & uid_str = req->get_response_header("x-amz-meta-s3fuse-uid" );
+    const string & gid_str = req->get_response_header("x-amz-meta-s3fuse-gid" );
+
+    *mode = (mode_str.empty() ? g_default_mode : strtol(mode_str.c_str(), NULL, 0));
+    * uid = ( uid_str.empty() ? g_default_uid  : strtol( uid_str.c_str(), NULL, 0));
+    * gid = ( gid_str.empty() ? g_default_gid  : strtol( gid_str.c_str(), NULL, 0));
+  }
+
+  void set_object_metadata(request *req, mode_t mode, uid_t uid, gid_t gid)
+  {
+    char buf[16];
+
+    snprintf(buf, 16, "%#o", mode);
+    req->set_header("x-amz-meta-s3fuse-mode", buf);
+
+    snprintf(buf, 16, "%i", uid);
+    req->set_header("x-amz-meta-s3fuse-uid", buf);
+
+    snprintf(buf, 16, "%i", gid);
+    req->set_header("x-amz-meta-s3fuse-gid", buf);
+  }
 }
 
 fs::fs(const string &bucket)
-  : _bucket(string("/") + bucket),
+  : _bucket(string("/") + util::url_encode(bucket)),
     _prefix_query("/ListBucketResult/CommonPrefixes/Prefix"),
     _key_query("/ListBucketResult/Contents")
 {
@@ -73,34 +101,27 @@ int fs::get_stats(const string &path, struct stat *s)
     return 0;
 
   // see if the path is a directory (trailing /) first
-  req.set_url(_bucket + "/" + path + "/", "");
+  req.set_url(_bucket + "/" + util::url_encode(path) + "/", "");
   req.run();
 
   // it's not a directory
   if (req.get_response_code() != 200) {
     is_directory = false;
-    req.set_url(_bucket + "/" + path, "");
+    req.set_url(_bucket + "/" + util::url_encode(path), "");
     req.run();
 
     if (req.get_response_code() != 200)
       return -ENOENT;
   }
 
-  const string &mode = req.get_response_header("x-amz-s3fuse-mode");
-  const string &uid = req.get_response_header("x-amz-s3fuse-uid");
-  const string &gid = req.get_response_header("x-amz-s3fuse-gid");
+  get_object_metadata(&req, &s->st_mode, &s->st_uid, &s->st_gid);
   const string &length = req.get_response_header("Content-Length");
 
+  // TODO: support symlinks?
+  s->st_mode |= (is_directory ? S_IFDIR : S_IFREG);
+  s->st_size = strtol(length.c_str(), NULL, 0);
   s->st_nlink = 1; // laziness (see FUSE FAQ re. find)
   s->st_mtime =  req.get_last_modified();
-
-  // TODO: support symlinks?
-  s->st_mode  = (mode.empty() ? g_default_mode : strtol(mode.c_str(), NULL, 0));
-  s->st_mode |= (is_directory ? S_IFDIR : S_IFREG);
-
-  s->st_uid = (uid.empty() ? g_default_uid : strtol(uid.c_str(), NULL, 0));
-  s->st_gid = (gid.empty() ? g_default_gid : strtol(gid.c_str(), NULL, 0));
-  s->st_size = strtol(length.c_str(), NULL, 0);
 
   if (!is_directory)
     s->st_blocks = (s->st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -118,6 +139,9 @@ int fs::read_directory(const std::string &_path, fuse_fill_dir_t filler, void *b
   bool truncated = true;
   struct stat s;
   string path;
+
+  // TODO: use worker threads to call get_stats in parallel!
+  // TODO: openssl locking?
 
   if (_path[_path.size() - 1] == '/')
     return -EINVAL;
@@ -171,3 +195,31 @@ int fs::read_directory(const std::string &_path, fuse_fill_dir_t filler, void *b
   return 0;
 }
 
+int fs::create_object(const std::string &path, mode_t mode)
+{
+  request req(HTTP_PUT);
+  string url;
+
+  if (path[path.size() - 1] == '/')
+    return -EINVAL;
+
+  url = _bucket + "/" + util::url_encode(path);
+
+  if (S_ISDIR(mode))
+    url += "/";
+
+  req.set_url(url, "");
+  req.set_header("Content-Type", "binary/octet-stream");
+
+  if (mode & ~S_IFMT == 0) {
+    S3_DEBUG("fs::create_object", "no mode specified, using default.\n");
+    mode |= g_default_mode;
+  }
+
+  // TODO: use parent?
+  set_object_metadata(&req, mode, g_default_uid, g_default_gid);
+
+  req.run();
+
+  return 0;
+}
