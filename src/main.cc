@@ -62,10 +62,24 @@ int s3_open(const char *path, fuse_file_info *file_info)
   ASSERT_LEADING_SLASH(path);
 }
 
-int s3_read(const char *path, char *, size_t, off_t, fuse_file_info *file_info)
+int s3_read(const char *path, char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
 {
   S3_DEBUG("s3_read", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
+
+  int r = pread(file_info->fh, buffer, size, offset);
+
+  return (r == -1) ? -errno : r;
+}
+
+int s3_write(const char *path, const char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
+{
+  S3_DEBUG("s3_write", "path: %s\n", path);
+  ASSERT_LEADING_SLASH(path);
+
+  int r = pwrite(file_info->fh, buffer, size, offset);
+
+  return (r == -1) ? -errno : r;
 }
 
 int main(int argc, char **argv)
@@ -80,6 +94,7 @@ int main(int argc, char **argv)
   opers.open = s3_open;
   opers.read = s3_read;
   opers.readdir = s3_readdir;
+  opers.write = s3_write;
 
   g_fs = new s3::fs("test-0");
 
