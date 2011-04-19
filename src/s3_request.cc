@@ -6,7 +6,9 @@
 
 #include <iostream>
 #include <stdexcept>
+#include <vector>
 #include <boost/lexical_cast.hpp>
+#include <boost/thread.hpp>
 
 #include "s3_debug.hh"
 #include "s3_request.hh"
@@ -20,10 +22,7 @@ using namespace s3;
 
 namespace
 {
-  string g_url_prefix = "https://s3.amazonaws.com";
-  string g_aws_key = "AKIAJZHNXBKNRCUMV4IQ";
-  string g_aws_secret = "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";
-  string g_amz_header_prefix = "x-amz-";
+  typedef vector<request *> request_vector;
 
   size_t append_to_string(char *data, size_t size, size_t items, void *context)
   {
@@ -36,55 +35,112 @@ namespace
   {
     return 0;
   }
+
+  mutex g_cache_mutex;
+  request_vector g_cache;
+
+  string g_url_prefix = "https://s3.amazonaws.com";
+  string g_aws_key = "AKIAJZHNXBKNRCUMV4IQ";
+  string g_aws_secret = "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";
+  string g_amz_header_prefix = "x-amz-";
 }
 
-request::request(http_method method)
-  : _aws_key(g_aws_key),
-    _aws_secret(g_aws_secret),
-    _response_code(0),
-    _last_modified(0)
+void boost::intrusive_ptr_add_ref(request *r)
+{
+  ++r->_ref_count;
+}
+
+void boost::intrusive_ptr_release(request *r)
+{
+  --r->_ref_count;
+}
+
+request_ptr request::get()
+{
+  mutex::scoped_lock lock(g_cache_mutex);
+  request *r = NULL;
+
+  for (request_vector::iterator itor = g_cache.begin(); itor != g_cache.end(); ++itor) {
+    if ((*itor)->_ref_count == 0) {
+      r = *itor;
+      break;
+    }
+  }
+
+  if (!r) {
+    S3_DEBUG("request::get", "no free requests found in cache of size %i.\n", g_cache.size());
+
+    r = new request();
+    g_cache.push_back(r);
+  }
+
+  r->reset();
+  return request_ptr(r, true); // call add_ref
+}
+
+request::request()
+  : _ref_count(0),
+    _aws_key(g_aws_key),
+    _aws_secret(g_aws_secret)
 {
   _curl = curl_easy_init();
 
   if (!_curl)
     throw runtime_error("curl_easy_init() failed.");
 
-  try {
-    // TODO: make optional
-    curl_easy_setopt(_curl, CURLOPT_VERBOSE, 1);
-    curl_easy_setopt(_curl, CURLOPT_NOPROGRESS, 1);
-    curl_easy_setopt(_curl, CURLOPT_FOLLOWLOCATION, 1);
-    curl_easy_setopt(_curl, CURLOPT_HEADERFUNCTION, &request::add_header_to_map);
-    curl_easy_setopt(_curl, CURLOPT_HEADERDATA, &_response_headers);
-    curl_easy_setopt(_curl, CURLOPT_ERRORBUFFER, _curl_error);
-    curl_easy_setopt(_curl, CURLOPT_FILETIME, 1);
+  // stuff that's set in the ctor shouldn't be modified elsewhere, since the cache call to reset() won't reset it
 
-    set_input_file(NULL, 0);
-    set_output_file(NULL);
-
-    if (method == HTTP_GET) {
-      _method = "GET";
-
-    } else if (method == HTTP_HEAD) {
-      _method = "HEAD";
-      curl_easy_setopt(_curl, CURLOPT_NOBODY, 1);
-
-    } else if (method == HTTP_PUT) {
-      _method = "PUT";
-      curl_easy_setopt(_curl, CURLOPT_UPLOAD, 1);
-
-    } else
-      throw runtime_error("unsupported HTTP method.");
-
-  } catch (...) {
-    curl_easy_cleanup(_curl);
-    throw;
-  }
+  // TODO: make optional
+  // TODO: check for errors
+  curl_easy_setopt(_curl, CURLOPT_VERBOSE, false);
+  curl_easy_setopt(_curl, CURLOPT_NOPROGRESS, true);
+  curl_easy_setopt(_curl, CURLOPT_FOLLOWLOCATION, true);
+  curl_easy_setopt(_curl, CURLOPT_ERRORBUFFER, _curl_error);
+  curl_easy_setopt(_curl, CURLOPT_FILETIME, true);
+  curl_easy_setopt(_curl, CURLOPT_HEADERFUNCTION, &request::add_header_to_map);
+  curl_easy_setopt(_curl, CURLOPT_HEADERDATA, &_response_headers);
 }
 
-request::~request()
+request::~request() // shouldn't get called
 {
   curl_easy_cleanup(_curl);
+}
+
+void request::reset()
+{
+  // this gets called at construction and by the cache to reset the request state
+
+  _curl_error[0] = '\0';
+  _url.clear();
+  _response_data.clear();
+  _response_headers.clear();
+  _response_code = 0;
+  _last_modified = 0;
+  _headers.clear();
+
+  set_input_file(NULL, 0);
+  set_output_file(NULL);
+}
+
+void request::set_method(http_method method)
+{
+  if (method == HTTP_GET) {
+    _method = "GET";
+    curl_easy_setopt(_curl, CURLOPT_NOBODY, false);
+    curl_easy_setopt(_curl, CURLOPT_UPLOAD, false);
+
+  } else if (method == HTTP_HEAD) {
+    _method = "HEAD";
+    curl_easy_setopt(_curl, CURLOPT_NOBODY, true);
+    curl_easy_setopt(_curl, CURLOPT_UPLOAD, false);
+
+  } else if (method == HTTP_PUT) {
+    _method = "PUT";
+    curl_easy_setopt(_curl, CURLOPT_NOBODY, false);
+    curl_easy_setopt(_curl, CURLOPT_UPLOAD, true);
+
+  } else
+    throw runtime_error("unsupported HTTP method.");
 }
 
 size_t request::add_header_to_map(char *data, size_t size, size_t items, void *context)
@@ -183,6 +239,13 @@ void request::build_signature()
 void request::run()
 {
   curl_slist *headers = NULL;
+
+  // sanity
+  if (_url.empty())
+    throw runtime_error("call set_url() first!");
+
+  if (_method.empty())
+    throw runtime_error("call set_method() first!");
 
   _response_data.clear();
   _response_headers.clear();
