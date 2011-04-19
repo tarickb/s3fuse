@@ -67,8 +67,6 @@ bool fs::get_cached_stats(const std::string &path, struct stat *s)
   mutex::scoped_lock lock(_stats_mutex);
   file_stats &fs = _stats_map[path];
 
-  // TODO: lock?
-
   if (fs.expiry == 0)
     return false;
 
@@ -77,7 +75,6 @@ bool fs::get_cached_stats(const std::string &path, struct stat *s)
     return false;
   }
 
-  S3_DEBUG("fs::get_cached_stats", "hit on [%s]\n", path.c_str());
   memcpy(s, &fs.stats, sizeof(*s));
   return true;
 }
@@ -188,27 +185,31 @@ int fs::read_directory(const std::string &_path, fuse_fill_dir_t filler, void *b
       marker = doc.document_element().child_value("NextMarker");
 
     for (xpath_node_set::const_iterator itor = prefixes.begin(); itor != prefixes.end(); ++itor) {
-      const char *value = itor->node().child_value() + path_len;
-      string v;
+      const char *full_path_cs = itor->node().child_value();
+      const char *relative_path_cs = full_path_cs + path_len;
+      string full_path, relative_path;
 
-      v.assign(value, strlen(value) - 1);
+      // strip trailing slash
+      full_path.assign(full_path_cs, strlen(full_path_cs) - 1);
+      relative_path.assign(relative_path_cs, strlen(relative_path_cs) - 1);
 
-      S3_DEBUG("fs::read_directory", "found common prefix [%s]\n", v.c_str());
+      S3_DEBUG("fs::read_directory", "found common prefix [%s]\n", relative_path.c_str());
 
-      _async_queue.post(boost::bind(&fs::prefill_stats, this, v, HINT_IS_DIR));
-      filler(buf, v.c_str(), get_cached_stats(v, &s) ? &s : NULL, 0);
+      _async_queue.post(boost::bind(&fs::prefill_stats, this, full_path, HINT_IS_DIR));
+      filler(buf, relative_path.c_str(), NULL, 0);
     }
 
     for (xpath_node_set::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
-      const char *value = itor->node().child_value("Key");
+      const char *full_path_cs = itor->node().child_value("Key");
 
-      if (strcmp(path.data(), value) != 0) {
-        string v(value + path_len);
+      if (strcmp(path.data(), full_path_cs) != 0) {
+        string relative_path(full_path_cs + path_len);
+        string full_path(full_path_cs);
 
-        S3_DEBUG("fs::read_directory", "found key [%s]\n", v.c_str());
+        S3_DEBUG("fs::read_directory", "found key [%s]\n", relative_path.c_str());
 
-        _async_queue.post(boost::bind(&fs::prefill_stats, this, v, HINT_IS_FILE));
-        filler(buf, v.c_str(), get_cached_stats(v, &s) ? &s : NULL, 0);
+        _async_queue.post(boost::bind(&fs::prefill_stats, this, full_path, HINT_IS_FILE));
+        filler(buf, relative_path.c_str(), NULL, 0);
       }
     }
   }
