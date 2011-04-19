@@ -13,7 +13,7 @@ namespace s3
   public:
     typedef boost::function0<void> work_function;
 
-    static const int DEFAULT_NUM_THREADS = 4;
+    static const int DEFAULT_NUM_THREADS = 8;
 
     async_queue(int num_threads = DEFAULT_NUM_THREADS);
     ~async_queue();

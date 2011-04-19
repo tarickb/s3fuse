@@ -95,11 +95,10 @@ void fs::prefill_stats(const string &path, int hints)
   get_stats(path, &s, hints);
 }
 
-// TODO: honor hints!
 int fs::get_stats(const string &path, struct stat *s, int hints)
 {
   request_ptr req;
-  bool is_directory = true;
+  bool is_directory = (hints == HINT_NONE || hints & HINT_IS_DIR);
 
   memset(s, 0, sizeof(*s));
 
@@ -112,19 +111,21 @@ int fs::get_stats(const string &path, struct stat *s, int hints)
   req = request::get();
   req->set_method(HTTP_HEAD);
 
-  // see if the path is a directory (trailing /) first
-  req->set_url(_bucket + "/" + util::url_encode(path) + "/", "");
-  req->run();
+  if (hints == HINT_NONE || hints & HINT_IS_DIR) {
+    // see if the path is a directory (trailing /) first
+    req->set_url(_bucket + "/" + util::url_encode(path) + "/", "");
+    req->run();
+  }
 
-  // it's not a directory
-  if (req->get_response_code() != 200) {
+  if (hints & HINT_IS_FILE || req->get_response_code() != 200) {
+    // it's not a directory
     is_directory = false;
     req->set_url(_bucket + "/" + util::url_encode(path), "");
     req->run();
-
-    if (req->get_response_code() != 200)
-      return -ENOENT;
   }
+
+  if (req->get_response_code() != 200)
+    return -ENOENT;
 
   get_object_metadata(req, &s->st_mode, &s->st_uid, &s->st_gid);
   const string &length = req->get_response_header("Content-Length");
