@@ -78,8 +78,6 @@ int fs::get_stats(const string &path, string *etag, struct stat *s, int hints)
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  memset(s, 0, sizeof(*s));
-
   if (_stats_cache.get(path, etag, s))
     return 0;
 
@@ -102,22 +100,26 @@ int fs::get_stats(const string &path, string *etag, struct stat *s, int hints)
   if (req->get_response_code() != 200)
     return -ENOENT;
 
-  get_object_metadata(req, &s->st_mode, &s->st_uid, &s->st_gid);
-  const string &length = req->get_response_header("Content-Length");
+  if (s) {
+    const string &length = req->get_response_header("Content-Length");
 
-  // TODO: support symlinks?
-  s->st_mode |= (is_directory ? S_IFDIR : S_IFREG);
-  s->st_size = strtol(length.c_str(), NULL, 0);
-  s->st_nlink = 1; // laziness (see FUSE FAQ re. find)
-  s->st_mtime =  req->get_last_modified();
+    memset(s, 0, sizeof(*s));
+    get_object_metadata(req, &s->st_mode, &s->st_uid, &s->st_gid);
 
-  if (!is_directory)
-    s->st_blocks = (s->st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+    // TODO: support symlinks?
+    s->st_mode |= (is_directory ? S_IFDIR : S_IFREG);
+    s->st_size = strtol(length.c_str(), NULL, 0);
+    s->st_nlink = 1; // laziness (see FUSE FAQ re. find)
+    s->st_mtime =  req->get_last_modified();
+
+    if (!is_directory)
+      s->st_blocks = (s->st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+
+    _stats_cache.update(path, req->get_response_header("ETag"), s);
+  }
 
   if (etag)
     *etag = req->get_response_header("ETag");
-
-  _stats_cache.update(path, req->get_response_header("ETag"), s);
 
   return 0;
 }
@@ -258,6 +260,11 @@ int fs::create_object(const std::string &path, mode_t mode)
   ASSERT_NO_TRAILING_SLASH(path);
 
   url = _bucket + "/" + util::url_encode(path);
+
+  if (get_stats(path, NULL, NULL, HINT_NONE) == 0) {
+    S3_DEBUG("fs::create_object", "attempt to overwrite object at path %s.\n", path.c_str());
+    return -EEXIST;
+  }
 
   if (S_ISDIR(mode))
     url += "/";

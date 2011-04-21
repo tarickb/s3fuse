@@ -69,7 +69,7 @@ request_ptr request::get()
   }
 
   if (!r) {
-    S3_DEBUG("request::get", "no free requests found in cache of size %li.\n", g_cache.size());
+    S3_DEBUG("request::get", "no free requests found in cache of size %i.\n", g_cache.size());
 
     r = new request();
     g_cache.push_back(r);
