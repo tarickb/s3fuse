@@ -32,6 +32,8 @@ namespace s3
 
   typedef boost::intrusive_ptr<request> request_ptr;
 
+  class request_cache;
+
   class request : boost::noncopyable
   {
   public:
@@ -55,6 +57,8 @@ namespace s3
     void run();
 
   private:
+    friend class request_cache;
+
     friend void ::boost::intrusive_ptr_add_ref(request *);
     friend void ::boost::intrusive_ptr_release(request *);
 
@@ -79,6 +83,8 @@ namespace s3
     long _response_code;
     long _last_modified;
     header_map _headers; // assumptions: no duplicates, all header names are always lower-case
+    double _total_run_time;
+    size_t _run_count;
   };
 }
 

@@ -4,6 +4,7 @@
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/md5.h>
+#include <sys/time.h>
 
 #include <stdexcept>
 
@@ -99,4 +100,13 @@ string util::url_encode(const std::string &url)
   }
 
   return ret;
+}
+
+double util::get_current_time()
+{
+  timeval t;
+
+  gettimeofday(&t, NULL);
+
+  return double(t.tv_sec) + double(t.tv_usec) / 1.0e6;
 }

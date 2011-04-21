@@ -12,6 +12,7 @@
 
 #include "s3_debug.hh"
 #include "s3_request.hh"
+#include "s3_request_cache.hh"
 #include "s3_util.hh"
 
 using namespace boost;
@@ -22,8 +23,6 @@ using namespace s3;
 
 namespace
 {
-  typedef vector<request *> request_vector;
-
   size_t append_to_string(char *data, size_t size, size_t items, void *context)
   {
     static_cast<string *>(context)->append(data, size * items);
@@ -36,8 +35,7 @@ namespace
     return 0;
   }
 
-  mutex g_cache_mutex;
-  request_vector g_cache;
+  request_cache s_cache;
 
   // TODO: obviously, these should be config options
   string g_url_prefix = "https://s3.amazonaws.com";
@@ -58,31 +56,15 @@ void boost::intrusive_ptr_release(request *r)
 
 request_ptr request::get()
 {
-  mutex::scoped_lock lock(g_cache_mutex);
-  request *r = NULL;
-
-  for (request_vector::iterator itor = g_cache.begin(); itor != g_cache.end(); ++itor) {
-    if ((*itor)->_ref_count == 0) {
-      r = *itor;
-      break;
-    }
-  }
-
-  if (!r) {
-    S3_DEBUG("request::get", "no free requests found in cache of size %i.\n", g_cache.size());
-
-    r = new request();
-    g_cache.push_back(r);
-  }
-
-  r->reset();
-  return request_ptr(r, true); // call add_ref
+  return s_cache.get();
 }
 
 request::request()
   : _ref_count(0),
     _aws_key(g_aws_key),
-    _aws_secret(g_aws_secret)
+    _aws_secret(g_aws_secret),
+    _total_run_time(0.0),
+    _run_count(0)
 {
   _curl = curl_easy_init();
 
@@ -106,6 +88,12 @@ request::request()
 request::~request() // shouldn't get called
 {
   curl_easy_cleanup(_curl);
+
+  S3_DEBUG(
+    "request::~request", 
+    "served %i requests at an average of %.02f ms per request.\n", 
+    _run_count,
+    (_run_count && _total_run_time > 0.0) ? (_total_run_time / double(_run_count) * 1000.0) : 0.0);
 }
 
 void request::reset()
@@ -247,6 +235,7 @@ void request::build_signature()
 void request::run()
 {
   curl_slist *headers = NULL;
+  double start_time = util::get_current_time();
 
   // sanity
   if (_url.empty())
@@ -274,5 +263,8 @@ void request::run()
   curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified);
 
   // TODO: add loop for timeouts and whatnot
+
+  _total_run_time += util::get_current_time() - start_time;
+  _run_count++;
 }
 
