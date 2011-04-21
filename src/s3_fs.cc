@@ -16,6 +16,8 @@ using namespace s3;
 // TODO: try/catch everywhere!
 // TODO: check error codes after run()
 
+#define ASSERT_NO_TRAILING_SLASH(str) do { if ((str)[(str).size() - 1] == '/') return -EINVAL; } while (0)
+
 namespace
 {
   const int BLOCK_SIZE = 512;
@@ -62,50 +64,23 @@ fs::~fs()
 {
 }
 
-bool fs::get_cached_stats(const std::string &path, struct stat *s)
-{
-  mutex::scoped_lock lock(_stats_mutex);
-  file_stats &fs = _stats_map[path];
-
-  if (fs.expiry == 0)
-    return false;
-
-  if (fs.expiry < time(NULL)) {
-    S3_DEBUG("fs::get_cached_stats", "[%s] in cache, but expired (%i vs. %i)\n", path.c_str(), fs.expiry, time(NULL));
-    return false;
-  }
-
-  memcpy(s, &fs.stats, sizeof(*s));
-  return true;
-}
-
-void fs::update_stats_cache(const std::string &path, const struct stat *s)
-{
-  mutex::scoped_lock lock(_stats_mutex);
-  file_stats &fs = _stats_map[path];
-
-  fs.expiry = time(NULL) + STATS_CACHE_EXPIRY_IN_S;
-  memcpy(&fs.stats, s, sizeof(*s));
-}
-
-void fs::prefill_stats(const string &path, int hints)
+void fs::async_prefill_stats(const string &path, int hints)
 {
   struct stat s;
 
-  get_stats(path, &s, hints);
+  get_stats(path, NULL, &s, hints);
 }
 
-int fs::get_stats(const string &path, struct stat *s, int hints)
+int fs::get_stats(const string &path, string *etag, struct stat *s, int hints)
 {
   request_ptr req;
   bool is_directory = (hints == HINT_NONE || hints & HINT_IS_DIR);
 
+  ASSERT_NO_TRAILING_SLASH(path);
+
   memset(s, 0, sizeof(*s));
 
-  if (path[path.size() - 1] == '/')
-    return -EINVAL;
-
-  if (get_cached_stats(path, s))
+  if (_stats_cache.get(path, etag, s))
     return 0;
 
   req = request::get();
@@ -139,7 +114,67 @@ int fs::get_stats(const string &path, struct stat *s, int hints)
   if (!is_directory)
     s->st_blocks = (s->st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
-  update_stats_cache(path, s);
+  if (etag)
+    *etag = req->get_response_header("ETag");
+
+  _stats_cache.update(path, req->get_response_header("ETag"), s);
+
+  return 0;
+}
+
+int fs::change_metadata(const std::string &path, mode_t mode, uid_t uid, gid_t gid)
+{
+  request_ptr req;
+  struct stat s;
+  string etag, url;
+  int r;
+
+  ASSERT_NO_TRAILING_SLASH(path);
+
+  r = get_stats(path, &etag, &s, HINT_NONE);
+
+  if (r)
+    return r;
+
+  if (mode != mode_t(-1)) {
+    S3_DEBUG("fs::change_metadata", "changing mode from %#o to %#o.\n", s.st_mode, mode);
+    s.st_mode = mode;
+  }
+
+  if (uid != uid_t(-1)) {
+    S3_DEBUG("fs::change_metadata", "changing user from %i to %i.\n", s.st_uid, uid);
+    s.st_uid = uid;
+  }
+
+  if (gid != gid_t(-1)) {
+    S3_DEBUG("fs::change_metadata", "changing group from %i to %i.\n", s.st_gid, gid);
+    s.st_gid = gid;
+  }
+
+  // TODO: reuse with create_object
+  url = _bucket + "/" + util::url_encode(path);
+
+  if (S_ISDIR(s.st_mode))
+    url += "/";
+
+  req = request::get();
+  req->set_method(HTTP_PUT);
+  req->set_url(url, "");
+  req->set_header("Content-Type", "binary/octet-stream");
+  req->set_header("x-amz-copy-source", url);
+  req->set_header("x-amz-copy-source-if-match", etag);
+  req->set_header("x-amz-metadata-directive", "REPLACE");
+
+  set_object_metadata(req, s.st_mode, s.st_uid, s.st_gid);
+
+  req->run();
+
+  if (req->get_response_code() != 200) {
+    S3_DEBUG("fs::change_metadata", "response: %s\n", req->get_response_data().c_str());
+    return -EIO;
+  }
+
+  _stats_cache.remove(path);
 
   return 0;
 }
@@ -150,14 +185,12 @@ int fs::read_directory(const std::string &_path, fuse_fill_dir_t filler, void *b
   size_t path_len;
   string marker = "";
   bool truncated = true;
-  struct stat s;
   string path;
 
   // TODO: use worker threads to call get_stats in parallel!
   // TODO: openssl locking?
 
-  if (_path[_path.size() - 1] == '/')
-    return -EINVAL;
+  ASSERT_NO_TRAILING_SLASH(_path);
 
   if (!_path.empty())
     path = _path + "/";
@@ -171,7 +204,6 @@ int fs::read_directory(const std::string &_path, fuse_fill_dir_t filler, void *b
     xml_document doc;
     xml_parse_result res;
     xpath_node_set prefixes, keys;
-    const char *is_truncated;
 
     req->set_url(_bucket, string("delimiter=/&prefix=") + util::url_encode(path) + "&marker=" + marker);
     req->run();
@@ -196,7 +228,7 @@ int fs::read_directory(const std::string &_path, fuse_fill_dir_t filler, void *b
 
       S3_DEBUG("fs::read_directory", "found common prefix [%s]\n", relative_path.c_str());
 
-      _async_queue.post(boost::bind(&fs::prefill_stats, this, full_path, HINT_IS_DIR));
+      _async_queue.post(boost::bind(&fs::async_prefill_stats, this, full_path, HINT_IS_DIR));
       filler(buf, relative_path.c_str(), NULL, 0);
     }
 
@@ -209,7 +241,7 @@ int fs::read_directory(const std::string &_path, fuse_fill_dir_t filler, void *b
 
         S3_DEBUG("fs::read_directory", "found key [%s]\n", relative_path.c_str());
 
-        _async_queue.post(boost::bind(&fs::prefill_stats, this, full_path, HINT_IS_FILE));
+        _async_queue.post(boost::bind(&fs::async_prefill_stats, this, full_path, HINT_IS_FILE));
         filler(buf, relative_path.c_str(), NULL, 0);
       }
     }
@@ -223,8 +255,7 @@ int fs::create_object(const std::string &path, mode_t mode)
   request_ptr req;
   string url;
 
-  if (path[path.size() - 1] == '/')
-    return -EINVAL;
+  ASSERT_NO_TRAILING_SLASH(path);
 
   url = _bucket + "/" + util::url_encode(path);
 
@@ -236,7 +267,7 @@ int fs::create_object(const std::string &path, mode_t mode)
   req->set_url(url, "");
   req->set_header("Content-Type", "binary/octet-stream");
 
-  if (mode & ~S_IFMT == 0) {
+  if ((mode & ~S_IFMT) == 0) {
     S3_DEBUG("fs::create_object", "no mode specified, using default.\n");
     mode |= g_default_mode;
   }

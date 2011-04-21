@@ -21,7 +21,7 @@ string util::base64_encode(const uint8_t *input, size_t size)
 
   bio_b64 = BIO_push(bio_b64, bio_mem);
   BIO_write(bio_b64, input, size);
-  BIO_flush(bio_b64);
+  void(BIO_flush(bio_b64));
   BIO_get_mem_ptr(bio_b64, &mem);
 
   ret.resize(mem->length - 1);
@@ -51,7 +51,6 @@ string util::sign(const std::string &key, const std::string &data)
 string util::compute_md5_base64(FILE *f)
 {
   const size_t buf_len = 8 * 1024;
-  const char *hex = "0123456789abcdef";
 
   EVP_MD_CTX md5_ctx;
   char buf[buf_len];
@@ -87,7 +86,7 @@ string util::url_encode(const std::string &url)
 
   ret.reserve(url.length());
 
-  for (int i = 0; i < url.length(); i++) {
+  for (size_t i = 0; i < url.length(); i++) {
     if (url[i] == '/' || url[i] == '.' || url[i] == '-' || url[i] == '*' || url[i] == '_' || isalnum(url[i]))
       ret += url[i];
     else if (url[i] == ' ')

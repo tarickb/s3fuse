@@ -3,7 +3,7 @@ PUGIXML  := ~/packages/pugixml-1.0
 LD       := $(CXX)
 
 CPPFLAGS := -I $(PUGIXML)/include -D_FILE_OFFSET_BITS=64
-CXXFLAGS := -g
+CXXFLAGS := -g -Wall -Werror
 LDFLAGS  := -L $(PUGIXML)/lib -lcurl -lpugixml -lfuse -lpthread -lboost_thread
 
 all: s3fuse

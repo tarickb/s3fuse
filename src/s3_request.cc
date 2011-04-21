@@ -39,6 +39,7 @@ namespace
   mutex g_cache_mutex;
   request_vector g_cache;
 
+  // TODO: obviously, these should be config options
   string g_url_prefix = "https://s3.amazonaws.com";
   string g_aws_key = "AKIAJZHNXBKNRCUMV4IQ";
   string g_aws_secret = "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";
@@ -68,7 +69,7 @@ request_ptr request::get()
   }
 
   if (!r) {
-    S3_DEBUG("request::get", "no free requests found in cache of size %i.\n", g_cache.size());
+    S3_DEBUG("request::get", "no free requests found in cache of size %li.\n", g_cache.size());
 
     r = new request();
     g_cache.push_back(r);
@@ -99,6 +100,7 @@ request::request()
   curl_easy_setopt(_curl, CURLOPT_FILETIME, true);
   curl_easy_setopt(_curl, CURLOPT_HEADERFUNCTION, &request::add_header_to_map);
   curl_easy_setopt(_curl, CURLOPT_HEADERDATA, &_response_headers);
+  curl_easy_setopt(_curl, CURLOPT_NOSIGNAL, true);
 }
 
 request::~request() // shouldn't get called
@@ -153,6 +155,12 @@ size_t request::add_header_to_map(char *data, size_t size, size_t items, void *c
     return size * items; // we choose not to handle the case where data isn't null-terminated
 
   pos = strchr(data, '\n');
+
+  if (pos)
+    *pos = '\0';
+
+  // for some reason the ETag header (among others?) contains a carriage return
+  pos = strchr(data, '\r'); 
 
   if (pos)
     *pos = '\0';
@@ -229,7 +237,7 @@ void request::build_signature()
   string to_sign = _method + "\n" + _headers["Content-MD5"] + "\n" + _headers["Content-Type"] + "\n" + _headers["Date"] + "\n";
 
   for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
-    if (!itor->second.empty() && itor->first.substr(0, 6) == g_amz_header_prefix)
+    if (!itor->second.empty() && itor->first.substr(0, g_amz_header_prefix.size()) == g_amz_header_prefix)
       to_sign += itor->first + ":" + itor->second + "\n";
 
   to_sign += _url;

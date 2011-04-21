@@ -32,6 +32,22 @@ int s3_getattr(const char *path, struct stat *s)
   return g_fs->get_stats(path + 1, s);
 }
 
+int s3_chown(const char *path, uid_t uid, gid_t gid)
+{
+  S3_DEBUG("s3_chown", "path: %s, user: %i, group: %i\n", path, uid, gid);
+  ASSERT_LEADING_SLASH(path);
+
+  return g_fs->change_metadata(path + 1, -1, uid, gid);
+}
+
+int s3_chmod(const char *path, mode_t mode)
+{
+  S3_DEBUG("s3_chmod", "path: %s, mode: %i\n", path, mode);
+  ASSERT_LEADING_SLASH(path);
+
+  return g_fs->change_metadata(path + 1, mode, -1, -1);
+}
+
 int s3_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, fuse_file_info *file_info)
 {
   S3_DEBUG("s3_readdir", "path: %s\n", path);
@@ -60,6 +76,8 @@ int s3_open(const char *path, fuse_file_info *file_info)
 {
   S3_DEBUG("s3_open", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
+
+  return -EIO;
 }
 
 int s3_read(const char *path, char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
@@ -84,10 +102,13 @@ int s3_write(const char *path, const char *buffer, size_t size, off_t offset, fu
 
 int main(int argc, char **argv)
 {
+  int r;
   fuse_operations opers;
 
   memset(&opers, 0, sizeof(opers));
 
+  opers.chmod = s3_chmod;
+  opers.chown = s3_chown;
   opers.create = s3_create;
   opers.getattr = s3_getattr;
   opers.mkdir = s3_mkdir;
@@ -98,5 +119,8 @@ int main(int argc, char **argv)
 
   g_fs = new s3::fs("test-0");
 
-  return fuse_main(argc, argv, &opers, NULL);
+  r = fuse_main(argc, argv, &opers, NULL);
+
+  delete g_fs;
+  return r;
 }

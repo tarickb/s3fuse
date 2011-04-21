@@ -16,8 +16,9 @@ async_queue::~async_queue()
 {
   mutex::scoped_lock lock(_mutex);
 
-  _done = false;
+  _done = true;
   lock.unlock();
+  _condition.notify_all();
 
   _threads.join_all();
 }
@@ -30,6 +31,9 @@ void async_queue::worker()
 
     while (!_done && _queue.empty())
       _condition.wait(lock);
+
+    if (_done)
+      return;
 
     work = _queue.front();
     _queue.pop_front();
