@@ -8,7 +8,6 @@
 
 namespace s3
 {
-  // TODO: remove "s3_" from other classes
   class util
   {
   public:

@@ -21,14 +21,14 @@ namespace s3
 
     inline ~stats_cache()
     {
-      unsigned int total = _hits + _misses + _expiries;
+      uint64_t total = _hits + _misses + _expiries;
 
       if (total == 0)
         total = 1; // avoid NaNs below
 
       S3_DEBUG(
         "stats_cache::~stats_cache", 
-        "hits: %i (%.02f%%), misses: %i (%.02f%%), expiries: %i (%.02f%%)\n", 
+        "hits: %li (%.02f%%), misses: %li (%.02f%%), expiries: %li (%.02f%%)\n", 
         _hits,
         double(_hits) / double(total) * 100.0,
         _misses,
@@ -94,6 +94,6 @@ namespace s3
     cache_map _cache;
     boost::mutex _mutex;
     int _ttl;
-    unsigned int _hits, _misses, _expiries;
+    uint64_t _hits, _misses, _expiries;
   };
 }

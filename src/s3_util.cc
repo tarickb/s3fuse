@@ -55,7 +55,7 @@ string util::compute_md5_base64(FILE *f)
 
   EVP_MD_CTX md5_ctx;
   char buf[buf_len];
-  unsigned char md5_buf[EVP_MAX_MD_SIZE];
+  uint8_t md5_buf[EVP_MAX_MD_SIZE];
   unsigned int md5_len = 0;
   size_t read_count = 0;
 
@@ -94,8 +94,8 @@ string util::url_encode(const std::string &url)
       ret += '+';
     else {
       ret += '%';
-      ret += hex[static_cast<unsigned char>(url[i]) / 16];
-      ret += hex[static_cast<unsigned char>(url[i]) % 16];
+      ret += hex[static_cast<uint8_t>(url[i]) / 16];
+      ret += hex[static_cast<uint8_t>(url[i]) % 16];
     }
   }
 

@@ -84,7 +84,7 @@ namespace s3
     long _last_modified;
     header_map _headers; // assumptions: no duplicates, all header names are always lower-case
     double _total_run_time;
-    size_t _run_count;
+    uint64_t _run_count;
   };
 }
 

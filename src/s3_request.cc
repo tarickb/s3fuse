@@ -91,7 +91,7 @@ request::~request() // shouldn't get called
 
   S3_DEBUG(
     "request::~request", 
-    "served %i requests at an average of %.02f ms per request.\n", 
+    "served %lu requests at an average of %.02f ms per request.\n", 
     _run_count,
     (_run_count && _total_run_time > 0.0) ? (_total_run_time / double(_run_count) * 1000.0) : 0.0);
 }
@@ -235,7 +235,7 @@ void request::build_signature()
 void request::run()
 {
   curl_slist *headers = NULL;
-  double start_time = util::get_current_time();
+  double elapsed_time = util::get_current_time();
 
   // sanity
   if (_url.empty())
@@ -263,8 +263,11 @@ void request::run()
   curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified);
 
   // TODO: add loop for timeouts and whatnot
+  elapsed_time = util::get_current_time() - elapsed_time;
 
-  _total_run_time += util::get_current_time() - start_time;
+  S3_DEBUG("request::run", "request for [%s] took %.2f ms.\n", _url.c_str(), elapsed_time * 1.0e3);
+
+  _total_run_time += elapsed_time;
   _run_count++;
 }
 
