@@ -30,7 +30,7 @@ namespace s3
 
       S3_DEBUG(
         "stats_cache::~stats_cache", 
-        "hits: %li (%.02f%%), misses: %li (%.02f%%), expiries: %li (%.02f%%)\n", 
+        "hits: %lli (%.02f%%), misses: %lli (%.02f%%), expiries: %lli (%.02f%%)\n", 
         _hits,
         double(_hits) / double(total) * 100.0,
         _misses,
