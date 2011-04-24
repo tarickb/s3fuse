@@ -34,6 +34,7 @@ namespace s3
 
     typedef boost::shared_ptr<work_item> wi_ptr;
     typedef boost::shared_ptr<worker_thread> wt_ptr;
+    typedef std::list<wt_ptr> wt_list;
 
     class queue_item
     {
@@ -54,7 +55,7 @@ namespace s3
     void watchdog();
 
     std::deque<queue_item> _queue;
-    std::list<wt_ptr> _threads;
+    wt_list _threads;
     boost::mutex _mutex;
     boost::condition _condition;
     boost::scoped_ptr<boost::thread> _watchdog_thread;

@@ -20,7 +20,7 @@ namespace s3
     worker_thread(thread_pool *pool);
     ~worker_thread();
 
-    void check_timeout();
+    bool check_timeout(); // return true if thread has hanged
 
   private:
     void worker();
@@ -31,7 +31,6 @@ namespace s3
     boost::shared_ptr<request> _request;
     boost::shared_ptr<work_item> _wi;
     time_t _timeout;
-    pthread_t _pt_id;
   };
 }
 

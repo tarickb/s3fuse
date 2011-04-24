@@ -11,17 +11,17 @@ worker_thread::worker_thread(thread_pool *pool)
   : _pool(pool),
     _thread(bind(&worker_thread::worker, this)),
     _request(new request()),
-    _timeout(0),
-    _pt_id(0)
+    _timeout(0)
 {
 }
 
 worker_thread::~worker_thread()
 {
+  _pool = NULL;
   _thread.join();
 }
 
-void worker_thread::check_timeout()
+bool worker_thread::check_timeout()
 {
   mutex::scoped_lock lock(_mutex);
 
@@ -29,41 +29,45 @@ void worker_thread::check_timeout()
 
   if (_pool && _timeout && time(NULL) > _timeout) {
     _pool = NULL; // prevent worker() from continuing, and prevent subsequent calls here from triggering on_timeout()
-    pthread_cancel(_pt_id);
     _wi->on_timeout();
-    _wi.reset();
+
+    return true;
   }
+
+  return false;
 }
 
 void worker_thread::worker()
 {
-  _pt_id = pthread_self();
-
   while (_pool) {
+    thread_pool::queue_item item = _pool->get_next_queue_item();
+
+    if (!item.is_valid())
+      return;
+
+    if (item.get_timeout() < time(NULL)) {
+      item.get_work_item()->on_timeout();
+      continue;
+    }
+
     {
-      thread_pool::queue_item item = _pool->get_next_queue_item();
+      mutex::scoped_lock lock(_mutex);
 
-      if (!item.is_valid())
-        return;
-
-      if (item.get_timeout() < time(NULL)) {
-        item.get_work_item()->on_timeout();
-        continue;
-      }
-
-      {
-        mutex::scoped_lock lock(_mutex);
-
-        // we store the work item shared pointer in _wi rather than here so that we can reset it in cancel() if necessary
-        _wi = item.get_work_item();
-        _timeout = item.get_timeout();
-
-        // this could fall apart if _wi gets reset between here and exec(), but that's exceedingly unlikely
-      }
+      _wi = item.get_work_item();
+      _timeout = item.get_timeout();
     }
 
     _request->reset();
-    _wi->exec(_request);
+    item.get_work_item()->exec(_request);
+
+    {
+      mutex::scoped_lock lock(_mutex);
+
+      _wi.reset();
+      _timeout = 0;
+    }
   }
+
+  S3_DEBUG("worker_thread::worker", "exiting.\n");
 }
 

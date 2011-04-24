@@ -64,7 +64,7 @@ namespace s3
     {
       boost::mutex::scoped_lock lock(_mutex);
 
-      S3_ERROR("work_item::on_timeout", "timed out.\n");
+      S3_ERROR("work_item::on_timeout", "timed out [%zx].\n", reinterpret_cast<uintptr_t>(this));
 
       _return = -ETIMEDOUT;
       _done = true;

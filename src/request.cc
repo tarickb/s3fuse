@@ -71,7 +71,7 @@ request::~request() // shouldn't get called
 
   S3_DEBUG(
     "request::~request", 
-    "served %llu requests at an average of %.02f ms per request.\n", 
+    "served %" PRIu64 " requests at an average of %.02f ms per request.\n", 
     _run_count,
     (_run_count && _total_run_time > 0.0) ? (_total_run_time / double(_run_count) * 1000.0) : 0.0);
 }

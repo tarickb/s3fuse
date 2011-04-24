@@ -59,5 +59,18 @@ void thread_pool::post(const work_item::ptr &wi, int timeout_in_s)
 
 void thread_pool::watchdog()
 {
-  // TODO: implement watchdog
+  while (!_done) {
+    mutex::scoped_lock lock(_mutex);
+    int recreate = 0;
+
+    for (wt_list::iterator itor = _threads.begin(); itor != _threads.end(); ++itor)
+      if ((*itor)->check_timeout())
+        recreate++;
+
+    for (int i = 0; i < recreate; i++)
+      _threads.push_back(worker_thread::ptr(new worker_thread(this)));
+
+    lock.unlock();
+    sleep(1);
+  }
 }
