@@ -247,7 +247,10 @@ void request::run()
 
   S3_DEBUG("request::run", "request for [%s] returned %li and took %.2f ms.\n", _url.c_str(), _response_code, elapsed_time * 1.0e3);
 
-  _total_run_time += elapsed_time;
+  // don't save the time for the first request since it's likely to be disproportionately large
+  if (_run_count > 0)
+    _total_run_time += elapsed_time;
+
   _run_count++;
 }
 
