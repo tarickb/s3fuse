@@ -5,8 +5,8 @@
 #include <string>
 #include <pugixml/pugixml.hpp>
 
-#include "s3_debug.hh"
-#include "s3_fs.hh"
+#include "logging.hh"
+#include "fs.hh"
 
 namespace
 {

@@ -6,14 +6,12 @@
 
 #include <iostream>
 #include <stdexcept>
-#include <vector>
 #include <boost/lexical_cast.hpp>
 #include <boost/thread.hpp>
 
-#include "s3_debug.hh"
-#include "s3_request.hh"
-#include "s3_request_cache.hh"
-#include "s3_util.hh"
+#include "logging.hh"
+#include "request.hh"
+#include "util.hh"
 
 using namespace boost;
 using namespace pugi;
@@ -35,8 +33,6 @@ namespace
     return 0;
   }
 
-  request_cache s_cache;
-
   // TODO: obviously, these should be config options
   string g_url_prefix = "https://s3.amazonaws.com";
   string g_aws_key = "AKIAJZHNXBKNRCUMV4IQ";
@@ -44,24 +40,8 @@ namespace
   string g_amz_header_prefix = "x-amz-";
 }
 
-void boost::intrusive_ptr_add_ref(request *r)
-{
-  ++r->_ref_count;
-}
-
-void boost::intrusive_ptr_release(request *r)
-{
-  --r->_ref_count;
-}
-
-request_ptr request::get()
-{
-  return s_cache.get();
-}
-
 request::request()
-  : _ref_count(0),
-    _aws_key(g_aws_key),
+  : _aws_key(g_aws_key),
     _aws_secret(g_aws_secret),
     _total_run_time(0.0),
     _run_count(0)
@@ -265,7 +245,7 @@ void request::run()
   // TODO: add loop for timeouts and whatnot
   elapsed_time = util::get_current_time() - elapsed_time;
 
-  S3_DEBUG("request::run", "request for [%s] took %.2f ms.\n", _url.c_str(), elapsed_time * 1.0e3);
+  S3_DEBUG("request::run", "request for [%s] returned %li and took %.2f ms.\n", _url.c_str(), _response_code, elapsed_time * 1.0e3);
 
   _total_run_time += elapsed_time;
   _run_count++;

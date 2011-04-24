@@ -5,6 +5,8 @@
 #include <string>
 #include <boost/thread.hpp>
 
+#include "logging.hh"
+
 namespace s3
 {
   class stats_cache
