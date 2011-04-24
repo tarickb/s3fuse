@@ -66,10 +66,17 @@ int s3_mkdir(const char *path, mode_t mode)
 
 int s3_create(const char *path, mode_t mode, fuse_file_info *file_info)
 {
+  int r;
+
   S3_DEBUG("s3_create", "path: %s, mode: %#o\n", path, mode);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->create_object(path + 1, mode | S_IFREG);
+  r = g_fs->create_object(path + 1, mode | S_IFREG);
+
+  if (r)
+    return r;
+
+  return g_fs->open(path + 1, &file_info->fh);
 }
 
 int s3_open(const char *path, fuse_file_info *file_info)
@@ -77,7 +84,7 @@ int s3_open(const char *path, fuse_file_info *file_info)
   S3_DEBUG("s3_open", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
-  return -EIO;
+  return g_fs->open(path + 1, &file_info->fh);
 }
 
 int s3_read(const char *path, char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
@@ -85,9 +92,7 @@ int s3_read(const char *path, char *buffer, size_t size, off_t offset, fuse_file
   S3_DEBUG("s3_read", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
-  int r = pread(file_info->fh, buffer, size, offset);
-
-  return (r == -1) ? -errno : r;
+  return g_fs->read(buffer, size, offset, file_info->fh);
 }
 
 int s3_write(const char *path, const char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
@@ -95,9 +100,57 @@ int s3_write(const char *path, const char *buffer, size_t size, off_t offset, fu
   S3_DEBUG("s3_write", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
-  int r = pwrite(file_info->fh, buffer, size, offset);
+  return g_fs->write(buffer, size, offset, file_info->fh);
+}
 
-  return (r == -1) ? -errno : r;
+int s3_flush(const char *path, fuse_file_info *file_info)
+{
+  S3_DEBUG("s3_flush", "path: %s\n", path);
+  ASSERT_LEADING_SLASH(path);
+
+  return g_fs->flush(file_info->fh);
+}
+
+int s3_release(const char *path, fuse_file_info *file_info)
+{
+  S3_DEBUG("s3_release", "path: %s\n", path);
+  ASSERT_LEADING_SLASH(path);
+
+  return g_fs->close(file_info->fh);
+}
+
+int s3_access(const char *path, int mode)
+{
+  S3_DEBUG("s3_access", "path: %s, mask: %i\n", path, mode);
+  ASSERT_LEADING_SLASH(path);
+
+  // TODO: check access
+  return 0;
+}
+
+int s3_truncate(const char *path, off_t offset)
+{
+  S3_DEBUG("s3_truncate", "path: %s, offset: %zi\n", path, offset);
+  ASSERT_LEADING_SLASH(path);
+
+  // TODO: truncate?
+  return 0;
+}
+
+int s3_unlink(const char *path)
+{
+  S3_DEBUG("s3_unlink", "path: %s\n", path);
+  ASSERT_LEADING_SLASH(path);
+
+  return g_fs->remove_file(path + 1);
+}
+
+int s3_rmdir(const char *path)
+{
+  S3_DEBUG("s3_rmdir", "path: %s\n", path);
+  ASSERT_LEADING_SLASH(path);
+
+  return g_fs->remove_directory(path + 1);
 }
 
 int main(int argc, char **argv)
@@ -107,14 +160,20 @@ int main(int argc, char **argv)
 
   memset(&opers, 0, sizeof(opers));
 
+  opers.access = s3_access;
   opers.chmod = s3_chmod;
   opers.chown = s3_chown;
   opers.create = s3_create;
   opers.getattr = s3_getattr;
+  opers.flush = s3_flush;
   opers.mkdir = s3_mkdir;
   opers.open = s3_open;
   opers.read = s3_read;
   opers.readdir = s3_readdir;
+  opers.release = s3_release;
+  opers.rmdir = s3_rmdir;
+  opers.truncate = s3_truncate;
+  opers.unlink = s3_unlink;
   opers.write = s3_write;
 
   g_fs = new s3::fs("test-0");

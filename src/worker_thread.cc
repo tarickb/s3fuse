@@ -17,6 +17,9 @@ worker_thread::worker_thread(thread_pool *pool)
 
 worker_thread::~worker_thread()
 {
+  if (_pool == NULL)
+    return; // don't wait on _thread if it has already timed out
+
   _pool = NULL;
   _thread.join();
 }

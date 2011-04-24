@@ -60,7 +60,7 @@ namespace s3
     boost::condition _condition;
     boost::scoped_ptr<boost::thread> _watchdog_thread;
     bool _done;
-    int _timeout_counter;
+    int _respawn_counter;
   };
 }
 

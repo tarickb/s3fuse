@@ -23,8 +23,8 @@ namespace
   const int BLOCK_SIZE = 512;
   const int STATS_CACHE_EXPIRY_IN_S = 120;
 
-  int g_default_uid = 1000;
-  int g_default_gid = 1000;
+  int g_default_uid  = 1000;
+  int g_default_gid  = 1000;
   int g_default_mode = 0755;
 
   void get_object_metadata(const request::ptr &req, mode_t *mode, uid_t *uid, gid_t *gid)
@@ -56,7 +56,8 @@ namespace
 fs::fs(const string &bucket)
   : _bucket(string("/") + util::url_encode(bucket)),
     _prefix_query("/ListBucketResult/CommonPrefixes/Prefix"),
-    _key_query("/ListBucketResult/Contents")
+    _key_query("/ListBucketResult/Contents"),
+    _next_open_file_handle(0)
 {
 }
 
@@ -97,6 +98,8 @@ ASYNC_DEF(get_stats, const string &path, string *etag, struct stat *s, int hints
 
   if (req->get_response_code() != 200)
     return -ENOENT;
+
+  // TODO: check for delete markers?
 
   if (s) {
     const string &length = req->get_response_header("Content-Length");
@@ -277,4 +280,239 @@ ASYNC_DEF(create_object, const std::string &path, mode_t mode)
   req->run();
 
   return 0;
+}
+
+ASYNC_DEF(open, const std::string &path, uint64_t *context)
+{
+  string url;
+  FILE *temp_file;
+  handle_ptr handle;
+
+  ASSERT_NO_TRAILING_SLASH(path);
+
+  url = _bucket + "/" + util::url_encode(path);
+  temp_file = tmpfile();
+
+  if (!temp_file)
+    return -errno;
+
+  req->set_method(HTTP_GET);
+  req->set_url(url, "");
+  req->set_output_file(temp_file);
+
+  req->run();
+
+  if (req->get_response_code() != 200) {
+    fclose(temp_file);
+    return (req->get_response_code() == 404) ? -ENOENT : -EIO;
+  }
+
+  fflush(temp_file);
+
+  handle.reset(new file_handle);
+
+  handle->status = FS_NONE;
+  handle->path = path;
+  handle->etag = req->get_response_header("ETag");
+  handle->content_type = req->get_response_header("Content-Type");
+  handle->local_fd = temp_file;
+
+  std::string pfx = "x-amz-meta-";
+
+  // TODO: keep only one copy of this, in a shared_ptr, in request
+  for (string_map::const_iterator itor = req->get_response_headers().begin(); itor != req->get_response_headers().end(); ++itor)
+    if (itor->first.substr(0, pfx.size()) == pfx)
+      handle->metadata[itor->first] = itor->second;
+
+  {
+    mutex::scoped_lock lock(_open_files_mutex);
+
+    *context = _next_open_file_handle++;
+    _open_files[*context] = handle;
+  }
+
+  S3_DEBUG("fs::open", "opened file %s with context %" PRIu64 ".\n", path.c_str(), *context);
+
+  return 0;
+}
+
+ASYNC_DEF(flush, uint64_t context)
+{
+  mutex::scoped_lock lock(_open_files_mutex);
+  handle_map::iterator itor = _open_files.find(context);
+  handle_ptr handle;
+  int r = 0;
+
+  // TODO: this is very similar to close() below
+
+  if (itor == _open_files.end())
+    return -EINVAL;
+
+  handle = itor->second;
+
+  if (handle->status & FS_IN_USE)
+    return -EBUSY;
+
+  if (handle->status & FS_FLUSHING)
+    return 0; // another thread is closing this file
+
+  handle->status |= FS_FLUSHING;
+  lock.unlock();
+
+  if (handle->status & FS_DIRTY)
+    r = flush(req, handle);
+
+  lock.lock();
+  handle->status &= ~FS_FLUSHING;
+
+  if (!r)
+    handle->status &= ~FS_DIRTY;
+
+  return r;
+}
+
+ASYNC_DEF(close, uint64_t context)
+{
+  mutex::scoped_lock lock(_open_files_mutex);
+  handle_map::iterator itor = _open_files.find(context);
+  handle_ptr handle;
+  int r = 0;
+
+  if (itor == _open_files.end())
+    return -EINVAL;
+
+  // TODO: this code has been duplicated far too many times
+  handle = itor->second;
+
+  if (handle->status & FS_IN_USE || handle->status & FS_FLUSHING)
+    return -EBUSY;
+
+  handle->status |= FS_FLUSHING;
+  lock.unlock();
+
+  if (handle->status & FS_DIRTY)
+    r = flush(req, handle);
+
+  lock.lock();
+  handle->status &= ~FS_FLUSHING;
+
+  if (!r) {
+    handle->status &= ~FS_DIRTY;
+    _open_files.erase(itor);
+  }
+
+  _stats_cache.remove(handle->path);
+
+  return r;
+}
+
+int fs::read(char *buffer, size_t size, off_t offset, uint64_t context)
+{
+  mutex::scoped_lock lock(_open_files_mutex);
+  handle_map::iterator itor = _open_files.find(context);
+  handle_ptr handle;
+  int r;
+
+  if (itor == _open_files.end())
+    return -EINVAL;
+
+  handle = itor->second;
+
+  if (handle->status & FS_FLUSHING)
+    return -EBUSY;
+
+  handle->status |= FS_IN_USE;
+  lock.unlock();
+
+  r = pread(fileno(handle->local_fd), buffer, size, offset);
+
+  lock.lock();
+  handle->status &= ~FS_IN_USE;
+
+  return r;
+}
+
+int fs::write(const char *buffer, size_t size, off_t offset, uint64_t context)
+{
+  mutex::scoped_lock lock(_open_files_mutex);
+  handle_map::iterator itor = _open_files.find(context);
+  handle_ptr handle;
+  int r;
+
+  if (itor == _open_files.end()) {
+    S3_DEBUG("fs::write", "cannot find file with context %" PRIu64 ".\n", context);
+    return -EINVAL;
+  }
+
+  handle = itor->second;
+
+  if (handle->status & FS_FLUSHING)
+    return -EBUSY;
+
+  handle->status |= FS_IN_USE;
+  lock.unlock();
+
+  r = pwrite(fileno(handle->local_fd), buffer, size, offset);
+
+  lock.lock();
+  handle->status &= ~FS_IN_USE;
+  handle->status |= FS_DIRTY;
+
+  return r;
+}
+
+int fs::flush(const request::ptr &req, const handle_ptr &handle)
+{
+  string url;
+  struct stat s;
+
+  S3_DEBUG("fs::flush", "file %s needs to be written.\n", handle->path.c_str());
+
+  url = _bucket + "/" + util::url_encode(handle->path);
+
+  if (fflush(handle->local_fd))
+    return -errno;
+
+  if (fstat(fileno(handle->local_fd), &s))
+    return -errno;
+
+  S3_DEBUG("fs::flush", "writing %zu bytes to path %s.\n", s.st_size, handle->path.c_str());
+
+  rewind(handle->local_fd);
+
+  req->set_method(HTTP_PUT);
+  req->set_url(url, "");
+  req->set_header("Content-Type", handle->content_type);
+  req->set_header("Content-MD5", util::compute_md5_base64(handle->local_fd));
+
+  for (string_map::const_iterator itor = handle->metadata.begin(); itor != handle->metadata.end(); ++itor)
+    req->set_header(itor->first, itor->second);
+
+  req->set_input_file(handle->local_fd, s.st_size);
+
+  req->run();
+
+  return (req->get_response_code() == 200) ? 0 : -EIO;
+}
+
+ASYNC_DEF(remove_object, const std::string &path, int hints)
+{
+  string url;
+
+  ASSERT_NO_TRAILING_SLASH(path);
+
+  url = _bucket + "/" + util::url_encode(path);
+
+  // TODO: check if children exist first!
+  if (hints & HINT_IS_DIR)
+    url += "/";
+
+  req->set_method(HTTP_DELETE);
+  req->set_url(url, "");
+
+  req->run();
+
+  _stats_cache.remove(path);
+
+  return (req->get_response_code() == 204) ? 0 : -EIO;
 }

@@ -10,7 +10,7 @@ using namespace s3;
 
 thread_pool::thread_pool(int num_threads)
   : _done(false),
-    _timeout_counter(0)
+    _respawn_counter(0)
 {
   for (int i = 0; i < num_threads; i++)
     _threads.push_back(worker_thread::ptr(new worker_thread(this)));
@@ -30,6 +30,8 @@ thread_pool::~thread_pool()
   // shut down watchdog first so it doesn't use _threads
   _watchdog_thread->join();
   _threads.clear();
+
+  S3_DEBUG("thread_pool::~thread_pool", "respawn counter: %i.\n", _respawn_counter);
 }
 
 thread_pool::queue_item thread_pool::get_next_queue_item()
@@ -61,15 +63,16 @@ void thread_pool::watchdog()
 {
   while (!_done) {
     mutex::scoped_lock lock(_mutex);
-    int recreate = 0;
+    int respawn = 0;
 
     for (wt_list::iterator itor = _threads.begin(); itor != _threads.end(); ++itor)
       if ((*itor)->check_timeout())
-        recreate++;
+        respawn++;
 
-    for (int i = 0; i < recreate; i++)
+    for (int i = 0; i < respawn; i++)
       _threads.push_back(worker_thread::ptr(new worker_thread(this)));
 
+    _respawn_counter += respawn;
     lock.unlock();
     sleep(1);
   }

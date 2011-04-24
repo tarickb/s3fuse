@@ -94,18 +94,27 @@ void request::reset()
 
 void request::set_method(http_method method)
 {
-  if (method == HTTP_GET) {
+  if (method == HTTP_DELETE) {
+    _method = "DELETE";
+    curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, "DELETE");
+    curl_easy_setopt(_curl, CURLOPT_NOBODY, true);
+    curl_easy_setopt(_curl, CURLOPT_UPLOAD, false);
+
+  } else if (method == HTTP_GET) {
     _method = "GET";
+    curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL);
     curl_easy_setopt(_curl, CURLOPT_NOBODY, false);
     curl_easy_setopt(_curl, CURLOPT_UPLOAD, false);
 
   } else if (method == HTTP_HEAD) {
     _method = "HEAD";
+    curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL);
     curl_easy_setopt(_curl, CURLOPT_NOBODY, true);
     curl_easy_setopt(_curl, CURLOPT_UPLOAD, false);
 
   } else if (method == HTTP_PUT) {
     _method = "PUT";
+    curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL);
     curl_easy_setopt(_curl, CURLOPT_NOBODY, false);
     curl_easy_setopt(_curl, CURLOPT_UPLOAD, true);
 

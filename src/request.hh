@@ -16,6 +16,7 @@ namespace s3
 
   enum http_method
   {
+    HTTP_DELETE,
     HTTP_GET,
     HTTP_HEAD,
     HTTP_PUT
@@ -25,6 +26,7 @@ namespace s3
   {
   public:
     typedef boost::shared_ptr<request> ptr;
+    typedef std::map<std::string, std::string> header_map;
 
     request();
     ~request();
@@ -38,6 +40,7 @@ namespace s3
 
     inline const std::string & get_response_data() { return _response_data; }
     inline const std::string & get_response_header(const std::string &key) { return _response_headers[key]; }
+    inline const header_map & get_response_headers() { return _response_headers; }
     inline long get_response_code() { return _response_code; }
     inline long get_last_modified() { return _last_modified; }
 
@@ -45,8 +48,6 @@ namespace s3
 
   private:
     friend class worker_thread; // for reset()
-
-    typedef std::map<std::string, std::string> header_map;
 
     static size_t add_header_to_map(char *data, size_t size, size_t items, void *context);
 
