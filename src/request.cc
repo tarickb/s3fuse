@@ -10,6 +10,7 @@
 #include <boost/thread.hpp>
 
 #include "logging.hh"
+#include "openssl_locks.hh"
 #include "request.hh"
 #include "util.hh"
 
@@ -51,6 +52,8 @@ request::request()
   if (!_curl)
     throw runtime_error("curl_easy_init() failed.");
 
+  openssl_locks::init();
+
   // stuff that's set in the ctor shouldn't be modified elsewhere, since the cache call to reset() won't reset it
 
   // TODO: make optional
@@ -74,6 +77,8 @@ request::~request() // shouldn't get called
     "served %" PRIu64 " requests at an average of %.02f ms per request.\n", 
     _run_count,
     (_run_count && _total_run_time > 0.0) ? (_total_run_time / double(_run_count) * 1000.0) : 0.0);
+
+  openssl_locks::release();
 }
 
 void request::reset()
@@ -94,28 +99,24 @@ void request::reset()
 
 void request::set_method(http_method method)
 {
+  curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL);
+  curl_easy_setopt(_curl, CURLOPT_UPLOAD, false);
+  curl_easy_setopt(_curl, CURLOPT_NOBODY, false);
+
   if (method == HTTP_DELETE) {
     _method = "DELETE";
     curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, "DELETE");
     curl_easy_setopt(_curl, CURLOPT_NOBODY, true);
-    curl_easy_setopt(_curl, CURLOPT_UPLOAD, false);
 
   } else if (method == HTTP_GET) {
     _method = "GET";
-    curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL);
-    curl_easy_setopt(_curl, CURLOPT_NOBODY, false);
-    curl_easy_setopt(_curl, CURLOPT_UPLOAD, false);
 
   } else if (method == HTTP_HEAD) {
     _method = "HEAD";
-    curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL);
     curl_easy_setopt(_curl, CURLOPT_NOBODY, true);
-    curl_easy_setopt(_curl, CURLOPT_UPLOAD, false);
 
   } else if (method == HTTP_PUT) {
     _method = "PUT";
-    curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL);
-    curl_easy_setopt(_curl, CURLOPT_NOBODY, false);
     curl_easy_setopt(_curl, CURLOPT_UPLOAD, true);
 
   } else
