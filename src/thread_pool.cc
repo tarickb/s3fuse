@@ -10,8 +10,9 @@ using namespace std;
 
 using namespace s3;
 
-thread_pool::thread_pool(int num_threads)
-  : _done(false),
+thread_pool::thread_pool(const string &id, int num_threads)
+  : _id(id),
+    _done(false),
     _respawn_counter(0)
 {
   for (int i = 0; i < num_threads; i++)
@@ -33,7 +34,7 @@ thread_pool::~thread_pool()
   _watchdog_thread->join();
   _threads.clear();
 
-  S3_DEBUG("thread_pool::~thread_pool", "respawn counter: %i.\n", _respawn_counter);
+  S3_DEBUG("thread_pool::~thread_pool", "[%s] respawn counter: %i.\n", _id.c_str(), _respawn_counter);
 }
 
 thread_pool::queue_item thread_pool::get_next_queue_item()

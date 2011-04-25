@@ -32,6 +32,8 @@ bool worker_thread::check_timeout()
 
   // TODO: does this work?
 
+  // TODO: allow heartbeats!
+
   if (_pool && _timeout && time(NULL) > _timeout) {
     _pool = NULL; // prevent worker() from continuing, and prevent subsequent calls here from triggering on_timeout()
     _wi->on_timeout();

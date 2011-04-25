@@ -58,6 +58,8 @@ fs::fs(const string &bucket)
   : _bucket(string("/") + util::url_encode(bucket)),
     _prefix_query("/ListBucketResult/CommonPrefixes/Prefix"),
     _key_query("/ListBucketResult/Contents"),
+    _fg_thread_pool("fs-fg"),
+    _bg_thread_pool("fs-bg"),
     _next_open_file_handle(0)
 {
 }
@@ -269,7 +271,7 @@ ASYNC_DEF(read_directory, const std::string &_path, fuse_fill_dir_t filler, void
 
       S3_DEBUG("fs::read_directory", "found common prefix [%s]\n", relative_path.c_str());
 
-      ASYNC_CALL_NONBLOCK(prefill_stats, full_path, HINT_IS_DIR);
+      ASYNC_CALL_NONBLOCK_BG(prefill_stats, full_path, HINT_IS_DIR);
       filler(buf, relative_path.c_str(), NULL, 0);
     }
 
@@ -282,7 +284,7 @@ ASYNC_DEF(read_directory, const std::string &_path, fuse_fill_dir_t filler, void
 
         S3_DEBUG("fs::read_directory", "found key [%s]\n", relative_path.c_str());
 
-        ASYNC_CALL_NONBLOCK(prefill_stats, full_path, HINT_IS_FILE);
+        ASYNC_CALL_NONBLOCK_BG(prefill_stats, full_path, HINT_IS_FILE);
         filler(buf, relative_path.c_str(), NULL, 0);
       }
     }

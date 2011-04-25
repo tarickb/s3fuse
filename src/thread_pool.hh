@@ -6,6 +6,7 @@
 
 #include <deque>
 #include <list>
+#include <string>
 #include <boost/smart_ptr.hpp>
 #include <boost/thread.hpp>
 #include <boost/thread/condition.hpp>
@@ -24,7 +25,7 @@ namespace s3
     static const int DEFAULT_NUM_THREADS = 8;
     static const int DEFAULT_TIMEOUT_IN_S = 30;
 
-    thread_pool(int num_threads = DEFAULT_NUM_THREADS);
+    thread_pool(const std::string &id, int num_threads = DEFAULT_NUM_THREADS);
     ~thread_pool();
 
     void post(const boost::shared_ptr<work_item> &wi, int timeout_in_s = DEFAULT_TIMEOUT_IN_S);
@@ -59,6 +60,7 @@ namespace s3
     boost::mutex _mutex;
     boost::condition _condition;
     boost::scoped_ptr<boost::thread> _watchdog_thread;
+    std::string _id;
     bool _done;
     int _respawn_counter;
   };
