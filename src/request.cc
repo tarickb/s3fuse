@@ -95,13 +95,15 @@ void request::reset()
 
   set_input_file(NULL, 0);
   set_output_file(NULL);
-}
 
-void request::set_method(http_method method)
-{
   curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL);
   curl_easy_setopt(_curl, CURLOPT_UPLOAD, false);
   curl_easy_setopt(_curl, CURLOPT_NOBODY, false);
+}
+
+void request::init(http_method method)
+{
+  reset();
 
   if (method == HTTP_DELETE) {
     _method = "DELETE";
@@ -168,8 +170,6 @@ void request::set_url(const string &url, const string &query_string)
 
   _url = url;
   curl_easy_setopt(_curl, CURLOPT_URL, curl_url.c_str());
-
-  S3_DEBUG("request::set_url", "url: [%s]\n", curl_url.c_str());
 }
 
 void request::set_output_file(FILE *f)

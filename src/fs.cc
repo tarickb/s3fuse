@@ -81,7 +81,7 @@ ASYNC_DEF(get_stats, const string &path, string *etag, struct stat *s, int hints
   if (_stats_cache.get(path, etag, s))
     return 0;
 
-  req->set_method(HTTP_HEAD);
+  req->init(HTTP_HEAD);
 
   if (hints == HINT_NONE || hints & HINT_IS_DIR) {
     // see if the path is a directory (trailing /) first
@@ -125,6 +125,47 @@ ASYNC_DEF(get_stats, const string &path, string *etag, struct stat *s, int hints
   return 0;
 }
 
+ASYNC_DEF(rename_object, const std::string &from, const std::string &to)
+{
+  struct stat s;
+  string etag, from_url, to_url;
+  int r;
+
+  ASSERT_NO_TRAILING_SLASH(from);
+  ASSERT_NO_TRAILING_SLASH(to);
+
+  r = __get_stats(req, from, &etag, &s, HINT_NONE);
+
+  if (r)
+    return r;
+
+  // TODO: support directories
+  if (S_ISDIR(s.st_mode))
+    return -EINVAL;
+
+  r = __get_stats(req, to, NULL, NULL, HINT_NONE);
+
+  if (r != -ENOENT)
+    return (r == 0) ? -EEXIST : r;
+
+  from_url = _bucket + "/" + util::url_encode(from);
+  to_url = _bucket + "/" + util::url_encode(to);
+
+  req->init(HTTP_PUT);
+  req->set_url(to_url, "");
+  req->set_header("Content-Type", "binary/octet-stream");
+  req->set_header("x-amz-copy-source", from_url);
+  req->set_header("x-amz-copy-source-if-match", etag);
+  req->set_header("x-amz-metadata-directive", "COPY");
+
+  req->run();
+
+  if (req->get_response_code() != 200)
+    return -EIO;
+
+  return __remove_object(req, from, HINT_IS_FILE);
+}
+
 ASYNC_DEF(change_metadata, const std::string &path, mode_t mode, uid_t uid, gid_t gid)
 {
   struct stat s;
@@ -159,7 +200,7 @@ ASYNC_DEF(change_metadata, const std::string &path, mode_t mode, uid_t uid, gid_
   if (S_ISDIR(s.st_mode))
     url += "/";
 
-  req->set_method(HTTP_PUT);
+  req->init(HTTP_PUT);
   req->set_url(url, "");
   req->set_header("Content-Type", "binary/octet-stream");
   req->set_header("x-amz-copy-source", url);
@@ -197,7 +238,7 @@ ASYNC_DEF(read_directory, const std::string &_path, fuse_fill_dir_t filler, void
 
   path_len = path.size();
 
-  req->set_method(HTTP_GET);
+  req->init(HTTP_GET);
 
   while (truncated) {
     xml_document doc;
@@ -265,7 +306,7 @@ ASYNC_DEF(create_object, const std::string &path, mode_t mode)
   if (S_ISDIR(mode))
     url += "/";
 
-  req->set_method(HTTP_PUT);
+  req->init(HTTP_PUT);
   req->set_url(url, "");
   req->set_header("Content-Type", "binary/octet-stream");
 
@@ -296,7 +337,7 @@ ASYNC_DEF(open, const std::string &path, uint64_t *context)
   if (!temp_file)
     return -errno;
 
-  req->set_method(HTTP_GET);
+  req->init(HTTP_GET);
   req->set_url(url, "");
   req->set_output_file(temp_file);
 
@@ -480,10 +521,12 @@ int fs::flush(const request::ptr &req, const handle_ptr &handle)
 
   rewind(handle->local_fd);
 
-  req->set_method(HTTP_PUT);
+  req->init(HTTP_PUT);
   req->set_url(url, "");
   req->set_header("Content-Type", handle->content_type);
   req->set_header("Content-MD5", util::compute_md5_base64(handle->local_fd));
+
+  // TODO: set mtime?
 
   for (string_map::const_iterator itor = handle->metadata.begin(); itor != handle->metadata.end(); ++itor)
     req->set_header(itor->first, itor->second);
@@ -507,7 +550,7 @@ ASYNC_DEF(remove_object, const std::string &path, int hints)
   if (hints & HINT_IS_DIR)
     url += "/";
 
-  req->set_method(HTTP_DELETE);
+  req->init(HTTP_DELETE);
   req->set_url(url, "");
 
   req->run();

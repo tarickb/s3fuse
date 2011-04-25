@@ -31,7 +31,7 @@ namespace s3
     request();
     ~request();
 
-    void set_method(http_method method);
+    void init(http_method method);
     void set_url(const std::string &url, const std::string &query_string);
     inline void set_header(const std::string &name, const std::string &value) { _headers[name] = value; }
 

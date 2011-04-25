@@ -153,6 +153,15 @@ int s3_rmdir(const char *path)
   return g_fs->remove_directory(path + 1);
 }
 
+int s3_rename(const char *from, const char *to)
+{
+  S3_DEBUG("s3_rename", "from: %s, to: %s\n", from, to);
+  ASSERT_LEADING_SLASH(from);
+  ASSERT_LEADING_SLASH(to);
+
+  return g_fs->rename_object(from + 1, to + 1);
+}
+
 int main(int argc, char **argv)
 {
   int r;
@@ -171,6 +180,7 @@ int main(int argc, char **argv)
   opers.read = s3_read;
   opers.readdir = s3_readdir;
   opers.release = s3_release;
+  opers.rename = s3_rename;
   opers.rmdir = s3_rmdir;
   opers.truncate = s3_truncate;
   opers.unlink = s3_unlink;

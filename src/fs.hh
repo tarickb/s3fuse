@@ -53,6 +53,7 @@ namespace s3
     inline int close(uint64_t context) { ASYNC_CALL(close, context); }
     inline int remove_file(const std::string &path) { ASYNC_CALL(remove_object, path, HINT_IS_FILE); }
     inline int remove_directory(const std::string &path) { ASYNC_CALL(remove_object, path, HINT_IS_DIR); }
+    inline int rename_object(const std::string &from, const std::string &to) { ASYNC_CALL(rename_object, from, to); }
 
     int read(char *buffer, size_t size, off_t offset, uint64_t context);
     int write(const char *buffer, size_t size, off_t offset, uint64_t context);
@@ -98,6 +99,7 @@ namespace s3
     ASYNC_DECL(flush,           uint64_t context);
     ASYNC_DECL(close,           uint64_t context);
     ASYNC_DECL(remove_object,   const std::string &path, int hints);
+    ASYNC_DECL(rename_object,   const std::string &from, const std::string &to);
 
     int flush(const request::ptr &req, const handle_ptr &handle);
 
