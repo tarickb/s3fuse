@@ -1,3 +1,5 @@
+#include "logging.hh"
+
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,7 +7,6 @@
 #include <string>
 #include <pugixml/pugixml.hpp>
 
-#include "logging.hh"
 #include "fs.hh"
 
 namespace
@@ -130,7 +131,7 @@ int s3_access(const char *path, int mode)
 
 int s3_truncate(const char *path, off_t offset)
 {
-  S3_DEBUG("s3_truncate", "path: %s, offset: %zi\n", path, offset);
+  S3_DEBUG("s3_truncate", "path: %s, offset: %ji\n", path, static_cast<intmax_t>(offset));
   ASSERT_LEADING_SLASH(path);
 
   // TODO: truncate?

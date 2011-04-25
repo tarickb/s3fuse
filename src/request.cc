@@ -1,3 +1,5 @@
+#include "logging.hh"
+
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
@@ -9,7 +11,6 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/thread.hpp>
 
-#include "logging.hh"
 #include "openssl_locks.hh"
 #include "request.hh"
 #include "util.hh"

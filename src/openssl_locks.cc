@@ -1,3 +1,5 @@
+#include "logging.hh"
+
 #include <pthread.h>
 #include <curl/curl.h>
 #include <openssl/crypto.h>
@@ -5,7 +7,6 @@
 #include <stdexcept>
 #include <boost/thread.hpp>
 
-#include "logging.hh"
 #include "openssl_locks.hh"
 
 using namespace boost;

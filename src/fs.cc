@@ -1,9 +1,10 @@
+#include "logging.hh"
+
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include "fs.hh"
-#include "logging.hh"
 #include "request.hh"
 #include "util.hh"
 
@@ -517,7 +518,7 @@ int fs::flush(const request::ptr &req, const handle_ptr &handle)
   if (fstat(fileno(handle->local_fd), &s))
     return -errno;
 
-  S3_DEBUG("fs::flush", "writing %zu bytes to path %s.\n", s.st_size, handle->path.c_str());
+  S3_DEBUG("fs::flush", "writing %zu bytes to path %s.\n", static_cast<size_t>(s.st_size), handle->path.c_str());
 
   rewind(handle->local_fd);
 

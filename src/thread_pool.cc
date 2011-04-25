@@ -1,3 +1,5 @@
+#include "logging.hh"
+
 #include "request.hh"
 #include "thread_pool.hh"
 #include "work_item.hh"

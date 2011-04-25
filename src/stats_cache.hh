@@ -5,7 +5,9 @@
 #include <string>
 #include <boost/thread.hpp>
 
-#include "logging.hh"
+#ifndef S3_LOGGING_HH
+  #error include logging.hh before this file.
+#endif
 
 namespace s3
 {
