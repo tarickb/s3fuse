@@ -12,6 +12,7 @@
 
 namespace s3
 {
+  class object;
   class worker_thread;
 
   enum http_method
@@ -22,11 +23,13 @@ namespace s3
     HTTP_PUT
   };
 
+  typedef std::map<std::string, std::string> header_map;
+  typedef boost::shared_ptr<header_map> header_map_ptr;
+
   class request : boost::noncopyable
   {
   public:
     typedef boost::shared_ptr<request> ptr;
-    typedef std::map<std::string, std::string> header_map;
 
     request();
     ~request();
@@ -44,12 +47,15 @@ namespace s3
     inline long get_response_code() { return _response_code; }
     inline long get_last_modified() { return _last_modified; }
 
+    inline void set_target_object(const boost::shared_ptr<object> &object) { _target_object = object; }
+    inline const boost::shared_ptr<object> & get_target_object() { return _target_object; }
+
     void run();
 
   private:
     friend class worker_thread; // for reset()
 
-    static size_t add_header_to_map(char *data, size_t size, size_t items, void *context);
+    static size_t process_header(char *data, size_t size, size_t items, void *context);
 
     void reset();
     void build_request_time();
@@ -64,6 +70,7 @@ namespace s3
     std::string _url;
     std::string _response_data;
     header_map _response_headers;
+    boost::shared_ptr<object> _target_object;
     long _response_code;
     long _last_modified;
     header_map _headers; // assumptions: no duplicates, all header names are always lower-case

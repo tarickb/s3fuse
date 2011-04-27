@@ -22,7 +22,6 @@ using namespace s3;
 namespace
 {
   const int BLOCK_SIZE = 512;
-  const int STATS_CACHE_EXPIRY_IN_S = 120;
 
   int g_default_uid  = 1000;
   int g_default_gid  = 1000;

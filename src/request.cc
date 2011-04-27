@@ -64,8 +64,8 @@ request::request()
   curl_easy_setopt(_curl, CURLOPT_FOLLOWLOCATION, true);
   curl_easy_setopt(_curl, CURLOPT_ERRORBUFFER, _curl_error);
   curl_easy_setopt(_curl, CURLOPT_FILETIME, true);
-  curl_easy_setopt(_curl, CURLOPT_HEADERFUNCTION, &request::add_header_to_map);
-  curl_easy_setopt(_curl, CURLOPT_HEADERDATA, &_response_headers);
+  curl_easy_setopt(_curl, CURLOPT_HEADERFUNCTION, &request::process_header);
+  curl_easy_setopt(_curl, CURLOPT_HEADERDATA, this);
   curl_easy_setopt(_curl, CURLOPT_NOSIGNAL, true);
 }
 
@@ -93,6 +93,7 @@ void request::reset()
   _response_code = 0;
   _last_modified = 0;
   _headers.clear();
+  _target_object.reset();
 
   set_input_file(NULL, 0);
   set_output_file(NULL);
@@ -126,9 +127,9 @@ void request::init(http_method method)
     throw runtime_error("unsupported HTTP method.");
 }
 
-size_t request::add_header_to_map(char *data, size_t size, size_t items, void *context)
+size_t request::process_header(char *data, size_t size, size_t items, void *context)
 {
-  header_map *headers = static_cast<header_map *>(context);
+  request *req = static_cast<request *>(context);
   size_t full_size = size * items;
   char *pos;
 
@@ -156,7 +157,11 @@ size_t request::add_header_to_map(char *data, size_t size, size_t items, void *c
   if (*pos == ' ')
     pos++;
 
-  headers->operator [](data) = pos;
+  if (req->_target_object)
+    req->_target_object->request_process_header(data, pos);
+  else
+    req->_response_headers[data] = pos;
+
   return size * items;
 }
 
@@ -247,6 +252,9 @@ void request::run()
 
   curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers);
 
+  if (_target_object)
+    _target_object->request_init();
+
   if (curl_easy_perform(_curl) != 0)
     throw runtime_error(_curl_error);
 
@@ -263,5 +271,8 @@ void request::run()
     _total_run_time += elapsed_time;
 
   _run_count++;
+
+  if (_target_object)
+    _target_object->request_process_response(_response_code, _last_modified);
 }
 
