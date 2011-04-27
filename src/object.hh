@@ -5,6 +5,7 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 
+#include <map>
 #include <string>
 #include <boost/smart_ptr.hpp>
 
@@ -48,6 +49,10 @@ namespace s3
     inline void set_local_file(FILE *file) { _local_file = file; }
     inline FILE * get_local_file() { return _local_file; }
 
+    inline const std::string & get_content_type() { return _content_type; }
+    inline const std::string & get_etag() { return _etag; }
+    inline const std::string & get_path() { return _path; }
+
     inline bool is_valid() { return (_local_file || (_expiry > 0 && _expiry <= time(NULL))); }
 
     inline const struct stat * get_stats()
@@ -70,6 +75,7 @@ namespace s3
     void request_init();
     void request_process_header(const std::string &key, const std::string &value);
     void request_process_response(long code, time_t last_modified);
+    void request_set_meta_headers(request *req);
 
     std::string _path, _content_type, _etag;
     int _hints;

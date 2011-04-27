@@ -50,6 +50,8 @@ namespace s3
     inline void set_target_object(const boost::shared_ptr<object> &object) { _target_object = object; }
     inline const boost::shared_ptr<object> & get_target_object() { return _target_object; }
 
+    inline void set_meta_headers(const boost::shared_ptr<object> &object) { object->request_set_meta_headers(this); }
+
     void run();
 
   private:

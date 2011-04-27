@@ -11,5 +11,5 @@ all: s3fuse
 clean:
 	rm -f *.o s3fuse
 
-s3fuse: fs.o openssl_locks.o request.o util.o thread_pool.o worker_thread.o main.o
+s3fuse: fs.o object.o openssl_locks.o request.o util.o thread_pool.o worker_thread.o main.o
 	$(LD) $(LDFLAGS) -o $@ $^
