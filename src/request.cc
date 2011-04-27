@@ -11,6 +11,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/thread.hpp>
 
+#include "object.hh"
 #include "openssl_locks.hh"
 #include "request.hh"
 #include "util.hh"
@@ -35,11 +36,12 @@ namespace
     return 0;
   }
 
+  const string AMZ_HEADER_PREFIX = "x-amz-";
+
   // TODO: obviously, these should be config options
   string g_url_prefix = "https://s3.amazonaws.com";
   string g_aws_key = "AKIAJZHNXBKNRCUMV4IQ";
   string g_aws_secret = "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";
-  string g_amz_header_prefix = "x-amz-";
 }
 
 request::request()
@@ -221,11 +223,16 @@ void request::build_signature()
   string to_sign = _method + "\n" + _headers["Content-MD5"] + "\n" + _headers["Content-Type"] + "\n" + _headers["Date"] + "\n";
 
   for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
-    if (!itor->second.empty() && itor->first.substr(0, g_amz_header_prefix.size()) == g_amz_header_prefix)
+    if (!itor->second.empty() && itor->first.substr(0, AMZ_HEADER_PREFIX.size()) == AMZ_HEADER_PREFIX)
       to_sign += itor->first + ":" + itor->second + "\n";
 
   to_sign += _url;
   _headers["Authorization"] = string("AWS ") + _aws_key + ":" + util::sign(_aws_secret, to_sign);
+}
+
+void request::set_meta_headers(const object::ptr &object)
+{
+  object->request_set_meta_headers(this); 
 }
 
 void request::run()
@@ -273,6 +280,6 @@ void request::run()
   _run_count++;
 
   if (_target_object)
-    _target_object->request_process_response(_response_code, _last_modified);
+    _target_object->request_process_response(this);
 }
 

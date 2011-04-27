@@ -19,40 +19,6 @@ using namespace s3;
 
 #define ASSERT_NO_TRAILING_SLASH(str) do { if ((str)[(str).size() - 1] == '/') return -EINVAL; } while (0)
 
-namespace
-{
-  const int BLOCK_SIZE = 512;
-
-  int g_default_uid  = 1000;
-  int g_default_gid  = 1000;
-  int g_default_mode = 0755;
-
-  void get_object_metadata(const request::ptr &req, mode_t *mode, uid_t *uid, gid_t *gid)
-  {
-    const string &mode_str = req->get_response_header("x-amz-meta-s3fuse-mode");
-    const string & uid_str = req->get_response_header("x-amz-meta-s3fuse-uid" );
-    const string & gid_str = req->get_response_header("x-amz-meta-s3fuse-gid" );
-
-    *mode = (mode_str.empty() ? g_default_mode : strtol(mode_str.c_str(), NULL, 0));
-    * uid = ( uid_str.empty() ? g_default_uid  : strtol( uid_str.c_str(), NULL, 0));
-    * gid = ( gid_str.empty() ? g_default_gid  : strtol( gid_str.c_str(), NULL, 0));
-  }
-
-  void set_object_metadata(const request::ptr &req, mode_t mode, uid_t uid, gid_t gid)
-  {
-    char buf[16];
-
-    snprintf(buf, 16, "%#o", mode);
-    req->set_header("x-amz-meta-s3fuse-mode", buf);
-
-    snprintf(buf, 16, "%i", uid);
-    req->set_header("x-amz-meta-s3fuse-uid", buf);
-
-    snprintf(buf, 16, "%i", gid);
-    req->set_header("x-amz-meta-s3fuse-gid", buf);
-  }
-}
-
 fs::fs(const string &bucket)
   : _bucket(string("/") + util::url_encode(bucket)),
     _prefix_query("/ListBucketResult/CommonPrefixes/Prefix"),
@@ -67,97 +33,93 @@ fs::~fs()
 {
 }
 
-ASYNC_DEF(prefill_stats, const string &path, int hints)
+object::ptr get_object(const request::ptr &req, const string &path, int hints)
 {
-  struct stat s;
+  object::ptr obj = _object_cache.get(path);
 
-  return __get_stats(req, path, NULL, &s, hints);
+  if (!obj || !obj->is_valid()) {
+    obj.reset(new object(path));
+
+    req->init(HTTP_HEAD);
+    req->set_target_object(obj);
+
+    if (hints == HINT_NONE || hints & HINT_IS_DIR) {
+      // see if the path is a directory (trailing /) first
+      obj->set_hints(OH_IS_DIRECTORY);
+      req->set_url(_bucket + "/" + util::url_encode(path) + "/", "");
+      req->run();
+    }
+
+    if (hints & HINT_IS_FILE || req->get_response_code() != 200) {
+      // it's not a directory
+      obj->set_hints(OH_NONE);
+      req->set_url(_bucket + "/" + util::url_encode(path), "");
+      req->run();
+    }
+
+    // TODO: check for delete markers?
+
+    if (req->get_response_code() != 200)
+      obj.reset();
+    else
+      _object_cache.update(path, obj);
+  }
+
+  return obj;
 }
 
-ASYNC_DEF(get_stats, const string &path, string *etag, struct stat *s, int hints)
+ASYNC_DEF(prefill_stats, const string &path, int hints)
 {
-  bool is_directory = (hints == HINT_NONE || hints & HINT_IS_DIR);
-
-  ASSERT_NO_TRAILING_SLASH(path);
-
-  if (_stats_cache.get(path, etag, s))
-    return 0;
-
-  req->init(HTTP_HEAD);
-
-  if (hints == HINT_NONE || hints & HINT_IS_DIR) {
-    // see if the path is a directory (trailing /) first
-    req->set_url(_bucket + "/" + util::url_encode(path) + "/", "");
-    req->run();
-  }
-
-  if (hints & HINT_IS_FILE || req->get_response_code() != 200) {
-    // it's not a directory
-    is_directory = false;
-    req->set_url(_bucket + "/" + util::url_encode(path), "");
-    req->run();
-  }
-
-  if (req->get_response_code() != 200)
-    return -ENOENT;
-
-  // TODO: check for delete markers?
-
-  if (s) {
-    const string &length = req->get_response_header("Content-Length");
-
-    memset(s, 0, sizeof(*s));
-    get_object_metadata(req, &s->st_mode, &s->st_uid, &s->st_gid);
-
-    // TODO: support symlinks?
-    s->st_mode |= (is_directory ? S_IFDIR : S_IFREG);
-    s->st_size = strtol(length.c_str(), NULL, 0);
-    s->st_nlink = 1; // laziness (see FUSE FAQ re. find)
-    s->st_mtime =  req->get_last_modified();
-
-    if (!is_directory)
-      s->st_blocks = (s->st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
-
-    _stats_cache.update(path, req->get_response_header("ETag"), s);
-  }
-
-  if (etag)
-    *etag = req->get_response_header("ETag");
+  get_object(req, path, hints);
 
   return 0;
 }
 
+ASYNC_DEF(get_stats, const string &path, struct stat *s, int hints)
+{
+  bool is_directory = (hints == HINT_NONE || hints & HINT_IS_DIR);
+  object::ptr obj;
+
+  ASSERT_NO_TRAILING_SLASH(path);
+
+  obj = get_object(req, path, hints);
+
+  if (!obj)
+    return -ENOENT;
+
+  if (s)
+    memcpy(s, obj->get_stats(), sizeof(*s));
+}
+
 ASYNC_DEF(rename_object, const std::string &from, const std::string &to)
 {
-  struct stat s;
-  string etag, from_url, to_url;
-  int r;
+  object::ptr obj;
+  string from_url, to_url;
 
   ASSERT_NO_TRAILING_SLASH(from);
   ASSERT_NO_TRAILING_SLASH(to);
 
-  r = __get_stats(req, from, &etag, &s, HINT_NONE);
+  obj = get_object(req, from, HINT_NONE);
 
-  if (r)
-    return r;
+  if (!obj)
+    return -ENOENT;
 
   // TODO: support directories
-  if (S_ISDIR(s.st_mode))
+  if (obj->get_type() == OT_DIRECTORY)
     return -EINVAL;
 
-  r = __get_stats(req, to, NULL, NULL, HINT_NONE);
+  if (get_object(req, to, HINT_NONE))
+    return -EEXIST;
 
-  if (r != -ENOENT)
-    return (r == 0) ? -EEXIST : r;
-
+  // TODO: switch to object::get_url()?
   from_url = _bucket + "/" + util::url_encode(from);
   to_url = _bucket + "/" + util::url_encode(to);
 
   req->init(HTTP_PUT);
   req->set_url(to_url, "");
-  req->set_header("Content-Type", "binary/octet-stream");
+  req->set_header("Content-Type", obj->get_content_type());
   req->set_header("x-amz-copy-source", from_url);
-  req->set_header("x-amz-copy-source-if-match", etag);
+  req->set_header("x-amz-copy-source-if-match", obj->get_etag());
   req->set_header("x-amz-metadata-directive", "COPY");
 
   req->run();
@@ -170,46 +132,39 @@ ASYNC_DEF(rename_object, const std::string &from, const std::string &to)
 
 ASYNC_DEF(change_metadata, const std::string &path, mode_t mode, uid_t uid, gid_t gid)
 {
+  object::ptr obj;
   struct stat s;
   string etag, url;
   int r;
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  r = __get_stats(req, path, &etag, &s, HINT_NONE);
+  obj = get_object(req, path, HINT_NONE);
 
-  if (r)
-    return r;
+  if (!obj)
+    return -ENOENT;
 
-  if (mode != mode_t(-1)) {
-    S3_DEBUG("fs::change_metadata", "changing mode from %#o to %#o.\n", s.st_mode, mode);
-    s.st_mode = mode;
-  }
+  if (mode != mode_t(-1))
+    obj->set_mode(mode);
 
-  if (uid != uid_t(-1)) {
-    S3_DEBUG("fs::change_metadata", "changing user from %i to %i.\n", s.st_uid, uid);
-    s.st_uid = uid;
-  }
+  if (uid != uid_t(-1))
+    obj->set_uid(uid);
 
-  if (gid != gid_t(-1)) {
-    S3_DEBUG("fs::change_metadata", "changing group from %i to %i.\n", s.st_gid, gid);
-    s.st_gid = gid;
-  }
+  if (gid != gid_t(-1))
+    obj->set_gid(gid);
 
   // TODO: reuse with create_object
   url = _bucket + "/" + util::url_encode(path);
 
-  if (S_ISDIR(s.st_mode))
+  if (obj->get_type() == OT_DIRECTORY)
     url += "/";
 
   req->init(HTTP_PUT);
   req->set_url(url, "");
-  req->set_header("Content-Type", "binary/octet-stream");
   req->set_header("x-amz-copy-source", url);
-  req->set_header("x-amz-copy-source-if-match", etag);
+  req->set_header("x-amz-copy-source-if-match", obj->get_etag());
   req->set_header("x-amz-metadata-directive", "REPLACE");
-
-  set_object_metadata(req, s.st_mode, s.st_uid, s.st_gid);
+  req->set_meta_headers(obj);
 
   req->run();
 
@@ -218,7 +173,7 @@ ASYNC_DEF(change_metadata, const std::string &path, mode_t mode, uid_t uid, gid_
     return -EIO;
   }
 
-  _stats_cache.remove(path);
+  _object_cache.remove(path);
 
   return 0;
 }
@@ -295,12 +250,14 @@ ASYNC_DEF(read_directory, const std::string &_path, fuse_fill_dir_t filler, void
 ASYNC_DEF(create_object, const std::string &path, mode_t mode)
 {
   string url;
+  object::ptr obj;
 
   ASSERT_NO_TRAILING_SLASH(path);
 
+  // TODO: use object::get_url()
   url = _bucket + "/" + util::url_encode(path);
 
-  if (__get_stats(req, path, NULL, NULL, HINT_NONE) == 0) {
+  if (get_object(req, path, HINT_NONE))
     S3_DEBUG("fs::create_object", "attempt to overwrite object at path %s.\n", path.c_str());
     return -EEXIST;
   }
@@ -308,17 +265,23 @@ ASYNC_DEF(create_object, const std::string &path, mode_t mode)
   if (S_ISDIR(mode))
     url += "/";
 
+  obj.reset(new object(path));
+  obj->create(S_ISDIR(mode) ? OT_DIRECTORY : OT_FILE);
+
+  // TODO: use parent?
+  obj->set_mode(mode);
+
   req->init(HTTP_PUT);
   req->set_url(url, "");
   req->set_header("Content-Type", "binary/octet-stream");
+  req->set_meta_headers(obj);
 
   if ((mode & ~S_IFMT) == 0) {
+    copy this to object!
+
     S3_DEBUG("fs::create_object", "no mode specified, using default.\n");
     mode |= g_default_mode;
   }
-
-  // TODO: use parent?
-  set_object_metadata(req, mode, g_default_uid, g_default_gid);
 
   req->run();
 

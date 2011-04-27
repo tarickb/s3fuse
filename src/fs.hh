@@ -12,8 +12,8 @@
 #include <boost/thread.hpp>
 #include <pugixml/pugixml.hpp>
 
+#include "object_cache.hh"
 #include "request.hh"
-#include "stats_cache.hh"
 #include "thread_pool.hh"
 #include "work_item.hh"
 
@@ -107,7 +107,7 @@ namespace s3
     pugi::xpath_query _prefix_query;
     pugi::xpath_query _key_query;
     thread_pool _fg_thread_pool, _bg_thread_pool;
-    stats_cache _stats_cache;
+    object_cache _object_cache;
     handle_map _open_files;
     boost::mutex _open_files_mutex;
     uint64_t _next_open_file_handle;

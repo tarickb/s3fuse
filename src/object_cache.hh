@@ -44,68 +44,38 @@ namespace s3
     inline const boost::shared_ptr<object> & get(const std::string &path)
     {
       boost::mutex::scoped_lock lock(_mutex);
-      const boost::shared_ptr<object> &ptr = 
+      const boost::shared_ptr<object> &object = _cache[path];
 
-      
-    }
-
-    inline bool get(const std::string &path, std::string *etag, struct stat *s)
-    {
-      boost::mutex::scoped_lock lock(_mutex);
-      cache_entry &e = _cache[path];
-
-      if (e.expiry == 0) {
+      if (!object)
         _misses++;
-        return false;
-      }
-
-      if (e.expiry < time(NULL)) {
+      else if (!object->is_valid())
         _expiries++;
-        return false;
-      }
+      else
+        _hits++;
 
-      _hits++;
-
-      if (s)
-        memcpy(s, &e.stats, sizeof(*s));
-
-      if (etag)
-        *etag = e.etag;
-
-      return true;
+      return object;
     }
 
-    inline void update(const std::string &path, const std::string &etag, const struct stat *s)
+    inline void set(const std::string &path, const boost::shared_ptr<object> &object)
     {
       boost::mutex::scoped_lock lock(_mutex);
-      cache_entry &e = _cache[path];
 
-      e.expiry = time(NULL) + _ttl;
-      e.etag = etag;
-      memcpy(&e.stats, s, sizeof(*s));
+      _cache[path] = object;
     }
 
     inline void remove(const std::string &path)
     {
       boost::mutex::scoped_lock lock(_mutex);
-      _cache[path] = cache_entry();
+
+      _cache.erase(path);
     }
 
   private:
-    struct cache_entry
-    {
-      time_t expiry;
-      std::string etag;
-      struct stat stats;
-
-      inline cache_entry() : expiry(0) {}
-    };
-
-    typedef std::map<std::string, cache_entry> cache_map;
+    typedef boost::shared_ptr<object> object_ptr;
+    typedef std::map<std::string, object_ptr> cache_map;
 
     cache_map _cache;
     boost::mutex _mutex;
-    int _ttl;
     uint64_t _hits, _misses, _expiries;
   };
 }
