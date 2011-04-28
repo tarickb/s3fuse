@@ -12,6 +12,8 @@
   #error include logging.hh before this file.
 #endif
 
+#include "object.hh"
+
 namespace s3
 {
   class object_cache

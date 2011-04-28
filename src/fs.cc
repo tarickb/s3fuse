@@ -19,9 +19,8 @@ using namespace s3;
 
 #define ASSERT_NO_TRAILING_SLASH(str) do { if ((str)[(str).size() - 1] == '/') return -EINVAL; } while (0)
 
-fs::fs(const string &bucket)
-  : _bucket(string("/") + util::url_encode(bucket)),
-    _prefix_query("/ListBucketResult/CommonPrefixes/Prefix"),
+fs::fs()
+  : _prefix_query("/ListBucketResult/CommonPrefixes/Prefix"),
     _key_query("/ListBucketResult/Contents"),
     _fg_thread_pool("fs-fg"),
     _bg_thread_pool("fs-bg"),
@@ -33,7 +32,7 @@ fs::~fs()
 {
 }
 
-object::ptr get_object(const request::ptr &req, const string &path, int hints)
+object::ptr fs::get_object(const request::ptr &req, const string &path, int hints)
 {
   object::ptr obj = _object_cache.get(path);
 
@@ -45,15 +44,13 @@ object::ptr get_object(const request::ptr &req, const string &path, int hints)
 
     if (hints == HINT_NONE || hints & HINT_IS_DIR) {
       // see if the path is a directory (trailing /) first
-      obj->set_hints(OH_IS_DIRECTORY);
-      req->set_url(_bucket + "/" + util::url_encode(path) + "/", "");
+      req->set_url(object::build_url(path, OT_DIRECTORY));
       req->run();
     }
 
     if (hints & HINT_IS_FILE || req->get_response_code() != 200) {
       // it's not a directory
-      obj->set_hints(OH_NONE);
-      req->set_url(_bucket + "/" + util::url_encode(path), "");
+      req->set_url(object::build_url(path, OT_INVALID));
       req->run();
     }
 
@@ -62,7 +59,7 @@ object::ptr get_object(const request::ptr &req, const string &path, int hints)
     if (req->get_response_code() != 200)
       obj.reset();
     else
-      _object_cache.update(path, obj);
+      _object_cache.set(path, obj);
   }
 
   return obj;
@@ -77,7 +74,6 @@ ASYNC_DEF(prefill_stats, const string &path, int hints)
 
 ASYNC_DEF(get_stats, const string &path, struct stat *s, int hints)
 {
-  bool is_directory = (hints == HINT_NONE || hints & HINT_IS_DIR);
   object::ptr obj;
 
   ASSERT_NO_TRAILING_SLASH(path);
@@ -88,37 +84,33 @@ ASYNC_DEF(get_stats, const string &path, struct stat *s, int hints)
     return -ENOENT;
 
   if (s)
-    memcpy(s, obj->get_stats(), sizeof(*s));
+    obj->copy_stat(s);
 }
 
 ASYNC_DEF(rename_object, const std::string &from, const std::string &to)
 {
   object::ptr obj;
-  string from_url, to_url;
+  string to_url;
 
   ASSERT_NO_TRAILING_SLASH(from);
   ASSERT_NO_TRAILING_SLASH(to);
 
-  obj = get_object(req, from, HINT_NONE);
+  obj = get_object(req, from);
 
   if (!obj)
     return -ENOENT;
 
-  // TODO: support directories
-  if (obj->get_type() == OT_DIRECTORY)
-    return -EINVAL;
+  // TODO: check if directory has children!
 
-  if (get_object(req, to, HINT_NONE))
+  if (get_object(req, to))
     return -EEXIST;
 
-  // TODO: switch to object::get_url()?
-  from_url = _bucket + "/" + util::url_encode(from);
-  to_url = _bucket + "/" + util::url_encode(to);
+  to_url = object::build_url(to, obj->get_type());
 
   req->init(HTTP_PUT);
-  req->set_url(to_url, "");
+  req->set_url(to_url);
   req->set_header("Content-Type", obj->get_content_type());
-  req->set_header("x-amz-copy-source", from_url);
+  req->set_header("x-amz-copy-source", obj->get_url());
   req->set_header("x-amz-copy-source-if-match", obj->get_etag());
   req->set_header("x-amz-metadata-directive", "COPY");
 
@@ -127,19 +119,16 @@ ASYNC_DEF(rename_object, const std::string &from, const std::string &to)
   if (req->get_response_code() != 200)
     return -EIO;
 
-  return __remove_object(req, from, HINT_IS_FILE);
+  return remove_object(req, obj);
 }
 
 ASYNC_DEF(change_metadata, const std::string &path, mode_t mode, uid_t uid, gid_t gid)
 {
   object::ptr obj;
-  struct stat s;
-  string etag, url;
-  int r;
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = get_object(req, path, HINT_NONE);
+  obj = get_object(req, path);
 
   if (!obj)
     return -ENOENT;
@@ -153,15 +142,9 @@ ASYNC_DEF(change_metadata, const std::string &path, mode_t mode, uid_t uid, gid_
   if (gid != gid_t(-1))
     obj->set_gid(gid);
 
-  // TODO: reuse with create_object
-  url = _bucket + "/" + util::url_encode(path);
-
-  if (obj->get_type() == OT_DIRECTORY)
-    url += "/";
-
   req->init(HTTP_PUT);
-  req->set_url(url, "");
-  req->set_header("x-amz-copy-source", url);
+  req->set_url(obj->get_url());
+  req->set_header("x-amz-copy-source", obj->get_url());
   req->set_header("x-amz-copy-source-if-match", obj->get_etag());
   req->set_header("x-amz-metadata-directive", "REPLACE");
   req->set_meta_headers(obj);
@@ -202,7 +185,7 @@ ASYNC_DEF(read_directory, const std::string &_path, fuse_fill_dir_t filler, void
     xml_parse_result res;
     xpath_node_set prefixes, keys;
 
-    req->set_url(_bucket, string("delimiter=/&prefix=") + util::url_encode(path) + "&marker=" + marker);
+    req->set_url(object::get_bucket_url(), string("delimiter=/&prefix=") + util::url_encode(path) + "&marker=" + marker);
     req->run();
 
     res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
@@ -249,39 +232,24 @@ ASYNC_DEF(read_directory, const std::string &_path, fuse_fill_dir_t filler, void
 
 ASYNC_DEF(create_object, const std::string &path, mode_t mode)
 {
-  string url;
   object::ptr obj;
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  // TODO: use object::get_url()
-  url = _bucket + "/" + util::url_encode(path);
-
-  if (get_object(req, path, HINT_NONE))
+  if (get_object(req, path)) {
     S3_DEBUG("fs::create_object", "attempt to overwrite object at path %s.\n", path.c_str());
     return -EEXIST;
   }
 
-  if (S_ISDIR(mode))
-    url += "/";
-
   obj.reset(new object(path));
-  obj->create(S_ISDIR(mode) ? OT_DIRECTORY : OT_FILE);
+  obj->set_defaults(S_ISDIR(mode) ? OT_DIRECTORY : OT_FILE);
 
   // TODO: use parent?
   obj->set_mode(mode);
 
   req->init(HTTP_PUT);
-  req->set_url(url, "");
-  req->set_header("Content-Type", "binary/octet-stream");
+  req->set_url(obj->get_url());
   req->set_meta_headers(obj);
-
-  if ((mode & ~S_IFMT) == 0) {
-    copy this to object!
-
-    S3_DEBUG("fs::create_object", "no mode specified, using default.\n");
-    mode |= g_default_mode;
-  }
 
   req->run();
 
@@ -303,7 +271,7 @@ ASYNC_DEF(open, const std::string &path, uint64_t *context)
     return -errno;
 
   req->init(HTTP_GET);
-  req->set_url(url, "");
+  req->set_url(url);
   req->set_output_file(temp_file);
 
   req->run();
@@ -487,7 +455,7 @@ int fs::flush(const request::ptr &req, const handle_ptr &handle)
   rewind(handle->local_fd);
 
   req->init(HTTP_PUT);
-  req->set_url(url, "");
+  req->set_url(url);
   req->set_header("Content-Type", handle->content_type);
   req->set_header("Content-MD5", util::compute_md5_base64(handle->local_fd));
 
@@ -503,24 +471,25 @@ int fs::flush(const request::ptr &req, const handle_ptr &handle)
   return (req->get_response_code() == 200) ? 0 : -EIO;
 }
 
-ASYNC_DEF(remove_object, const std::string &path, int hints)
+int fs::remove_object(const request::ptr &req, const object::ptr &obj)
 {
-  string url;
-
-  ASSERT_NO_TRAILING_SLASH(path);
-
-  url = _bucket + "/" + util::url_encode(path);
-
-  // TODO: check if children exist first!
-  if (hints & HINT_IS_DIR)
-    url += "/";
-
   req->init(HTTP_DELETE);
-  req->set_url(url, "");
+  req->set_url(obj->get_url());
 
   req->run();
 
-  _stats_cache.remove(path);
+  _object_cache.remove(obj->get_path());
 
   return (req->get_response_code() == 204) ? 0 : -EIO;
+}
+
+ASYNC_DEF(remove_object, const std::string &path)
+{
+  object::ptr obj;
+
+  ASSERT_NO_TRAILING_SLASH(path);
+
+  obj = get_object(path);
+
+  return obj ? remove_object(req, obj) : -ENOENT;
 }

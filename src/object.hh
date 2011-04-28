@@ -9,25 +9,11 @@
 #include <string>
 #include <boost/smart_ptr.hpp>
 
-// TODO: remove
-/*
-
-object_from_cache = _object_cache.get(path);
-object_from_cache->set_local_file(tmpfile()); // prevents expiry!
-_open_file_cache[context] = object::ptr(object_from_cache);
-
-*/
+#include "util.hh"
 
 namespace s3
 {
   class request;
-
-  // TODO: use hints from fs.hh?
-  enum object_hints
-  {
-    OH_NONE         = 0x0,
-    OH_IS_DIRECTORY = 0x1
-  };
 
   enum object_type
   {
@@ -42,18 +28,19 @@ namespace s3
   public:
     typedef boost::shared_ptr<object> ptr;
 
+    // TODO: store bucket, url in member variables?
+
+    static const std::string & get_bucket_url();
+    static std::string build_url(const std::string &path, object_type type);
+
     inline object(const std::string &path)
       : _type(OT_INVALID),
         _path(path),
-        _hints(OH_NONE),
         _expiry(0),
         _local_file(NULL)
     { }
 
     void set_defaults(object_type type);
-
-    inline void set_hints(int hints) { _hints = hints; }
-    inline int get_hints() { return _hints; }
 
     inline void set_metadata(const std::string &key, const std::string &value) { _metadata[key] = value; }
     inline const std::string & get_metadata(const std::string &key) { return _metadata[key]; }
@@ -72,16 +59,18 @@ namespace s3
 
     inline bool is_valid() { return (_local_file || (_expiry > 0 && _expiry <= time(NULL))); }
 
-    inline const struct stat * get_stats()
+    const std::string & get_url() { return _url; }
+
+    inline void copy_stat(struct stat *s)
     {
+      memcpy(s, &_stat, sizeof(_stat));
+
       if (_local_file) {
-        struct stat s;
+        struct stat temp;
 
-        if (fstat(fileno(_local_file), &s) == 0)
-          _stat.st_size = s.st_size;
+        if (fstat(fileno(_local_file), &temp) == 0)
+          s->st_size = temp.st_size;
       }
-
-      return &_stat;
     }
 
   private:
@@ -95,8 +84,7 @@ namespace s3
     void request_set_meta_headers(request *req);
 
     object_type _type;
-    std::string _path, _content_type, _etag;
-    int _hints;
+    std::string _path, _url, _content_type, _etag;
     time_t _expiry;
     struct stat _stat;
     FILE *_local_file;
