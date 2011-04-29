@@ -32,6 +32,16 @@ namespace s3
   class open_file
   {
   };
+
+  class open_file_cache
+  {
+  public:
+    open_file_cache();
+    ~open_file_cache();
+
+    int open(const std::string &path, uint64_t *context);
+
+  }:
 }
 
 #endif
