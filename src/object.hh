@@ -28,8 +28,6 @@ namespace s3
   public:
     typedef boost::shared_ptr<object> ptr;
 
-    // TODO: store bucket, url in member variables?
-
     static const std::string & get_bucket_url();
     static std::string build_url(const std::string &path, object_type type);
 
