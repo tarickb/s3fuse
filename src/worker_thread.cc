@@ -64,7 +64,6 @@ void worker_thread::worker()
       _timeout = item.get_timeout();
     }
 
-    _request->reset();
     item.get_work_item()->exec(_request);
 
     {

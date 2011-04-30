@@ -19,6 +19,11 @@ using namespace s3;
 
 #define ASSERT_NO_TRAILING_SLASH(str) do { if ((str)[(str).size() - 1] == '/') return -EINVAL; } while (0)
 
+namespace
+{
+  const string SYMLINK_PREFIX = "SYMLINK:";
+}
+
 fs::fs()
   : _prefix_query("/ListBucketResult/CommonPrefixes/Prefix"),
     _key_query("/ListBucketResult/Contents"),
@@ -27,6 +32,20 @@ fs::fs()
     _object_cache(_tp_fg),
     _open_file_cache(_tp_fg)
 {
+}
+
+int fs::remove_object(const request::ptr &req, const object::ptr &obj)
+{
+  req->init(HTTP_DELETE);
+  req->set_url(obj->get_url());
+
+  // TODO: obviously (OBVIOUSLY!) this should check if obj is a directory
+
+  req->run();
+
+  _object_cache.remove(obj->get_path());
+
+  return (req->get_response_code() == 204) ? 0 : -EIO;
 }
 
 int fs::__prefill_stats(const request::ptr &req, const string &path, int hints)
@@ -88,7 +107,7 @@ int fs::__rename_object(const request::ptr &req, const std::string &from, const 
   return remove_object(req, obj);
 }
 
-int fs::__change_metadata(const request::ptr &req, const std::string &path, mode_t mode, uid_t uid, gid_t gid)
+int fs::__change_metadata(const request::ptr &req, const std::string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime)
 {
   object::ptr obj;
 
@@ -108,6 +127,9 @@ int fs::__change_metadata(const request::ptr &req, const std::string &path, mode
   if (gid != gid_t(-1))
     obj->set_gid(gid);
 
+  if (mtime != time_t(-1))
+    obj->set_mtime(mtime);
+
   req->init(HTTP_PUT);
   req->set_url(obj->get_url());
   req->set_header("x-amz-copy-source", obj->get_url());
@@ -122,7 +144,7 @@ int fs::__change_metadata(const request::ptr &req, const std::string &path, mode
     return -EIO;
   }
 
-  _object_cache.remove(path);
+  // TODO: do we need to remove the object from the cache?
 
   return 0;
 }
@@ -193,7 +215,7 @@ int fs::__read_directory(const request::ptr &req, const std::string &_path, fuse
   return 0;
 }
 
-int fs::__create_object(const request::ptr &req, const std::string &path, mode_t mode)
+int fs::__create_object(const request::ptr &req, const std::string &path, object_type type, mode_t mode, const std::string &symlink_target)
 {
   object::ptr obj;
 
@@ -205,32 +227,19 @@ int fs::__create_object(const request::ptr &req, const std::string &path, mode_t
   }
 
   obj.reset(new object(path));
-  obj->set_defaults(S_ISDIR(mode) ? OT_DIRECTORY : OT_FILE);
-
-  // TODO: use parent?
+  obj->set_defaults(type);
   obj->set_mode(mode);
 
   req->init(HTTP_PUT);
   req->set_url(obj->get_url());
   req->set_meta_headers(obj);
 
+  if (type == OT_SYMLINK)
+    req->set_input_data(SYMLINK_PREFIX + symlink_target);
+
   req->run();
 
   return 0;
-}
-
-int fs::remove_object(const request::ptr &req, const object::ptr &obj)
-{
-  req->init(HTTP_DELETE);
-  req->set_url(obj->get_url());
-
-  // TODO: obviously (OBVIOUSLY!) this should check if obj is a directory
-
-  req->run();
-
-  _object_cache.remove(obj->get_path());
-
-  return (req->get_response_code() == 204) ? 0 : -EIO;
 }
 
 int fs::__remove_object(const request::ptr &req, const std::string &path)
@@ -242,4 +251,33 @@ int fs::__remove_object(const request::ptr &req, const std::string &path)
   obj = _object_cache.get(req, path, HINT_NONE);
 
   return obj ? remove_object(req, obj) : -ENOENT;
+}
+
+int fs::__read_symlink(const request::ptr &req, const std::string &path, std::string *target)
+{
+  object::ptr obj;
+
+  ASSERT_NO_TRAILING_SLASH(path);
+
+  obj = _object_cache.get(req, path);
+
+  if (!obj)
+    return -ENOENT;
+
+  if (obj->get_type() != OT_SYMLINK)
+    return -EINVAL;
+
+  req->init(HTTP_GET);
+  req->set_url(obj->get_url());
+
+  req->run();
+  
+  if (req->get_response_code() != 200)
+    return -EIO;
+
+  if (req->get_response_data().substr(0, SYMLINK_PREFIX.size()) != SYMLINK_PREFIX)
+    return -EINVAL;
+
+  *target = req->get_response_data().substr(SYMLINK_PREFIX.size());
+  return 0;
 }

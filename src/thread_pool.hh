@@ -48,7 +48,7 @@ namespace s3
     void post(const work_item::ptr &wi, int timeout_in_s = DEFAULT_TIMEOUT_IN_S);
 
   private:
-    friend class worker_thread;
+    friend class worker_thread; // for queue_item, get_next_queue_item()
 
     typedef boost::shared_ptr<worker_thread> wt_ptr;
     typedef std::list<wt_ptr> wt_list;

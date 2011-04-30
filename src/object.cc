@@ -61,6 +61,7 @@ void object::set_defaults(object_type type)
   _type = type;
   _content_type = ((type == OT_SYMLINK) ? string(SYMLINK_CONTENT_TYPE) : g_default_content_type);
   _etag.clear();
+  _mtime_etag.clear();
   _expiry = time(NULL) + g_expiry_in_s;
   _local_file = NULL;
   _metadata.clear();
@@ -84,6 +85,7 @@ void object::request_init()
   _type = OT_INVALID;
   _content_type.clear();
   _etag.clear();
+  _mtime_etag.clear();
   _expiry = 0;
   _local_file = NULL;
   _metadata.clear();
@@ -108,6 +110,8 @@ void object::request_process_header(const std::string &key, const std::string &v
     _stat.st_gid = long_value;
   else if (key == "x-amz-meta-s3fuse-mtime")
     _stat.st_mtime = long_value;
+  else if (key == "x-amz-meta-s3fuse-mtime-etag")
+    _mtime_etag = value;
   else if (strncmp(key.c_str(), AMZ_META_PREFIX_CSTR, AMZ_META_PREFIX_LEN) == 0)
     _metadata[key.substr(AMZ_META_PREFIX_LEN)] = value;
 }
@@ -135,9 +139,11 @@ void object::request_process_response(request *req)
   _stat.st_mode  |= get_mode_by_type(_type);
   _stat.st_nlink  = 1; // laziness (see FUSE FAQ re. find)
 
-  // the object could have been modified by someone else
-  if (req->get_last_modified() > _stat.st_mtime)
+  // covers the case where _reference_mtime == 0
+  if (_mtime_etag != _etag && req->get_last_modified() > _stat.st_mtime)
     _stat.st_mtime = req->get_last_modified();
+
+  _mtime_etag = _etag;
 
   if (_type == OT_FILE)
     _stat.st_blocks = (_stat.st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -150,7 +156,7 @@ void object::request_set_meta_headers(request *req)
 {
   char buf[16];
 
-  snprintf(buf, 16, "%#o", _stat.st_mode);
+  snprintf(buf, 16, "%#o", _stat.st_mode & ~S_IFMT);
   req->set_header("x-amz-meta-s3fuse-mode", buf);
 
   snprintf(buf, 16, "%i", _stat.st_uid);
@@ -162,6 +168,7 @@ void object::request_set_meta_headers(request *req)
   snprintf(buf, 16, "%li", _stat.st_mtime);
   req->set_header("x-amz-meta-s3fuse-mtime", buf);
 
+  req->set_header("x-amz-meta-s3fuse-mtime-etag", _mtime_etag);
   req->set_header("Content-Type", _content_type);
 
   for (meta_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)

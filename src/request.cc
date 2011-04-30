@@ -46,9 +46,7 @@ namespace
 }
 
 request::request()
-  : _aws_key(g_aws_key),
-    _aws_secret(g_aws_secret),
-    _total_run_time(0.0),
+  : _total_run_time(0.0),
     _run_count(0)
 {
   _curl = curl_easy_init();
@@ -58,7 +56,7 @@ request::request()
 
   openssl_locks::init();
 
-  // stuff that's set in the ctor shouldn't be modified elsewhere, since the cache call to reset() won't reset it
+  // stuff that's set in the ctor shouldn't be modified elsewhere, since the call to init() won't reset it
 
   // TODO: check for errors
   curl_easy_setopt(_curl, CURLOPT_VERBOSE, g_verbose_requests);
@@ -84,12 +82,12 @@ request::~request()
   openssl_locks::release();
 }
 
-void request::reset()
+void request::init(http_method method)
 {
-  // this gets called by init() to reset the request state
-
   _curl_error[0] = '\0';
   _url.clear();
+  _request_data.clear();
+  _request_data_pos = 0;
   _response_data.clear();
   _response_headers.clear();
   _response_code = 0;
@@ -103,11 +101,6 @@ void request::reset()
   curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL);
   curl_easy_setopt(_curl, CURLOPT_UPLOAD, false);
   curl_easy_setopt(_curl, CURLOPT_NOBODY, false);
-}
-
-void request::init(http_method method)
-{
-  reset();
 
   if (method == HTTP_DELETE) {
     _method = "DELETE";
@@ -127,6 +120,22 @@ void request::init(http_method method)
 
   } else
     throw runtime_error("unsupported HTTP method.");
+}
+
+size_t request::read_request_data(char *data, size_t size, size_t items, void *context)
+{
+  request *req = static_cast<request *>(context);
+  size_t full_size = size * items;
+  size_t remaining = req->_request_data.size() - req->_request_data_pos;
+
+  if (full_size > remaining)
+    full_size = remaining;
+
+  if (remaining > 0)
+    req->_request_data.copy(data, full_size, req->_request_data_pos);
+
+  req->_request_data_pos += full_size;
+  return full_size;
 }
 
 size_t request::process_header(char *data, size_t size, size_t items, void *context)
@@ -152,7 +161,7 @@ size_t request::process_header(char *data, size_t size, size_t items, void *cont
   pos = strchr(data, ':');
 
   if (!pos)
-    return size * items; // no colon means it's not a header we care about
+    return full_size; // no colon means it's not a header we care about
 
   *pos++ = '\0';
 
@@ -164,7 +173,7 @@ size_t request::process_header(char *data, size_t size, size_t items, void *cont
   else
     req->_response_headers[data] = pos;
 
-  return size * items;
+  return full_size;
 }
 
 void request::set_url(const string &url, const string &query_string)
@@ -189,6 +198,16 @@ void request::set_output_file(FILE *f)
     curl_easy_setopt(_curl, CURLOPT_WRITEFUNCTION, append_to_string);
     curl_easy_setopt(_curl, CURLOPT_WRITEDATA, &_response_data);
   }
+}
+
+void request::set_input_data(const std::string &s)
+{
+  _request_data = s;
+  _request_data_pos = 0;
+
+  curl_easy_setopt(_curl, CURLOPT_READFUNCTION, read_request_data);
+  curl_easy_setopt(_curl, CURLOPT_READDATA, this);
+  curl_easy_setopt(_curl, CURLOPT_INFILESIZE, s.size());
 }
 
 void request::set_input_file(FILE *f, size_t size)
@@ -219,7 +238,7 @@ void request::build_request_time()
 
 void request::build_signature()
 {
-  string sig = "AWS " + _aws_key + ":";
+  string sig = "AWS " + g_aws_key + ":";
   string to_sign = _method + "\n" + _headers["Content-MD5"] + "\n" + _headers["Content-Type"] + "\n" + _headers["Date"] + "\n";
 
   for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
@@ -227,7 +246,7 @@ void request::build_signature()
       to_sign += itor->first + ":" + itor->second + "\n";
 
   to_sign += _url;
-  _headers["Authorization"] = string("AWS ") + _aws_key + ":" + util::sign(_aws_secret, to_sign);
+  _headers["Authorization"] = string("AWS ") + g_aws_key + ":" + util::sign(g_aws_secret, to_sign);
 }
 
 void request::set_meta_headers(const object::ptr &object)

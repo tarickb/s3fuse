@@ -49,6 +49,7 @@ namespace s3
 
     inline void set_uid(uid_t uid) { _stat.st_uid = uid; }
     inline void set_gid(gid_t gid) { _stat.st_gid = gid; }
+    inline void set_mtime(time_t mtime) { _stat.st_mtime = mtime; }
     void set_mode(mode_t mode);
 
     inline object_type get_type() { return _type; }
@@ -85,7 +86,7 @@ namespace s3
     void request_set_meta_headers(request *req);
 
     object_type _type;
-    std::string _path, _url, _content_type, _etag;
+    std::string _path, _url, _content_type, _etag, _mtime_etag;
     time_t _expiry;
     struct stat _stat;
     FILE *_local_file;

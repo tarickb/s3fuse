@@ -35,18 +35,24 @@ namespace s3
     ~request();
 
     void init(http_method method);
+
     void set_url(const std::string &url, const std::string &query_string = "");
     inline const std::string & get_url() { return _url; }
+
     inline void set_header(const std::string &name, const std::string &value) { _headers[name] = value; }
 
     void set_output_file(FILE *f);
+
     void set_input_file(FILE *f, size_t size);
+    void set_input_data(const std::string &s);
 
     inline const std::string & get_response_data() { return _response_data; }
+
     inline const std::string & get_response_header(const std::string &key) { return _response_headers[key]; }
     inline const header_map & get_response_headers() { return _response_headers; }
+
     inline long get_response_code() { return _response_code; }
-    inline long get_last_modified() { return _last_modified; }
+    inline time_t get_last_modified() { return _last_modified; }
 
     inline void set_target_object(const boost::shared_ptr<object> &object) { _target_object = object; }
     inline const boost::shared_ptr<object> & get_target_object() { return _target_object; }
@@ -56,9 +62,8 @@ namespace s3
     void run();
 
   private:
-    friend class worker_thread; // for reset()
-
     static size_t process_header(char *data, size_t size, size_t items, void *context);
+    static size_t read_request_data(char *data, size_t size, size_t items, void *context);
 
     void reset();
     void build_request_time();
@@ -67,16 +72,20 @@ namespace s3
     // review reset() when making changes here
     CURL *_curl;
     char _curl_error[CURL_ERROR_SIZE];
+
     std::string _method;
-    std::string _aws_key;
-    std::string _aws_secret;
     std::string _url;
-    std::string _response_data;
+    std::string _request_data, _response_data;
     header_map _response_headers;
+    size_t _request_data_pos;
+
     boost::shared_ptr<object> _target_object;
+
     long _response_code;
-    long _last_modified;
+    time_t _last_modified;
+
     header_map _headers; // assumptions: no duplicates, all header names are always lower-case
+
     double _total_run_time;
     uint64_t _run_count;
   };

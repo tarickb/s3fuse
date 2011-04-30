@@ -9,6 +9,8 @@
 
 #include "fs.hh"
 
+using namespace std;
+
 namespace
 {
   int g_mountpoint_mode = 0755;
@@ -38,7 +40,7 @@ int s3_chown(const char *path, uid_t uid, gid_t gid)
   S3_DEBUG("s3_chown", "path: %s, user: %i, group: %i\n", path, uid, gid);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->change_metadata(path + 1, -1, uid, gid);
+  return g_fs->change_owner(path + 1, uid, gid);
 }
 
 int s3_chmod(const char *path, mode_t mode)
@@ -46,7 +48,7 @@ int s3_chmod(const char *path, mode_t mode)
   S3_DEBUG("s3_chmod", "path: %s, mode: %i\n", path, mode);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->change_metadata(path + 1, mode, -1, -1);
+  return g_fs->change_mode(path + 1, mode);
 }
 
 int s3_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, fuse_file_info *file_info)
@@ -62,7 +64,7 @@ int s3_mkdir(const char *path, mode_t mode)
   S3_DEBUG("s3_mkdir", "path: %s, mode: %#o\n", path, mode);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->create_object(path + 1, mode | S_IFDIR);
+  return g_fs->create_directory(path + 1, mode);
 }
 
 int s3_create(const char *path, mode_t mode, fuse_file_info *file_info)
@@ -72,7 +74,7 @@ int s3_create(const char *path, mode_t mode, fuse_file_info *file_info)
   S3_DEBUG("s3_create", "path: %s, mode: %#o\n", path, mode);
   ASSERT_LEADING_SLASH(path);
 
-  r = g_fs->create_object(path + 1, mode | S_IFREG);
+  r = g_fs->create_file(path + 1, mode);
 
   if (r)
     return r;
@@ -163,6 +165,42 @@ int s3_rename(const char *from, const char *to)
   return g_fs->rename_object(from + 1, to + 1);
 }
 
+int s3_utimens(const char *path, const timespec times[2])
+{
+  S3_DEBUG("s3_utimens", "path: %s, time: %li\n", path, times[1].tv_sec);
+  ASSERT_LEADING_SLASH(path);
+
+  return g_fs->change_mtime(path + 1, times[1].tv_sec);
+}
+
+int s3_symlink(const char *target, const char *path)
+{
+  S3_DEBUG("s3_symlink", "path: %s, target: %s\n", path, target);
+  ASSERT_LEADING_SLASH(path);
+
+  return g_fs->create_symlink(path + 1, target);
+}
+
+int s3_readlink(const char *path, char *buffer, size_t max_size)
+{
+  string target;
+  int r;
+
+  S3_DEBUG("s3_readlink", "path: %s, max_size: %zu\n", path, max_size);
+  ASSERT_LEADING_SLASH(path);
+
+  r = g_fs->read_symlink(path + 1, &target);
+
+  if (r)
+    return r;
+
+  if (target.size() < max_size)
+    max_size = target.size();
+
+  target.copy(buffer, max_size);
+  return 0;
+}
+
 int main(int argc, char **argv)
 {
   int r;
@@ -180,11 +218,14 @@ int main(int argc, char **argv)
   opers.open = s3_open;
   opers.read = s3_read;
   opers.readdir = s3_readdir;
+  opers.readlink = s3_readlink;
   opers.release = s3_release;
   opers.rename = s3_rename;
   opers.rmdir = s3_rmdir;
+  opers.symlink = s3_symlink;
   opers.truncate = s3_truncate;
   opers.unlink = s3_unlink;
+  opers.utimens = s3_utimens;
   opers.write = s3_write;
 
   g_fs = new s3::fs();

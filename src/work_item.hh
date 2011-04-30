@@ -38,7 +38,7 @@ namespace s3
     }
 
   private:
-    friend class worker_thread;
+    friend class worker_thread; // for exec(), on_timeout()
 
     inline void exec(const boost::shared_ptr<request> &r)
     {
