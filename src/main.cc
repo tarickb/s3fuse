@@ -93,7 +93,7 @@ int s3_read(const char *path, char *buffer, size_t size, off_t offset, fuse_file
   S3_DEBUG("s3_read", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->read(buffer, size, offset, file_info->fh);
+  return g_fs->read(file_info->fh, buffer, size, offset);
 }
 
 int s3_write(const char *path, const char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
@@ -101,7 +101,7 @@ int s3_write(const char *path, const char *buffer, size_t size, off_t offset, fu
   S3_DEBUG("s3_write", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->write(buffer, size, offset, file_info->fh);
+  return g_fs->write(file_info->fh, buffer, size, offset);
 }
 
 int s3_flush(const char *path, fuse_file_info *file_info)
@@ -187,7 +187,7 @@ int main(int argc, char **argv)
   opers.unlink = s3_unlink;
   opers.write = s3_write;
 
-  g_fs = new s3::fs("test-0");
+  g_fs = new s3::fs();
 
   r = fuse_main(argc, argv, &opers, NULL);
 

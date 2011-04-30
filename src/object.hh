@@ -2,6 +2,7 @@
 #define S3_OBJECT_HH
 
 #include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
 

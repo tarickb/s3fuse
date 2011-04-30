@@ -1,64 +1,64 @@
 #ifndef S3_OBJECT_CACHE_HH
 #define S3_OBJECT_CACHE_HH
 
-#include <sys/time.h>
-
-#include <iostream>
 #include <map>
 #include <string>
 #include <boost/thread.hpp>
 
-#ifndef S3_LOGGING_HH
-  #error include logging.hh before this file.
-#endif
-
 #include "object.hh"
+#include "thread_pool.hh"
 
 namespace s3
 {
+  class request;
+
+  enum cache_hints
+  {
+    HINT_NONE    = 0x0,
+    HINT_IS_DIR  = 0x1,
+    HINT_IS_FILE = 0x2
+  };
+
   class object_cache
   {
   public:
-    inline object_cache()
-      : _hits(0),
-        _misses(0),
-        _expiries(0)
-    { }
+    object_cache(const thread_pool::ptr &pool);
+    ~object_cache();
 
-    inline ~object_cache()
+    inline object::ptr get(const std::string &path, int hints = HINT_NONE)
     {
-      uint64_t total = _hits + _misses + _expiries;
+      object::ptr obj;
 
-      if (total == 0)
-        total = 1; // avoid NaNs below
+      ASYNC_CALL_NORETURN(_pool, object_cache, fetch, path, hints, &obj);
 
-      S3_DEBUG(
-        "object_cache::~object_cache", 
-        "hits: %" PRIu64 " (%.02f%%), misses: %" PRIu64 " (%.02f%%), expiries: %" PRIu64 " (%.02f%%)\n", 
-        _hits,
-        double(_hits) / double(total) * 100.0,
-        _misses,
-        double(_misses) / double(total) * 100.0,
-        _expiries,
-        double(_expiries) / double(total) * 100.0);
+      return obj;
     }
 
-    inline const boost::shared_ptr<object> & get(const std::string &path)
+    inline object::ptr get(const boost::shared_ptr<request> &req, const std::string &path, int hints = HINT_NONE)
     {
       boost::mutex::scoped_lock lock(_mutex);
-      const boost::shared_ptr<object> &object = _cache[path];
+      object::ptr obj = _cache[path];
 
-      if (!object)
+      lock.unlock();
+
+      if (!obj) {
         _misses++;
-      else if (!object->is_valid())
-        _expiries++;
-      else
-        _hits++;
 
-      return object;
+      } else if (!obj->is_valid()) {
+        _expiries++;
+        obj.reset();
+
+      } else {
+        _hits++;
+      }
+
+      if (!obj)
+        ASYNC_CALL_DIRECT(req, object_cache, fetch, path, hints, &obj);
+
+      return obj;
     }
 
-    inline void set(const std::string &path, const boost::shared_ptr<object> &object)
+    inline void set(const std::string &path, const object::ptr &object)
     {
       boost::mutex::scoped_lock lock(_mutex);
 
@@ -73,11 +73,13 @@ namespace s3
     }
 
   private:
-    typedef boost::shared_ptr<object> object_ptr;
-    typedef std::map<std::string, object_ptr> cache_map;
+    typedef std::map<std::string, object::ptr> cache_map;
+
+    ASYNC_DECL(fetch, const std::string &path, int hints, object::ptr *obj);
 
     cache_map _cache;
     boost::mutex _mutex;
+    thread_pool::ptr _pool;
     uint64_t _hits, _misses, _expiries;
   };
 }

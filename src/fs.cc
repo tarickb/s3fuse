@@ -22,72 +22,38 @@ using namespace s3;
 fs::fs()
   : _prefix_query("/ListBucketResult/CommonPrefixes/Prefix"),
     _key_query("/ListBucketResult/Contents"),
-    _fg_thread_pool("fs-fg"),
-    _bg_thread_pool("fs-bg"),
-    _next_open_file_handle(0)
+    _tp_fg(new thread_pool("fs-fg")),
+    _tp_bg(new thread_pool("fs-bg")),
+    _object_cache(_tp_fg),
+    _open_file_cache(_tp_fg)
 {
 }
 
-fs::~fs()
+ASYNC_DEF(fs, prefill_stats, const string &path, int hints)
 {
-}
-
-object::ptr fs::get_object(const request::ptr &req, const string &path, int hints)
-{
-  object::ptr obj = _object_cache.get(path);
-
-  if (!obj || !obj->is_valid()) {
-    obj.reset(new object(path));
-
-    req->init(HTTP_HEAD);
-    req->set_target_object(obj);
-
-    if (hints == HINT_NONE || hints & HINT_IS_DIR) {
-      // see if the path is a directory (trailing /) first
-      req->set_url(object::build_url(path, OT_DIRECTORY));
-      req->run();
-    }
-
-    if (hints & HINT_IS_FILE || req->get_response_code() != 200) {
-      // it's not a directory
-      req->set_url(object::build_url(path, OT_INVALID));
-      req->run();
-    }
-
-    // TODO: check for delete markers?
-
-    if (req->get_response_code() != 200)
-      obj.reset();
-    else
-      _object_cache.set(path, obj);
-  }
-
-  return obj;
-}
-
-ASYNC_DEF(prefill_stats, const string &path, int hints)
-{
-  get_object(req, path, hints);
+  _object_cache.get(req, path, hints);
 
   return 0;
 }
 
-ASYNC_DEF(get_stats, const string &path, struct stat *s, int hints)
+ASYNC_DEF(fs, get_stats, const string &path, struct stat *s, int hints)
 {
   object::ptr obj;
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = get_object(req, path, hints);
+  obj = _object_cache.get(req, path, hints);
 
   if (!obj)
     return -ENOENT;
 
   if (s)
     obj->copy_stat(s);
+
+  return 0;
 }
 
-ASYNC_DEF(rename_object, const std::string &from, const std::string &to)
+ASYNC_DEF(fs, rename_object, const std::string &from, const std::string &to)
 {
   object::ptr obj;
   string to_url;
@@ -95,14 +61,14 @@ ASYNC_DEF(rename_object, const std::string &from, const std::string &to)
   ASSERT_NO_TRAILING_SLASH(from);
   ASSERT_NO_TRAILING_SLASH(to);
 
-  obj = get_object(req, from);
+  obj = _object_cache.get(req, from);
 
   if (!obj)
     return -ENOENT;
 
   // TODO: check if directory has children!
 
-  if (get_object(req, to))
+  if (_object_cache.get(req, to))
     return -EEXIST;
 
   to_url = object::build_url(to, obj->get_type());
@@ -122,13 +88,13 @@ ASYNC_DEF(rename_object, const std::string &from, const std::string &to)
   return remove_object(req, obj);
 }
 
-ASYNC_DEF(change_metadata, const std::string &path, mode_t mode, uid_t uid, gid_t gid)
+ASYNC_DEF(fs, change_metadata, const std::string &path, mode_t mode, uid_t uid, gid_t gid)
 {
   object::ptr obj;
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = get_object(req, path);
+  obj = _object_cache.get(req, path);
 
   if (!obj)
     return -ENOENT;
@@ -161,15 +127,12 @@ ASYNC_DEF(change_metadata, const std::string &path, mode_t mode, uid_t uid, gid_
   return 0;
 }
 
-ASYNC_DEF(read_directory, const std::string &_path, fuse_fill_dir_t filler, void *buf)
+ASYNC_DEF(fs, read_directory, const std::string &_path, fuse_fill_dir_t filler, void *buf)
 {
   size_t path_len;
   string marker = "";
   bool truncated = true;
   string path;
-
-  // TODO: use worker threads to call get_stats in parallel!
-  // TODO: openssl locking?
 
   ASSERT_NO_TRAILING_SLASH(_path);
 
@@ -208,7 +171,7 @@ ASYNC_DEF(read_directory, const std::string &_path, fuse_fill_dir_t filler, void
 
       S3_DEBUG("fs::read_directory", "found common prefix [%s]\n", relative_path.c_str());
 
-      ASYNC_CALL_NONBLOCK_BG(prefill_stats, full_path, HINT_IS_DIR);
+      ASYNC_CALL_NONBLOCK(_tp_bg, fs, prefill_stats, full_path, HINT_IS_DIR);
       filler(buf, relative_path.c_str(), NULL, 0);
     }
 
@@ -221,7 +184,7 @@ ASYNC_DEF(read_directory, const std::string &_path, fuse_fill_dir_t filler, void
 
         S3_DEBUG("fs::read_directory", "found key [%s]\n", relative_path.c_str());
 
-        ASYNC_CALL_NONBLOCK_BG(prefill_stats, full_path, HINT_IS_FILE);
+        ASYNC_CALL_NONBLOCK(_tp_bg, fs, prefill_stats, full_path, HINT_IS_FILE);
         filler(buf, relative_path.c_str(), NULL, 0);
       }
     }
@@ -230,13 +193,13 @@ ASYNC_DEF(read_directory, const std::string &_path, fuse_fill_dir_t filler, void
   return 0;
 }
 
-ASYNC_DEF(create_object, const std::string &path, mode_t mode)
+ASYNC_DEF(fs, create_object, const std::string &path, mode_t mode)
 {
   object::ptr obj;
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  if (get_object(req, path)) {
+  if (_object_cache.get(req, path)) {
     S3_DEBUG("fs::create_object", "attempt to overwrite object at path %s.\n", path.c_str());
     return -EEXIST;
   }
@@ -256,6 +219,7 @@ ASYNC_DEF(create_object, const std::string &path, mode_t mode)
   return 0;
 }
 
+/*
 ASYNC_DEF(open, const std::string &path, uint64_t *context)
 {
   string url;
@@ -470,11 +434,14 @@ int fs::flush(const request::ptr &req, const handle_ptr &handle)
 
   return (req->get_response_code() == 200) ? 0 : -EIO;
 }
+*/
 
 int fs::remove_object(const request::ptr &req, const object::ptr &obj)
 {
   req->init(HTTP_DELETE);
   req->set_url(obj->get_url());
+
+  // TODO: obviously (OBVIOUSLY!) this should check if obj is a directory
 
   req->run();
 
@@ -483,13 +450,13 @@ int fs::remove_object(const request::ptr &req, const object::ptr &obj)
   return (req->get_response_code() == 204) ? 0 : -EIO;
 }
 
-ASYNC_DEF(remove_object, const std::string &path)
+ASYNC_DEF(fs, remove_object, const std::string &path)
 {
   object::ptr obj;
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = get_object(path);
+  obj = _object_cache.get(req, path, HINT_NONE);
 
   return obj ? remove_object(req, obj) : -ENOENT;
 }
