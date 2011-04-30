@@ -34,24 +34,19 @@ fs::fs()
 {
 }
 
-int fs::remove_object(const request::ptr &req, const object::ptr &obj)
+int fs::remove_object(const request::ptr &req, const string &url)
 {
-  if (obj->get_type() == OT_DIRECTORY && !is_directory_empty(req, obj->get_path()))
-    return -ENOTEMPTY;
-
   req->init(HTTP_DELETE);
-  req->set_url(obj->get_url());
+  req->set_url(url);
 
   req->run();
-
-  _object_cache.remove(obj->get_path());
 
   return (req->get_response_code() == 204) ? 0 : -EIO;
 }
 
 int fs::rename_children(const string &from, const string &to)
 {
-  return 0;
+  return -EIO;
 }
 
 bool fs::is_directory_empty(const request::ptr &req, const string &path)
@@ -110,7 +105,6 @@ int fs::__get_stats(const request::ptr &req, const string &path, struct stat *s,
 int fs::__rename_object(const request::ptr &req, const std::string &from, const std::string &to)
 {
   object::ptr obj;
-  string to_url;
   int r;
 
   ASSERT_NO_TRAILING_SLASH(from);
@@ -124,28 +118,28 @@ int fs::__rename_object(const request::ptr &req, const std::string &from, const 
   if (_object_cache.get(req, to))
     return -EEXIST;
 
-  if (obj->get_type() == OT_DIRECTORY) {
-    r = rename_children(from, to);
+  if (obj->get_type() == OT_DIRECTORY)
+    return rename_children(from, to);
 
-    if (r)
-      return r;
-  }
+  r = copy_file(req, from, to);
 
-  to_url = object::build_url(to, obj->get_type());
+  if (r)
+    return r;
 
+  _object_cache.remove(from);
+  return remove_object(req, obj->get_url());
+}
+
+int fs::copy_file(const request::ptr &req, const string &from, const string &to)
+{
   req->init(HTTP_PUT);
-  req->set_url(to_url);
-  req->set_header("Content-Type", obj->get_content_type());
-  req->set_header("x-amz-copy-source", obj->get_url());
-  req->set_header("x-amz-copy-source-if-match", obj->get_etag());
+  req->set_url(object::build_url(to, OT_FILE));
+  req->set_header("x-amz-copy-source", object::build_url(from, OT_FILE));
   req->set_header("x-amz-metadata-directive", "COPY");
 
   req->run();
 
-  if (req->get_response_code() != 200)
-    return -EIO;
-
-  return remove_object(req, obj);
+  return (req->get_response_code() == 200) ? 0 : -EIO;
 }
 
 int fs::__change_metadata(const request::ptr &req, const std::string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime)
@@ -290,7 +284,14 @@ int fs::__remove_object(const request::ptr &req, const std::string &path)
 
   obj = _object_cache.get(req, path, HINT_NONE);
 
-  return obj ? remove_object(req, obj) : -ENOENT;
+  if (!obj)
+    return -ENOENT;
+
+  if (obj->get_type() == OT_DIRECTORY && !is_directory_empty(req, obj->get_path()))
+    return -ENOTEMPTY;
+
+  _object_cache.remove(path);
+  return remove_object(req, obj->get_url());
 }
 
 int fs::__read_symlink(const request::ptr &req, const std::string &path, std::string *target)

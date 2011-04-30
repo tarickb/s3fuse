@@ -139,7 +139,6 @@ void object::request_process_response(request *req)
   _stat.st_mode  |= get_mode_by_type(_type);
   _stat.st_nlink  = 1; // laziness (see FUSE FAQ re. find)
 
-  // covers the case where _reference_mtime == 0
   if (_mtime_etag != _etag && req->get_last_modified() > _stat.st_mtime)
     _stat.st_mtime = req->get_last_modified();
 
