@@ -58,6 +58,8 @@ namespace s3
 
     inline bool is_valid() { return (_local_file || (_expiry > 0 && time(NULL) < _expiry)); }
 
+    inline void invalidate() { _expiry = 0; } 
+
     const std::string & get_url() { return _url; }
 
     inline void copy_stat(struct stat *s)

@@ -29,7 +29,7 @@ object_cache::~object_cache()
     double(_expiries) / double(total) * 100.0);
 }
 
-ASYNC_DEF(object_cache, fetch, const std::string &path, int hints, object::ptr *_obj)
+int object_cache::__fetch(const request::ptr &req, const std::string &path, int hints, object::ptr *_obj)
 {
   object::ptr &obj = *_obj;
 

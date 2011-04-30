@@ -15,9 +15,13 @@ namespace s3
   public:
     open_file_cache(const boost::shared_ptr<thread_pool> &pool);
 
-    inline int open(const boost::shared_ptr<object> &obj, uint64_t *handle) { ASYNC_CALL(_pool, open_file_cache, open, obj, handle); }
-    inline int close(uint64_t handle) { ASYNC_CALL(_pool, open_file_cache, close, handle); }
-    inline int flush(uint64_t handle) { ASYNC_CALL(_pool, open_file_cache, flush, handle); }
+    inline int open(const boost::shared_ptr<object> &obj, uint64_t *handle)
+    { 
+      return _pool->call(boost::bind(&open_file_cache::__open, this, _1, obj, handle)); 
+    }
+
+    inline int close(uint64_t handle) { return flush(handle, true); }
+    inline int flush(uint64_t handle) { return flush(handle, false); }
 
     int write(uint64_t handle, const char *buffer, size_t size, off_t offset);
     int read(uint64_t handle, char *buffer, size_t size, off_t offset);
@@ -43,9 +47,10 @@ namespace s3
     typedef boost::shared_ptr<open_file> open_file_ptr;
     typedef std::map<uint64_t, open_file_ptr> open_file_map;
 
-    ASYNC_DECL(open, const boost::shared_ptr<object> &obj, uint64_t *handle);
-    ASYNC_DECL(close, uint64_t handle);
-    ASYNC_DECL(flush, uint64_t handle);
+    int flush(uint64_t handle, bool close_when_done);
+
+    int __open(const request_ptr &req, const boost::shared_ptr<object> &obj, uint64_t *handle);
+    int __flush(const request_ptr &req, const boost::shared_ptr<object> &obj);
 
     boost::mutex _mutex;
     open_file_map _files;

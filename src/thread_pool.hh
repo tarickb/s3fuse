@@ -13,41 +13,13 @@
 
 #include "work_item.hh"
 
-#define ASYNC_CALL(pool, ns, fn, ...) \
-  do { \
-    work_item::ptr wi(new work_item(boost::bind(&ns::__ ## fn, this, _1, ## __VA_ARGS__))); \
-    \
-    (pool)->post(wi); \
-    return wi->wait(); \
-  } while (0)
-
-#define ASYNC_CALL_NORETURN(pool, ns, fn, ...) \
-  do { \
-    work_item::ptr wi(new work_item(boost::bind(&ns::__ ## fn, this, _1, ## __VA_ARGS__))); \
-    \
-    (pool)->post(wi); \
-    wi->wait(); \
-  } while (0)
-
-#define ASYNC_CALL_NONBLOCK(pool, ns, fn, ...) \
-  do { \
-    work_item::ptr wi(new work_item(boost::bind(&ns::__ ## fn, this, _1, ## __VA_ARGS__))); \
-    \
-    (pool)->post(wi); \
-  } while (0)
-
-#define ASYNC_CALL_DIRECT(req, ns, fn, ...) \
-  do { \
-    ns::__ ## fn(req, ## __VA_ARGS__); \
-  } while (0)
-
-#define ASYNC_DECL(fn, ...) int __ ## fn (const boost::shared_ptr<request> &req, ## __VA_ARGS__);
-#define ASYNC_DEF(ns, fn, ...) int ns::__ ## fn (const boost::shared_ptr<request> &req, ## __VA_ARGS__)
-
 namespace s3
 {
   class request;
   class worker_thread;
+
+  // for convenience
+  typedef boost::shared_ptr<request> request_ptr;
 
   class thread_pool
   {
@@ -59,6 +31,19 @@ namespace s3
 
     thread_pool(const std::string &id, int num_threads = DEFAULT_NUM_THREADS);
     ~thread_pool();
+
+    inline int call(const work_item::worker_function &fn)
+    {
+      work_item::ptr wi(new work_item(fn));
+
+      post(wi);
+      return wi->wait();
+    }
+
+    inline void call_async(const work_item::worker_function &fn)
+    {
+      post(work_item::ptr(new work_item(fn)));
+    }
 
     void post(const work_item::ptr &wi, int timeout_in_s = DEFAULT_TIMEOUT_IN_S);
 

@@ -42,6 +42,7 @@ namespace
   string g_url_prefix = "https://s3.amazonaws.com";
   string g_aws_key = "AKIAJZHNXBKNRCUMV4IQ";
   string g_aws_secret = "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";
+  bool g_verbose_requests = false;
 }
 
 request::request()
@@ -59,9 +60,8 @@ request::request()
 
   // stuff that's set in the ctor shouldn't be modified elsewhere, since the cache call to reset() won't reset it
 
-  // TODO: make optional
   // TODO: check for errors
-  curl_easy_setopt(_curl, CURLOPT_VERBOSE, false);
+  curl_easy_setopt(_curl, CURLOPT_VERBOSE, g_verbose_requests);
   curl_easy_setopt(_curl, CURLOPT_NOPROGRESS, true);
   curl_easy_setopt(_curl, CURLOPT_FOLLOWLOCATION, true);
   curl_easy_setopt(_curl, CURLOPT_ERRORBUFFER, _curl_error);
@@ -71,7 +71,7 @@ request::request()
   curl_easy_setopt(_curl, CURLOPT_NOSIGNAL, true);
 }
 
-request::~request() // shouldn't get called
+request::~request()
 {
   curl_easy_cleanup(_curl);
 
@@ -86,7 +86,7 @@ request::~request() // shouldn't get called
 
 void request::reset()
 {
-  // this gets called at construction and by the cache to reset the request state
+  // this gets called by init() to reset the request state
 
   _curl_error[0] = '\0';
   _url.clear();

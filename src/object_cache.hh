@@ -27,33 +27,20 @@ namespace s3
 
     inline object::ptr get(const std::string &path, int hints = HINT_NONE)
     {
-      object::ptr obj;
+      object::ptr obj = find(path);
 
-      ASYNC_CALL_NORETURN(_pool, object_cache, fetch, path, hints, &obj);
+      if (!obj)
+        _pool->call(boost::bind(&object_cache::__fetch, this, _1, path, hints, &obj));
 
       return obj;
     }
 
     inline object::ptr get(const boost::shared_ptr<request> &req, const std::string &path, int hints = HINT_NONE)
     {
-      boost::mutex::scoped_lock lock(_mutex);
-      object::ptr obj = _cache[path];
-
-      lock.unlock();
-
-      if (!obj) {
-        _misses++;
-
-      } else if (!obj->is_valid()) {
-        _expiries++;
-        obj.reset();
-
-      } else {
-        _hits++;
-      }
+      object::ptr obj = find(path);
 
       if (!obj)
-        ASYNC_CALL_DIRECT(req, object_cache, fetch, path, hints, &obj);
+        __fetch(req, path, hints, &obj);
 
       return obj;
     }
@@ -75,7 +62,26 @@ namespace s3
   private:
     typedef std::map<std::string, object::ptr> cache_map;
 
-    ASYNC_DECL(fetch, const std::string &path, int hints, object::ptr *obj);
+    inline object::ptr find(const std::string &path)
+    {
+      boost::mutex::scoped_lock lock(_mutex);
+      object::ptr &obj = _cache[path];
+
+      if (!obj) {
+        _misses++;
+
+      } else if (!obj->is_valid()) {
+        _expiries++;
+        obj.reset();
+
+      } else {
+        _hits++;
+      }
+
+      return obj;
+    }
+
+    int __fetch(const request_ptr &req, const std::string &path, int hints, object::ptr *obj);
 
     cache_map _cache;
     boost::mutex _mutex;

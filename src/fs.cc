@@ -29,14 +29,14 @@ fs::fs()
 {
 }
 
-ASYNC_DEF(fs, prefill_stats, const string &path, int hints)
+int fs::__prefill_stats(const request::ptr &req, const string &path, int hints)
 {
   _object_cache.get(req, path, hints);
 
   return 0;
 }
 
-ASYNC_DEF(fs, get_stats, const string &path, struct stat *s, int hints)
+int fs::__get_stats(const request::ptr &req, const string &path, struct stat *s, int hints)
 {
   object::ptr obj;
 
@@ -53,7 +53,7 @@ ASYNC_DEF(fs, get_stats, const string &path, struct stat *s, int hints)
   return 0;
 }
 
-ASYNC_DEF(fs, rename_object, const std::string &from, const std::string &to)
+int fs::__rename_object(const request::ptr &req, const std::string &from, const std::string &to)
 {
   object::ptr obj;
   string to_url;
@@ -88,7 +88,7 @@ ASYNC_DEF(fs, rename_object, const std::string &from, const std::string &to)
   return remove_object(req, obj);
 }
 
-ASYNC_DEF(fs, change_metadata, const std::string &path, mode_t mode, uid_t uid, gid_t gid)
+int fs::__change_metadata(const request::ptr &req, const std::string &path, mode_t mode, uid_t uid, gid_t gid)
 {
   object::ptr obj;
 
@@ -127,7 +127,7 @@ ASYNC_DEF(fs, change_metadata, const std::string &path, mode_t mode, uid_t uid, 
   return 0;
 }
 
-ASYNC_DEF(fs, read_directory, const std::string &_path, fuse_fill_dir_t filler, void *buf)
+int fs::__read_directory(const request::ptr &req, const std::string &_path, fuse_fill_dir_t filler, void *buf)
 {
   size_t path_len;
   string marker = "";
@@ -171,7 +171,7 @@ ASYNC_DEF(fs, read_directory, const std::string &_path, fuse_fill_dir_t filler, 
 
       S3_DEBUG("fs::read_directory", "found common prefix [%s]\n", relative_path.c_str());
 
-      ASYNC_CALL_NONBLOCK(_tp_bg, fs, prefill_stats, full_path, HINT_IS_DIR);
+      _tp_bg->call_async(bind(&fs::__prefill_stats, this, _1, full_path, HINT_IS_DIR));
       filler(buf, relative_path.c_str(), NULL, 0);
     }
 
@@ -184,7 +184,7 @@ ASYNC_DEF(fs, read_directory, const std::string &_path, fuse_fill_dir_t filler, 
 
         S3_DEBUG("fs::read_directory", "found key [%s]\n", relative_path.c_str());
 
-        ASYNC_CALL_NONBLOCK(_tp_bg, fs, prefill_stats, full_path, HINT_IS_FILE);
+        _tp_bg->call_async(bind(&fs::__prefill_stats, this, _1, full_path, HINT_IS_FILE));
         filler(buf, relative_path.c_str(), NULL, 0);
       }
     }
@@ -193,7 +193,7 @@ ASYNC_DEF(fs, read_directory, const std::string &_path, fuse_fill_dir_t filler, 
   return 0;
 }
 
-ASYNC_DEF(fs, create_object, const std::string &path, mode_t mode)
+int fs::__create_object(const request::ptr &req, const std::string &path, mode_t mode)
 {
   object::ptr obj;
 
@@ -219,114 +219,6 @@ ASYNC_DEF(fs, create_object, const std::string &path, mode_t mode)
   return 0;
 }
 
-/*
-ASYNC_DEF(flush, uint64_t context)
-{
-  mutex::scoped_lock lock(_open_files_mutex);
-  handle_map::iterator itor = _open_files.find(context);
-  handle_ptr handle;
-  int r = 0;
-
-  // TODO: this is very similar to close() below
-
-  if (itor == _open_files.end())
-    return -EINVAL;
-
-  handle = itor->second;
-
-  if (handle->status & FS_IN_USE)
-    return -EBUSY;
-
-  if (handle->status & FS_FLUSHING)
-    return 0; // another thread is closing this file
-
-  handle->status |= FS_FLUSHING;
-  lock.unlock();
-
-  if (handle->status & FS_DIRTY)
-    r = flush(req, handle);
-
-  lock.lock();
-  handle->status &= ~FS_FLUSHING;
-
-  if (!r)
-    handle->status &= ~FS_DIRTY;
-
-  return r;
-}
-
-ASYNC_DEF(close, uint64_t context)
-{
-  mutex::scoped_lock lock(_open_files_mutex);
-  handle_map::iterator itor = _open_files.find(context);
-  handle_ptr handle;
-  int r = 0;
-
-  if (itor == _open_files.end())
-    return -EINVAL;
-
-  // TODO: this code has been duplicated far too many times
-  handle = itor->second;
-
-  if (handle->status & FS_IN_USE || handle->status & FS_FLUSHING)
-    return -EBUSY;
-
-  handle->status |= FS_FLUSHING;
-  lock.unlock();
-
-  if (handle->status & FS_DIRTY)
-    r = flush(req, handle);
-
-  lock.lock();
-  handle->status &= ~FS_FLUSHING;
-
-  if (!r) {
-    handle->status &= ~FS_DIRTY;
-    _open_files.erase(itor);
-  }
-
-  _stats_cache.remove(handle->path);
-
-  return r;
-}
-
-int fs::flush(const request::ptr &req, const handle_ptr &handle)
-{
-  string url;
-  struct stat s;
-
-  S3_DEBUG("fs::flush", "file %s needs to be written.\n", handle->path.c_str());
-
-  url = _bucket + "/" + util::url_encode(handle->path);
-
-  if (fflush(handle->local_fd))
-    return -errno;
-
-  if (fstat(fileno(handle->local_fd), &s))
-    return -errno;
-
-  S3_DEBUG("fs::flush", "writing %zu bytes to path %s.\n", static_cast<size_t>(s.st_size), handle->path.c_str());
-
-  rewind(handle->local_fd);
-
-  req->init(HTTP_PUT);
-  req->set_url(url);
-  req->set_header("Content-Type", handle->content_type);
-  req->set_header("Content-MD5", util::compute_md5_base64(handle->local_fd));
-
-  // TODO: set mtime?
-
-  for (string_map::const_iterator itor = handle->metadata.begin(); itor != handle->metadata.end(); ++itor)
-    req->set_header(itor->first, itor->second);
-
-  req->set_input_file(handle->local_fd, s.st_size);
-
-  req->run();
-
-  return (req->get_response_code() == 200) ? 0 : -EIO;
-}
-*/
-
 int fs::remove_object(const request::ptr &req, const object::ptr &obj)
 {
   req->init(HTTP_DELETE);
@@ -341,7 +233,7 @@ int fs::remove_object(const request::ptr &req, const object::ptr &obj)
   return (req->get_response_code() == 204) ? 0 : -EIO;
 }
 
-ASYNC_DEF(fs, remove_object, const std::string &path)
+int fs::__remove_object(const request::ptr &req, const std::string &path)
 {
   object::ptr obj;
 
