@@ -36,6 +36,9 @@ fs::fs()
 
 int fs::remove_object(const request::ptr &req, const object::ptr &obj)
 {
+  if (obj->get_type() == OT_DIRECTORY && !is_directory_empty(req, obj->get_path()))
+    return -ENOTEMPTY;
+
   req->init(HTTP_DELETE);
   req->set_url(obj->get_url());
 
@@ -46,6 +49,35 @@ int fs::remove_object(const request::ptr &req, const object::ptr &obj)
   _object_cache.remove(obj->get_path());
 
   return (req->get_response_code() == 204) ? 0 : -EIO;
+}
+
+bool fs::is_directory_empty(const request::ptr &req, const std::string &path)
+{
+  xml_document doc;
+  xml_parse_result res;
+  xpath_node_set keys;
+
+  ASSERT_NO_TRAILING_SLASH(path);
+
+  // root directory may be empty, but we won't allow its removal
+  if (path.empty())
+    return false;
+
+  req->init(HTTP_GET);
+
+  // set max-keys to two because GET will always return the path we request
+  // note the trailing slash on path
+  req->set_url(object::get_bucket_url(), string("prefix=") + util::url_encode(path) + "/&max-keys=2");
+  req->run();
+
+  // if the request fails, assume the directory's not empty
+  if (req->get_response_code() != 200)
+    return false;
+
+  res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+  keys = _key_query.evaluate_node_set(doc);
+
+  return (keys.size() == 1);
 }
 
 int fs::__prefill_stats(const request::ptr &req, const string &path, int hints)
@@ -173,6 +205,7 @@ int fs::__read_directory(const request::ptr &req, const std::string &_path, fuse
     req->set_url(object::get_bucket_url(), string("delimiter=/&prefix=") + util::url_encode(path) + "&marker=" + marker);
     req->run();
 
+    // TODO: check res?
     res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
 
     truncated = (strcmp(doc.document_element().child_value("IsTruncated"), "true") == 0);

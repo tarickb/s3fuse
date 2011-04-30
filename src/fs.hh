@@ -98,6 +98,7 @@ namespace s3
     }
 
     int remove_object(const request_ptr &req, const object::ptr &obj);
+    bool is_directory_empty(const request_ptr &req, const std::string &path);
 
     int __change_metadata  (const request_ptr &req, const std::string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime);
     int __create_object    (const request_ptr &req, const std::string &path, object_type type, mode_t mode, const std::string &symlink_target);
