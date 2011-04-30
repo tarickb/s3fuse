@@ -56,7 +56,7 @@ namespace s3
     inline const std::string & get_content_type() { return _content_type; }
     inline const std::string & get_etag() { return _etag; }
 
-    inline bool is_valid() { return (_local_file || (_expiry > 0 && _expiry <= time(NULL))); }
+    inline bool is_valid() { return (_local_file || (_expiry > 0 && time(NULL) < _expiry)); }
 
     const std::string & get_url() { return _url; }
 
