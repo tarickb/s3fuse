@@ -220,60 +220,6 @@ ASYNC_DEF(fs, create_object, const std::string &path, mode_t mode)
 }
 
 /*
-ASYNC_DEF(open, const std::string &path, uint64_t *context)
-{
-  string url;
-  FILE *temp_file;
-  handle_ptr handle;
-
-  ASSERT_NO_TRAILING_SLASH(path);
-
-  url = _bucket + "/" + util::url_encode(path);
-  temp_file = tmpfile();
-
-  if (!temp_file)
-    return -errno;
-
-  req->init(HTTP_GET);
-  req->set_url(url);
-  req->set_output_file(temp_file);
-
-  req->run();
-
-  if (req->get_response_code() != 200) {
-    fclose(temp_file);
-    return (req->get_response_code() == 404) ? -ENOENT : -EIO;
-  }
-
-  fflush(temp_file);
-
-  handle.reset(new file_handle);
-
-  handle->status = FS_NONE;
-  handle->path = path;
-  handle->etag = req->get_response_header("ETag");
-  handle->content_type = req->get_response_header("Content-Type");
-  handle->local_fd = temp_file;
-
-  std::string pfx = "x-amz-meta-";
-
-  // TODO: keep only one copy of this, in a shared_ptr, in request
-  for (string_map::const_iterator itor = req->get_response_headers().begin(); itor != req->get_response_headers().end(); ++itor)
-    if (itor->first.substr(0, pfx.size()) == pfx)
-      handle->metadata[itor->first] = itor->second;
-
-  {
-    mutex::scoped_lock lock(_open_files_mutex);
-
-    *context = _next_open_file_handle++;
-    _open_files[*context] = handle;
-  }
-
-  S3_DEBUG("fs::open", "opened file %s with context %" PRIu64 ".\n", path.c_str(), *context);
-
-  return 0;
-}
-
 ASYNC_DEF(flush, uint64_t context)
 {
   mutex::scoped_lock lock(_open_files_mutex);
@@ -340,61 +286,6 @@ ASYNC_DEF(close, uint64_t context)
   }
 
   _stats_cache.remove(handle->path);
-
-  return r;
-}
-
-int fs::read(char *buffer, size_t size, off_t offset, uint64_t context)
-{
-  mutex::scoped_lock lock(_open_files_mutex);
-  handle_map::iterator itor = _open_files.find(context);
-  handle_ptr handle;
-  int r;
-
-  if (itor == _open_files.end())
-    return -EINVAL;
-
-  handle = itor->second;
-
-  if (handle->status & FS_FLUSHING)
-    return -EBUSY;
-
-  handle->status |= FS_IN_USE;
-  lock.unlock();
-
-  r = pread(fileno(handle->local_fd), buffer, size, offset);
-
-  lock.lock();
-  handle->status &= ~FS_IN_USE;
-
-  return r;
-}
-
-int fs::write(const char *buffer, size_t size, off_t offset, uint64_t context)
-{
-  mutex::scoped_lock lock(_open_files_mutex);
-  handle_map::iterator itor = _open_files.find(context);
-  handle_ptr handle;
-  int r;
-
-  if (itor == _open_files.end()) {
-    S3_DEBUG("fs::write", "cannot find file with context %" PRIu64 ".\n", context);
-    return -EINVAL;
-  }
-
-  handle = itor->second;
-
-  if (handle->status & FS_FLUSHING)
-    return -EBUSY;
-
-  handle->status |= FS_IN_USE;
-  lock.unlock();
-
-  r = pwrite(fileno(handle->local_fd), buffer, size, offset);
-
-  lock.lock();
-  handle->status &= ~FS_IN_USE;
-  handle->status |= FS_DIRTY;
 
   return r;
 }

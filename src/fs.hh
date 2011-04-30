@@ -33,13 +33,7 @@ namespace s3
     inline int remove_directory(const std::string &path) { ASYNC_CALL(_tp_fg, fs, remove_object, path); }
     inline int rename_object(const std::string &from, const std::string &to) { ASYNC_CALL(_tp_fg, fs, rename_object, from, to); }
 
-    inline int open(const std::string &path, uint64_t *handle)
-    {
-      object::ptr obj = _object_cache.get(path);
-
-      return obj ? _open_file_cache.open(obj, handle) : -ENOENT;
-    }
-
+    inline int open(const std::string &path, uint64_t *handle) { return _open_file_cache.open(_object_cache.get(path), handle); }
     inline int close(uint64_t handle) { return _open_file_cache.close(handle); }
     inline int flush(uint64_t handle) { return _open_file_cache.flush(handle); }
     inline int read(uint64_t handle, char *buffer, size_t size, off_t offset) { return _open_file_cache.read(handle, buffer, size, offset); }

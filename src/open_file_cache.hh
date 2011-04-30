@@ -3,38 +3,7 @@
 
 #include <boost/thread.hpp>
 
-// TODO: remove
-/*
-
-object::get_open_file() -> open_file::ptr
-
-open_file_cache::get(string path)
-open_file_cache::get(uint64_t context)
-
-minimize locking:
-
-lock on:
-  - open file
-  - close file
-  - write/mark dirty
-  - state transitions
-
-file does:
-  - copy to tmp
-  - copy from tmp
-  - read/write
-
-notes:
-- create an open_file object
-  - contains FILE *, uint64_t context (probably just "this")
-  - object::set_open_file() (can be NULL)
-- open_file_cache maps uint64_t to object
-  - interface for read, write, open, close, flush
-  - using its own lock (per-file?)
-
-open_file_cache _cache;
-
-*/
+#include "thread_pool.hh"
 
 namespace s3
 {
@@ -46,13 +15,12 @@ namespace s3
   public:
     open_file_cache(const boost::shared_ptr<thread_pool> &pool);
 
-    int open(const boost::shared_ptr<object> &obj, uint64_t *handle);
-    int close(uint64_t handle);
+    inline int open(const boost::shared_ptr<object> &obj, uint64_t *handle) { ASYNC_CALL(_pool, open_file_cache, open, obj, handle); }
+    inline int close(uint64_t handle) { ASYNC_CALL(_pool, open_file_cache, close, handle); }
+    inline int flush(uint64_t handle) { ASYNC_CALL(_pool, open_file_cache, flush, handle); }
 
     int write(uint64_t handle, const char *buffer, size_t size, off_t offset);
     int read(uint64_t handle, char *buffer, size_t size, off_t offset);
-
-    int flush(uint64_t handle);
 
   private:
     enum file_status
@@ -68,12 +36,19 @@ namespace s3
       // TODO: move FILE * to this struct rather than object?
       boost::shared_ptr<object> obj;
       int status;
+
+      open_file(const boost::shared_ptr<object> &obj_) : obj(obj_) { }
     };
 
-    typedef std::map<uint64_t, open_file> open_file_map;
+    typedef boost::shared_ptr<open_file> open_file_ptr;
+    typedef std::map<uint64_t, open_file_ptr> open_file_map;
+
+    ASYNC_DECL(open, const boost::shared_ptr<object> &obj, uint64_t *handle);
+    ASYNC_DECL(close, uint64_t handle);
+    ASYNC_DECL(flush, uint64_t handle);
 
     boost::mutex _mutex;
-    open_file_map _map;
+    open_file_map _files;
     boost::shared_ptr<thread_pool> _pool;
     uint64_t _next_handle;
   };
