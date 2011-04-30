@@ -42,8 +42,6 @@ int fs::remove_object(const request::ptr &req, const object::ptr &obj)
   req->init(HTTP_DELETE);
   req->set_url(obj->get_url());
 
-  // TODO: obviously (OBVIOUSLY!) this should check if obj is a directory
-
   req->run();
 
   _object_cache.remove(obj->get_path());
@@ -51,7 +49,12 @@ int fs::remove_object(const request::ptr &req, const object::ptr &obj)
   return (req->get_response_code() == 204) ? 0 : -EIO;
 }
 
-bool fs::is_directory_empty(const request::ptr &req, const std::string &path)
+int fs::rename_children(const string &from, const string &to)
+{
+  return 0;
+}
+
+bool fs::is_directory_empty(const request::ptr &req, const string &path)
 {
   xml_document doc;
   xml_parse_result res;
@@ -108,6 +111,7 @@ int fs::__rename_object(const request::ptr &req, const std::string &from, const 
 {
   object::ptr obj;
   string to_url;
+  int r;
 
   ASSERT_NO_TRAILING_SLASH(from);
   ASSERT_NO_TRAILING_SLASH(to);
@@ -117,10 +121,15 @@ int fs::__rename_object(const request::ptr &req, const std::string &from, const 
   if (!obj)
     return -ENOENT;
 
-  // TODO: check if directory has children!
-
   if (_object_cache.get(req, to))
     return -EEXIST;
+
+  if (obj->get_type() == OT_DIRECTORY) {
+    r = rename_children(from, to);
+
+    if (r)
+      return r;
+  }
 
   to_url = object::build_url(to, obj->get_type());
 
@@ -175,8 +184,6 @@ int fs::__change_metadata(const request::ptr &req, const std::string &path, mode
     S3_DEBUG("fs::change_metadata", "response: %s\n", req->get_response_data().c_str());
     return -EIO;
   }
-
-  // TODO: do we need to remove the object from the cache?
 
   return 0;
 }
