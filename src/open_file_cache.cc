@@ -18,6 +18,8 @@ int open_file_cache::__open(const request::ptr &req, const object::ptr &obj, uin
 {
   FILE *temp_file;
 
+  // TODO: check if file is already open, and return existing handle
+
   if (!obj)
     return -ENOENT;
 
@@ -25,6 +27,8 @@ int open_file_cache::__open(const request::ptr &req, const object::ptr &obj, uin
 
   if (!temp_file)
     return -errno;
+
+  // TODO: run download in parallel?
 
   req->init(HTTP_GET);
   req->set_url(obj->get_url());
@@ -168,6 +172,8 @@ int open_file_cache::__flush(const request::ptr &req, const object::ptr &obj)
   S3_DEBUG("open_file_cache::__flush", "writing %zu bytes to path %s.\n", static_cast<size_t>(s.st_size), obj->get_path().c_str());
 
   rewind(f);
+
+  // TODO: use multipart uploads?
 
   req->init(HTTP_PUT);
   req->set_url(obj->get_url());

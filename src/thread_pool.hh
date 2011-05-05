@@ -32,6 +32,8 @@ namespace s3
     thread_pool(const std::string &id, int num_threads = DEFAULT_NUM_THREADS);
     ~thread_pool();
 
+    // TODO: move condition and mutex into thread_pool (so that we don't have one set for each work_item)
+
     inline int call(const work_item::worker_function &fn)
     {
       work_item::ptr wi(new work_item(fn));

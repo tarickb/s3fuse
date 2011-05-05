@@ -97,8 +97,9 @@ namespace s3
       return _tp_fg->call(boost::bind(&fs::__change_metadata, this, _1, path, mode, uid, gid, mtime));
     }
 
-    int copy_file(const request_ptr &req, const std::string &from, const std::string &to);
     bool is_directory_empty(const request_ptr &req, const std::string &path);
+
+    int copy_file(const request_ptr &req, const std::string &from, const std::string &to);
     int remove_object(const request_ptr &req, const std::string &url);
     int rename_children(const std::string &from, const std::string &to);
 
