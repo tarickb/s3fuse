@@ -13,13 +13,16 @@ namespace s3
   class open_file_cache
   {
   public:
+    // TODO: this should take the background pool
     open_file_cache(const boost::shared_ptr<thread_pool> &pool);
 
+    // TODO: request must be passed in!
     inline int open(const boost::shared_ptr<object> &obj, uint64_t *handle)
     { 
       return _pool->call(boost::bind(&open_file_cache::__open, this, _1, obj, handle)); 
     }
 
+    // TODO: need request!
     inline int close(uint64_t handle) { return flush(handle, true); }
     inline int flush(uint64_t handle) { return flush(handle, false); }
 

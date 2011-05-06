@@ -46,6 +46,9 @@ bool worker_thread::check_timeout()
 
 void worker_thread::worker()
 {
+  // TODO: maybe this should hold a shared_ptr to itself? that way this thread won't destruct until this loop completes
+  // TODO: on the other hand.. this should only be deleted when the process is shutting down
+
   while (_pool) {
     thread_pool::queue_item item = _pool->get_next_queue_item();
 

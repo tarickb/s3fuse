@@ -15,16 +15,21 @@
 
 namespace s3
 {
+  class _async_handle;
+  class queue_item;
   class request;
   class worker_thread;
+
+  typedef boost::shared_ptr<_async_handle> async_handle;
 
   // for convenience
   typedef boost::shared_ptr<request> request_ptr;
 
-  class thread_pool
+  class thread_pool : public boost::enable_shared_from_this<thread_pool>
   {
   public:
     typedef boost::shared_ptr<thread_pool> ptr;
+    typedef boost::function1<int, boost::shared_ptr<request> > worker_function;
 
     static const int DEFAULT_NUM_THREADS = 8;
     static const int DEFAULT_TIMEOUT_IN_S = 30;
@@ -32,51 +37,34 @@ namespace s3
     thread_pool(const std::string &id, int num_threads = DEFAULT_NUM_THREADS);
     ~thread_pool();
 
-    // TODO: move condition and mutex into thread_pool (so that we don't have one set for each work_item)
-
-    inline int call(const work_item::worker_function &fn)
+    inline int call(const worker_function &fn)
     {
-      work_item::ptr wi(new work_item(fn));
-
-      post(wi);
-      return wi->wait();
+      return wait(post(fn));
     }
 
-    inline void call_async(const work_item::worker_function &fn)
+    inline void call_async(const worker_function &fn)
     {
-      post(work_item::ptr(new work_item(fn)));
+      post(fn);
     }
 
-    void post(const work_item::ptr &wi, int timeout_in_s = DEFAULT_TIMEOUT_IN_S);
+    int wait(const async_handle &handle);
+
+    async_handle post(const worker_function &fn, int timeout_in_s = DEFAULT_TIMEOUT_IN_S);
 
   private:
-    friend class worker_thread; // for queue_item, get_next_queue_item()
+    friend class worker_thread; // for on_done(), get_next_queue_item()
 
     typedef boost::shared_ptr<worker_thread> wt_ptr;
     typedef std::list<wt_ptr> wt_list;
 
-    class queue_item
-    {
-    public:
-      inline queue_item() : _timeout(0) {}
-      inline queue_item(const work_item::ptr &wi, time_t timeout) : _wi(wi), _timeout(timeout) {}
-
-      inline bool is_valid() { return (_timeout > 0); }
-      inline const work_item::ptr & get_work_item() { return _wi; }
-      inline time_t get_timeout() { return _timeout; }
-
-    private:
-      work_item::ptr _wi;
-      time_t _timeout;
-    };
-
     queue_item get_next_queue_item();
+    void on_done(const async_handle &ah, int return_code);
     void watchdog();
 
     std::deque<queue_item> _queue;
     wt_list _threads;
-    boost::mutex _mutex;
-    boost::condition _condition;
+    boost::mutex _list_mutex, _ah_mutex;
+    boost::condition _list_condition, _ah_condition;
     boost::scoped_ptr<boost::thread> _watchdog_thread;
     std::string _id;
     bool _done;
