@@ -37,13 +37,10 @@ namespace s3
 
     static ptr create(const thread_pool::ptr &pool)
     {
-      ptr wt(new _worker_thread());
+      ptr wt(new _worker_thread(pool));
 
       // passing "wt", a shared_ptr, for "this" keeps the object alive so long as worker() hasn't returned
       wt->_thread.reset(new thread(bind(&_worker_thread::worker, wt)));
-      wt->_pool = pool;
-      wt->_request.reset(new request());
-      wt->_timeout = 0;
 
       return wt;
     }
@@ -67,7 +64,11 @@ namespace s3
     }
 
   private:
-    _worker_thread() { }
+    _worker_thread(const thread_pool::ptr &pool)
+      : _pool(pool),
+        _request(new request()),
+        _timeout(0)
+    { }
 
     void worker()
     {
@@ -85,16 +86,14 @@ namespace s3
 
           lock.unlock();
 
-          if (!pool) {
-            S3_DEBUG("_worker_thread::worker", "thread pool pointer no longer valid. exiting.\n");
-            return;
-          }
+          if (!pool)
+            break;
 
           item = pool->get_next_queue_item();
         }
 
         if (!item.is_valid())
-          return;
+          break;
 
         lock.lock();
 
@@ -128,7 +127,8 @@ namespace s3
         _timeout = 0;
       }
 
-      S3_DEBUG("_worker_thread::worker", "exiting.\n");
+      // the boost::thread in _thread holds a shared_ptr to this, and will keep it from being destructed
+      _thread.reset();
     }
 
     weak_ptr<thread_pool> _pool;
@@ -147,22 +147,6 @@ thread_pool::thread_pool(const string &id)
 {
 }
 
-thread_pool::~thread_pool()
-{
-  {
-    mutex::scoped_lock lock(_list_mutex);
-
-    _done = true;
-    _list_condition.notify_all();
-  }
-
-  // shut down watchdog first so it doesn't use _threads
-  _watchdog_thread->join();
-  _threads.clear();
-
-  S3_DEBUG("thread_pool::~thread_pool", "[%s] respawn counter: %i.\n", _id.c_str(), _respawn_counter);
-}
-
 thread_pool::ptr thread_pool::create(const string &id, int num_threads)
 {
   thread_pool::ptr tp(new thread_pool(id));
@@ -173,6 +157,24 @@ thread_pool::ptr thread_pool::create(const string &id, int num_threads)
   tp->_watchdog_thread.reset(new thread(bind(&thread_pool::watchdog, tp.get())));
 
   return tp;
+}
+
+void thread_pool::terminate()
+{
+  mutex::scoped_lock lock(_list_mutex);
+
+  _done = true;
+  _list_condition.notify_all();
+  lock.unlock();
+
+  // shut watchdog down first so it doesn't use _threads
+  _watchdog_thread->join();
+  _threads.clear();
+
+  // give the threads precisely one second to clean up (and print debug info), otherwise skip them and move on
+  usleep(1e6);
+
+  S3_DEBUG("thread_pool::terminate", "[%s] respawn counter: %i.\n", _id.c_str(), _respawn_counter);
 }
 
 _queue_item thread_pool::get_next_queue_item()
@@ -206,7 +208,7 @@ void thread_pool::on_done(const async_handle &ah, int return_code)
 
 async_handle thread_pool::post(const worker_function &fn, int timeout_in_s)
 {
-  async_handle ah;
+  async_handle ah(new _async_handle());
   mutex::scoped_lock lock(_list_mutex);
 
   _queue.push_back(_queue_item(fn, ah, time(NULL) + timeout_in_s));
@@ -243,6 +245,6 @@ void thread_pool::watchdog()
       _threads.push_back(_worker_thread::create(shared_from_this()));
 
     _respawn_counter += respawn;
-    sleep(1);
+    usleep(1e6);
   }
 }

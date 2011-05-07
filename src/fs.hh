@@ -23,6 +23,7 @@ namespace s3
   {
   public:
     fs();
+    ~fs();
 
     inline int get_stats(const std::string &path, struct stat *s)
     {

@@ -34,6 +34,12 @@ fs::fs()
 {
 }
 
+fs::~fs()
+{
+  _tp_fg->terminate();
+  _tp_bg->terminate();
+}
+
 int fs::remove_object(const request::ptr &req, const string &url)
 {
   req->init(HTTP_DELETE);

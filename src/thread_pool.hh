@@ -35,8 +35,6 @@ namespace s3
 
     static ptr create(const std::string &id, int num_threads = DEFAULT_NUM_THREADS);
 
-    ~thread_pool();
-
     inline int call(const worker_function &fn)
     {
       return wait(post(fn));
@@ -48,8 +46,8 @@ namespace s3
     }
 
     int wait(const async_handle &handle);
-
     async_handle post(const worker_function &fn, int timeout_in_s = DEFAULT_TIMEOUT_IN_S);
+    void terminate();
 
   private:
     friend class _worker_thread; // for on_done(), get_next_queue_item()
