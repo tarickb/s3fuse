@@ -16,7 +16,6 @@
 #include "open_file_cache.hh"
 #include "request.hh"
 #include "thread_pool.hh"
-#include "work_item.hh"
 
 namespace s3
 {

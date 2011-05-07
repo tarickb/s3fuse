@@ -27,8 +27,8 @@ namespace
 fs::fs()
   : _prefix_query("/ListBucketResult/CommonPrefixes/Prefix"),
     _key_query("/ListBucketResult/Contents"),
-    _tp_fg(new thread_pool("fs-fg")),
-    _tp_bg(new thread_pool("fs-bg")),
+    _tp_fg(thread_pool::create("fs-fg")),
+    _tp_bg(thread_pool::create("fs-bg")),
     _object_cache(_tp_fg),
     _open_file_cache(_tp_fg)
 {
