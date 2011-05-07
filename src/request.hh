@@ -41,7 +41,11 @@ namespace s3
 
     inline void set_header(const std::string &name, const std::string &value) { _headers[name] = value; }
 
-    void set_output_file(FILE *f);
+    inline void set_output_file(FILE *f, off_t offset = 0)
+    {
+      _output_file = f;
+      _output_offset = offset;
+    }
 
     void set_input_file(FILE *f, size_t size);
     void set_input_data(const std::string &s);
@@ -63,6 +67,7 @@ namespace s3
 
   private:
     static size_t process_header(char *data, size_t size, size_t items, void *context);
+    static size_t process_output(char *data, size_t size, size_t items, void *context);
     static size_t read_request_data(char *data, size_t size, size_t items, void *context);
 
     void reset();
@@ -78,6 +83,9 @@ namespace s3
     std::string _request_data, _response_data;
     header_map _response_headers;
     size_t _request_data_pos;
+
+    FILE *_output_file;
+    off_t _output_offset;
 
     boost::shared_ptr<object> _target_object;
 

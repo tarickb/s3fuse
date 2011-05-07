@@ -85,9 +85,21 @@ namespace s3
       return _tp_fg->call(boost::bind(&fs::__read_symlink, this, _1, path, target));
     }
 
-    inline int open(const std::string &path, uint64_t *handle) { return _open_file_cache.open(_object_cache.get(path), handle); }
-    inline int close(uint64_t handle) { return _open_file_cache.close(handle); }
-    inline int flush(uint64_t handle) { return _open_file_cache.flush(handle); }
+    inline int open(const std::string &path, uint64_t *handle)
+    {
+      return _tp_fg->call(boost::bind(&fs::__open, this, _1, path, handle));
+    }
+
+    inline int close(uint64_t handle)
+    {
+      return _tp_fg->call(boost::bind(&fs::__close, this, _1, handle));
+    }
+
+    inline int flush(uint64_t handle)
+    {
+      return _tp_fg->call(boost::bind(&fs::__flush, this, _1, handle));
+    }
+
     inline int read(uint64_t handle, char *buffer, size_t size, off_t offset) { return _open_file_cache.read(handle, buffer, size, offset); }
     inline int write(uint64_t handle, const char *buffer, size_t size, off_t offset) { return _open_file_cache.write(handle, buffer, size, offset); }
 
@@ -97,20 +109,24 @@ namespace s3
       return _tp_fg->call(boost::bind(&fs::__change_metadata, this, _1, path, mode, uid, gid, mtime));
     }
 
-    bool is_directory_empty(const request_ptr &req, const std::string &path);
-
-    int copy_file(const request_ptr &req, const std::string &from, const std::string &to);
-    int remove_object(const request_ptr &req, const std::string &url);
     int rename_children(const std::string &from, const std::string &to);
 
-    int __change_metadata  (const request_ptr &req, const std::string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime);
-    int __create_object    (const request_ptr &req, const std::string &path, object_type type, mode_t mode, const std::string &symlink_target);
-    int __get_stats        (const request_ptr &req, const std::string &path, struct stat *s, int hints);
-    int __prefill_stats    (const request_ptr &req, const std::string &path, int hints);
-    int __read_directory   (const request_ptr &req, const std::string &path, fuse_fill_dir_t filler, void *buf);
-    int __read_symlink     (const request_ptr &req, const std::string &path, std::string *target);
-    int __remove_object    (const request_ptr &req, const std::string &path);
-    int __rename_object    (const request_ptr &req, const std::string &from, const std::string &to);
+    inline int __open(const request_ptr &req, const std::string &path, uint64_t *handle) { return _open_file_cache.open(req, _object_cache.get(path), handle); }
+    inline int __close(const request_ptr &req, uint64_t handle) { return _open_file_cache.close(req, handle); }
+    inline int __flush(const request_ptr &req, uint64_t handle) { return _open_file_cache.flush(req, handle); }
+
+    int  copy_file         (const request_ptr &req, const std::string &from, const std::string &to);
+    int  remove_object     (const request_ptr &req, const std::string &url);
+    bool is_directory_empty(const request_ptr &req, const std::string &path);
+
+    int  __change_metadata (const request_ptr &req, const std::string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime);
+    int  __create_object   (const request_ptr &req, const std::string &path, object_type type, mode_t mode, const std::string &symlink_target);
+    int  __get_stats       (const request_ptr &req, const std::string &path, struct stat *s, int hints);
+    int  __prefill_stats   (const request_ptr &req, const std::string &path, int hints);
+    int  __read_directory  (const request_ptr &req, const std::string &path, fuse_fill_dir_t filler, void *buf);
+    int  __read_symlink    (const request_ptr &req, const std::string &path, std::string *target);
+    int  __remove_object   (const request_ptr &req, const std::string &path);
+    int  __rename_object   (const request_ptr &req, const std::string &from, const std::string &to);
 
     pugi::xpath_query _prefix_query;
     pugi::xpath_query _key_query;

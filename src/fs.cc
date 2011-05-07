@@ -30,7 +30,7 @@ fs::fs()
     _tp_fg(thread_pool::create("fs-fg")),
     _tp_bg(thread_pool::create("fs-bg")),
     _object_cache(_tp_fg),
-    _open_file_cache(_tp_fg)
+    _open_file_cache(_tp_bg)
 {
 }
 

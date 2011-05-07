@@ -24,13 +24,6 @@ using namespace s3;
 
 namespace
 {
-  size_t append_to_string(char *data, size_t size, size_t items, void *context)
-  {
-    static_cast<string *>(context)->append(data, size * items);
-
-    return size * items;
-  }
-
   size_t null_readdata(void *, size_t, size_t, void *)
   {
     return 0;
@@ -66,6 +59,8 @@ request::request()
   curl_easy_setopt(_curl, CURLOPT_FILETIME, true);
   curl_easy_setopt(_curl, CURLOPT_HEADERFUNCTION, &request::process_header);
   curl_easy_setopt(_curl, CURLOPT_HEADERDATA, this);
+  curl_easy_setopt(_curl, CURLOPT_WRITEFUNCTION, &request::process_output);
+  curl_easy_setopt(_curl, CURLOPT_WRITEDATA, this);
   curl_easy_setopt(_curl, CURLOPT_NOSIGNAL, true);
 }
 
@@ -141,11 +136,12 @@ size_t request::read_request_data(char *data, size_t size, size_t items, void *c
 size_t request::process_header(char *data, size_t size, size_t items, void *context)
 {
   request *req = static_cast<request *>(context);
-  size_t full_size = size * items;
   char *pos;
 
-  if (data[full_size] != '\0')
-    return size * items; // we choose not to handle the case where data isn't null-terminated
+  size *= items;
+
+  if (data[size] != '\0')
+    return size; // we choose not to handle the case where data isn't null-terminated
 
   pos = strchr(data, '\n');
 
@@ -161,7 +157,7 @@ size_t request::process_header(char *data, size_t size, size_t items, void *cont
   pos = strchr(data, ':');
 
   if (!pos)
-    return full_size; // no colon means it's not a header we care about
+    return size; // no colon means it's not a header we care about
 
   *pos++ = '\0';
 
@@ -173,7 +169,31 @@ size_t request::process_header(char *data, size_t size, size_t items, void *cont
   else
     req->_response_headers[data] = pos;
 
-  return full_size;
+  return size;
+}
+
+size_t request::process_output(char *data, size_t size, size_t items, void *context)
+{
+  request *req = static_cast<request *>(context);
+  ssize_t rc;
+
+  // why even bother with "items"?
+  size *= items;
+
+  if (req->_output_file) {
+    rc = pwrite(fileno(req->_output_file), data, size, req->_output_offset);
+
+    if (rc == -1)
+      return 0;
+
+    req->_output_offset += rc;
+    return rc;
+
+  } else {
+    req->_response_data.append(data, size);
+
+    return size;
+  }
 }
 
 void request::set_url(const string &url, const string &query_string)
@@ -187,17 +207,6 @@ void request::set_url(const string &url, const string &query_string)
 
   _url = url;
   curl_easy_setopt(_curl, CURLOPT_URL, curl_url.c_str());
-}
-
-void request::set_output_file(FILE *f)
-{
-  if (f) {
-    curl_easy_setopt(_curl, CURLOPT_WRITEFUNCTION, NULL);
-    curl_easy_setopt(_curl, CURLOPT_WRITEDATA, f);
-  } else {
-    curl_easy_setopt(_curl, CURLOPT_WRITEFUNCTION, append_to_string);
-    curl_easy_setopt(_curl, CURLOPT_WRITEDATA, &_response_data);
-  }
 }
 
 void request::set_input_data(const std::string &s)

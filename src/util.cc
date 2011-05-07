@@ -49,35 +49,59 @@ string util::sign(const std::string &key, const std::string &data)
   return base64_encode(hmac_md5, hmac_md5_len);
 }
 
-string util::compute_md5_base64(FILE *f)
+string util::compute_md5(int fd, off_t offset, ssize_t size, md5_output_type type)
 {
-  const size_t buf_len = 8 * 1024;
+  const ssize_t buf_len = 8 * 1024;
 
   EVP_MD_CTX md5_ctx;
   char buf[buf_len];
   uint8_t md5_buf[EVP_MAX_MD_SIZE];
   unsigned int md5_len = 0;
-  size_t read_count = 0;
+
+  if (size == 0 && offset == 0)
+    size = -1;
 
   EVP_DigestInit(&md5_ctx, EVP_md5());
-  fseek(f, 0, SEEK_SET);
 
   while (true) {
-    read_count = fread(buf, 1, buf_len, f);
+    ssize_t read_bytes, read_count;
+
+    read_bytes = (size == -1 || size > buf_len) ? buf_len : size;
+    read_count = pread(fd, buf, read_bytes, offset);
+
+    if (read_count == -1)
+      throw runtime_error("error while computing md5, in pread().");
+
     EVP_DigestUpdate(&md5_ctx, buf, read_count);
+    offset += read_count;
 
     if (read_count < buf_len)
       break;
   }
 
-  if (!feof(f))
-    throw runtime_error("error while computing md5.");
-
   EVP_DigestFinal(&md5_ctx, md5_buf, &md5_len);
 
-  fseek(f, 0, SEEK_SET);
+  if (type == MOT_BASE64)
+    return base64_encode(md5_buf, md5_len);
+  else if (type == MOT_HEX)
+    return hex_encode(md5_buf, md5_len);
+  else
+    throw runtime_error("unknown md5 output type.");
+}
 
-  return base64_encode(md5_buf, md5_len);
+string util::hex_encode(const uint8_t *input, size_t size)
+{
+  const char *hex = "0123456789abcdef";
+  string ret;
+
+  ret.resize(size * 2);
+
+  for (size_t i = 0; i < size; i++) {
+    ret[2 * i + 0] = hex[static_cast<uint8_t>(input[i]) / 16];
+    ret[2 * i + 1] = hex[static_cast<uint8_t>(input[i]) % 16];
+  }
+
+  return ret;
 }
 
 string util::url_encode(const std::string &url)

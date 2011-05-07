@@ -16,15 +16,9 @@ namespace s3
     // TODO: this should take the background pool
     open_file_cache(const boost::shared_ptr<thread_pool> &pool);
 
-    // TODO: request must be passed in!
-    inline int open(const boost::shared_ptr<object> &obj, uint64_t *handle)
-    { 
-      return _pool->call(boost::bind(&open_file_cache::__open, this, _1, obj, handle)); 
-    }
-
-    // TODO: need request!
-    inline int close(uint64_t handle) { return flush(handle, true); }
-    inline int flush(uint64_t handle) { return flush(handle, false); }
+    int open(const request_ptr &req, const boost::shared_ptr<object> &obj, uint64_t *handle);
+    inline int close(const request_ptr &req, uint64_t handle) { return flush(req, handle, true); }
+    inline int flush(const request_ptr &req, uint64_t handle) { return flush(req, handle, false); }
 
     int write(uint64_t handle, const char *buffer, size_t size, off_t offset);
     int read(uint64_t handle, char *buffer, size_t size, off_t offset);
@@ -50,10 +44,13 @@ namespace s3
     typedef boost::shared_ptr<open_file> open_file_ptr;
     typedef std::map<uint64_t, open_file_ptr> open_file_map;
 
-    int flush(uint64_t handle, bool close_when_done);
+    int flush(const request_ptr &req, uint64_t handle, bool close_when_done);
 
-    int __open(const request_ptr &req, const boost::shared_ptr<object> &obj, uint64_t *handle);
-    int __flush(const request_ptr &req, const boost::shared_ptr<object> &obj);
+    int __download_part(const request_ptr &req, const std::string &url, FILE *f, off_t offset, size_t size, std::string *etag);
+
+    int download_file_single(const request_ptr &req, const boost::shared_ptr<object> &obj, FILE *f);
+    int download_file_multi(const request_ptr &req, const boost::shared_ptr<object> &obj, FILE *f);
+    int upload_file_single(const request_ptr &req, const boost::shared_ptr<object> &obj);
 
     boost::mutex _mutex;
     open_file_map _files;

@@ -63,16 +63,24 @@ namespace s3
 
     const std::string & get_url() { return _url; }
 
-    inline void copy_stat(struct stat *s)
+    inline size_t get_size()
     {
-      memcpy(s, &_stat, sizeof(_stat));
+      size_t size = _stat.st_size;
 
       if (_local_file) {
         struct stat temp;
 
         if (fstat(fileno(_local_file), &temp) == 0)
-          s->st_size = temp.st_size;
+          size = temp.st_size;
       }
+
+      return size;
+    }
+
+    inline void copy_stat(struct stat *s)
+    {
+      memcpy(s, &_stat, sizeof(_stat));
+      s->st_size = get_size();
     }
 
   private:
