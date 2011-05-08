@@ -10,7 +10,6 @@
 #include <string>
 #include <boost/bind.hpp>
 #include <boost/thread.hpp>
-#include <pugixml/pugixml.hpp>
 
 #include "object_cache.hh"
 #include "open_file_cache.hh"
@@ -128,8 +127,6 @@ namespace s3
     int  __remove_object   (const request_ptr &req, const std::string &path);
     int  __rename_object   (const request_ptr &req, const std::string &from, const std::string &to);
 
-    pugi::xpath_query _prefix_query;
-    pugi::xpath_query _key_query;
     thread_pool::ptr _tp_fg, _tp_bg;
     object_cache _object_cache;
     open_file_cache _open_file_cache;

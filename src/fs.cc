@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <pugixml/pugixml.hpp>
+
 #include "fs.hh"
 #include "request.hh"
 #include "util.hh"
@@ -22,12 +24,13 @@ using namespace s3;
 namespace
 {
   const string SYMLINK_PREFIX = "SYMLINK:";
+
+  const xpath_query PREFIX_QUERY("/ListBucketResult/CommonPrefixes/Prefix");
+  const xpath_query KEY_QUERY("/ListBucketResult/Contents");
 }
 
 fs::fs()
-  : _prefix_query("/ListBucketResult/CommonPrefixes/Prefix"),
-    _key_query("/ListBucketResult/Contents"),
-    _tp_fg(thread_pool::create("fs-fg")),
+  : _tp_fg(thread_pool::create("fs-fg")),
     _tp_bg(thread_pool::create("fs-bg")),
     _object_cache(_tp_fg),
     _open_file_cache(_tp_bg)
@@ -79,7 +82,7 @@ bool fs::is_directory_empty(const request::ptr &req, const string &path)
     return false;
 
   res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
-  keys = _key_query.evaluate_node_set(doc);
+  keys = KEY_QUERY.evaluate_node_set(doc);
 
   return (keys.size() == 1);
 }
@@ -216,8 +219,8 @@ int fs::__read_directory(const request::ptr &req, const std::string &_path, fuse
     res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
 
     truncated = (strcmp(doc.document_element().child_value("IsTruncated"), "true") == 0);
-    prefixes = _prefix_query.evaluate_node_set(doc);
-    keys = _key_query.evaluate_node_set(doc);
+    prefixes = PREFIX_QUERY.evaluate_node_set(doc);
+    keys = KEY_QUERY.evaluate_node_set(doc);
 
     if (truncated)
       marker = doc.document_element().child_value("NextMarker");

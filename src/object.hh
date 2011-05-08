@@ -1,7 +1,6 @@
 #ifndef S3_OBJECT_HH
 #define S3_OBJECT_HH
 
-#include <stdio.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/time.h>
@@ -10,6 +9,7 @@
 #include <string>
 #include <boost/smart_ptr.hpp>
 
+#include "open_file.hh"
 #include "util.hh"
 
 namespace s3
@@ -35,8 +35,7 @@ namespace s3
     inline object(const std::string &path)
       : _type(OT_INVALID),
         _path(path),
-        _expiry(0),
-        _local_file(NULL)
+        _expiry(0)
     { }
 
     void set_defaults(object_type type);
@@ -44,8 +43,8 @@ namespace s3
     inline void set_metadata(const std::string &key, const std::string &value) { _metadata[key] = value; }
     inline const std::string & get_metadata(const std::string &key) { return _metadata[key]; }
 
-    inline void set_local_file(FILE *file) { _local_file = file; }
-    inline FILE * get_local_file() { return _local_file; }
+    inline void set_open_file(const boost::shared_ptr<open_file> &open_file) { _open_file = open_file; }
+    inline const boost::shared_ptr<open_file> & get_open_file() { return _open_file; }
 
     inline void set_uid(uid_t uid) { _stat.st_uid = uid; }
     inline void set_gid(gid_t gid) { _stat.st_gid = gid; }
@@ -57,7 +56,7 @@ namespace s3
     inline const std::string & get_content_type() { return _content_type; }
     inline const std::string & get_etag() { return _etag; }
 
-    inline bool is_valid() { return (_local_file || (_expiry > 0 && time(NULL) < _expiry)); }
+    inline bool is_valid() { return (_open_file || (_expiry > 0 && time(NULL) < _expiry)); }
 
     inline void invalidate() { _expiry = 0; } 
 
@@ -65,16 +64,7 @@ namespace s3
 
     inline size_t get_size()
     {
-      size_t size = _stat.st_size;
-
-      if (_local_file) {
-        struct stat temp;
-
-        if (fstat(fileno(_local_file), &temp) == 0)
-          size = temp.st_size;
-      }
-
-      return size;
+      return _open_file ? _open_file->get_size() : _stat.st_size;
     }
 
     inline void copy_stat(struct stat *s)
@@ -97,8 +87,8 @@ namespace s3
     std::string _path, _url, _content_type, _etag, _mtime_etag;
     time_t _expiry;
     struct stat _stat;
-    FILE *_local_file;
     meta_map _metadata;
+    open_file::ptr _open_file;
   };
 }
 

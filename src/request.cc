@@ -57,11 +57,13 @@ request::request()
   curl_easy_setopt(_curl, CURLOPT_FOLLOWLOCATION, true);
   curl_easy_setopt(_curl, CURLOPT_ERRORBUFFER, _curl_error);
   curl_easy_setopt(_curl, CURLOPT_FILETIME, true);
+  curl_easy_setopt(_curl, CURLOPT_NOSIGNAL, true);
   curl_easy_setopt(_curl, CURLOPT_HEADERFUNCTION, &request::process_header);
   curl_easy_setopt(_curl, CURLOPT_HEADERDATA, this);
   curl_easy_setopt(_curl, CURLOPT_WRITEFUNCTION, &request::process_output);
   curl_easy_setopt(_curl, CURLOPT_WRITEDATA, this);
-  curl_easy_setopt(_curl, CURLOPT_NOSIGNAL, true);
+  curl_easy_setopt(_curl, CURLOPT_READFUNCTION, &request::process_input);
+  curl_easy_setopt(_curl, CURLOPT_READDATA, this);
 }
 
 request::~request()
@@ -81,21 +83,20 @@ void request::init(http_method method)
 {
   _curl_error[0] = '\0';
   _url.clear();
-  _request_data.clear();
-  _request_data_pos = 0;
-  _response_data.clear();
+  _output_data.clear();
   _response_headers.clear();
   _response_code = 0;
   _last_modified = 0;
   _headers.clear();
   _target_object.reset();
 
-  set_input_file(NULL, 0);
-  set_output_file(NULL);
+  set_input_fd();
+  set_output_fd();
 
   curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL);
   curl_easy_setopt(_curl, CURLOPT_UPLOAD, false);
   curl_easy_setopt(_curl, CURLOPT_NOBODY, false);
+  curl_easy_setopt(_curl, CURLOPT_POST, false);
 
   if (method == HTTP_DELETE) {
     _method = "DELETE";
@@ -109,28 +110,16 @@ void request::init(http_method method)
     _method = "HEAD";
     curl_easy_setopt(_curl, CURLOPT_NOBODY, true);
 
+  } else if (method == HTTP_POST) {
+    _method = "POST";
+    curl_easy_setopt(_curl, CURLOPT_POST, true);
+
   } else if (method == HTTP_PUT) {
     _method = "PUT";
     curl_easy_setopt(_curl, CURLOPT_UPLOAD, true);
 
   } else
     throw runtime_error("unsupported HTTP method.");
-}
-
-size_t request::read_request_data(char *data, size_t size, size_t items, void *context)
-{
-  request *req = static_cast<request *>(context);
-  size_t full_size = size * items;
-  size_t remaining = req->_request_data.size() - req->_request_data_pos;
-
-  if (full_size > remaining)
-    full_size = remaining;
-
-  if (remaining > 0)
-    req->_request_data.copy(data, full_size, req->_request_data_pos);
-
-  req->_request_data_pos += full_size;
-  return full_size;
 }
 
 size_t request::process_header(char *data, size_t size, size_t items, void *context)
@@ -175,13 +164,12 @@ size_t request::process_header(char *data, size_t size, size_t items, void *cont
 size_t request::process_output(char *data, size_t size, size_t items, void *context)
 {
   request *req = static_cast<request *>(context);
-  ssize_t rc;
 
   // why even bother with "items"?
   size *= items;
 
-  if (req->_output_file) {
-    rc = pwrite(fileno(req->_output_file), data, size, req->_output_offset);
+  if (req->_output_fd != -1) {
+    ssize_t rc = pwrite(req->_output_fd, data, size, req->_output_offset);
 
     if (rc == -1)
       return 0;
@@ -190,8 +178,37 @@ size_t request::process_output(char *data, size_t size, size_t items, void *cont
     return rc;
 
   } else {
-    req->_response_data.append(data, size);
+    req->_output_data.append(data, size);
 
+    return size;
+  }
+}
+
+size_t request::process_input(char *data, size_t size, size_t items, void *context)
+{
+  request *req = static_cast<request *>(context);
+
+  size *= items;
+
+  if (req->_input_fd != -1) {
+    ssize_t rc = pread(req->_input_fd, data, size, req->_input_offset);
+
+    if (rc == -1)
+      return 0;
+
+    req->_input_offset += rc;
+    return rc;
+
+  } else {
+    size_t remaining = req->_input_data.size() - req->_input_offset;
+
+    if (size > remaining)
+      size = remaining;
+
+    if (remaining)
+      req->_input_data.copy(data, size, req->_input_offset);
+
+    req->_input_offset += size;
     return size;
   }
 }
@@ -209,27 +226,44 @@ void request::set_url(const string &url, const string &query_string)
   curl_easy_setopt(_curl, CURLOPT_URL, curl_url.c_str());
 }
 
-void request::set_input_data(const std::string &s)
+void request::set_output_fd(int fd, off_t offset)
 {
-  _request_data = s;
-  _request_data_pos = 0;
+  if (fd == -1 && offset != 0)
+    throw runtime_error("offset must be zero if an invalid fd is specified.");
 
-  curl_easy_setopt(_curl, CURLOPT_READFUNCTION, read_request_data);
-  curl_easy_setopt(_curl, CURLOPT_READDATA, this);
-  curl_easy_setopt(_curl, CURLOPT_INFILESIZE, s.size());
+  _output_fd = fd;
+  _output_offset = offset;
 }
 
-void request::set_input_file(FILE *f, size_t size)
+void request::set_input_data(const std::string &s)
 {
-  if (f) {
-    curl_easy_setopt(_curl, CURLOPT_READFUNCTION, NULL);
-    curl_easy_setopt(_curl, CURLOPT_READDATA, f);
+  _input_data = s;
+  _input_fd = -1;
+  _input_offset = 0;
+
+  if (_method == "PUT")
+    curl_easy_setopt(_curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(s.size()));
+  else if (_method == "POST")
+    curl_easy_setopt(_curl, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(s.size()));
+  else
+    throw runtime_error("can't set input data for non-POST/non-PUT request.");
+}
+
+void request::set_input_fd(int fd, size_t size, off_t offset)
+{
+  if (fd == -1 && (size != 0 || offset != 0))
+    throw runtime_error("offset and size must be zero if an invalid fd is specified.");
+
+  _input_data.clear();
+  _input_fd = fd;
+  _input_offset = offset;
+
+  if (_method == "PUT")
     curl_easy_setopt(_curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(size));
-  } else {
-    curl_easy_setopt(_curl, CURLOPT_READFUNCTION, null_readdata);
-    curl_easy_setopt(_curl, CURLOPT_READDATA, NULL);
-    curl_easy_setopt(_curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(0));
-  }
+  else if (_method == "POST")
+    curl_easy_setopt(_curl, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(size));
+  else
+    throw runtime_error("can't set input fd for non-POST/non-PUT request.");
 }
 
 void request::build_request_time()
@@ -275,7 +309,7 @@ void request::run()
   if (_method.empty())
     throw runtime_error("call set_method() first!");
 
-  _response_data.clear();
+  _output_data.clear();
   _response_headers.clear();
 
   build_request_time();

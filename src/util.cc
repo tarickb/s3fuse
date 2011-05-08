@@ -49,7 +49,7 @@ string util::sign(const std::string &key, const std::string &data)
   return base64_encode(hmac_md5, hmac_md5_len);
 }
 
-string util::compute_md5(int fd, off_t offset, ssize_t size, md5_output_type type)
+string util::compute_md5(int fd, md5_output_type type, off_t offset, ssize_t size)
 {
   const ssize_t buf_len = 8 * 1024;
 
