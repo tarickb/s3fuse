@@ -6,9 +6,11 @@
 
 #include <string>
 #include <boost/shared_ptr.hpp>
+#include <boost/thread.hpp>
 
 namespace s3
 {
+  class file_transfer;
   class object;
 
   class open_file
@@ -16,7 +18,7 @@ namespace s3
   public:
     typedef boost::shared_ptr<open_file> ptr;
 
-    open_file(const boost::shared_ptr<object> &obj, const std::string &temp_name, int fd, uint64_t handle);
+    open_file(boost::mutex *mutex, const boost::shared_ptr<file_transfer> &ft, const boost::shared_ptr<object> &obj, uint64_t handle);
     ~open_file();
 
     inline size_t get_size()
@@ -34,6 +36,8 @@ namespace s3
     int clone_handle(uint64_t *handle);
 
   private:
+    boost::mutex *_mutex;
+    boost::shared_ptr<file_transfer> _ft;
     boost::shared_ptr<object> _obj;
     std::string _temp_name;
     int _fd;
