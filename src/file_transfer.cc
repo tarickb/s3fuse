@@ -88,11 +88,13 @@ namespace
   }
 }
 
-file_transfer::file_transfer(const thread_pool::ptr &pool)
-  : _pool(pool)
-{ }
+file_transfer::file_transfer(const thread_pool::ptr &tp_fg, const thread_pool::ptr &tp_bg)
+  : _tp_fg(tp_fg),
+    _tp_bg(tp_bg)
+{
+}
 
-int file_transfer::download(const request::ptr &req, const string &url, size_t size, int fd)
+int file_transfer::__download(const request::ptr &req, const string &url, size_t size, int fd)
 {
   int r;
   string expected_md5, computed_md5;
@@ -151,7 +153,7 @@ int file_transfer::download_multi(const string &url, size_t size, int fd, string
 
     S3_DEBUG("file_transfer::download_multi", "downloading %zu bytes at offset %zd for [%s].\n", part->size, part->offset, url.c_str());
 
-    part->handle = _pool->post(bind(&download_part, _1, url, fd, part, (part->id == 0) ? expected_md5 : NULL));
+    part->handle = _tp_bg->post(bind(&download_part, _1, url, fd, part, (part->id == 0) ? expected_md5 : NULL));
     parts_in_progress.push_back(part);
   }
 
@@ -160,7 +162,7 @@ int file_transfer::download_multi(const string &url, size_t size, int fd, string
     int result;
 
     parts_in_progress.pop_front();
-    result = _pool->wait(part->handle);
+    result = _tp_bg->wait(part->handle);
 
     S3_DEBUG("file_transfer::download_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
 
@@ -170,7 +172,7 @@ int file_transfer::download_multi(const string &url, size_t size, int fd, string
       if (part->retry_count > g_max_retries)
         return -EIO;
 
-      part->handle = _pool->post(bind(&download_part, _1, url, fd, part, (part->id == 0) ? expected_md5 : NULL));
+      part->handle = _tp_bg->post(bind(&download_part, _1, url, fd, part, (part->id == 0) ? expected_md5 : NULL));
       parts_in_progress.push_back(part);
 
     } else if (result != 0) {
@@ -181,39 +183,38 @@ int file_transfer::download_multi(const string &url, size_t size, int fd, string
   return 0;
 }
 
-int file_transfer::upload(const request::ptr &req, const object::ptr &obj)
+int file_transfer::__upload(const request::ptr &req, const object::ptr &obj, int fd)
 {
   size_t size;
 
-  if (!fsync(obj->get_open_file()->get_fd()))
+  if (!fsync(fd))
     return -errno;
 
   size = obj->get_size();
   S3_DEBUG("file_transfer::upload", "writing %zu bytes to [%s].\n", size, obj->get_url().c_str());
 
   if (size > g_upload_chunk_size)
-    return upload_multi(req, obj, size);
+    return upload_multi(req, obj, size, fd);
   else
-    return upload_single(req, obj, size);
+    return upload_single(req, obj, size, fd);
 }
 
-int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj, size_t size)
+int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj, size_t size, int fd)
 {
   req->init(HTTP_PUT);
   req->set_url(obj->get_url());
   req->set_meta_headers(obj);
-  req->set_header("Content-MD5", util::compute_md5(obj->get_open_file()->get_fd()));
-  req->set_input_fd(obj->get_open_file()->get_fd(), 0, size);
+  req->set_header("Content-MD5", util::compute_md5(fd));
+  req->set_input_fd(fd, 0, size);
 
   req->run();
 
   return (req->get_response_code() == 200) ? 0 : -EIO;
 }
 
-int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj, size_t size)
+int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj, size_t size, int fd)
 {
   const std::string &url = obj->get_url();
-  int fd = obj->get_open_file()->get_fd();
   string upload_id, complete_upload;
   bool success = true;
   vector<transfer_part> parts((size + g_upload_chunk_size - 1) / g_upload_chunk_size);
@@ -247,7 +248,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
 
     S3_DEBUG("file_transfer::upload_multi", "uploading %zu bytes at offset %zd for [%s].\n", part->size, part->offset, url.c_str());
 
-    part->handle = _pool->post(bind(&upload_part, _1, url, fd, upload_id, part));
+    part->handle = _tp_bg->post(bind(&upload_part, _1, url, fd, upload_id, part));
     parts_in_progress.push_back(part);
   }
 
@@ -256,7 +257,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
     int result;
 
     parts_in_progress.pop_front();
-    result = _pool->wait(part->handle);
+    result = _tp_bg->wait(part->handle);
 
     S3_DEBUG("file_transfer::upload_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
 
@@ -269,7 +270,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
       part->retry_count++;
 
       if (part->retry_count <= g_max_retries) {
-        part->handle = _pool->post(bind(&upload_part, _1, url, fd, upload_id, part));
+        part->handle = _tp_bg->post(bind(&upload_part, _1, url, fd, upload_id, part));
         parts_in_progress.push_back(part);
       }
     }

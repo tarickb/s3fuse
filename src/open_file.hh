@@ -10,17 +10,19 @@
 
 namespace s3
 {
-  class file_transfer;
   class object;
+  class open_file_map;
 
   class open_file
   {
   public:
     typedef boost::shared_ptr<open_file> ptr;
 
-    open_file(boost::mutex *mutex, const boost::shared_ptr<file_transfer> &ft, const boost::shared_ptr<object> &obj, uint64_t handle);
+    // TODO: move to private
+    open_file(open_file_map *map, const boost::shared_ptr<object> &obj, uint64_t handle);
     ~open_file();
 
+    // TODO: give object the fd, and let it call fstat()
     inline size_t get_size()
     {
       struct stat s;
@@ -31,17 +33,21 @@ namespace s3
         return 0;
     }
 
-    inline int get_fd() { return _fd; }
+    int add_reference(uint64_t *handle);
+    bool release();
 
-    int clone_handle(uint64_t *handle);
+    int init();
+    int cleanup();
+
+    int flush();
+    int read(char *buffer, size_t size, off_t offset);
+    int write(const char *buffer, size_t size, off_t offset);
 
   private:
-    boost::mutex *_mutex;
-    boost::shared_ptr<file_transfer> _ft;
+    open_file_map *_map;
     boost::shared_ptr<object> _obj;
-    std::string _temp_name;
-    int _fd;
-    uint64_t _handle;
+    uint64_t _handle, _ref_count;
+    int _fd, _status, _error;
   };
 }
 

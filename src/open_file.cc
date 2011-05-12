@@ -1,6 +1,7 @@
 #include "file_transfer.hh"
 #include "object.hh"
 #include "open_file.hh"
+#include "open_file_map.hh"
 
 using namespace boost;
 using namespace std;
@@ -11,28 +12,29 @@ namespace
 {
   enum file_status
   {
-    FS_INIT     = 0x00,
-    FS_OPENING  = 0x01,
-    FS_OPEN     = 0x02,
-    FS_CLOSING  = 0x04,
-    FS_IN_USE   = 0x08,
-    FS_FLUSHING = 0x10,
-    FS_DIRTY    = 0x20
-  }
+    FS_READY     = 0x01,
+    FS_ZOMBIE    = 0x02,
+    FS_FLUSHABLE = 0x04,
+    FS_WRITEABLE = 0x08,
+    FS_DIRTY     = 0x10
+  };
 }
 
-open_file::open_file(boost::mutex *mutex, const file_transfer::ptr &ft, const object::ptr &obj, uint64_t handle)
-  : _mutex(mutex),
-    _ft(ft),
+open_file::open_file(open_file_map *map, const object::ptr &obj, uint64_t handle)
+  : _map(map),
     _obj(obj),
     _handle(handle),
-    _ref_count(1),
-    _status(0)
+    _ref_count(0),
+    _fd(-1),
+    _status(0),
+    _error(0)
 {
   char temp_name[] = "/tmp/s3fuse.local-XXXXXX";
 
   _fd = mkstemp(temp_name);
-  _temp_name = temp_name;
+
+  // TODO: no unlink in debug mode?
+  // unlink(temp_name);
 
   if (_fd == -1)
     throw runtime_error("error calling mkstemp()");
@@ -40,51 +42,62 @@ open_file::open_file(boost::mutex *mutex, const file_transfer::ptr &ft, const ob
 
 open_file::~open_file()
 {
-  cloae();
-}
-
-void open_file::close()
-{
-  if (_status 
   close(_fd);
-  unlink(_temp_name.c_str());
 }
 
-int open_file::open()
+int open_file::init()
 {
-  mutex::scoped_lock lock(*_mutex);
+  mutex::scoped_lock lock(_map->get_file_status_mutex());
   int r;
 
-  if (_status)
-    return -EBUSY;
+  if (_status & FS_READY)
+    return -EINVAL;
 
-  _status = FS_IN_USE;
   lock.unlock();
-
-  r = _ft->download(_obj->get_url(), _obj->get_size(), _fd);
-
+  r = _map->get_file_transfer()->download(_obj->get_url(), _obj->get_size(), _fd);
   lock.lock();
-  _status = r ? 0 : FS_READY;
+
+  if (r)
+    _error = r;
+
+  _status |= FS_READY | FS_FLUSHABLE | FS_WRITEABLE;
+  _map->get_file_status_condition().notify_all();
 
   return r;
 }
 
-int open_file::clone_handle(uint64_t *handle)
+int open_file::cleanup()
 {
-  mutex::scoped_lock lock(*_mutex);
-
-  if (_ref_count == 0)
+  if (!(_status & FS_ZOMBIE))
     return -EINVAL;
 
-  _ref_count++;
+  return flush();
+}
+
+int open_file::add_reference(uint64_t *handle)
+{
+  mutex::scoped_lock lock(_map->get_file_status_mutex());
+
+  if (_status & FS_ZOMBIE)
+    return -EINVAL;
+
+  if (!(_status & FS_READY)) {
+    while (!(_status & FS_READY))
+      _map->get_file_status_condition().wait(lock);
+
+    if (_error)
+      return _error;
+  }
+
   *handle = _handle;
+  _ref_count++;
 
   return 0;
 }
 
-int open_file::release()
+bool open_file::release()
 {
-  mutex::scoped_lock lock(*_mutex);
+  mutex::scoped_lock lock(_map->get_file_status_mutex());
 
   if (_ref_count == 0)
     return -EINVAL;
@@ -92,75 +105,65 @@ int open_file::release()
   _ref_count--;
 
   if (_ref_count == 0)
-    close();
+    _status |= FS_ZOMBIE;
 
-  return 0;
+  return _status & FS_ZOMBIE;
 }
 
-int open_file::flush(const request_ptr &req)
+int open_file::flush()
 {
-  mutex::scoped_lock lock(*_mutex);
+  mutex::scoped_lock lock(_map->get_file_status_mutex());
   int r;
 
-  if (_status & FS_IN_USE || !(_status & FS_READY))
-    return -EBUSY;
-
-  if (_status & FS_FLUSHING || !(_status & FS_DIRTY))
+  if (!(_status & FS_DIRTY))
     return 0;
 
-  _status |= FS_FLUSHING;
+  // force flush in zombie state even if not flushable
+  if (!(_status & FS_FLUSHABLE) && !(_status & FS_ZOMBIE))
+    return -EBUSY;
+
+  _status &= ~(FS_FLUSHABLE | FS_WRITEABLE);
+
   lock.unlock();
-
-  r = _ft->upload(req, _obj);
-
+  r = _map->get_file_transfer()->upload(_obj, _fd);
   lock.lock();
-  file->status &= ~FS_FLUSHING;
 
-  if (!r)
-    file->status &= ~FS_DIRTY;
+  if (r == 0)
+    _status &= ~FS_DIRTY;
+
+  _status |= FS_FLUSHABLE | FS_WRITEABLE;
 
   return r;
 }
 
 int open_file::write(const char *buffer, size_t size, off_t offset)
 {
-  mutex::scoped_lock lock(*_mutex);
+  mutex::scoped_lock lock(_map->get_file_status_mutex());
   int r;
 
-  if (!_ref_count)
-    return -EINVAL;
-
-  if (_status & FS_FLUSHING || _status & FS_OPENING)
+  if (!(_status & FS_READY) || !(_status & FS_WRITEABLE))
     return -EBUSY;
 
-  _status |= FS_IN_USE;
+  _status &= ~FS_FLUSHABLE;
+
   lock.unlock();
-
   r = pwrite(_fd, buffer, size, offset);
-
   lock.lock();
-  _status &= ~FS_IN_USE;
-  _status |= FS_DIRTY;
+
+  _status |= FS_FLUSHABLE | FS_DIRTY;
 
   return r;
 }
 
 int open_file::read(char *buffer, size_t size, off_t offset)
 {
-  mutex::scoped_lock lock(*_mutex);
-  int r;
+  mutex::scoped_lock lock(_map->get_file_status_mutex());
 
-  if (_status & FS_FLUSHING || _status & FS_OPENING)
+  if (!(_status & FS_READY))
     return -EBUSY;
 
-  _status |= FS_IN_USE;
   lock.unlock();
 
-  r = pread(_fd, buffer, size, offset);
-
-  lock.lock();
-  _status &= ~FS_IN_USE;
-
-  return r;
+  return pread(_fd, buffer, size, offset);
 }
 
