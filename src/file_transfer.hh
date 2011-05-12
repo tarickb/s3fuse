@@ -15,6 +15,8 @@ namespace s3
   class file_transfer
   {
   public:
+    typedef boost::shared_ptr<file_transfer> ptr;
+
     file_transfer(const thread_pool::ptr &tp_fg, const thread_pool::ptr &tp_bg);
 
     inline int download(const std::string &url, size_t size, int fd)

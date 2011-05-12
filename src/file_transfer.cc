@@ -151,7 +151,7 @@ int file_transfer::download_multi(const string &url, size_t size, int fd, string
     part->offset = i * g_download_chunk_size;
     part->size = (i != parts.size()) ? g_download_chunk_size : (size - g_download_chunk_size * i);
 
-    S3_DEBUG("file_transfer::download_multi", "downloading %zu bytes at offset %zd for [%s].\n", part->size, part->offset, url.c_str());
+    S3_DEBUG("file_transfer::download_multi", "downloading %zu bytes at offset %jd for [%s].\n", part->size, static_cast<intmax_t>(part->offset), url.c_str());
 
     part->handle = _tp_bg->post(bind(&download_part, _1, url, fd, part, (part->id == 0) ? expected_md5 : NULL));
     parts_in_progress.push_back(part);
@@ -246,7 +246,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
     part->offset = i * g_upload_chunk_size;
     part->size = (i != parts.size()) ? g_upload_chunk_size : (size - g_upload_chunk_size * i);
 
-    S3_DEBUG("file_transfer::upload_multi", "uploading %zu bytes at offset %zd for [%s].\n", part->size, part->offset, url.c_str());
+    S3_DEBUG("file_transfer::upload_multi", "uploading %zu bytes at offset %jd for [%s].\n", part->size, static_cast<intmax_t>(part->offset), url.c_str());
 
     part->handle = _tp_bg->post(bind(&upload_part, _1, url, fd, upload_id, part));
     parts_in_progress.push_back(part);

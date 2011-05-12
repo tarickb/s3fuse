@@ -63,7 +63,6 @@ void object::set_defaults(object_type type)
   _etag.clear();
   _mtime_etag.clear();
   _expiry = time(NULL) + g_expiry_in_s;
-  _open_file.reset();
   _metadata.clear();
   _url = build_url(_path, _type);
 }
@@ -87,7 +86,6 @@ void object::request_init()
   _etag.clear();
   _mtime_etag.clear();
   _expiry = 0;
-  _open_file.reset();
   _metadata.clear();
   _url.clear();
 }

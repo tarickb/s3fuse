@@ -35,16 +35,14 @@ namespace s3
     inline object(const std::string &path)
       : _type(OT_INVALID),
         _path(path),
-        _expiry(0)
+        _expiry(0),
+        _open_fd(-1)
     { }
 
     void set_defaults(object_type type);
 
     inline void set_metadata(const std::string &key, const std::string &value) { _metadata[key] = value; }
     inline const std::string & get_metadata(const std::string &key) { return _metadata[key]; }
-
-    inline void set_open_file(const boost::shared_ptr<open_file> &open_file) { _open_file = open_file; }
-    inline const boost::shared_ptr<open_file> & get_open_file() { return _open_file; }
 
     inline void set_uid(uid_t uid) { _stat.st_uid = uid; }
     inline void set_gid(gid_t gid) { _stat.st_gid = gid; }
@@ -56,7 +54,7 @@ namespace s3
     inline const std::string & get_content_type() { return _content_type; }
     inline const std::string & get_etag() { return _etag; }
 
-    inline bool is_valid() { return (_open_file || (_expiry > 0 && time(NULL) < _expiry)); }
+    inline bool is_valid() { return (_open_fd != -1 || (_expiry > 0 && time(NULL) < _expiry)); }
 
     inline void invalidate() { _expiry = 0; } 
 
@@ -64,7 +62,14 @@ namespace s3
 
     inline size_t get_size()
     {
-      return _open_file ? _open_file->get_size() : _stat.st_size;
+      if (_open_fd != -1) {
+        struct stat s;
+
+        if (fstat(_open_fd, &s) == 0)
+          return s.st_size;
+      }
+
+      return _stat.st_size;
     }
 
     inline void copy_stat(struct stat *s)
@@ -75,8 +80,23 @@ namespace s3
 
   private:
     friend class request; // for request_*
+    friend class open_file_map; // for set_open_file, get_open_file
 
     typedef std::map<std::string, std::string> meta_map;
+
+    inline const open_file::ptr & get_open_file()
+    {
+      return _open_file;
+    }
+
+    inline void set_open_file(const open_file::ptr &open_file)
+    {
+      // using _open_file requires a lock (which is held by open_file_map).
+      // instead, we'll stick to _open_fd, since operations on it are atomic.
+
+      _open_file = open_file;
+      _open_fd = open_file ? open_file->get_fd() : -1;
+    }
 
     void request_init();
     void request_process_header(const std::string &key, const std::string &value);
@@ -89,6 +109,7 @@ namespace s3
     struct stat _stat;
     meta_map _metadata;
     open_file::ptr _open_file;
+    int _open_fd;
   };
 }
 

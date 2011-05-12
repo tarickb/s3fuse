@@ -6,6 +6,7 @@
 
 #include <pugixml/pugixml.hpp>
 
+#include "file_transfer.hh"
 #include "fs.hh"
 #include "request.hh"
 #include "util.hh"
@@ -33,7 +34,7 @@ fs::fs()
   : _tp_fg(thread_pool::create("fs-fg")),
     _tp_bg(thread_pool::create("fs-bg")),
     _object_cache(_tp_fg),
-    _open_file_cache(_tp_bg)
+    _open_files(file_transfer::ptr(new file_transfer(_tp_fg, _tp_bg)))
 {
 }
 

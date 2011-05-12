@@ -245,7 +245,7 @@ void request::set_input_data(const std::string &s)
     curl_easy_setopt(_curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(s.size()));
   else if (_method == "POST")
     curl_easy_setopt(_curl, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(s.size()));
-  else
+  else if (!s.empty())
     throw runtime_error("can't set input data for non-POST/non-PUT request.");
 }
 
@@ -262,7 +262,7 @@ void request::set_input_fd(int fd, size_t size, off_t offset)
     curl_easy_setopt(_curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(size));
   else if (_method == "POST")
     curl_easy_setopt(_curl, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(size));
-  else
+  else if (size)
     throw runtime_error("can't set input fd for non-POST/non-PUT request.");
 }
 

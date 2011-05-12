@@ -12,7 +12,7 @@
 #include <boost/thread.hpp>
 
 #include "object_cache.hh"
-#include "open_file_cache.hh"
+#include "open_file_map.hh"
 #include "request.hh"
 #include "thread_pool.hh"
 
@@ -84,23 +84,11 @@ namespace s3
       return _tp_fg->call(boost::bind(&fs::__read_symlink, this, _1, path, target));
     }
 
-    inline int open(const std::string &path, uint64_t *handle)
-    {
-      return _tp_fg->call(boost::bind(&fs::__open, this, _1, path, handle));
-    }
-
-    inline int close(uint64_t handle)
-    {
-      return _tp_fg->call(boost::bind(&fs::__close, this, _1, handle));
-    }
-
-    inline int flush(uint64_t handle)
-    {
-      return _tp_fg->call(boost::bind(&fs::__flush, this, _1, handle));
-    }
-
-    inline int read(uint64_t handle, char *buffer, size_t size, off_t offset) { return _open_file_cache.read(handle, buffer, size, offset); }
-    inline int write(uint64_t handle, const char *buffer, size_t size, off_t offset) { return _open_file_cache.write(handle, buffer, size, offset); }
+    inline int open(const std::string &path, uint64_t *handle) { return _open_files.open(_object_cache.get(path), handle); }
+    inline int release(uint64_t handle) { return _open_files.release(handle); }
+    inline int flush(uint64_t handle) { return _open_files.flush(handle); }
+    inline int read(uint64_t handle, char *buffer, size_t size, off_t offset) { return _open_files.read(handle, buffer, size, offset); }
+    inline int write(uint64_t handle, const char *buffer, size_t size, off_t offset) { return _open_files.write(handle, buffer, size, offset); }
 
   private:
     inline int change_metadata(const std::string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime)
@@ -109,10 +97,6 @@ namespace s3
     }
 
     int rename_children(const std::string &from, const std::string &to);
-
-    inline int __open(const request_ptr &req, const std::string &path, uint64_t *handle) { return _open_file_cache.open(req, _object_cache.get(path), handle); }
-    inline int __close(const request_ptr &req, uint64_t handle) { return _open_file_cache.close(req, handle); }
-    inline int __flush(const request_ptr &req, uint64_t handle) { return _open_file_cache.flush(req, handle); }
 
     int  copy_file         (const request_ptr &req, const std::string &from, const std::string &to);
     int  remove_object     (const request_ptr &req, const std::string &url);
@@ -129,7 +113,7 @@ namespace s3
 
     thread_pool::ptr _tp_fg, _tp_bg;
     object_cache _object_cache;
-    open_file_cache _open_file_cache;
+    open_file_map _open_files;
   };
 }
 

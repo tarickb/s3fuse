@@ -119,7 +119,7 @@ int s3_release(const char *path, fuse_file_info *file_info)
   S3_DEBUG("s3_release", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->close(file_info->fh);
+  return g_fs->release(file_info->fh);
 }
 
 int s3_access(const char *path, int mode)

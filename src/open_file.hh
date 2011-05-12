@@ -22,16 +22,8 @@ namespace s3
     open_file(open_file_map *map, const boost::shared_ptr<object> &obj, uint64_t handle);
     ~open_file();
 
-    // TODO: give object the fd, and let it call fstat()
-    inline size_t get_size()
-    {
-      struct stat s;
-
-      if (fstat(_fd, &s) == 0)
-        return s.st_size;
-      else
-        return 0;
-    }
+    inline int get_fd() { return _fd; }
+    inline const boost::shared_ptr<object> & get_object() { return _obj; }
 
     int add_reference(uint64_t *handle);
     bool release();
