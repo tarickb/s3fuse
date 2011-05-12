@@ -99,6 +99,8 @@ int file_transfer::__download(const request::ptr &req, const string &url, size_t
   int r;
   string expected_md5, computed_md5;
 
+  S3_DEBUG("file_transfer::__download", "downloading %zu bytes from [%s].\n", size, url.c_str());
+
   if (size > g_download_chunk_size)
     r = download_multi(url, size, fd, &expected_md5);
   else
@@ -111,7 +113,7 @@ int file_transfer::__download(const request::ptr &req, const string &url, size_t
   computed_md5 = "\"" + util::compute_md5(fd, MOT_HEX) + "\"";
 
   if (computed_md5 != expected_md5) {
-    S3_DEBUG("file_transfer::download", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), computed_md5.c_str());
+    S3_DEBUG("file_transfer::__download", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), computed_md5.c_str());
 
     return -EIO;
   }
@@ -149,7 +151,7 @@ int file_transfer::download_multi(const string &url, size_t size, int fd, string
 
     part->id = i;
     part->offset = i * g_download_chunk_size;
-    part->size = (i != parts.size()) ? g_download_chunk_size : (size - g_download_chunk_size * i);
+    part->size = (i != parts.size() - 1) ? g_download_chunk_size : (size - g_download_chunk_size * i);
 
     S3_DEBUG("file_transfer::download_multi", "downloading %zu bytes at offset %jd for [%s].\n", part->size, static_cast<intmax_t>(part->offset), url.c_str());
 
@@ -191,7 +193,7 @@ int file_transfer::__upload(const request::ptr &req, const object::ptr &obj, int
     return -errno;
 
   size = obj->get_size();
-  S3_DEBUG("file_transfer::upload", "writing %zu bytes to [%s].\n", size, obj->get_url().c_str());
+  S3_DEBUG("file_transfer::__upload", "writing %zu bytes to [%s].\n", size, obj->get_url().c_str());
 
   if (size > g_upload_chunk_size)
     return upload_multi(req, obj, size, fd);
@@ -244,7 +246,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
 
     part->id = i;
     part->offset = i * g_upload_chunk_size;
-    part->size = (i != parts.size()) ? g_upload_chunk_size : (size - g_upload_chunk_size * i);
+    part->size = (i != parts.size() - 1) ? g_upload_chunk_size : (size - g_upload_chunk_size * i);
 
     S3_DEBUG("file_transfer::upload_multi", "uploading %zu bytes at offset %jd for [%s].\n", part->size, static_cast<intmax_t>(part->offset), url.c_str());
 

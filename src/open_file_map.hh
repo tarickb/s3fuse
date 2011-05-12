@@ -1,6 +1,14 @@
 #ifndef S3_OPEN_FILE_MAP
 #define S3_OPEN_FILE_MAP
 
+#include <map>
+
+#include <boost/smart_ptr.hpp>
+#include <boost/thread.hpp>
+
+#include "object.hh"
+#include "open_file.hh"
+
 namespace s3
 {
   class file_transfer;
@@ -41,6 +49,8 @@ namespace s3
         lock.lock();
 
         if (r) {
+          S3_DEBUG("open_file_map::open", "failed to open file [%s] with error %i.\n", obj->get_path().c_str(), r);
+
           obj->set_open_file(open_file::ptr());
           _map.erase(handle);
           return r;
@@ -56,8 +66,10 @@ namespace s3
       file_map::iterator itor = _map.find(handle);
       open_file::ptr file;
 
-      if (itor == _map.end())
+      if (itor == _map.end()) {
+        S3_DEBUG("open_file_map::release", "attempt to release handle not in map.\n");
         return -EINVAL;
+      }
 
       file = itor->second;
 

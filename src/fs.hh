@@ -6,14 +6,11 @@
 #include <fuse.h>
 #include <time.h>
 
-#include <map>
 #include <string>
 #include <boost/bind.hpp>
-#include <boost/thread.hpp>
 
 #include "object_cache.hh"
 #include "open_file_map.hh"
-#include "request.hh"
 #include "thread_pool.hh"
 
 namespace s3

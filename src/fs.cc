@@ -185,7 +185,7 @@ int fs::__change_metadata(const request::ptr &req, const std::string &path, mode
   req->run();
 
   if (req->get_response_code() != 200) {
-    S3_DEBUG("fs::change_metadata", "response: %s\n", req->get_response_data().c_str());
+    S3_DEBUG("fs::__change_metadata", "response: %s\n", req->get_response_data().c_str());
     return -EIO;
   }
 
@@ -235,7 +235,7 @@ int fs::__read_directory(const request::ptr &req, const std::string &_path, fuse
       full_path.assign(full_path_cs, strlen(full_path_cs) - 1);
       relative_path.assign(relative_path_cs, strlen(relative_path_cs) - 1);
 
-      S3_DEBUG("fs::read_directory", "found common prefix [%s]\n", relative_path.c_str());
+      S3_DEBUG("fs::__read_directory", "found common prefix [%s]\n", relative_path.c_str());
 
       _tp_bg->call_async(bind(&fs::__prefill_stats, this, _1, full_path, HINT_IS_DIR));
       filler(buf, relative_path.c_str(), NULL, 0);
@@ -248,7 +248,7 @@ int fs::__read_directory(const request::ptr &req, const std::string &_path, fuse
         string relative_path(full_path_cs + path_len);
         string full_path(full_path_cs);
 
-        S3_DEBUG("fs::read_directory", "found key [%s]\n", relative_path.c_str());
+        S3_DEBUG("fs::__read_directory", "found key [%s]\n", relative_path.c_str());
 
         _tp_bg->call_async(bind(&fs::__prefill_stats, this, _1, full_path, HINT_IS_FILE));
         filler(buf, relative_path.c_str(), NULL, 0);
@@ -266,7 +266,7 @@ int fs::__create_object(const request::ptr &req, const std::string &path, object
   ASSERT_NO_TRAILING_SLASH(path);
 
   if (_object_cache.get(req, path)) {
-    S3_DEBUG("fs::create_object", "attempt to overwrite object at path %s.\n", path.c_str());
+    S3_DEBUG("fs::__create_object", "attempt to overwrite object at path %s.\n", path.c_str());
     return -EEXIST;
   }
 
