@@ -56,8 +56,6 @@ namespace s3
 
     inline bool is_valid() { return (_open_fd != -1 || (_expiry > 0 && time(NULL) < _expiry)); }
 
-    inline void invalidate() { _expiry = 0; } 
-
     const std::string & get_url() { return _url; }
 
     inline size_t get_size()
@@ -66,7 +64,7 @@ namespace s3
         struct stat s;
 
         if (fstat(_open_fd, &s) == 0)
-          return s.st_size;
+          _stat.st_size = s.st_size;
       }
 
       return _stat.st_size;
@@ -84,6 +82,8 @@ namespace s3
 
     typedef std::map<std::string, std::string> meta_map;
 
+    inline void invalidate() { _expiry = 0; _open_fd = -1; } 
+
     inline const open_file::ptr & get_open_file()
     {
       return _open_file;
@@ -95,7 +95,11 @@ namespace s3
       // instead, we'll stick to _open_fd, since operations on it are atomic.
 
       _open_file = open_file;
-      _open_fd = open_file ? open_file->get_fd() : -1;
+
+      if (open_file)
+        _open_fd = open_file->get_fd();
+      else
+        invalidate();
     }
 
     void request_init();

@@ -189,8 +189,10 @@ int file_transfer::__upload(const request::ptr &req, const object::ptr &obj, int
 {
   size_t size;
 
-  if (!fsync(fd))
+  if (fsync(fd) == -1) {
+    S3_DEBUG("file_transfer::__upload", "fsync failed with error %i.\n", errno);
     return -errno;
+  }
 
   size = obj->get_size();
   S3_DEBUG("file_transfer::__upload", "writing %zu bytes to [%s].\n", size, obj->get_url().c_str());
@@ -207,7 +209,7 @@ int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj
   req->set_url(obj->get_url());
   req->set_meta_headers(obj);
   req->set_header("Content-MD5", util::compute_md5(fd));
-  req->set_input_fd(fd, 0, size);
+  req->set_input_fd(fd, size);
 
   req->run();
 

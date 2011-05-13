@@ -24,11 +24,6 @@ using namespace s3;
 
 namespace
 {
-  size_t null_readdata(void *, size_t, size_t, void *)
-  {
-    return 0;
-  }
-
   const string AMZ_HEADER_PREFIX = "x-amz-";
 
   // TODO: obviously, these should be config options
@@ -90,9 +85,6 @@ void request::init(http_method method)
   _headers.clear();
   _target_object.reset();
 
-  set_input_fd();
-  set_output_fd();
-
   curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL);
   curl_easy_setopt(_curl, CURLOPT_UPLOAD, false);
   curl_easy_setopt(_curl, CURLOPT_NOBODY, false);
@@ -120,6 +112,10 @@ void request::init(http_method method)
 
   } else
     throw runtime_error("unsupported HTTP method.");
+
+  // set these last because they depend on the value of _method
+  set_input_fd();
+  set_output_fd();
 }
 
 size_t request::process_header(char *data, size_t size, size_t items, void *context)

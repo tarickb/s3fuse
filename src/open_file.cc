@@ -138,8 +138,10 @@ int open_file::flush()
   mutex::scoped_lock lock(_map->get_file_status_mutex());
   int r;
 
-  if (!(_status & FS_DIRTY))
+  if (!(_status & FS_DIRTY)) {
+    S3_DEBUG("open_file::flush", "skipping flush for file [%s].\n", _obj->get_path().c_str());
     return 0;
+  }
 
   // force flush in zombie state even if not flushable
   if (!(_status & FS_FLUSHABLE) && !(_status & FS_ZOMBIE)) {
@@ -155,6 +157,8 @@ int open_file::flush()
 
   if (r == 0)
     _status &= ~FS_DIRTY;
+  else
+    S3_DEBUG("open_file::flush", "failed to upload [%s] with error %i.\n", _obj->get_path().c_str(), r);
 
   _status |= FS_FLUSHABLE | FS_WRITEABLE;
 

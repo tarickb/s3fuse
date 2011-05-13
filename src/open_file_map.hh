@@ -30,7 +30,12 @@ namespace s3
     inline int open(const object::ptr &obj, uint64_t *handle)
     {
       boost::mutex::scoped_lock lock(_list_mutex);
-      open_file::ptr file = obj->get_open_file();
+      open_file::ptr file;
+
+      if (!obj)
+        return -ENOENT;
+
+      file = obj->get_open_file();
 
       if (!file) {
         uint64_t handle = _next_handle++;
