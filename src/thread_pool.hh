@@ -31,7 +31,7 @@ namespace s3
     typedef boost::function1<int, boost::shared_ptr<request> > worker_function;
 
     static const int DEFAULT_NUM_THREADS = 8;
-    static const int DEFAULT_TIMEOUT_IN_S = 30;
+    static const int DEFAULT_TIMEOUT_IN_S = 120;
 
     static ptr create(const std::string &id, int num_threads = DEFAULT_NUM_THREADS);
 

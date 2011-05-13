@@ -68,7 +68,9 @@ namespace
     string expected_md5 = "\"" + util::compute_md5(fd, MOT_HEX, part->offset, part->size) + "\"";
 
     req->init(HTTP_PUT);
-    req->set_url(url + "?partNumber=" + lexical_cast<string>(part->id) + "&uploadId=" + upload_id);
+
+    // part numbers are 1-based
+    req->set_url(url + "?partNumber=" + lexical_cast<string>(part->id + 1) + "&uploadId=" + upload_id);
     req->set_input_fd(fd, part->size, part->offset);
 
     req->run();
@@ -288,7 +290,8 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
       break;
     }
 
-    complete_upload += "<Part><PartNumber>" + lexical_cast<string>(i) + "</PartNumber><ETag>" + parts[i].etag + "</ETag></Part>";
+    // part numbers are 1-based
+    complete_upload += "<Part><PartNumber>" + lexical_cast<string>(i + 1) + "</PartNumber><ETag>" + parts[i].etag + "</ETag></Part>";
   }
 
   complete_upload += "</CompleteMultipartUpload>";

@@ -329,7 +329,8 @@ void request::run()
   // TODO: add loop for timeouts and whatnot
   elapsed_time = util::get_current_time() - elapsed_time;
 
-  S3_DEBUG("request::run", "request for [%s] returned %li and took %.2f ms.\n", _url.c_str(), _response_code, elapsed_time * 1.0e3);
+  // TODO: remove?
+  // S3_DEBUG("request::run", "request for [%s] returned %li and took %.2f ms.\n", _url.c_str(), _response_code, elapsed_time * 1.0e3);
 
   // don't save the time for the first request since it's likely to be disproportionately large
   if (_run_count > 0)
