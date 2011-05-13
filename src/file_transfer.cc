@@ -56,6 +56,8 @@ namespace
     else if (rc != 206)
       return -EIO;
 
+    S3_DEBUG("file_transfer::download_part", "part %i returned with etag %s.\n", part->id, req->get_response_header("ETag").c_str());
+
     if (etag)
       *etag = req->get_response_header("ETag");
 
@@ -65,7 +67,8 @@ namespace
   int upload_part(const request::ptr &req, const string &url, int fd, const string &upload_id, transfer_part *part)
   {
     long rc;
-    string expected_md5 = "\"" + util::compute_md5(fd, MOT_HEX, part->size, part->offset) + "\"";
+
+    part->etag = "\"" + util::compute_md5(fd, MOT_HEX, part->size, part->offset) + "\"";
 
     req->init(HTTP_PUT);
 
@@ -81,8 +84,8 @@ namespace
     else if (rc != 200)
       return -EIO;
 
-    if (req->get_response_header("ETag") != expected_md5) {
-      S3_DEBUG("file_transfer::upload_part", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), req->get_response_header("ETag").c_str());
+    if (req->get_response_header("ETag") != part->etag) {
+      S3_DEBUG("file_transfer::upload_part", "md5 mismatch. expected %s, got %s.\n", part->etag.c_str(), req->get_response_header("ETag").c_str());
       return -EAGAIN; // assume it's a temporary failure
     }
 
@@ -199,6 +202,8 @@ int file_transfer::__upload(const request::ptr &req, const object::ptr &obj, int
   size = obj->get_size();
   S3_DEBUG("file_transfer::__upload", "writing %zu bytes to [%s].\n", size, obj->get_url().c_str());
 
+  // TODO: this should set the "if-match" header!
+
   if (size > g_upload_chunk_size)
     return upload_multi(req, obj, size, fd);
   else
@@ -226,6 +231,8 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   vector<transfer_part> parts((size + g_upload_chunk_size - 1) / g_upload_chunk_size);
   list<transfer_part *> parts_in_progress;
   xml_document doc;
+
+  looks like we're going to have to set the original md5 hash here manually since multipart uploads don't get a valid etag
 
   req->init(HTTP_POST);
   req->set_url(url + "?uploads");
@@ -307,19 +314,24 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
     return -EIO;
   }
 
-  req->init(HTTP_PUT);
+  req->init(HTTP_POST);
   req->set_url(url + "?uploadId=" + upload_id);
   req->set_input_data(complete_upload);
+  req->set_header("Content-Type", "");
 
   req->run();
 
-  if (req->get_response_code() != 200)
+  if (req->get_response_code() != 200) {
+    S3_DEBUG("file_transfer::upload_multi", "failed to complete multipart upload for [%s] with error %li.\n", url.c_str(), req->get_response_code());
     return -EIO;
+  }
 
   doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
 
-  if (strlen(doc.document_element().child_value("ETag")) == 0)
+  if (strlen(doc.document_element().child_value("ETag")) == 0) {
+    S3_DEBUG("file_transfer::upload_multi", "no etag on multipart upload of [%s]. response: %s\n", url.c_str(), req->get_response_data().c_str());
     return -EIO;
+  }
 
   return 0;
 }

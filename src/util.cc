@@ -66,14 +66,16 @@ string util::compute_md5(int fd, md5_output_type type, ssize_t size, off_t offse
   while (true) {
     ssize_t read_bytes, read_count;
 
-    read_bytes = (size == -1 || size > buf_len) ? buf_len : size;
+    read_bytes = (size < 0 || size > buf_len) ? buf_len : size;
     read_count = pread(fd, buf, read_bytes, offset);
 
     if (read_count == -1)
       throw runtime_error("error while computing md5, in pread().");
 
     EVP_DigestUpdate(&md5_ctx, buf, read_count);
+
     offset += read_count;
+    size -= read_count;
 
     if (read_count < buf_len)
       break;

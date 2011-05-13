@@ -187,9 +187,8 @@ size_t request::process_input(char *data, size_t size, size_t items, void *conte
   size *= items;
 
   if (req->_input_fd != -1) {
-    ssize_t rc = pread(req->_input_fd, data, size, req->_input_offset);
-
-    this needs to keep track of the size, i think -- otherwise it'll overshoot. in fact, it is overshooting.
+    size_t remaining = (size > req->_input_size) ? req->_input_size : size;
+    ssize_t rc = pread(req->_input_fd, data, remaining, req->_input_offset);
 
     S3_DEBUG("request::process_input", "reading %zu bytes at offset %jd, with error %zd.\n", size, static_cast<uintmax_t>(req->_input_offset), rc);
 
@@ -197,6 +196,7 @@ size_t request::process_input(char *data, size_t size, size_t items, void *conte
       return 0;
 
     req->_input_offset += rc;
+    req->_input_size -= rc;
     return rc;
 
   } else {
@@ -240,6 +240,7 @@ void request::set_input_data(const std::string &s)
   _input_data = s;
   _input_fd = -1;
   _input_offset = 0;
+  _input_size = 0;
 
   if (_method == "PUT")
     curl_easy_setopt(_curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(s.size()));
@@ -257,6 +258,7 @@ void request::set_input_fd(int fd, size_t size, off_t offset)
   _input_data.clear();
   _input_fd = fd;
   _input_offset = offset;
+  _input_size = size;
 
   if (_method == "PUT")
     curl_easy_setopt(_curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(size));
@@ -315,8 +317,9 @@ void request::run()
   build_request_time();
   build_signature();
 
+  // TODO: should we check for empty strings?
   for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
-    if (!itor->second.empty())
+    // if (!itor->second.empty())
       headers = curl_slist_append(headers, (itor->first + ": " + itor->second).c_str());
 
   curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers);
@@ -335,6 +338,10 @@ void request::run()
 
   // TODO: remove?
   // S3_DEBUG("request::run", "request for [%s] returned %li and took %.2f ms.\n", _url.c_str(), _response_code, elapsed_time * 1.0e3);
+
+  // TODO: selective debugging
+  if (_response_code >= 300 && _response_code != 404)
+    S3_DEBUG("request::run", "request for [%s] failed with response: %s\n", _url.c_str(), _output_data.c_str());
 
   // don't save the time for the first request since it's likely to be disproportionately large
   if (_run_count > 0)

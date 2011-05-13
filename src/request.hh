@@ -90,6 +90,7 @@ namespace s3
     std::string _output_data;
 
     int _input_fd;
+    size_t _input_size;
     off_t _input_offset;
     std::string _input_data;
 
