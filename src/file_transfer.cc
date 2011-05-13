@@ -65,7 +65,7 @@ namespace
   int upload_part(const request::ptr &req, const string &url, int fd, const string &upload_id, transfer_part *part)
   {
     long rc;
-    string expected_md5 = "\"" + util::compute_md5(fd, MOT_HEX, part->offset, part->size) + "\"";
+    string expected_md5 = "\"" + util::compute_md5(fd, MOT_HEX, part->size, part->offset) + "\"";
 
     req->init(HTTP_PUT);
 

@@ -189,6 +189,10 @@ size_t request::process_input(char *data, size_t size, size_t items, void *conte
   if (req->_input_fd != -1) {
     ssize_t rc = pread(req->_input_fd, data, size, req->_input_offset);
 
+    this needs to keep track of the size, i think -- otherwise it'll overshoot. in fact, it is overshooting.
+
+    S3_DEBUG("request::process_input", "reading %zu bytes at offset %jd, with error %zd.\n", size, static_cast<uintmax_t>(req->_input_offset), rc);
+
     if (rc == -1)
       return 0;
 
