@@ -19,9 +19,9 @@ namespace s3
 
     file_transfer(const thread_pool::ptr &tp_fg, const thread_pool::ptr &tp_bg);
 
-    inline int download(const std::string &url, size_t size, int fd)
+    inline int download(const boost::shared_ptr<object> &obj, int fd)
     {
-      return _tp_fg->call(boost::bind(&file_transfer::__download, this, _1, url, size, fd));
+      return _tp_fg->call(boost::bind(&file_transfer::__download, this, _1, obj, fd));
     }
 
     inline int upload(const boost::shared_ptr<object> &obj, int fd)
@@ -30,11 +30,11 @@ namespace s3
     }
 
   private:
-    int __download(const boost::shared_ptr<request> &req, const std::string &url, size_t size, int fd);
+    int __download(const boost::shared_ptr<request> &req, const boost::shared_ptr<object> &obj, int fd);
     int __upload(const boost::shared_ptr<request> &req, const boost::shared_ptr<object> &obj, int fd);
 
-    int download_single(const boost::shared_ptr<request> &req, const std::string &url, int fd, std::string *expected_md5);
-    int download_multi(const std::string &url, size_t size, int fd, std::string *expected_md5);
+    int download_single(const boost::shared_ptr<request> &req, const std::string &url, int fd);
+    int download_multi(const std::string &url, size_t size, int fd);
 
     int upload_single(const boost::shared_ptr<request> &req, const boost::shared_ptr<object> &obj, size_t size, int fd);
     int upload_multi(const boost::shared_ptr<request> &req, const boost::shared_ptr<object> &obj, size_t size, int fd);

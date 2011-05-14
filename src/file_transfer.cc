@@ -35,7 +35,7 @@ namespace
     inline transfer_part() : id(0), offset(0), size(0), retry_count(0), success(false) { }
   };
 
-  int download_part(const request::ptr &req, const string &url, int fd, const transfer_part *part, string *etag)
+  int download_part(const request::ptr &req, const string &url, int fd, const transfer_part *part)
   {
     long rc;
 
@@ -57,9 +57,6 @@ namespace
       return -EIO;
 
     S3_DEBUG("file_transfer::download_part", "part %i returned with etag %s.\n", part->id, req->get_response_header("ETag").c_str());
-
-    if (etag)
-      *etag = req->get_response_header("ETag");
 
     return 0;
   }
@@ -91,6 +88,26 @@ namespace
 
     return 0;
   }
+
+  int commit_metadata(const request::ptr &req, const object::ptr &obj)
+  {
+    // commit the new headers
+    req->init(HTTP_PUT);
+    req->set_url(obj->get_url());
+    req->set_header("x-amz-copy-source", obj->get_url());
+    req->set_header("x-amz-copy-source-if-match", obj->get_etag());
+    req->set_header("x-amz-metadata-directive", "REPLACE");
+    req->set_meta_headers(obj);
+
+    req->run();
+
+    if (req->get_response_code() != 200) {
+      S3_DEBUG("file_transfer::commit_metadata", "failed to commit object metadata for [%s].\n", obj->get_url().c_str());
+      return -EIO;
+    }
+
+    return 0;
+  }
 }
 
 file_transfer::file_transfer(const thread_pool::ptr &tp_fg, const thread_pool::ptr &tp_bg)
@@ -99,34 +116,39 @@ file_transfer::file_transfer(const thread_pool::ptr &tp_fg, const thread_pool::p
 {
 }
 
-int file_transfer::__download(const request::ptr &req, const string &url, size_t size, int fd)
+int file_transfer::__download(const request::ptr &req, const object::ptr &obj, int fd)
 {
   int r;
-  string expected_md5, computed_md5;
+  size_t size = obj->get_size();
+  const string &url = obj->get_url(), &expected_md5 = obj->get_md5();
 
   S3_DEBUG("file_transfer::__download", "downloading %zu bytes from [%s].\n", size, url.c_str());
 
   if (size > g_download_chunk_size)
-    r = download_multi(url, size, fd, &expected_md5);
+    r = download_multi(url, size, fd);
   else
-    r = download_single(req, url, fd, &expected_md5);
+    r = download_single(req, url, fd);
 
   if (r)
     return r;
 
   fsync(fd);
-  computed_md5 = "\"" + util::compute_md5(fd, MOT_HEX) + "\"";
 
-  if (computed_md5 != expected_md5) {
-    S3_DEBUG("file_transfer::__download", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), computed_md5.c_str());
+  // we won't have a valid MD5 digest if the file was a multipart upload
+  if (!expected_md5.empty()) {
+    string computed_md5 = "\"" + util::compute_md5(fd, MOT_HEX) + "\"";
 
-    return -EIO;
+    if (computed_md5 != expected_md5) {
+      S3_DEBUG("file_transfer::__download", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), computed_md5.c_str());
+
+      return -EIO;
+    }
   }
   
   return 0;
 }
 
-int file_transfer::download_single(const request::ptr &req, const string &url, int fd, string *expected_md5)
+int file_transfer::download_single(const request::ptr &req, const string &url, int fd)
 {
   long rc;
 
@@ -142,11 +164,10 @@ int file_transfer::download_single(const request::ptr &req, const string &url, i
   else if (rc != 200)
     return -EIO;
 
-  *expected_md5 = req->get_response_header("ETag");
   return 0;
 }
 
-int file_transfer::download_multi(const string &url, size_t size, int fd, string *expected_md5)
+int file_transfer::download_multi(const string &url, size_t size, int fd)
 {
   vector<transfer_part> parts((size + g_download_chunk_size - 1) / g_download_chunk_size);
   list<transfer_part *> parts_in_progress;
@@ -160,7 +181,7 @@ int file_transfer::download_multi(const string &url, size_t size, int fd, string
 
     S3_DEBUG("file_transfer::download_multi", "downloading %zu bytes at offset %jd for [%s].\n", part->size, static_cast<intmax_t>(part->offset), url.c_str());
 
-    part->handle = _tp_bg->post(bind(&download_part, _1, url, fd, part, (part->id == 0) ? expected_md5 : NULL));
+    part->handle = _tp_bg->post(bind(&download_part, _1, url, fd, part));
     parts_in_progress.push_back(part);
   }
 
@@ -179,7 +200,7 @@ int file_transfer::download_multi(const string &url, size_t size, int fd, string
       if (part->retry_count > g_max_retries)
         return -EIO;
 
-      part->handle = _tp_bg->post(bind(&download_part, _1, url, fd, part, (part->id == 0) ? expected_md5 : NULL));
+      part->handle = _tp_bg->post(bind(&download_part, _1, url, fd, part));
       parts_in_progress.push_back(part);
 
     } else if (result != 0) {
@@ -212,6 +233,9 @@ int file_transfer::__upload(const request::ptr &req, const object::ptr &obj, int
 
 int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj, size_t size, int fd)
 {
+  string returned_md5, etag;
+  bool valid_md5;
+
   req->init(HTTP_PUT);
   req->set_url(obj->get_url());
   req->set_meta_headers(obj);
@@ -220,7 +244,19 @@ int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj
 
   req->run();
 
-  return (req->get_response_code() == 200) ? 0 : -EIO;
+  if (req->get_response_code() != 200) {
+    S3_DEBUG("file_transfer::upload_single", "failed to upload for [%s].\n", obj->get_url().c_str());
+    return -EIO;
+  }
+
+  etag = req->get_response_header("ETag");
+  valid_md5 = util::is_valid_md5(etag);
+  returned_md5 = valid_md5 ? etag : util::compute_md5(fd, MOT_HEX);
+
+  obj->set_md5(returned_md5, etag);
+
+  // we don't need to commit the metadata if we got a valid etag back (since it'll be consistent)
+  return valid_md5 ? 0 : commit_metadata(req, obj);
 }
 
 int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj, size_t size, int fd)
@@ -231,8 +267,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   vector<transfer_part> parts((size + g_upload_chunk_size - 1) / g_upload_chunk_size);
   list<transfer_part *> parts_in_progress;
   xml_document doc;
-
-  looks like we're going to have to set the original md5 hash here manually since multipart uploads don't get a valid etag
+  string etag, computed_md5;
 
   req->init(HTTP_POST);
   req->set_url(url + "?uploads");
@@ -327,11 +362,17 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   }
 
   doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+  etag = doc.document_element().child_value("ETag");
 
-  if (strlen(doc.document_element().child_value("ETag")) == 0) {
+  if (etag.empty()) {
     S3_DEBUG("file_transfer::upload_multi", "no etag on multipart upload of [%s]. response: %s\n", url.c_str(), req->get_response_data().c_str());
     return -EIO;
   }
 
-  return 0;
+  computed_md5 = "\"" + util::compute_md5(fd, MOT_HEX) + "\"";
+
+  // set the MD5 digest manually because the etag we get back is not itself a valid digest
+  obj->set_md5(computed_md5, etag);
+
+  return commit_metadata(req, obj);
 }

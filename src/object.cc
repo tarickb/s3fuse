@@ -62,6 +62,8 @@ void object::set_defaults(object_type type)
   _content_type = ((type == OT_SYMLINK) ? string(SYMLINK_CONTENT_TYPE) : g_default_content_type);
   _etag.clear();
   _mtime_etag.clear();
+  _md5.clear();
+  _md5_etag.clear();
   _expiry = time(NULL) + g_expiry_in_s;
   _metadata.clear();
   _url = build_url(_path, _type);
@@ -85,6 +87,8 @@ void object::request_init()
   _content_type.clear();
   _etag.clear();
   _mtime_etag.clear();
+  _md5.clear();
+  _md5_etag.clear();
   _expiry = 0;
   _metadata.clear();
   _url.clear();
@@ -110,6 +114,10 @@ void object::request_process_header(const std::string &key, const std::string &v
     _stat.st_mtime = long_value;
   else if (key == "x-amz-meta-s3fuse-mtime-etag")
     _mtime_etag = value;
+  else if (key == "x-amz-meta-s3fuse-md5")
+    _md5 = value;
+  else if (key == "x-amz-meta-s3fuse-md5-etag")
+    _md5_etag = value;
   else if (strncmp(key.c_str(), AMZ_META_PREFIX_CSTR, AMZ_META_PREFIX_LEN) == 0)
     _metadata[key.substr(AMZ_META_PREFIX_LEN)] = value;
 }
@@ -137,10 +145,17 @@ void object::request_process_response(request *req)
   _stat.st_mode  |= get_mode_by_type(_type);
   _stat.st_nlink  = 1; // laziness (see FUSE FAQ re. find)
 
+  // this workaround is for cases when the file was updated by someone else and the mtime header wasn't set
   if (_mtime_etag != _etag && req->get_last_modified() > _stat.st_mtime)
     _stat.st_mtime = req->get_last_modified();
 
   _mtime_etag = _etag;
+
+  // this workaround is for multipart uploads, which don't get a valid md5 etag
+  if ((_md5_etag != _etag || _md5.empty()) && util::is_valid_md5(_etag))
+    _md5 = _etag;
+
+  _md5_etag = _etag;
 
   if (_type == OT_FILE)
     _stat.st_blocks = (_stat.st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -166,6 +181,8 @@ void object::request_set_meta_headers(request *req)
   req->set_header("x-amz-meta-s3fuse-mtime", buf);
 
   req->set_header("x-amz-meta-s3fuse-mtime-etag", _mtime_etag);
+  req->set_header("x-amz-meta-s3fuse-md5", _md5);
+  req->set_header("x-amz-meta-s3fuse-md5-etag", _md5_etag);
   req->set_header("Content-Type", _content_type);
 
   for (meta_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)

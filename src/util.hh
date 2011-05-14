@@ -23,6 +23,7 @@ namespace s3
     static std::string url_encode(const std::string &url);
     static std::string hex_encode(const uint8_t *input, size_t size);
     static double get_current_time();
+    static bool is_valid_md5(const std::string &md5);
   };
 }
 

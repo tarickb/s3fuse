@@ -63,7 +63,7 @@ int open_file::init()
   }
 
   lock.unlock();
-  r = _map->get_file_transfer()->download(_obj->get_url(), _obj->get_size(), _fd);
+  r = _map->get_file_transfer()->download(_obj, _fd);
   lock.lock();
 
   if (r)

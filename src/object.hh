@@ -47,12 +47,14 @@ namespace s3
     inline void set_uid(uid_t uid) { _stat.st_uid = uid; }
     inline void set_gid(gid_t gid) { _stat.st_gid = gid; }
     inline void set_mtime(time_t mtime) { _stat.st_mtime = mtime; }
+    inline void set_md5(const std::string &md5, const std::string &etag) { _md5 = md5; _md5_etag = etag; _etag = etag; }
     void set_mode(mode_t mode);
 
     inline object_type get_type() { return _type; }
     inline const std::string & get_path() { return _path; }
     inline const std::string & get_content_type() { return _content_type; }
     inline const std::string & get_etag() { return _etag; }
+    inline const std::string & get_md5() { return _md5; }
 
     inline bool is_valid() { return (_open_fd != -1 || (_expiry > 0 && time(NULL) < _expiry)); }
 
@@ -108,7 +110,7 @@ namespace s3
     void request_set_meta_headers(request *req);
 
     object_type _type;
-    std::string _path, _url, _content_type, _etag, _mtime_etag;
+    std::string _path, _url, _content_type, _etag, _mtime_etag, _md5, _md5_etag;
     time_t _expiry;
     struct stat _stat;
     meta_map _metadata;

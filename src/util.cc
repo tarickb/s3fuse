@@ -136,3 +136,9 @@ double util::get_current_time()
 
   return double(t.tv_sec) + double(t.tv_usec) / 1.0e6;
 }
+
+bool util::is_valid_md5(const string &md5)
+{
+  // yes, it's a rather rudimentary check
+  return (md5.size() == 32);
+}
