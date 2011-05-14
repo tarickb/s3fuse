@@ -135,9 +135,7 @@ int s3_truncate(const char *path, off_t offset)
   S3_DEBUG("s3_truncate", "path: %s, offset: %ji\n", path, static_cast<intmax_t>(offset));
   ASSERT_LEADING_SLASH(path);
 
-  this needs to be fixed for rsync to work -- files that shrink won't be matched
-  // TODO: truncate?
-  return 0;
+  return g_fs->truncate(path + 1, offset);
 }
 
 int s3_unlink(const char *path)

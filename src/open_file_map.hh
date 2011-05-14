@@ -65,6 +65,22 @@ namespace s3
       return file->add_reference(handle);
     }
 
+    inline int truncate(const object::ptr &obj, off_t offset)
+    {
+      uint64_t handle;
+      int r;
+
+      r = open(obj, &handle);
+
+      if (r)
+        return r;
+
+      r = truncate(handle, offset);
+      release(handle);
+
+      return r;
+    }
+
     inline int release(uint64_t handle)
     {
       boost::mutex::scoped_lock lock(_list_mutex);
@@ -91,6 +107,16 @@ namespace s3
       }
 
       return 0;
+    }
+
+    inline int truncate(uint64_t handle, off_t offset)
+    {
+      const open_file::ptr &file = get_file(handle);
+
+      if (!file)
+        return -EINVAL;
+
+      return file->truncate(offset);
     }
 
     inline int flush(uint64_t handle)

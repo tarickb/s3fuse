@@ -133,6 +133,27 @@ bool open_file::release()
   return _status & FS_ZOMBIE;
 }
 
+int open_file::truncate(off_t offset)
+{
+  mutex::scoped_lock lock(_map->get_file_status_mutex());
+  int r;
+
+  if (!(_status & FS_READY) || !(_status & FS_WRITEABLE)) {
+    S3_DEBUG("open_file::truncate", "failing truncate attempt on [%s] with status %i.\n", _obj->get_path().c_str(), _status);
+    return -EBUSY;
+  }
+
+  _status &= ~FS_FLUSHABLE;
+
+  lock.unlock();
+  r = ftruncate(_fd, offset);
+  lock.lock();
+
+  _status |= FS_FLUSHABLE | FS_DIRTY;
+
+  return r;
+}
+
 int open_file::flush()
 {
   mutex::scoped_lock lock(_map->get_file_status_mutex());

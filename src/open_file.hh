@@ -31,6 +31,7 @@ namespace s3
     int init();
     int cleanup();
 
+    int truncate(off_t offset);
     int flush();
     int read(char *buffer, size_t size, off_t offset);
     int write(const char *buffer, size_t size, off_t offset);

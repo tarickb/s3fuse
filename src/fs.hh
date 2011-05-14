@@ -82,6 +82,7 @@ namespace s3
     }
 
     inline int open(const std::string &path, uint64_t *handle) { return _open_files.open(_object_cache.get(path), handle); }
+    inline int truncate(const std::string &path, off_t offset) { return _open_files.truncate(_object_cache.get(path), offset); }
     inline int release(uint64_t handle) { return _open_files.release(handle); }
     inline int flush(uint64_t handle) { return _open_files.flush(handle); }
     inline int read(uint64_t handle, char *buffer, size_t size, off_t offset) { return _open_files.read(handle, buffer, size, offset); }
