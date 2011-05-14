@@ -56,8 +56,6 @@ namespace
     else if (rc != 206)
       return -EIO;
 
-    S3_DEBUG("file_transfer::download_part", "part %i returned with etag %s.\n", part->id, req->get_response_header("ETag").c_str());
-
     return 0;
   }
 
@@ -65,7 +63,7 @@ namespace
   {
     long rc;
 
-    part->etag = "\"" + util::compute_md5(fd, MOT_HEX, part->size, part->offset) + "\"";
+    part->etag = util::compute_md5(fd, MOT_HEX, part->size, part->offset);
 
     req->init(HTTP_PUT);
 
@@ -122,8 +120,6 @@ int file_transfer::__download(const request::ptr &req, const object::ptr &obj, i
   size_t size = obj->get_size();
   const string &url = obj->get_url(), &expected_md5 = obj->get_md5();
 
-  S3_DEBUG("file_transfer::__download", "downloading %zu bytes from [%s].\n", size, url.c_str());
-
   if (size > g_download_chunk_size)
     r = download_multi(url, size, fd);
   else
@@ -136,7 +132,7 @@ int file_transfer::__download(const request::ptr &req, const object::ptr &obj, i
 
   // we won't have a valid MD5 digest if the file was a multipart upload
   if (!expected_md5.empty()) {
-    string computed_md5 = "\"" + util::compute_md5(fd, MOT_HEX) + "\"";
+    string computed_md5 = util::compute_md5(fd, MOT_HEX);
 
     if (computed_md5 != expected_md5) {
       S3_DEBUG("file_transfer::__download", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), computed_md5.c_str());
@@ -179,8 +175,6 @@ int file_transfer::download_multi(const string &url, size_t size, int fd)
     part->offset = i * g_download_chunk_size;
     part->size = (i != parts.size() - 1) ? g_download_chunk_size : (size - g_download_chunk_size * i);
 
-    S3_DEBUG("file_transfer::download_multi", "downloading %zu bytes at offset %jd for [%s].\n", part->size, static_cast<intmax_t>(part->offset), url.c_str());
-
     part->handle = _tp_bg->post(bind(&download_part, _1, url, fd, part));
     parts_in_progress.push_back(part);
   }
@@ -192,9 +186,8 @@ int file_transfer::download_multi(const string &url, size_t size, int fd)
     parts_in_progress.pop_front();
     result = _tp_bg->wait(part->handle);
 
-    S3_DEBUG("file_transfer::download_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
-
     if (result == -EAGAIN || result == -ETIMEDOUT) {
+      S3_DEBUG("file_transfer::download_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
       part->retry_count++;
 
       if (part->retry_count > g_max_retries)
@@ -221,7 +214,6 @@ int file_transfer::__upload(const request::ptr &req, const object::ptr &obj, int
   }
 
   size = obj->get_size();
-  S3_DEBUG("file_transfer::__upload", "writing %zu bytes to [%s].\n", size, obj->get_url().c_str());
 
   // TODO: this should set the "if-match" header!
 
@@ -251,7 +243,7 @@ int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj
 
   etag = req->get_response_header("ETag");
   valid_md5 = util::is_valid_md5(etag);
-  returned_md5 = valid_md5 ? etag : util::compute_md5(fd, MOT_HEX);
+  returned_md5 = valid_md5 ? etag : (util::compute_md5(fd, MOT_HEX));
 
   obj->set_md5(returned_md5, etag);
 
@@ -282,8 +274,6 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
   upload_id = doc.document_element().child_value("UploadId");
 
-  S3_DEBUG("file_transfer::upload_multi", "upload id %s for file %s.\n", upload_id.c_str(), url.c_str());
-
   if (upload_id.empty())
     return -EIO;
 
@@ -293,8 +283,6 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
     part->id = i;
     part->offset = i * g_upload_chunk_size;
     part->size = (i != parts.size() - 1) ? g_upload_chunk_size : (size - g_upload_chunk_size * i);
-
-    S3_DEBUG("file_transfer::upload_multi", "uploading %zu bytes at offset %jd for [%s].\n", part->size, static_cast<intmax_t>(part->offset), url.c_str());
 
     part->handle = _tp_bg->post(bind(&upload_part, _1, url, fd, upload_id, part));
     parts_in_progress.push_back(part);
@@ -307,7 +295,8 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
     parts_in_progress.pop_front();
     result = _tp_bg->wait(part->handle);
 
-    S3_DEBUG("file_transfer::upload_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
+    if (result != 0)
+      S3_DEBUG("file_transfer::upload_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
 
     // the default action is to not retry the failed part, and leave it with success = false
 
@@ -369,7 +358,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
     return -EIO;
   }
 
-  computed_md5 = "\"" + util::compute_md5(fd, MOT_HEX) + "\"";
+  computed_md5 = util::compute_md5(fd, MOT_HEX);
 
   // set the MD5 digest manually because the etag we get back is not itself a valid digest
   obj->set_md5(computed_md5, etag);

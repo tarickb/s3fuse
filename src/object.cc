@@ -152,6 +152,9 @@ void object::request_process_response(request *req)
   _mtime_etag = _etag;
 
   // this workaround is for multipart uploads, which don't get a valid md5 etag
+  if (!util::is_valid_md5(_md5))
+    _md5.clear();
+
   if ((_md5_etag != _etag || _md5.empty()) && util::is_valid_md5(_etag))
     _md5 = _etag;
 

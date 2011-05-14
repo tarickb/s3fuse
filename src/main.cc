@@ -93,7 +93,6 @@ int s3_open(const char *path, fuse_file_info *file_info)
 
 int s3_read(const char *path, char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
 {
-  S3_DEBUG("s3_read", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->read(file_info->fh, buffer, size, offset);
@@ -101,7 +100,6 @@ int s3_read(const char *path, char *buffer, size_t size, off_t offset, fuse_file
 
 int s3_write(const char *path, const char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
 {
-  S3_DEBUG("s3_write", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->write(file_info->fh, buffer, size, offset);
@@ -137,6 +135,7 @@ int s3_truncate(const char *path, off_t offset)
   S3_DEBUG("s3_truncate", "path: %s, offset: %ji\n", path, static_cast<intmax_t>(offset));
   ASSERT_LEADING_SLASH(path);
 
+  this needs to be fixed for rsync to work -- files that shrink won't be matched
   // TODO: truncate?
   return 0;
 }

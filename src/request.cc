@@ -190,8 +190,6 @@ size_t request::process_input(char *data, size_t size, size_t items, void *conte
     size_t remaining = (size > req->_input_size) ? req->_input_size : size;
     ssize_t rc = pread(req->_input_fd, data, remaining, req->_input_offset);
 
-    S3_DEBUG("request::process_input", "reading %zu bytes at offset %jd, with error %zd.\n", size, static_cast<uintmax_t>(req->_input_offset), rc);
-
     if (rc == -1)
       return 0;
 
@@ -335,9 +333,6 @@ void request::run()
 
   // TODO: add loop for timeouts and whatnot
   elapsed_time = util::get_current_time() - elapsed_time;
-
-  // TODO: remove?
-  // S3_DEBUG("request::run", "request for [%s] returned %li and took %.2f ms.\n", _url.c_str(), _response_code, elapsed_time * 1.0e3);
 
   // TODO: selective debugging
   if (_response_code >= 300 && _response_code != 404)

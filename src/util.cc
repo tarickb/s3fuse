@@ -86,7 +86,7 @@ string util::compute_md5(int fd, md5_output_type type, ssize_t size, off_t offse
   if (type == MOT_BASE64)
     return base64_encode(md5_buf, md5_len);
   else if (type == MOT_HEX)
-    return hex_encode(md5_buf, md5_len);
+    return "\"" + hex_encode(md5_buf, md5_len) + "\"";
   else
     throw runtime_error("unknown md5 output type.");
 }
@@ -139,6 +139,6 @@ double util::get_current_time()
 
 bool util::is_valid_md5(const string &md5)
 {
-  // yes, it's a rather rudimentary check
-  return (md5.size() == 32);
+  // yes, it's a rather rudimentary check (32 for the MD5, 2 for the quotes)
+  return (md5.size() == 34 && md5[0] == '"' && md5[md5.size() - 1] == '"');
 }
