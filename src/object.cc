@@ -9,19 +9,22 @@ using namespace s3;
 
 namespace
 {
-  const int    BLOCK_SIZE           = 512;
-  const string AMZ_META_PREFIX      = "x-amz-meta-";
-  const char  *AMZ_META_PREFIX_CSTR = AMZ_META_PREFIX.c_str();
-  const size_t AMZ_META_PREFIX_LEN  = AMZ_META_PREFIX.size();
-  const char  *SYMLINK_CONTENT_TYPE = "text/symlink";
+  const int     BLOCK_SIZE                    = 512;
+  const string  AMZ_META_PREFIX               = "x-amz-meta-";
+  const string  AMZ_META_PREFIX_RESERVED      = "s3fuse-";
+  const char   *AMZ_META_PREFIX_CSTR          = AMZ_META_PREFIX.c_str();
+  const char   *AMZ_META_PREFIX_RESERVED_CSTR = AMZ_META_PREFIX_RESERVED.c_str();
+  const size_t  AMZ_META_PREFIX_LEN           = AMZ_META_PREFIX.size();
+  const size_t  AMZ_META_PREFIX_RESERVED_LEN  = AMZ_META_PREFIX_RESERVED.size();
+  const char   *SYMLINK_CONTENT_TYPE          = "text/symlink";
 
-  int    g_default_uid          = 1000;
-  int    g_default_gid          = 1000;
-  int    g_default_mode         = 0755;
-  int    g_expiry_in_s          = 3 * 60; // 3 minutes
-  string g_default_content_type = "binary/octet-stream";
-  string g_bucket               = "test-0";
-  string g_bucket_url           = "/" + util::url_encode(g_bucket);
+  int    g_default_uid                        = 1000;
+  int    g_default_gid                        = 1000;
+  int    g_default_mode                       = 0755;
+  int    g_expiry_in_s                        = 3 * 60; // 3 minutes
+  string g_default_content_type               = "binary/octet-stream";
+  string g_bucket                             = "test-0";
+  string g_bucket_url                         = "/" + util::url_encode(g_bucket);
 
   mode_t get_mode_by_type(object_type type)
   {
@@ -67,6 +70,15 @@ void object::set_defaults(object_type type)
   _expiry = time(NULL) + g_expiry_in_s;
   _metadata.clear();
   _url = build_url(_path, _type);
+}
+
+int object::set_metadata(const string &key, const string &value)
+{
+  if (strncmp(key.c_str(), AMZ_META_PREFIX_RESERVED_CSTR, AMZ_META_PREFIX_RESERVED_LEN) == 0)
+    return -EINVAL;
+
+  _metadata[key] = value;
+  return 0;
 }
 
 void object::set_mode(mode_t mode)
@@ -118,7 +130,10 @@ void object::request_process_header(const std::string &key, const std::string &v
     _md5 = value;
   else if (key == "x-amz-meta-s3fuse-md5-etag")
     _md5_etag = value;
-  else if (strncmp(key.c_str(), AMZ_META_PREFIX_CSTR, AMZ_META_PREFIX_LEN) == 0)
+  else if (
+    strncmp(key.c_str(), AMZ_META_PREFIX_CSTR, AMZ_META_PREFIX_LEN) == 0 &&
+    strncmp(key.c_str() + AMZ_META_PREFIX_LEN, AMZ_META_PREFIX_RESERVED_CSTR, AMZ_META_PREFIX_RESERVED_LEN) != 0
+  )
     _metadata[key.substr(AMZ_META_PREFIX_LEN)] = value;
 }
 
@@ -171,6 +186,10 @@ void object::request_set_meta_headers(request *req)
 {
   char buf[16];
 
+  // do this first so that we overwrite any keys we care about (i.e., those that start with "x-amz-meta-s3fuse-")
+  for (meta_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)
+    req->set_header(AMZ_META_PREFIX + itor->first, itor->second);
+
   snprintf(buf, 16, "%#o", _stat.st_mode & ~S_IFMT);
   req->set_header("x-amz-meta-s3fuse-mode", buf);
 
@@ -187,7 +206,4 @@ void object::request_set_meta_headers(request *req)
   req->set_header("x-amz-meta-s3fuse-md5", _md5);
   req->set_header("x-amz-meta-s3fuse-md5-etag", _md5_etag);
   req->set_header("Content-Type", _content_type);
-
-  for (meta_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)
-    req->set_header(AMZ_META_PREFIX + itor->first, itor->second);
 }

@@ -21,6 +21,8 @@ namespace s3
     fs();
     ~fs();
 
+    static int commit_metadata(const request_ptr &req, const object::ptr &obj);
+
     inline int get_stats(const std::string &path, struct stat *s)
     {
       return _tp_fg->call(boost::bind(&fs::__get_stats, this, _1, path, s, HINT_NONE));
@@ -81,6 +83,30 @@ namespace s3
       return _tp_fg->call(boost::bind(&fs::__read_symlink, this, _1, path, target));
     }
 
+    int set_attr(const std::string &path, const std::string &name, const std::string &value, int flags)
+    {
+      return _tp_fg->call(boost::bind(&fs::__set_attr, this, _1, path, name, value, flags));
+    }
+
+    inline int get_attr(const std::string &path, const std::string &name, std::string *value)
+    {
+      object::ptr obj = _object_cache.get(path);
+
+      if (!obj)
+        return -ENOENT;
+
+      if (name == "__md5__")
+        *value = obj->get_md5();
+      else if (name == "__etag__")
+        *value = obj->get_etag();
+      else if (name == "__content_type__")
+        *value = obj->get_content_type();
+      else
+        return obj->get_metadata(name, value);
+
+      return 0;
+    }
+
     inline int open(const std::string &path, uint64_t *handle) { return _open_files.open(_object_cache.get(path), handle); }
     inline int truncate(const std::string &path, off_t offset) { return _open_files.truncate(_object_cache.get(path), offset); }
     inline int release(uint64_t handle) { return _open_files.release(handle); }
@@ -108,6 +134,7 @@ namespace s3
     int  __read_symlink    (const request_ptr &req, const std::string &path, std::string *target);
     int  __remove_object   (const request_ptr &req, const std::string &path);
     int  __rename_object   (const request_ptr &req, const std::string &from, const std::string &to);
+    int  __set_attr        (const request_ptr &req, const std::string &path, const std::string &name, const std::string &value, int flags);
 
     thread_pool::ptr _tp_fg, _tp_bg;
     object_cache _object_cache;

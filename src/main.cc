@@ -192,11 +192,55 @@ int s3_readlink(const char *path, char *buffer, size_t max_size)
   if (r)
     return r;
 
+  // leave room for the terminating null
+  max_size--;
+
   if (target.size() < max_size)
     max_size = target.size();
 
-  target.copy(buffer, max_size);
+  memcpy(buffer, target.c_str(), max_size);
+  buffer[max_size] = '\0';
+
   return 0;
+}
+
+int s3_getxattr(const char *path, const char *name, char *buffer, size_t max_size)
+{
+  string attr;
+  int r;
+
+  S3_DEBUG("s3_getxattr", "path: %s, name: %s, max_size: %zu\n", path, name, max_size);
+  ASSERT_LEADING_SLASH(path);
+
+  r = g_fs->get_attr(path + 1, name, &attr);
+
+  if (r)
+    return r;
+
+  if (max_size == 0)
+    return attr.size() + 1;
+
+  // leave room for the terminating null
+  max_size--;
+
+  if (attr.size() < max_size)
+    max_size = attr.size();
+
+  memcpy(buffer, attr.c_str(), max_size);
+  buffer[max_size] = '\0';
+
+  return max_size + 1; // +1 for \0
+}
+
+int s3_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
+{
+  S3_DEBUG("s3_setxattr", "path: %s, name: %s, value: %s\n", path, name, value);
+  ASSERT_LEADING_SLASH(path);
+
+  if (value[size - 1] != '\0')
+    return -EINVAL; // require null-terminated string for "value"
+
+  return g_fs->set_attr(path + 1, name, value, flags);
 }
 
 int main(int argc, char **argv)
@@ -211,6 +255,7 @@ int main(int argc, char **argv)
   opers.chown = s3_chown;
   opers.create = s3_create;
   opers.getattr = s3_getattr;
+  opers.getxattr = s3_getxattr;
   opers.flush = s3_flush;
   opers.mkdir = s3_mkdir;
   opers.open = s3_open;
@@ -220,6 +265,7 @@ int main(int argc, char **argv)
   opers.release = s3_release;
   opers.rename = s3_rename;
   opers.rmdir = s3_rmdir;
+  opers.setxattr = s3_setxattr;
   opers.symlink = s3_symlink;
   opers.truncate = s3_truncate;
   opers.unlink = s3_unlink;

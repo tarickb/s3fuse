@@ -41,7 +41,19 @@ namespace s3
 
     void set_defaults(object_type type);
 
-    inline void set_metadata(const std::string &key, const std::string &value) { _metadata[key] = value; }
+    int set_metadata(const std::string &key, const std::string &value);
+
+    inline int get_metadata(const std::string &key, std::string *value)
+    {
+      meta_map::const_iterator itor = _metadata.find(key);
+
+      if (itor == _metadata.end())
+        return -EINVAL;
+
+      *value = itor->second;
+      return 0;
+    }
+
     inline const std::string & get_metadata(const std::string &key) { return _metadata[key]; }
 
     inline void set_uid(uid_t uid) { _stat.st_uid = uid; }

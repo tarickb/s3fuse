@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/xattr.h>
 
 #include <pugixml/pugixml.hpp>
 
@@ -42,6 +43,26 @@ fs::~fs()
 {
   _tp_fg->terminate();
   _tp_bg->terminate();
+}
+
+int fs::commit_metadata(const request::ptr &req, const object::ptr &obj)
+{
+  // commit the new headers
+  req->init(HTTP_PUT);
+  req->set_url(obj->get_url());
+  req->set_header("x-amz-copy-source", obj->get_url());
+  req->set_header("x-amz-copy-source-if-match", obj->get_etag());
+  req->set_header("x-amz-metadata-directive", "REPLACE");
+  req->set_meta_headers(obj);
+
+  req->run();
+
+  if (req->get_response_code() != 200) {
+    S3_DEBUG("fs::commit_metadata", "failed to commit object metadata for [%s].\n", obj->get_url().c_str());
+    return -EIO;
+  }
+
+  return 0;
 }
 
 int fs::remove_object(const request::ptr &req, const string &url)
@@ -175,21 +196,7 @@ int fs::__change_metadata(const request::ptr &req, const std::string &path, mode
   if (mtime != time_t(-1))
     obj->set_mtime(mtime);
 
-  req->init(HTTP_PUT);
-  req->set_url(obj->get_url());
-  req->set_header("x-amz-copy-source", obj->get_url());
-  req->set_header("x-amz-copy-source-if-match", obj->get_etag());
-  req->set_header("x-amz-metadata-directive", "REPLACE");
-  req->set_meta_headers(obj);
-
-  req->run();
-
-  if (req->get_response_code() != 200) {
-    S3_DEBUG("fs::__change_metadata", "response: %s\n", req->get_response_data().c_str());
-    return -EIO;
-  }
-
-  return 0;
+  return commit_metadata(req, obj);
 }
 
 int fs::__read_directory(const request::ptr &req, const std::string &_path, fuse_fill_dir_t filler, void *buf)
@@ -328,3 +335,32 @@ int fs::__read_symlink(const request::ptr &req, const std::string &path, std::st
   *target = req->get_response_data().substr(SYMLINK_PREFIX.size());
   return 0;
 }
+
+int fs::__set_attr(const request::ptr &req, const string &path, const string &name, const string &value, int flags)
+{
+  object::ptr obj;
+  string t;
+  int r;
+
+  ASSERT_NO_TRAILING_SLASH(path);
+
+  obj = _object_cache.get(req, path);
+
+  if (!obj)
+    return -ENOENT;
+
+  if (flags & XATTR_CREATE && obj->get_metadata(name, &t) == 0)
+    return -EEXIST;
+
+  if (flags & XATTR_REPLACE && obj->get_metadata(name, &t) != 0)
+    return -ENODATA;
+
+  r = obj->set_metadata(name, value);
+
+  if (r)
+    return r;
+
+  return commit_metadata(req, obj);
+}
+
+

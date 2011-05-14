@@ -6,6 +6,7 @@
 #include <boost/smart_ptr.hpp>
 #include <boost/thread.hpp>
 
+#include "logging.hh"
 #include "object.hh"
 #include "open_file.hh"
 

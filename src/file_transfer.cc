@@ -2,6 +2,7 @@
 #include <pugixml/pugixml.hpp>
 
 #include "file_transfer.hh"
+#include "fs.hh"
 #include "logging.hh"
 #include "object.hh"
 #include "request.hh"
@@ -82,26 +83,6 @@ namespace
     if (req->get_response_header("ETag") != part->etag) {
       S3_DEBUG("file_transfer::upload_part", "md5 mismatch. expected %s, got %s.\n", part->etag.c_str(), req->get_response_header("ETag").c_str());
       return -EAGAIN; // assume it's a temporary failure
-    }
-
-    return 0;
-  }
-
-  int commit_metadata(const request::ptr &req, const object::ptr &obj)
-  {
-    // commit the new headers
-    req->init(HTTP_PUT);
-    req->set_url(obj->get_url());
-    req->set_header("x-amz-copy-source", obj->get_url());
-    req->set_header("x-amz-copy-source-if-match", obj->get_etag());
-    req->set_header("x-amz-metadata-directive", "REPLACE");
-    req->set_meta_headers(obj);
-
-    req->run();
-
-    if (req->get_response_code() != 200) {
-      S3_DEBUG("file_transfer::commit_metadata", "failed to commit object metadata for [%s].\n", obj->get_url().c_str());
-      return -EIO;
     }
 
     return 0;
@@ -248,7 +229,7 @@ int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj
   obj->set_md5(returned_md5, etag);
 
   // we don't need to commit the metadata if we got a valid etag back (since it'll be consistent)
-  return valid_md5 ? 0 : commit_metadata(req, obj);
+  return valid_md5 ? 0 : fs::commit_metadata(req, obj);
 }
 
 int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj, size_t size, int fd)
@@ -363,5 +344,5 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   // set the MD5 digest manually because the etag we get back is not itself a valid digest
   obj->set_md5(computed_md5, etag);
 
-  return commit_metadata(req, obj);
+  return fs::commit_metadata(req, obj);
 }
