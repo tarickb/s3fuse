@@ -50,8 +50,6 @@ int object_cache::__fetch(const request::ptr &req, const std::string &path, int 
     req->run();
   }
 
-  // TODO: check for delete markers?
-
   if (req->get_response_code() != 200)
     obj.reset();
   else

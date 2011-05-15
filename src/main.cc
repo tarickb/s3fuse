@@ -22,8 +22,6 @@ namespace
 
 int s3_getattr(const char *path, struct stat *s)
 {
-  // TODO: far too verbose
-  // S3_DEBUG("s3_getattr", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
   if (strcmp(path, "/") == 0) {

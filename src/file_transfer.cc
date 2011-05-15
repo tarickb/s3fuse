@@ -196,8 +196,6 @@ int file_transfer::__upload(const request::ptr &req, const object::ptr &obj, int
 
   size = obj->get_size();
 
-  // TODO: this should set the "if-match" header!
-
   if (size > g_upload_chunk_size)
     return upload_multi(req, obj, size, fd);
   else
@@ -240,6 +238,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   vector<transfer_part> parts((size + g_upload_chunk_size - 1) / g_upload_chunk_size);
   list<transfer_part *> parts_in_progress;
   xml_document doc;
+  xml_parse_result res;
   string etag, computed_md5;
 
   req->init(HTTP_POST);
@@ -251,8 +250,13 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   if (req->get_response_code() != 200)
     return -EIO;
 
-  // TODO: check parse result
-  doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+  res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+
+  if (res.status != status_ok) {
+    S3_DEBUG("file_transfer::upload_multi", "failed to parse response: %s\n", res.description());
+    return -EIO;
+  }
+
   upload_id = doc.document_element().child_value("UploadId");
 
   if (upload_id.empty())
@@ -331,7 +335,13 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
     return -EIO;
   }
 
-  doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+  res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+
+  if (res.status != status_ok) {
+    S3_DEBUG("file_transfer::upload_multi", "failed to parse response: %s\n", res.description());
+    return -EIO;
+  }
+
   etag = doc.document_element().child_value("ETag");
 
   if (etag.empty()) {

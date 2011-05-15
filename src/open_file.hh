@@ -18,8 +18,6 @@ namespace s3
   public:
     typedef boost::shared_ptr<open_file> ptr;
 
-    // TODO: move to private
-    open_file(open_file_map *map, const boost::shared_ptr<object> &obj, uint64_t handle);
     ~open_file();
 
     inline int get_fd() { return _fd; }
@@ -37,6 +35,10 @@ namespace s3
     int write(const char *buffer, size_t size, off_t offset);
 
   private:
+    friend class open_file_map; // for ctor
+
+    open_file(open_file_map *map, const boost::shared_ptr<object> &obj, uint64_t handle);
+
     open_file_map *_map;
     boost::shared_ptr<object> _obj;
     uint64_t _handle, _ref_count;

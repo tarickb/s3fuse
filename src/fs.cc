@@ -104,6 +104,12 @@ bool fs::is_directory_empty(const request::ptr &req, const string &path)
     return false;
 
   res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+
+  if (res.status != status_ok) {
+    S3_DEBUG("fs::is_directory_empty", "failed to parse response: %s\n", res.description());
+    return false;
+  }
+
   keys = KEY_QUERY.evaluate_node_set(doc);
 
   return (keys.size() == 1);
@@ -223,8 +229,12 @@ int fs::__read_directory(const request::ptr &req, const std::string &_path, fuse
     req->set_url(object::get_bucket_url(), string("delimiter=/&prefix=") + util::url_encode(path) + "&marker=" + marker);
     req->run();
 
-    // TODO: check res?
     res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+
+    if (res.status != status_ok) {
+      S3_DEBUG("fs::__read_directory", "failed to parse response: %s\n", res.description());
+      return -EIO;
+    }
 
     truncated = (strcmp(doc.document_element().child_value("IsTruncated"), "true") == 0);
     prefixes = PREFIX_QUERY.evaluate_node_set(doc);

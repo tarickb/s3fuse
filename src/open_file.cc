@@ -33,11 +33,9 @@ open_file::open_file(open_file_map *map, const object::ptr &obj, uint64_t handle
   char temp_name[] = "/tmp/s3fuse.local-XXXXXX";
 
   _fd = mkstemp(temp_name);
+  unlink(temp_name);
 
   S3_DEBUG("open_file::open_file", "opening [%s] in [%s].\n", obj->get_path().c_str(), temp_name);
-
-  // TODO: no unlink in debug mode?
-  // unlink(temp_name);
 
   if (_fd == -1)
     throw runtime_error("error calling mkstemp()");

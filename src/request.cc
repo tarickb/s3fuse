@@ -315,10 +315,8 @@ void request::run()
   build_request_time();
   build_signature();
 
-  // TODO: should we check for empty strings?
   for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
-    // if (!itor->second.empty())
-      headers = curl_slist_append(headers, (itor->first + ": " + itor->second).c_str());
+    headers = curl_slist_append(headers, (itor->first + ": " + itor->second).c_str());
 
   curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers);
 
@@ -334,7 +332,6 @@ void request::run()
   // TODO: add loop for timeouts and whatnot
   elapsed_time = util::get_current_time() - elapsed_time;
 
-  // TODO: selective debugging
   if (_response_code >= 300 && _response_code != 404)
     S3_DEBUG("request::run", "request for [%s] failed with response: %s\n", _url.c_str(), _output_data.c_str());
 

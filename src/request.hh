@@ -66,9 +66,6 @@ namespace s3
     static size_t process_output(char *data, size_t size, size_t items, void *context);
     static size_t process_input(char *data, size_t size, size_t items, void *context);
 
-    // TODO: remove
-    // static size_t read_request_data(char *data, size_t size, size_t items, void *context);
-
     void reset();
     void build_request_time();
     void build_signature();
@@ -80,10 +77,6 @@ namespace s3
     std::string _method;
     std::string _url;
     header_map _response_headers;
-
-    // TODO: remove this
-    // std::string _request_data, _response_data;
-    // size_t _request_data_pos;
 
     int _output_fd;
     off_t _output_offset;
