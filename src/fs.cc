@@ -77,6 +77,8 @@ int fs::remove_object(const request::ptr &req, const string &url)
 
 int fs::rename_children(const string &from, const string &to)
 {
+  // TODO: rename children!
+
   return -EIO;
 }
 

@@ -41,6 +41,8 @@ namespace
   }
 }
 
+// TODO: this should lock on access to _metadata, etc.
+
 const string & object::get_bucket_url()
 {
   return g_bucket_url;
