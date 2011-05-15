@@ -8,6 +8,7 @@
 
 #include <string>
 #include <boost/bind.hpp>
+#include <boost/thread.hpp>
 
 #include "object_cache.hh"
 #include "open_file_map.hh"
@@ -88,21 +89,36 @@ namespace s3
       return _tp_fg->call(boost::bind(&fs::__set_attr, this, _1, path, name, value, flags));
     }
 
+    int remove_attr(const std::string &path, const std::string &name)
+    {
+      return _tp_fg->call(boost::bind(&fs::__remove_attr, this, _1, path, name));
+    }
+
     inline int get_attr(const std::string &path, const std::string &name, std::string *value)
     {
+      boost::mutex::scoped_lock lock(_metadata_mutex, boost::defer_lock);
       object::ptr obj = _object_cache.get(path);
 
       if (!obj)
         return -ENOENT;
 
-      if (name == "__md5__")
-        *value = obj->get_md5();
-      else if (name == "__etag__")
-        *value = obj->get_etag();
-      else if (name == "__content_type__")
-        *value = obj->get_content_type();
-      else
-        return obj->get_metadata(name, value);
+      lock.lock();
+
+      return obj->get_metadata(name, value);
+    }
+
+    inline int list_attr(const std::string &path, std::vector<std::string> *attrs)
+    {
+      boost::mutex::scoped_lock lock(_metadata_mutex, boost::defer_lock);
+      object::ptr obj = _object_cache.get(path);
+
+      if (!obj)
+        return -ENOENT;
+
+      lock.lock();
+
+      for (object::meta_map::const_iterator itor = obj->get_metadata().begin(); itor != obj->get_metadata().end(); ++itor)
+        attrs->push_back(itor->first);
 
       return 0;
     }
@@ -132,10 +148,12 @@ namespace s3
     int  __prefill_stats   (const request_ptr &req, const std::string &path, int hints);
     int  __read_directory  (const request_ptr &req, const std::string &path, fuse_fill_dir_t filler, void *buf);
     int  __read_symlink    (const request_ptr &req, const std::string &path, std::string *target);
+    int  __remove_attr     (const request_ptr &req, const std::string &path, const std::string &name);
     int  __remove_object   (const request_ptr &req, const std::string &path);
     int  __rename_object   (const request_ptr &req, const std::string &from, const std::string &to);
     int  __set_attr        (const request_ptr &req, const std::string &path, const std::string &name, const std::string &value, int flags);
 
+    boost::mutex _metadata_mutex;
     thread_pool::ptr _tp_fg, _tp_bg;
     object_cache _object_cache;
     open_file_map _open_files;

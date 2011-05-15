@@ -338,6 +338,7 @@ int fs::__read_symlink(const request::ptr &req, const std::string &path, std::st
 
 int fs::__set_attr(const request::ptr &req, const string &path, const string &name, const string &value, int flags)
 {
+  mutex::scoped_lock lock(_metadata_mutex, defer_lock);
   object::ptr obj;
   string t;
   int r;
@@ -349,6 +350,8 @@ int fs::__set_attr(const request::ptr &req, const string &path, const string &na
   if (!obj)
     return -ENOENT;
 
+  lock.lock();
+
   if (flags & XATTR_CREATE && obj->get_metadata(name, &t) == 0)
     return -EEXIST;
 
@@ -357,10 +360,35 @@ int fs::__set_attr(const request::ptr &req, const string &path, const string &na
 
   r = obj->set_metadata(name, value);
 
+  lock.unlock();
+
   if (r)
     return r;
 
   return commit_metadata(req, obj);
 }
 
+int fs::__remove_attr(const request::ptr &req, const string &path, const string &name)
+{
+  mutex::scoped_lock lock(_metadata_mutex, defer_lock);
+  object::ptr obj;
+  int r;
 
+  ASSERT_NO_TRAILING_SLASH(path);
+
+  obj = _object_cache.get(req, path);
+
+  if (!obj)
+    return -ENOENT;
+
+  lock.lock();
+
+  r = obj->remove_metadata(name);
+
+  lock.unlock();
+
+  if (r)
+    return r;
+
+  return commit_metadata(req, obj);
+}

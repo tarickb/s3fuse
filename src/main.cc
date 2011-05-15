@@ -243,6 +243,45 @@ int s3_setxattr(const char *path, const char *name, const char *value, size_t si
   return g_fs->set_attr(path + 1, name, value, flags);
 }
 
+int s3_listxattr(const char *path, char *buffer, size_t size)
+{
+  vector<string> attrs;
+  size_t required_size = 0;
+  int r;
+
+  S3_DEBUG("s3_listxattr", "path: %s, size: %zu\n", path, size);
+  ASSERT_LEADING_SLASH(path);
+
+  r = g_fs->list_attr(path + 1, &attrs);
+
+  if (r)
+    return r;
+
+  for (size_t i = 0; i < attrs.size(); i++)
+    required_size += attrs[i].size() + 1;
+
+  if (size == 0)
+    return required_size;
+
+  if (required_size > size)
+    return -ERANGE;
+
+  for (size_t i = 0; i < attrs.size(); i++) {
+    strcpy(buffer, attrs[i].c_str());
+    buffer += attrs[i].size() + 1;
+  }
+
+  return required_size;
+}
+
+int s3_removexattr(const char *path, const char *name)
+{
+  S3_DEBUG("s3_removexattr", "path: %s, name: %s\n", path, name);
+  ASSERT_LEADING_SLASH(path);
+
+  return g_fs->remove_attr(path + 1, name);
+}
+
 int main(int argc, char **argv)
 {
   int r;
@@ -257,12 +296,14 @@ int main(int argc, char **argv)
   opers.getattr = s3_getattr;
   opers.getxattr = s3_getxattr;
   opers.flush = s3_flush;
+  opers.listxattr = s3_listxattr;
   opers.mkdir = s3_mkdir;
   opers.open = s3_open;
   opers.read = s3_read;
   opers.readdir = s3_readdir;
   opers.readlink = s3_readlink;
   opers.release = s3_release;
+  opers.removexattr = s3_removexattr;
   opers.rename = s3_rename;
   opers.rmdir = s3_rmdir;
   opers.setxattr = s3_setxattr;

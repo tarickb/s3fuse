@@ -29,6 +29,8 @@ namespace s3
   public:
     typedef boost::shared_ptr<object> ptr;
 
+    typedef std::map<std::string, std::string> meta_map;
+
     static const std::string & get_bucket_url();
     static std::string build_url(const std::string &path, object_type type);
 
@@ -43,18 +45,40 @@ namespace s3
 
     int set_metadata(const std::string &key, const std::string &value);
 
+    inline const meta_map & get_metadata() { return _metadata; }
+
     inline int get_metadata(const std::string &key, std::string *value)
     {
-      meta_map::const_iterator itor = _metadata.find(key);
+      meta_map::const_iterator itor;
 
-      if (itor == _metadata.end())
-        return -EINVAL;
+      if (key == "__md5__")
+        *value = _md5;
+      else if (key == "__etag__")
+        *value = _etag;
+      else if (key == "__content_type__")
+        *value = _content_type;
+      else {
+        itor = _metadata.find(key);
 
-      *value = itor->second;
+        if (itor == _metadata.end())
+          return -ENODATA;
+
+        *value = itor->second;
+      }
+
       return 0;
     }
 
-    inline const std::string & get_metadata(const std::string &key) { return _metadata[key]; }
+    inline int remove_metadata(const std::string &key)
+    {
+      meta_map::iterator itor = _metadata.find(key);
+
+      if (itor == _metadata.end())
+        return -ENODATA;
+
+      _metadata.erase(itor);
+      return 0;
+    }
 
     inline void set_uid(uid_t uid) { _stat.st_uid = uid; }
     inline void set_gid(gid_t gid) { _stat.st_gid = gid; }
@@ -93,8 +117,6 @@ namespace s3
   private:
     friend class request; // for request_*
     friend class open_file_map; // for set_open_file, get_open_file
-
-    typedef std::map<std::string, std::string> meta_map;
 
     inline void invalidate() { _expiry = 0; _open_fd = -1; } 
 
