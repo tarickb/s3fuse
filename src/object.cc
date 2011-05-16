@@ -42,6 +42,7 @@ namespace
 }
 
 // TODO: this should lock on access to _metadata, etc.
+// TODO: in fact, use a class with static methods: get_metadata_mutex(), get_file_state_mutex(), etc.
 
 const string & object::get_bucket_url()
 {
