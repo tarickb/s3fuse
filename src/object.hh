@@ -100,6 +100,7 @@ namespace s3
     inline const std::string & get_etag() { return _etag; }
     inline const std::string & get_md5() { return _md5; }
 
+    // TODO: merge open_file_map in with this to simplify locking around _open_fd
     inline bool is_valid() { return (_open_fd != -1 || (_expiry > 0 && time(NULL) < _expiry)); }
 
     const std::string & get_url() { return _url; }

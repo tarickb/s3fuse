@@ -42,6 +42,8 @@ namespace s3
       if (!obj)
         __fetch(req, path, hints, &obj);
 
+      // TODO: this should return the object that's already in the map (i.e., relock, if (obj = find(path)) return obj)
+      // TODO: so that we don't potentially return several objects
       return obj;
     }
 
