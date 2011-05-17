@@ -117,8 +117,7 @@ namespace s3
 
       lock.lock();
 
-      for (object::meta_map::const_iterator itor = obj->get_metadata().begin(); itor != obj->get_metadata().end(); ++itor)
-        attrs->push_back(itor->first);
+      obj->get_metadata_keys(attrs);
 
       return 0;
     }

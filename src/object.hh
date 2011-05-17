@@ -45,7 +45,15 @@ namespace s3
 
     int set_metadata(const std::string &key, const std::string &value);
 
-    inline const meta_map & get_metadata() { return _metadata; }
+    inline void get_metadata_keys(std::vector<std::string> *keys)
+    {
+      keys->push_back("__md5__");
+      keys->push_back("__etag__");
+      keys->push_back("__content_type__");
+
+      for (meta_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)
+        keys->push_back(itor->first);
+    }
 
     inline int get_metadata(const std::string &key, std::string *value)
     {
