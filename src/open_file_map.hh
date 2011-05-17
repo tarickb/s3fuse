@@ -23,6 +23,11 @@ namespace s3
     {
     }
 
+    inline ~open_file_map()
+    {
+      S3_DEBUG("open_file_map::~open_file_map", "number of opened files: %ju\n", static_cast<uintmax_t>(_next_handle));
+    }
+
     inline boost::mutex & get_file_status_mutex() { return _fs_mutex; }
     inline boost::condition & get_file_status_condition() { return _fs_condition; }
 
