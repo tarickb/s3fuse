@@ -103,7 +103,13 @@ namespace s3
         lock.unlock();
 
         try {
+          // TODO: double start_time, end_time
+          // TODO: start_time = get_current_time();
+          // TODO: _request->reset_timers();
           r = item.function(_request);
+          // TODO: end_time = get_current_time();
+          // TODO: _request->get_run_time();
+          // TODO: store timing stats
 
         } catch (std::exception &e) {
           S3_ERROR("_worker_thread::worker", "caught exception: %s\n", e.what());
