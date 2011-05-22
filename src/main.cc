@@ -7,14 +7,13 @@
 #include <string>
 #include <pugixml/pugixml.hpp>
 
+#include "config.hh"
 #include "fs.hh"
 
 using namespace std;
 
 namespace
 {
-  int g_mountpoint_mode = 0755;
-
   s3::fs *g_fs = NULL;
 }
 
@@ -25,7 +24,7 @@ int s3_getattr(const char *path, struct stat *s)
   ASSERT_LEADING_SLASH(path);
 
   if (strcmp(path, "/") == 0) {
-    s->st_mode = S_IFDIR | g_mountpoint_mode;
+    s->st_mode = S_IFDIR | s3::config::get_mountpoint_mode();
     s->st_nlink = 1; // because calculating nlink is hard! (see FUSE FAQ)
 
     return 0;
@@ -310,6 +309,12 @@ int main(int argc, char **argv)
   opers.unlink = s3_unlink;
   opers.utimens = s3_utimens;
   opers.write = s3_write;
+
+  // TODO: allow config file override?
+  r = s3::config::init();
+
+  if (r)
+    return r;
 
   g_fs = new s3::fs();
 

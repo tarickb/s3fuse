@@ -1,6 +1,7 @@
 #include <boost/lexical_cast.hpp>
 #include <pugixml/pugixml.hpp>
 
+#include "config.hh"
 #include "file_transfer.hh"
 #include "fs.hh"
 #include "logging.hh"
@@ -18,10 +19,6 @@ using namespace s3;
 namespace
 {
   const xpath_query UPLOADID_QUERY("/InitiateMultipartUploadResult/UploadId");
-
-  size_t g_download_chunk_size = 128 * 1024; // 128 KiB
-  size_t g_upload_chunk_size = 5 * 1024 * 1024; // 5 MiB
-  int g_max_retries = 3;
 
   struct transfer_part
   {
@@ -101,7 +98,7 @@ int file_transfer::__download(const request::ptr &req, const object::ptr &obj, i
   size_t size = obj->get_size();
   const string &url = obj->get_url(), &expected_md5 = obj->get_md5();
 
-  if (size > g_download_chunk_size)
+  if (size > config::get_download_chunk_size())
     r = download_multi(url, size, fd);
   else
     r = download_single(req, url, fd);
@@ -146,15 +143,15 @@ int file_transfer::download_single(const request::ptr &req, const string &url, i
 
 int file_transfer::download_multi(const string &url, size_t size, int fd)
 {
-  vector<transfer_part> parts((size + g_download_chunk_size - 1) / g_download_chunk_size);
+  vector<transfer_part> parts((size + config::get_download_chunk_size() - 1) / config::get_download_chunk_size());
   list<transfer_part *> parts_in_progress;
 
   for (size_t i = 0; i < parts.size(); i++) {
     transfer_part *part = &parts[i];
 
     part->id = i;
-    part->offset = i * g_download_chunk_size;
-    part->size = (i != parts.size() - 1) ? g_download_chunk_size : (size - g_download_chunk_size * i);
+    part->offset = i * config::get_download_chunk_size();
+    part->size = (i != parts.size() - 1) ? config::get_download_chunk_size() : (size - config::get_download_chunk_size() * i);
 
     part->handle = _tp_bg->post(bind(&download_part, _1, url, fd, part));
     parts_in_progress.push_back(part);
@@ -171,7 +168,7 @@ int file_transfer::download_multi(const string &url, size_t size, int fd)
       S3_DEBUG("file_transfer::download_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
       part->retry_count++;
 
-      if (part->retry_count > g_max_retries)
+      if (part->retry_count > config::get_max_transfer_retries())
         return -EIO;
 
       part->handle = _tp_bg->post(bind(&download_part, _1, url, fd, part));
@@ -196,7 +193,7 @@ int file_transfer::__upload(const request::ptr &req, const object::ptr &obj, int
 
   size = obj->get_size();
 
-  if (size > g_upload_chunk_size)
+  if (size > config::get_upload_chunk_size())
     return upload_multi(req, obj, size, fd);
   else
     return upload_single(req, obj, size, fd);
@@ -235,7 +232,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   const std::string &url = obj->get_url();
   string upload_id, complete_upload;
   bool success = true;
-  vector<transfer_part> parts((size + g_upload_chunk_size - 1) / g_upload_chunk_size);
+  vector<transfer_part> parts((size + config::get_upload_chunk_size() - 1) / config::get_upload_chunk_size());
   list<transfer_part *> parts_in_progress;
   xml_document doc;
   xml_parse_result res;
@@ -266,8 +263,8 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
     transfer_part *part = &parts[i];
 
     part->id = i;
-    part->offset = i * g_upload_chunk_size;
-    part->size = (i != parts.size() - 1) ? g_upload_chunk_size : (size - g_upload_chunk_size * i);
+    part->offset = i * config::get_upload_chunk_size();
+    part->size = (i != parts.size() - 1) ? config::get_upload_chunk_size() : (size - config::get_upload_chunk_size() * i);
 
     part->handle = _tp_bg->post(bind(&upload_part, _1, url, fd, upload_id, part));
     parts_in_progress.push_back(part);
@@ -291,7 +288,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
     } else if (result == -EAGAIN || result == -ETIMEDOUT) {
       part->retry_count++;
 
-      if (part->retry_count <= g_max_retries) {
+      if (part->retry_count <= config::get_max_transfer_retries()) {
         part->handle = _tp_bg->post(bind(&upload_part, _1, url, fd, upload_id, part));
         parts_in_progress.push_back(part);
       }

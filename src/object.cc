@@ -1,5 +1,6 @@
 #include <string.h>
 
+#include "config.hh"
 #include "object.hh"
 #include "request.hh"
 
@@ -17,14 +18,6 @@ namespace
   const size_t  AMZ_META_PREFIX_LEN           = AMZ_META_PREFIX.size();
   const size_t  AMZ_META_PREFIX_RESERVED_LEN  = AMZ_META_PREFIX_RESERVED.size();
   const char   *SYMLINK_CONTENT_TYPE          = "text/symlink";
-
-  int    g_default_uid                        = 1000;
-  int    g_default_gid                        = 1000;
-  int    g_default_mode                       = 0755;
-  int    g_expiry_in_s                        = 3 * 60; // 3 minutes
-  string g_default_content_type               = "binary/octet-stream";
-  string g_bucket                             = "test-0";
-  string g_bucket_url                         = "/" + util::url_encode(g_bucket);
 
   mode_t get_mode_by_type(object_type type)
   {
@@ -44,33 +37,33 @@ namespace
 // TODO: this should lock on access to _metadata, etc.
 // TODO: in fact, use a class with static methods: get_metadata_mutex(), get_file_state_mutex(), etc.
 
-const string & object::get_bucket_url()
+string object::get_bucket_url()
 {
-  return g_bucket_url;
+  return "/" + util::url_encode(config::get_bucket_name());
 }
 
 string object::build_url(const string &path, object_type type)
 {
-  return g_bucket_url + "/" + util::url_encode(path) + ((type == OT_DIRECTORY) ? "/" : "");
+  return get_bucket_url() + "/" + util::url_encode(path) + ((type == OT_DIRECTORY) ? "/" : "");
 }
 
 void object::set_defaults(object_type type)
 {
   memset(&_stat, 0, sizeof(_stat));
 
-  _stat.st_uid = g_default_uid;
-  _stat.st_gid = g_default_gid;
-  _stat.st_mode = g_default_mode | get_mode_by_type(type);
+  _stat.st_uid = config::get_default_uid();
+  _stat.st_gid = config::get_default_gid();
+  _stat.st_mode = config::get_default_mode() | get_mode_by_type(type);
   _stat.st_nlink  = 1; // laziness (see FUSE FAQ re. find)
   _stat.st_mtime = time(NULL);
 
   _type = type;
-  _content_type = ((type == OT_SYMLINK) ? string(SYMLINK_CONTENT_TYPE) : g_default_content_type);
+  _content_type = ((type == OT_SYMLINK) ? string(SYMLINK_CONTENT_TYPE) : config::get_default_content_type());
   _etag.clear();
   _mtime_etag.clear();
   _md5.clear();
   _md5_etag.clear();
-  _expiry = time(NULL) + g_expiry_in_s;
+  _expiry = time(NULL) + config::get_cache_expiry_in_s();
   _metadata.clear();
   _url = build_url(_path, _type);
 }
@@ -89,7 +82,7 @@ void object::set_mode(mode_t mode)
   mode = mode & ~S_IFMT;
 
   if (mode == 0)
-    mode = g_default_mode;
+    mode = config::get_default_mode();
 
   _stat.st_mode = (_stat.st_mode & S_IFMT) | mode;
 }
@@ -156,9 +149,9 @@ void object::request_process_response(request *req)
 
   _url = build_url(_path, _type);
 
-  _stat.st_mode   = (_stat.st_mode == 0) ? g_default_mode : _stat.st_mode;
-  _stat.st_uid    = (_stat.st_uid  == 0) ? g_default_uid  : _stat.st_uid;
-  _stat.st_gid    = (_stat.st_gid  == 0) ? g_default_gid  : _stat.st_gid;
+  _stat.st_mode   = (_stat.st_mode == 0) ? config::get_default_mode() : _stat.st_mode;
+  _stat.st_uid    = (_stat.st_uid  == 0) ? config::get_default_uid()  : _stat.st_uid;
+  _stat.st_gid    = (_stat.st_gid  == 0) ? config::get_default_gid()  : _stat.st_gid;
 
   _stat.st_mode  |= get_mode_by_type(_type);
   _stat.st_nlink  = 1; // laziness (see FUSE FAQ re. find)
@@ -182,7 +175,7 @@ void object::request_process_response(request *req)
     _stat.st_blocks = (_stat.st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
   // setting _expiry > 0 makes this object valid
-  _expiry = time(NULL) + g_expiry_in_s;
+  _expiry = time(NULL) + config::get_cache_expiry_in_s();
 }
 
 void object::request_set_meta_headers(request *req)

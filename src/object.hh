@@ -31,7 +31,7 @@ namespace s3
 
     typedef std::map<std::string, std::string> meta_map;
 
-    static const std::string & get_bucket_url();
+    static std::string get_bucket_url();
     static std::string build_url(const std::string &path, object_type type);
 
     inline object(const std::string &path)

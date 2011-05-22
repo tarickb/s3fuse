@@ -18,7 +18,7 @@ using namespace std;
 
 using namespace s3;
 
-// TODO: try/catch everywhere!
+// TODO: try/catch everywhere! (or, get rid of exceptions)
 // TODO: check error codes after run()
 
 #define ASSERT_NO_TRAILING_SLASH(str) do { if ((str)[(str).size() - 1] == '/') return -EINVAL; } while (0)

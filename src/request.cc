@@ -11,6 +11,7 @@
 #include <boost/lexical_cast.hpp>
 #include <boost/thread.hpp>
 
+#include "config.hh"
 #include "object.hh"
 #include "openssl_locks.hh"
 #include "request.hh"
@@ -25,12 +26,6 @@ using namespace s3;
 namespace
 {
   const string AMZ_HEADER_PREFIX = "x-amz-";
-
-  // TODO: obviously, these should be config options
-  string g_url_prefix = "https://s3.amazonaws.com";
-  string g_aws_key = "AKIAJZHNXBKNRCUMV4IQ";
-  string g_aws_secret = "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";
-  bool g_verbose_requests = false;
 }
 
 request::request()
@@ -48,7 +43,7 @@ request::request()
   // stuff that's set in the ctor shouldn't be modified elsewhere, since the call to init() won't reset it
 
   // TODO: check for errors
-  curl_easy_setopt(_curl, CURLOPT_VERBOSE, g_verbose_requests);
+  curl_easy_setopt(_curl, CURLOPT_VERBOSE, config::get_verbose_requests());
   curl_easy_setopt(_curl, CURLOPT_NOPROGRESS, true);
   curl_easy_setopt(_curl, CURLOPT_FOLLOWLOCATION, true);
   curl_easy_setopt(_curl, CURLOPT_ERRORBUFFER, _curl_error);
@@ -215,7 +210,7 @@ size_t request::process_input(char *data, size_t size, size_t items, void *conte
 
 void request::set_url(const string &url, const string &query_string)
 {
-  string curl_url = g_url_prefix + url;
+  string curl_url = config::get_url_prefix() + url;
 
   if (!query_string.empty()) {
     curl_url += (curl_url.find('?') == string::npos) ? "?" : "&";
@@ -283,7 +278,7 @@ void request::build_request_time()
 
 void request::build_signature()
 {
-  string sig = "AWS " + g_aws_key + ":";
+  string sig = "AWS " + config::get_aws_key() + ":";
   string to_sign = _method + "\n" + _headers["Content-MD5"] + "\n" + _headers["Content-Type"] + "\n" + _headers["Date"] + "\n";
 
   for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
@@ -291,7 +286,7 @@ void request::build_signature()
       to_sign += itor->first + ":" + itor->second + "\n";
 
   to_sign += _url;
-  _headers["Authorization"] = string("AWS ") + g_aws_key + ":" + util::sign(g_aws_secret, to_sign);
+  _headers["Authorization"] = string("AWS ") + config::get_aws_key() + ":" + util::sign(config::get_aws_secret(), to_sign);
 }
 
 void request::set_meta_headers(const object::ptr &object)
