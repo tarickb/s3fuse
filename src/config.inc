@@ -1,3 +1,6 @@
+// format is:
+// CONFIG(type, name, default-value)
+
 CONFIG(int, default_uid, 0);
 CONFIG(int, default_gid, 0);
 CONFIG(int, default_mode, 0755);
