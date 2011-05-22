@@ -311,6 +311,8 @@ void request::build_signature()
 bool request::check_timeout()
 {
   if (_timeout && time(NULL) > _timeout) {
+    S3_DEBUG("request::check_timeout", "timed out.\n");
+
     _canceled = true;
     return true;
   }

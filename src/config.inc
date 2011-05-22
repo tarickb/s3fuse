@@ -15,7 +15,7 @@ CONFIG(int, max_transfer_retries, 5);
 
 CONFIG(std::string, url_prefix, "https://s3.amazonaws.com");
 CONFIG(bool, verbose_requests, false);
-CONFIG(int, request_timeout_in_s, 5 * 60);
+CONFIG(int, request_timeout_in_s, 5 * 60); // should be long enough to transfer upload_chunk_size
 
 CONFIG_REQUIRED(std::string, aws_key, "");
 CONFIG_REQUIRED(std::string, aws_secret, "");

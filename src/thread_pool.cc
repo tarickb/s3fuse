@@ -66,11 +66,11 @@ namespace s3
         thread_pool::ptr pool = _pool.lock();
 
         if (pool)
-          pool->on_done(_ah, -ETIMEDOUT);
+          pool->on_done(_current_ah, -ETIMEDOUT);
 
-        // prevent worker() from continuing, and prevent subsequent calls here from triggering on_timeout()
+        // prevent worker() from continuing
         _pool.reset();
-        _ah.reset();
+        _current_ah.reset();
 
         return true;
       }
@@ -80,8 +80,8 @@ namespace s3
 
   private:
     _worker_thread(const thread_pool::ptr &pool)
-      : _pool(pool),
-        _request(new request())
+      : _request(new request()),
+        _pool(pool)
     { }
 
     void worker()
@@ -111,8 +111,7 @@ namespace s3
 
         lock.lock();
 
-        _ah = item.ah;
-        _timeout = item.timeout;
+        _current_ah = item.ah;
 
         lock.unlock();
 
@@ -142,24 +141,25 @@ namespace s3
         {
           thread_pool::ptr pool = _pool.lock();
 
-          if (pool)
-            pool->on_done(_ah, r);
+          if (pool && _current_ah)
+            pool->on_done(_current_ah, r);
         }
 
-        _ah.reset();
-        _timeout = 0;
+        _current_ah.reset();
       }
 
       // the boost::thread in _thread holds a shared_ptr to this, and will keep it from being destructed
       _thread.reset();
     }
 
-    weak_ptr<thread_pool> _pool;
     shared_ptr<thread> _thread;
     mutex _mutex;
     shared_ptr<request> _request;
-    async_handle _ah;
     double _time_in_function, _time_in_request;
+
+    // access controlled by _mutex
+    weak_ptr<thread_pool> _pool;
+    async_handle _current_ah;
   };
 }
 
@@ -211,8 +211,6 @@ _queue_item thread_pool::get_next_queue_item()
   if (_done)
     return _queue_item(); // generates an invalid queue item
 
-  // TODO: handle case where _queue.front() has already timed out
-
   t = _queue.front();
   _queue.pop_front();
 
@@ -234,7 +232,7 @@ async_handle thread_pool::post(const worker_function &fn, int timeout_in_s)
   async_handle ah(new _async_handle());
   mutex::scoped_lock lock(_list_mutex);
 
-  _queue.push_back(_queue_item(fn, ah, time(NULL) + timeout_in_s));
+  _queue.push_back(_queue_item(fn, ah));
   _list_condition.notify_all();
 
   return ah;
