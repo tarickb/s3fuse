@@ -57,6 +57,9 @@ namespace s3
     inline void set_target_object(const boost::shared_ptr<object> &object) { _target_object = object; }
     inline const boost::shared_ptr<object> & get_target_object() { return _target_object; }
 
+    inline void reset_current_run_time() { _current_run_time = 0.0; }
+    inline double get_current_run_time() { return _current_run_time; }
+
     void set_meta_headers(const boost::shared_ptr<object> &object);
 
     void run();
@@ -94,7 +97,7 @@ namespace s3
 
     header_map _headers; // assumptions: no duplicates, all header names are always lower-case
 
-    double _total_run_time;
+    double _current_run_time, _total_run_time;
     uint64_t _run_count;
   };
 }

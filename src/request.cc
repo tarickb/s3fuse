@@ -34,7 +34,8 @@ namespace
 }
 
 request::request()
-  : _total_run_time(0.0),
+  : _current_run_time(0.0),
+    _total_run_time(0.0),
     _run_count(0)
 {
   _curl = curl_easy_init();
@@ -65,11 +66,12 @@ request::~request()
 {
   curl_easy_cleanup(_curl);
 
-  S3_DEBUG(
-    "request::~request", 
-    "served %" PRIu64 " requests at an average of %.02f ms per request.\n", 
-    _run_count,
-    (_run_count && _total_run_time > 0.0) ? (_total_run_time / double(_run_count) * 1000.0) : 0.0);
+  if (_run_count > 0)
+    S3_DEBUG(
+      "request::~request", 
+      "served %" PRIu64 " requests at an average of %.02f ms per request.\n", 
+      _run_count,
+      (_run_count && _total_run_time > 0.0) ? (_total_run_time / double(_run_count) * 1000.0) : 0.0);
 
   openssl_locks::release();
 }
@@ -338,6 +340,9 @@ void request::run()
   // don't save the time for the first request since it's likely to be disproportionately large
   if (_run_count > 0)
     _total_run_time += elapsed_time;
+
+  // but save it in _current_run_time since it's compared to overall function time (i.e., it's relative)
+  _current_run_time += elapsed_time;
 
   _run_count++;
 

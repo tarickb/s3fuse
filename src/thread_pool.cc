@@ -2,6 +2,7 @@
 
 #include "request.hh"
 #include "thread_pool.hh"
+#include "util.hh"
 
 using namespace boost;
 using namespace std;
@@ -34,6 +35,17 @@ namespace s3
   {
   public:
     typedef shared_ptr<_worker_thread> ptr;
+
+    ~_worker_thread()
+    {
+      if (_time_in_function > 0.0)
+        S3_DEBUG(
+          "_worker_thread::~_worker_thread", 
+          "time in request/function: %.2f s/%.2f s (%.2f %%)\n", 
+          _time_in_request, 
+          _time_in_function, 
+          (_time_in_request / _time_in_function) * 100.0);
+    }
 
     static ptr create(const thread_pool::ptr &pool)
     {
@@ -103,13 +115,16 @@ namespace s3
         lock.unlock();
 
         try {
-          // TODO: double start_time, end_time
-          // TODO: start_time = get_current_time();
-          // TODO: _request->reset_timers();
+          double start_time, end_time;
+
+          start_time = util::get_current_time();
+          _request->reset_current_run_time();
+
           r = item.function(_request);
-          // TODO: end_time = get_current_time();
-          // TODO: _request->get_run_time();
-          // TODO: store timing stats
+
+          end_time = util::get_current_time();
+          _time_in_function += end_time - start_time;
+          _time_in_request += _request->get_current_run_time();
 
         } catch (std::exception &e) {
           S3_ERROR("_worker_thread::worker", "caught exception: %s\n", e.what());
@@ -143,6 +158,7 @@ namespace s3
     shared_ptr<request> _request;
     async_handle _ah;
     time_t _timeout;
+    double _time_in_function, _time_in_request;
   };
 }
 
