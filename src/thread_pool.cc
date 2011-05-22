@@ -9,8 +9,6 @@ using namespace std;
 
 using namespace s3;
 
-// TODO: get rid of all the watchdog shit and make it poll the requests themselves -- cancel the request if there's something outstanding, if not, let it go. maybe use the CURL progress callbacks to trigger a heartbeat or something like that. maybe.
-
 namespace s3
 {
   struct _async_handle
@@ -88,31 +86,30 @@ namespace s3
     {
       while (true) {
         mutex::scoped_lock lock(_mutex);
+        thread_pool::ptr pool;
         _queue_item item;
         int r;
 
-        {
-          thread_pool::ptr pool = _pool.lock();
+        // the interplay between _mutex and _pool is a little (a lot?) ugly here, but the principles are:
+        //
+        // 1a. we don't want to hold _mutex while also keeping _pool alive.
+        // 1b. we want to minimize the amount of time we keep _pool alive.
+        // 2.  we need to lock _mutex when reading/writing _pool or _current_ah (because check_timeout does too).
 
-          // hold a local copy of _pool so that we can call get_next_queue_item(), which can block, without holding
-          // _mutex.  this would only ever be a problem if the watchdog in thread_pool calls check_timeout() while
-          // holding some lock needed by get_next_queue_item().  unlikely, but possible in the future.
+        pool = _pool.lock();
+        lock.unlock();
 
-          lock.unlock();
+        if (!pool)
+          break;
 
-          if (!pool)
-            break;
-
-          item = pool->get_next_queue_item();
-        }
+        item = pool->get_next_queue_item();
+        pool.reset();
 
         if (!item.is_valid())
           break;
 
         lock.lock();
-
         _current_ah = item.ah;
-
         lock.unlock();
 
         try {
@@ -137,13 +134,10 @@ namespace s3
         }
 
         lock.lock();
+        pool = _pool.lock();
 
-        {
-          thread_pool::ptr pool = _pool.lock();
-
-          if (pool && _current_ah)
-            pool->on_done(_current_ah, r);
-        }
+        if (pool && _current_ah)
+          pool->on_done(_current_ah, r);
 
         _current_ah.reset();
       }
