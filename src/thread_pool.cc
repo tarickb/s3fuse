@@ -25,12 +25,11 @@ namespace s3
   {
     thread_pool::worker_function function;
     async_handle ah;
-    time_t timeout;
 
-    inline _queue_item() : timeout(0) { }
-    inline _queue_item(const thread_pool::worker_function &function_, const async_handle &ah_, time_t timeout_) : function(function_), ah(ah_), timeout(timeout_) {}
+    inline _queue_item() { }
+    inline _queue_item(const thread_pool::worker_function &function_, const async_handle &ah_) : function(function_), ah(ah_) {}
 
-    inline bool is_valid() { return (timeout > 0); }
+    inline bool is_valid() { return ah; }
   };
 
   class _worker_thread
@@ -62,14 +61,16 @@ namespace s3
     bool check_timeout() // return true if thread has hanged
     {
       mutex::scoped_lock lock(_mutex);
-      thread_pool::ptr pool = _pool.lock();
 
-      // TODO: does this work?
-      // TODO: allow heartbeats!
+      if (_request->check_timeout()) {
+        thread_pool::ptr pool = _pool.lock();
 
-      if (pool && _timeout && time(NULL) > _timeout) {
-        pool->on_done(_ah, -ETIMEDOUT);
-        _pool.reset(); // prevent worker() from continuing, and prevent subsequent calls here from triggering on_timeout()
+        if (pool)
+          pool->on_done(_ah, -ETIMEDOUT);
+
+        // prevent worker() from continuing, and prevent subsequent calls here from triggering on_timeout()
+        _pool.reset();
+        _ah.reset();
 
         return true;
       }
@@ -80,8 +81,7 @@ namespace s3
   private:
     _worker_thread(const thread_pool::ptr &pool)
       : _pool(pool),
-        _request(new request()),
-        _timeout(0)
+        _request(new request())
     { }
 
     void worker()
@@ -159,7 +159,6 @@ namespace s3
     mutex _mutex;
     shared_ptr<request> _request;
     async_handle _ah;
-    time_t _timeout;
     double _time_in_function, _time_in_request;
   };
 }

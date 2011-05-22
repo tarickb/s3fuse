@@ -62,6 +62,8 @@ namespace s3
 
     void set_meta_headers(const boost::shared_ptr<object> &object);
 
+    bool check_timeout();
+
     void run();
 
   private:
@@ -99,6 +101,9 @@ namespace s3
 
     double _current_run_time, _total_run_time;
     uint64_t _run_count;
+
+    bool _canceled;
+    time_t _timeout;
   };
 }
 

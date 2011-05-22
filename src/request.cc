@@ -31,7 +31,9 @@ namespace
 request::request()
   : _current_run_time(0.0),
     _total_run_time(0.0),
-    _run_count(0)
+    _run_count(0),
+    _canceled(false),
+    _timeout(0)
 {
   _curl = curl_easy_init();
 
@@ -73,6 +75,9 @@ request::~request()
 
 void request::init(http_method method)
 {
+  if (_canceled)
+    throw runtime_error("cannot reuse a canceled request.");
+
   _curl_error[0] = '\0';
   _url.clear();
   _output_data.clear();
@@ -122,6 +127,9 @@ size_t request::process_header(char *data, size_t size, size_t items, void *cont
 
   size *= items;
 
+  if (req->_canceled)
+    return 0; // abort!
+
   if (data[size] != '\0')
     return size; // we choose not to handle the case where data isn't null-terminated
 
@@ -161,6 +169,9 @@ size_t request::process_output(char *data, size_t size, size_t items, void *cont
   // why even bother with "items"?
   size *= items;
 
+  if (req->_canceled)
+    return 0; // abort!
+
   if (req->_output_fd != -1) {
     ssize_t rc = pwrite(req->_output_fd, data, size, req->_output_offset);
 
@@ -182,6 +193,9 @@ size_t request::process_input(char *data, size_t size, size_t items, void *conte
   request *req = static_cast<request *>(context);
 
   size *= items;
+
+  if (req->_canceled)
+    return 0; // abort!
 
   if (req->_input_fd != -1) {
     size_t remaining = (size > req->_input_size) ? req->_input_size : size;
@@ -263,6 +277,11 @@ void request::set_input_fd(int fd, size_t size, off_t offset)
     throw runtime_error("can't set input fd for non-POST/non-PUT request.");
 }
 
+void request::set_meta_headers(const object::ptr &object)
+{
+  object->request_set_meta_headers(this); 
+}
+
 void request::build_request_time()
 {
   time_t sys_time;
@@ -289,9 +308,14 @@ void request::build_signature()
   _headers["Authorization"] = string("AWS ") + config::get_aws_key() + ":" + util::sign(config::get_aws_secret(), to_sign);
 }
 
-void request::set_meta_headers(const object::ptr &object)
+bool request::check_timeout()
 {
-  object->request_set_meta_headers(this); 
+  if (_timeout && time(NULL) > _timeout) {
+    _canceled = true;
+    return true;
+  }
+
+  return false;
 }
 
 void request::run()
@@ -305,6 +329,9 @@ void request::run()
 
   if (_method.empty())
     throw runtime_error("call set_method() first!");
+
+  if (_canceled)
+    throw runtime_error("cannot reuse a canceled request.");
 
   _output_data.clear();
   _response_headers.clear();
@@ -320,8 +347,16 @@ void request::run()
   if (_target_object)
     _target_object->request_init();
 
+  _timeout = time(NULL) + config::get_request_timeout_in_s();
+
   if (curl_easy_perform(_curl) != 0)
     throw runtime_error(_curl_error);
+
+  if (_canceled)
+    throw runtime_error("request timed out.");
+
+  // reset this here so that subsequent calls to check_timeout() don't fail
+  _timeout = 0;
 
   curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code);
   curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified);
