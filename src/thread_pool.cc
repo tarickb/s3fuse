@@ -9,6 +9,8 @@ using namespace std;
 
 using namespace s3;
 
+// TODO: get rid of all the watchdog shit and make it poll the requests themselves -- cancel the request if there's something outstanding, if not, let it go. maybe use the CURL progress callbacks to trigger a heartbeat or something like that. maybe.
+
 namespace s3
 {
   struct _async_handle

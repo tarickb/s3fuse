@@ -42,16 +42,7 @@ namespace s3
       if (!obj)
         __fetch(req, path, hints, &obj);
 
-      // TODO: this should return the object that's already in the map (i.e., relock, if (obj = find(path)) return obj)
-      // TODO: so that we don't potentially return several objects
       return obj;
-    }
-
-    inline void set(const std::string &path, const object::ptr &object)
-    {
-      boost::mutex::scoped_lock lock(_mutex);
-
-      _cache[path] = object;
     }
 
     inline void remove(const std::string &path)

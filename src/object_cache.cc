@@ -2,6 +2,8 @@
 #include "object_cache.hh"
 #include "request.hh"
 
+using namespace boost;
+
 using namespace s3;
 
 object_cache::object_cache(const thread_pool::ptr &pool)
@@ -52,8 +54,18 @@ int object_cache::__fetch(const request::ptr &req, const std::string &path, int 
 
   if (req->get_response_code() != 200)
     obj.reset();
-  else
-    set(path, obj);
+  else {
+    mutex::scoped_lock lock(_mutex);
+    object::ptr &map_obj = _cache[path];
+
+    if (map_obj) {
+      // if the object is already in the map, don't overwrite it
+      obj = map_obj;
+    } else {
+      // otherwise, save it
+      map_obj = obj;
+    }
+  }
 
   return 0;
 }
