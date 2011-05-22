@@ -10,7 +10,8 @@ object_cache::object_cache(const thread_pool::ptr &pool)
   : _pool(pool),
     _hits(0),
     _misses(0),
-    _expiries(0)
+    _expiries(0),
+    _next_handle(0)
 { }
 
 object_cache::~object_cache()

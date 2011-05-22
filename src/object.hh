@@ -100,9 +100,6 @@ namespace s3
     inline const std::string & get_etag() { return _etag; }
     inline const std::string & get_md5() { return _md5; }
 
-    // TODO: merge open_file_map in with this to simplify locking around _open_fd
-    inline bool is_valid() { return (_open_fd != -1 || (_expiry > 0 && time(NULL) < _expiry)); }
-
     const std::string & get_url() { return _url; }
 
     inline size_t get_size()
@@ -125,9 +122,10 @@ namespace s3
 
   private:
     friend class request; // for request_*
-    friend class open_file_map; // for set_open_file, get_open_file
+    friend class object_cache; // for is_valid, set_open_file, get_open_file
 
-    inline void invalidate() { _expiry = 0; _open_fd = -1; } 
+    // TODO: merge open_file_map in with this to simplify locking around _open_fd
+    inline bool is_valid() { return (_expiry > 0 && time(NULL) < _expiry); }
 
     inline const open_file::ptr & get_open_file()
     {
@@ -136,15 +134,9 @@ namespace s3
 
     inline void set_open_file(const open_file::ptr &open_file)
     {
-      // using _open_file requires a lock (which is held by open_file_map).
-      // instead, we'll stick to _open_fd, since operations on it are atomic.
-
+      // this is a one-way call -- we'll never be called with a null open_file
       _open_file = open_file;
-
-      if (open_file)
-        _open_fd = open_file->get_fd();
-      else
-        invalidate();
+      _open_fd = open_file->get_fd();
     }
 
     void request_init();

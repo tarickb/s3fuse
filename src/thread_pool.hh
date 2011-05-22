@@ -50,7 +50,7 @@ namespace s3
     void terminate();
 
   private:
-    friend class _worker_thread; // for on_done(), get_next_queue_item()
+    friend class _worker_thread; // for on_done, get_next_queue_item
 
     typedef boost::shared_ptr<_worker_thread> wt_ptr;
     typedef std::list<wt_ptr> wt_list;
