@@ -1,9 +1,12 @@
 #include <string.h>
+#include <sys/xattr.h>
 
 #include "config.hh"
+#include "logging.hh"
 #include "object.hh"
 #include "request.hh"
 
+using namespace boost;
 using namespace std;
 
 using namespace s3;
@@ -34,9 +37,6 @@ namespace
   }
 }
 
-// TODO: this should lock on access to _metadata, etc.
-// TODO: in fact, use a class with static methods: get_metadata_mutex(), get_file_state_mutex(), etc.
-
 string object::get_bucket_url()
 {
   return "/" + util::url_encode(config::get_bucket_name());
@@ -47,7 +47,12 @@ string object::build_url(const string &path, object_type type)
   return get_bucket_url() + "/" + util::url_encode(path) + ((type == OT_DIRECTORY) ? "/" : "");
 }
 
-void object::set_defaults(object_type type)
+object::object(const mutexes::ptr &mutexes, const string &path, object_type type)
+  : _mutexes(mutexes),
+    _type(type),
+    _path(path),
+    _expiry(0),
+    _open_fd(-1)
 {
   memset(&_stat, 0, sizeof(_stat));
 
@@ -57,23 +62,73 @@ void object::set_defaults(object_type type)
   _stat.st_nlink  = 1; // laziness (see FUSE FAQ re. find)
   _stat.st_mtime = time(NULL);
 
-  _type = type;
   _content_type = ((type == OT_SYMLINK) ? string(SYMLINK_CONTENT_TYPE) : config::get_default_content_type());
-  _etag.clear();
-  _mtime_etag.clear();
-  _md5.clear();
-  _md5_etag.clear();
   _expiry = time(NULL) + config::get_cache_expiry_in_s();
-  _metadata.clear();
   _url = build_url(_path, _type);
 }
 
-int object::set_metadata(const string &key, const string &value)
+int object::set_metadata(const string &key, const string &value, int flags)
 {
+  mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+  meta_map::iterator itor = _metadata.find(key);
+
   if (strncmp(key.c_str(), AMZ_META_PREFIX_RESERVED_CSTR, AMZ_META_PREFIX_RESERVED_LEN) == 0)
     return -EINVAL;
 
+  if (flags & XATTR_CREATE && itor != _metadata.end())
+    return -EEXIST;
+
+  if (flags & XATTR_REPLACE && itor == _metadata.end())
+    return -ENODATA;
+
   _metadata[key] = value;
+  return 0;
+}
+
+void object::get_metadata_keys(vector<string> *keys)
+{
+  mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+
+  keys->push_back("__md5__");
+  keys->push_back("__etag__");
+  keys->push_back("__content_type__");
+
+  for (meta_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)
+    keys->push_back(itor->first);
+}
+
+int object::get_metadata(const string &key, string *value)
+{
+  mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+  meta_map::const_iterator itor;
+
+  if (key == "__md5__")
+    *value = _md5;
+  else if (key == "__etag__")
+    *value = _etag;
+  else if (key == "__content_type__")
+    *value = _content_type;
+  else {
+    itor = _metadata.find(key);
+
+    if (itor == _metadata.end())
+      return -ENODATA;
+
+    *value = itor->second;
+  }
+
+  return 0;
+}
+
+int object::remove_metadata(const string &key)
+{
+  mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+  meta_map::iterator itor = _metadata.find(key);
+
+  if (itor == _metadata.end())
+    return -ENODATA;
+
+  _metadata.erase(itor);
   return 0;
 }
 
@@ -104,6 +159,9 @@ void object::request_init()
 
 void object::request_process_header(const std::string &key, const std::string &value)
 {
+  // this doesn't need to lock the metadata mutex because the object won't be in the cache (and thus
+  // isn't shareable) until the request has finished processing
+
   long long_value = strtol(value.c_str(), NULL, 0);
 
   if (key == "Content-Type")
@@ -135,6 +193,8 @@ void object::request_process_header(const std::string &key, const std::string &v
 
 void object::request_process_response(request *req)
 {
+  // see note in request_process_header() re. locking
+
   const string &url = req->get_url();
 
   if (url.empty() || req->get_response_code() != 200)
@@ -180,6 +240,7 @@ void object::request_process_response(request *req)
 
 void object::request_set_meta_headers(request *req)
 {
+  mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
   char buf[16];
 
   // do this first so that we overwrite any keys we care about (i.e., those that start with "x-amz-meta-s3fuse-")
@@ -202,4 +263,23 @@ void object::request_set_meta_headers(request *req)
   req->set_header("x-amz-meta-s3fuse-md5", _md5);
   req->set_header("x-amz-meta-s3fuse-md5-etag", _md5_etag);
   req->set_header("Content-Type", _content_type);
+}
+
+int object::commit_metadata(const request::ptr &req)
+{
+  req->init(HTTP_PUT);
+  req->set_url(_url);
+  req->set_header("x-amz-copy-source", _url);
+  req->set_header("x-amz-copy-source-if-match", get_etag()); // get_etag() locks the metadata mutex
+  req->set_header("x-amz-metadata-directive", "REPLACE");
+  req->set_meta_headers(shared_from_this());
+
+  req->run();
+
+  if (req->get_response_code() != 200) {
+    S3_DEBUG("object::commit_metadata", "failed to commit object metadata for [%s].\n", _url.c_str());
+    return -EIO;
+  }
+
+  return 0;
 }

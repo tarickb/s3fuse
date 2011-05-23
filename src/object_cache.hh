@@ -3,13 +3,17 @@
 
 #include <map>
 #include <string>
+#include <boost/smart_ptr.hpp>
 #include <boost/thread.hpp>
 
+#include "logging.hh"
 #include "object.hh"
 #include "thread_pool.hh"
 
 namespace s3
 {
+  class file_transfer;
+  class mutexes;
   class request;
 
   enum cache_hints
@@ -22,7 +26,11 @@ namespace s3
   class object_cache
   {
   public:
-    object_cache(const thread_pool::ptr &pool);
+    object_cache(
+      const thread_pool::ptr &pool, 
+      const boost::shared_ptr<mutexes> &mutexes,
+      const boost::shared_ptr<file_transfer> &file_transfer);
+
     ~object_cache();
 
     inline object::ptr get(const std::string &path, int hints = HINT_NONE)
@@ -60,31 +68,33 @@ namespace s3
       _cache_map.erase(path);
     }
 
-    inline open_file::ptr get_by_handle(uint64_t handle)
+    inline open_file::ptr get_file(uint64_t handle)
     {
       boost::mutex::scoped_lock lock(_mutex);
       handle_map::const_iterator itor = _handle_map.find(handle);
 
-      return (itor == _handle_map.end()) ? _invalid_file : itor->second->get_open_file();
+      return (itor == _handle_map.end()) ? open_file::ptr() : itor->second->get_open_file();
     }
 
     int open_handle(const std::string &path, uint64_t *handle)
     {
-      boost::mutex::scoped_lock lock(_mutex);
-      object::ptr obj = find(path, lock);
+      boost::mutex::scoped_lock lock(_mutex, boost::defer_lock);
+      object::ptr obj = get(path, HINT_IS_FILE);
       open_file::ptr file;
 
-      if (!obj)
+      if (!obj) {
+        S3_DEBUG("object_cache::open_handle", "cannot open file [%s].\n", path.c_str());
         return -ENOENT;
+      }
 
+      lock.lock();
       file = obj->get_open_file();
 
       if (!file) {
         uint64_t handle = _next_handle++;
         int r;
 
-        // TODO: this should instead be the mutexes class
-        file.reset(new open_file(this, handle));
+        file.reset(new open_file(_mutexes, _file_transfer, obj, handle));
         obj->set_open_file(file);
 
         // handle needs to be in _handle_map before unlocking because a concurrent call to open_handle() for 
@@ -96,7 +106,7 @@ namespace s3
         lock.lock();
 
         if (r) {
-          S3_DEBUG("open_file_map::open", "failed to open file [%s] with error %i.\n", obj->get_path().c_str(), r);
+          S3_DEBUG("object_cache::open_handle", "failed to open file [%s] with error %i.\n", obj->get_path().c_str(), r);
 
           obj->set_open_file(open_file::ptr());
           _handle_map.erase(handle);
@@ -104,7 +114,6 @@ namespace s3
         }
       }
 
-      // TODO: add_reference and release should only be called by object_cache
       return file->add_reference(handle);
     }
 
@@ -143,13 +152,7 @@ namespace s3
     inline object::ptr find(const std::string &path)
     {
       boost::mutex::scoped_lock lock(_mutex);
-
-      return find(path, lock);
-    }
-
-    inline object::ptr find(const std::string &path, boost::mutex::scoped_lock &lock)
-    {
-      object::ptr &obj = _cache[path];
+      object::ptr &obj = _cache_map[path];
 
       if (!obj) {
         _misses++;
@@ -171,7 +174,8 @@ namespace s3
     handle_map _handle_map;
     boost::mutex _mutex;
     thread_pool::ptr _pool;
-    open_file::ptr _invalid_file;
+    boost::shared_ptr<mutexes> _mutexes;
+    boost::shared_ptr<file_transfer> _file_transfer;
     uint64_t _hits, _misses, _expiries;
     uint64_t _next_handle;
   };

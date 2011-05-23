@@ -10,8 +10,10 @@
 
 namespace s3
 {
+  class file_transfer;
+  class mutexes;
   class object;
-  class open_file_map;
+  class object_cache;
 
   class open_file
   {
@@ -21,10 +23,7 @@ namespace s3
     ~open_file();
 
     inline int get_fd() { return _fd; }
-    inline const boost::shared_ptr<object> & get_object() { return _obj; }
-
-    int add_reference(uint64_t *handle);
-    bool release();
+    inline uint64_t get_handle() { return _handle; }
 
     int init();
     int cleanup();
@@ -35,11 +34,19 @@ namespace s3
     int write(const char *buffer, size_t size, off_t offset);
 
   private:
-    friend class open_file_map; // for ctor
+    friend class object_cache; // for ctor, add_reference, release
 
-    open_file(open_file_map *map, const boost::shared_ptr<object> &obj, uint64_t handle);
+    open_file(
+      const boost::shared_ptr<mutexes> &mutexes, 
+      const boost::shared_ptr<file_transfer> &file_transfer, 
+      const boost::shared_ptr<object> &obj, 
+      uint64_t handle);
 
-    open_file_map *_map;
+    int add_reference(uint64_t *handle);
+    bool release();
+
+    boost::shared_ptr<mutexes> _mutexes;
+    boost::shared_ptr<file_transfer> _file_transfer;
     boost::shared_ptr<object> _obj;
     uint64_t _handle, _ref_count;
     int _fd, _status, _error;

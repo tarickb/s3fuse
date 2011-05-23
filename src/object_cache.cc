@@ -1,4 +1,5 @@
-#include "logging.hh"
+#include "file_transfer.hh"
+#include "mutexes.hh"
 #include "object_cache.hh"
 #include "request.hh"
 
@@ -6,8 +7,13 @@ using namespace boost;
 
 using namespace s3;
 
-object_cache::object_cache(const thread_pool::ptr &pool)
+object_cache::object_cache(
+  const thread_pool::ptr &pool, 
+  const mutexes::ptr &mutexes,
+  const file_transfer::ptr &file_transfer)
   : _pool(pool),
+    _mutexes(mutexes),
+    _file_transfer(file_transfer),
     _hits(0),
     _misses(0),
     _expiries(0),
@@ -30,13 +36,16 @@ object_cache::~object_cache()
     double(_misses) / double(total) * 100.0,
     _expiries,
     double(_expiries) / double(total) * 100.0);
+
+  if (_next_handle)
+    S3_DEBUG("object_cache::~object_cache", "number of opened files: %ju\n", static_cast<uintmax_t>(_next_handle));
 }
 
 int object_cache::__fetch(const request::ptr &req, const std::string &path, int hints, object::ptr *_obj)
 {
   object::ptr &obj = *_obj;
 
-  obj.reset(new object(path));
+  obj.reset(new object(_mutexes, path));
 
   req->init(HTTP_HEAD);
   req->set_target_object(obj);
@@ -57,7 +66,7 @@ int object_cache::__fetch(const request::ptr &req, const std::string &path, int 
     obj.reset();
   else {
     mutex::scoped_lock lock(_mutex);
-    object::ptr &map_obj = _cache[path];
+    object::ptr &map_obj = _cache_map[path];
 
     if (map_obj) {
       // if the object is already in the map, don't overwrite it

@@ -1,8 +1,8 @@
 #include "file_transfer.hh"
 #include "logging.hh"
+#include "mutexes.hh"
 #include "object.hh"
 #include "open_file.hh"
-#include "open_file_map.hh"
 
 using namespace boost;
 using namespace std;
@@ -21,8 +21,13 @@ namespace
   };
 }
 
-open_file::open_file(open_file_map *map, const object::ptr &obj, uint64_t handle)
-  : _map(map),
+open_file::open_file(
+  const mutexes::ptr &mutexes, 
+  const file_transfer::ptr &file_transfer, 
+  const object::ptr &obj, 
+  uint64_t handle)
+  : _mutexes(mutexes),
+    _file_transfer(file_transfer),
     _obj(obj),
     _handle(handle),
     _ref_count(0),
@@ -52,7 +57,7 @@ open_file::~open_file()
 
 int open_file::init()
 {
-  mutex::scoped_lock lock(_map->get_file_status_mutex());
+  mutex::scoped_lock lock(_mutexes->get_file_status_mutex());
   int r;
 
   if (_status & FS_READY) {
@@ -61,7 +66,7 @@ int open_file::init()
   }
 
   lock.unlock();
-  r = _map->get_file_transfer()->download(_obj, _fd);
+  r = _file_transfer->download(_obj, _fd);
   lock.lock();
 
   if (r)
@@ -70,7 +75,7 @@ int open_file::init()
   S3_DEBUG("open_file::init", "file [%s] ready.\n", _obj->get_path().c_str());
 
   _status |= FS_READY | FS_FLUSHABLE | FS_WRITEABLE;
-  _map->get_file_status_condition().notify_all();
+  _mutexes->get_file_status_condition().notify_all();
 
   return r;
 }
@@ -87,7 +92,7 @@ int open_file::cleanup()
 
 int open_file::add_reference(uint64_t *handle)
 {
-  mutex::scoped_lock lock(_map->get_file_status_mutex());
+  mutex::scoped_lock lock(_mutexes->get_file_status_mutex());
 
   if (_status & FS_ZOMBIE) {
     S3_DEBUG("open_file::add_reference", "attempt to add reference for file with FS_ZOMBIE set for [%s].\n", _obj->get_path().c_str());
@@ -98,7 +103,7 @@ int open_file::add_reference(uint64_t *handle)
     S3_DEBUG("open_file::add_reference", "file [%s] not yet ready. waiting.\n", _obj->get_path().c_str());
 
     while (!(_status & FS_READY))
-      _map->get_file_status_condition().wait(lock);
+      _mutexes->get_file_status_condition().wait(lock);
 
     S3_DEBUG("open_file::add_reference", "done waiting for [%s]. error: %i.\n", _obj->get_path().c_str(), _error);
 
@@ -114,7 +119,7 @@ int open_file::add_reference(uint64_t *handle)
 
 bool open_file::release()
 {
-  mutex::scoped_lock lock(_map->get_file_status_mutex());
+  mutex::scoped_lock lock(_mutexes->get_file_status_mutex());
 
   if (_ref_count == 0) {
     S3_DEBUG("open_file::release", "attempt to release handle on [%s] with zero ref-count.\n", _obj->get_path().c_str());
@@ -133,7 +138,7 @@ bool open_file::release()
 
 int open_file::truncate(off_t offset)
 {
-  mutex::scoped_lock lock(_map->get_file_status_mutex());
+  mutex::scoped_lock lock(_mutexes->get_file_status_mutex());
   int r;
 
   if (!(_status & FS_READY) || !(_status & FS_WRITEABLE)) {
@@ -154,7 +159,7 @@ int open_file::truncate(off_t offset)
 
 int open_file::flush()
 {
-  mutex::scoped_lock lock(_map->get_file_status_mutex());
+  mutex::scoped_lock lock(_mutexes->get_file_status_mutex());
   int r;
 
   if (!(_status & FS_DIRTY)) {
@@ -171,7 +176,7 @@ int open_file::flush()
   _status &= ~(FS_FLUSHABLE | FS_WRITEABLE);
 
   lock.unlock();
-  r = _map->get_file_transfer()->upload(_obj, _fd);
+  r = _file_transfer->upload(_obj, _fd);
   lock.lock();
 
   if (r == 0)
@@ -186,7 +191,7 @@ int open_file::flush()
 
 int open_file::write(const char *buffer, size_t size, off_t offset)
 {
-  mutex::scoped_lock lock(_map->get_file_status_mutex());
+  mutex::scoped_lock lock(_mutexes->get_file_status_mutex());
   int r;
 
   if (!(_status & FS_READY) || !(_status & FS_WRITEABLE)) {
@@ -207,7 +212,7 @@ int open_file::write(const char *buffer, size_t size, off_t offset)
 
 int open_file::read(char *buffer, size_t size, off_t offset)
 {
-  mutex::scoped_lock lock(_map->get_file_status_mutex());
+  mutex::scoped_lock lock(_mutexes->get_file_status_mutex());
 
   if (!(_status & FS_READY)) {
     S3_DEBUG("open_file::read", "read on [%s] when file isn't ready.\n", _obj->get_path().c_str());

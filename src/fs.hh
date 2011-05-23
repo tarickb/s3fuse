@@ -11,18 +11,18 @@
 #include <boost/thread.hpp>
 
 #include "object_cache.hh"
-#include "open_file_map.hh"
+#include "open_file.hh"
 #include "thread_pool.hh"
 
 namespace s3
 {
+  class mutexes;
+
   class fs
   {
   public:
     fs();
     ~fs();
-
-    static int commit_metadata(const request_ptr &req, const object::ptr &obj);
 
     inline int get_stats(const std::string &path, struct stat *s)
     {
@@ -96,38 +96,91 @@ namespace s3
 
     inline int get_attr(const std::string &path, const std::string &name, std::string *value)
     {
-      boost::mutex::scoped_lock lock(_metadata_mutex, boost::defer_lock);
       object::ptr obj = _object_cache.get(path);
 
       if (!obj)
         return -ENOENT;
-
-      lock.lock();
 
       return obj->get_metadata(name, value);
     }
 
     inline int list_attr(const std::string &path, std::vector<std::string> *attrs)
     {
-      boost::mutex::scoped_lock lock(_metadata_mutex, boost::defer_lock);
       object::ptr obj = _object_cache.get(path);
 
       if (!obj)
         return -ENOENT;
-
-      lock.lock();
 
       obj->get_metadata_keys(attrs);
 
       return 0;
     }
 
-    inline int open(const std::string &path, uint64_t *handle) { return _open_files.open(_object_cache.get(path), handle); }
-    inline int truncate(const std::string &path, off_t offset) { return _open_files.truncate(_object_cache.get(path), offset); }
-    inline int release(uint64_t handle) { return _open_files.release(handle); }
-    inline int flush(uint64_t handle) { return _open_files.flush(handle); }
-    inline int read(uint64_t handle, char *buffer, size_t size, off_t offset) { return _open_files.read(handle, buffer, size, offset); }
-    inline int write(uint64_t handle, const char *buffer, size_t size, off_t offset) { return _open_files.write(handle, buffer, size, offset); }
+    inline int open(const std::string &path, uint64_t *handle)
+    {
+      return _object_cache.open_handle(path, handle);
+    }
+
+    inline int truncate(const std::string &path, off_t offset) 
+    {
+      uint64_t handle;
+      int r;
+
+      r = open(path, &handle);
+
+      if (r)
+        return r;
+
+      r = truncate(handle, offset);
+      release(handle);
+
+      return r;
+    }
+
+    inline int release(uint64_t handle) 
+    {
+      return _object_cache.release_handle(handle);
+    }
+
+    inline int truncate(uint64_t handle, off_t offset)
+    {
+      open_file::ptr file = _object_cache.get_file(handle);
+
+      if (!file)
+        return -EINVAL;
+
+      return file->truncate(offset);
+    }
+
+    inline int flush(uint64_t handle) 
+    {
+      open_file::ptr file = _object_cache.get_file(handle);
+
+      if (!file)
+        return -EINVAL;
+
+      return file->flush();
+    }
+
+    inline int read(uint64_t handle, char *buffer, size_t size, off_t offset) 
+    {
+      open_file::ptr file = _object_cache.get_file(handle);
+
+      if (!file)
+        return -EINVAL;
+
+      return file->read(buffer, size, offset);
+    }
+
+    inline int write(uint64_t handle, const char *buffer, size_t size, off_t offset) 
+    { 
+      open_file::ptr file = _object_cache.get_file(handle);
+
+      if (!file)
+        return -EINVAL;
+
+      return file->write(buffer, size, offset);
+    }
 
   private:
     inline int change_metadata(const std::string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime)
@@ -152,10 +205,9 @@ namespace s3
     int  __rename_object   (const request_ptr &req, const std::string &from, const std::string &to);
     int  __set_attr        (const request_ptr &req, const std::string &path, const std::string &name, const std::string &value, int flags);
 
-    boost::mutex _metadata_mutex;
     thread_pool::ptr _tp_fg, _tp_bg;
+    boost::shared_ptr<mutexes> _mutexes;
     object_cache _object_cache;
-    open_file_map _open_files;
   };
 }
 
