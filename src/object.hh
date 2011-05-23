@@ -9,6 +9,7 @@
 #include <string>
 #include <boost/smart_ptr.hpp>
 
+#include "mutexes.hh"
 #include "open_file.hh"
 #include "util.hh"
 
@@ -24,7 +25,7 @@ namespace s3
     OT_SYMLINK
   };
 
-  class object
+  class object : public boost::enable_shared_from_this<object>
   {
   public:
     typedef boost::shared_ptr<object> ptr;
@@ -34,76 +35,47 @@ namespace s3
     static std::string get_bucket_url();
     static std::string build_url(const std::string &path, object_type type);
 
-    inline object(const std::string &path)
-      : _type(OT_INVALID),
-        _path(path),
-        _expiry(0),
-        _open_fd(-1)
-    { }
+    object(const mutexes::ptr &mutexes, const std::string &path, object_type type = OT_INVALID);
 
-    void set_defaults(object_type type);
+    int set_metadata(const std::string &key, const std::string &value, int flags = 0);
+    void get_metadata_keys(std::vector<std::string> *keys);
+    int get_metadata(const std::string &key, std::string *value);
+    int remove_metadata(const std::string &key);
 
-    int set_metadata(const std::string &key, const std::string &value);
-
-    inline void get_metadata_keys(std::vector<std::string> *keys)
-    {
-      keys->push_back("__md5__");
-      keys->push_back("__etag__");
-      keys->push_back("__content_type__");
-
-      for (meta_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)
-        keys->push_back(itor->first);
-    }
-
-    inline int get_metadata(const std::string &key, std::string *value)
-    {
-      meta_map::const_iterator itor;
-
-      if (key == "__md5__")
-        *value = _md5;
-      else if (key == "__etag__")
-        *value = _etag;
-      else if (key == "__content_type__")
-        *value = _content_type;
-      else {
-        itor = _metadata.find(key);
-
-        if (itor == _metadata.end())
-          return -ENODATA;
-
-        *value = itor->second;
-      }
-
-      return 0;
-    }
-
-    inline int remove_metadata(const std::string &key)
-    {
-      meta_map::iterator itor = _metadata.find(key);
-
-      if (itor == _metadata.end())
-        return -ENODATA;
-
-      _metadata.erase(itor);
-      return 0;
-    }
+    void set_mode(mode_t mode);
 
     inline void set_uid(uid_t uid) { _stat.st_uid = uid; }
     inline void set_gid(gid_t gid) { _stat.st_gid = gid; }
     inline void set_mtime(time_t mtime) { _stat.st_mtime = mtime; }
-    inline void set_md5(const std::string &md5, const std::string &etag) { _md5 = md5; _md5_etag = etag; _etag = etag; }
-    void set_mode(mode_t mode);
+
+    inline void set_md5(const std::string &md5, const std::string &etag)
+    {
+      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+
+      _md5 = md5;
+      _md5_etag = etag;
+      _etag = etag;
+    }
 
     inline object_type get_type() { return _type; }
     inline const std::string & get_path() { return _path; }
     inline const std::string & get_content_type() { return _content_type; }
-    inline const std::string & get_etag() { return _etag; }
-    inline const std::string & get_md5() { return _md5; }
 
-    // TODO: merge open_file_map in with this to simplify locking around _open_fd
-    inline bool is_valid() { return (_open_fd != -1 || (_expiry > 0 && time(NULL) < _expiry)); }
+    inline std::string get_etag()
+    {
+      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
 
-    const std::string & get_url() { return _url; }
+      return _etag; 
+    }
+
+    inline std::string get_md5()
+    {
+      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+
+      return _md5; 
+    }
+
+    inline const std::string & get_url() { return _url; }
 
     inline size_t get_size()
     {
@@ -123,11 +95,13 @@ namespace s3
       s->st_size = get_size();
     }
 
+    int commit_metadata(const boost::shared_ptr<request> &req);
+
   private:
     friend class request; // for request_*
-    friend class open_file_map; // for set_open_file, get_open_file
+    friend class object_cache; // for is_valid, set_open_file, get_open_file
 
-    inline void invalidate() { _expiry = 0; _open_fd = -1; } 
+    inline bool is_valid() { return (_expiry > 0 && time(NULL) < _expiry); }
 
     inline const open_file::ptr & get_open_file()
     {
@@ -136,15 +110,9 @@ namespace s3
 
     inline void set_open_file(const open_file::ptr &open_file)
     {
-      // using _open_file requires a lock (which is held by open_file_map).
-      // instead, we'll stick to _open_fd, since operations on it are atomic.
-
+      // this is a one-way call -- we'll never be called with a null open_file
       _open_file = open_file;
-
-      if (open_file)
-        _open_fd = open_file->get_fd();
-      else
-        invalidate();
+      _open_fd = open_file->get_fd();
     }
 
     void request_init();
@@ -152,11 +120,17 @@ namespace s3
     void request_process_response(request *req);
     void request_set_meta_headers(request *req);
 
+    mutexes::ptr _mutexes;
     object_type _type;
-    std::string _path, _url, _content_type, _etag, _mtime_etag, _md5, _md5_etag;
+    std::string _path, _url, _content_type, _mtime_etag;
     time_t _expiry;
     struct stat _stat;
+
+    // protected by _mutexes->get_object_metadata_mutex()
     meta_map _metadata;
+    std::string _etag, _md5, _md5_etag;
+
+    // protected by mutex in object_cache
     open_file::ptr _open_file;
     int _open_fd;
   };

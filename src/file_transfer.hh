@@ -10,7 +10,6 @@ namespace s3
 {
   class object;
   class request;
-  class thread_pool;
 
   class file_transfer
   {
@@ -39,7 +38,7 @@ namespace s3
     int upload_single(const boost::shared_ptr<request> &req, const boost::shared_ptr<object> &obj, size_t size, int fd);
     int upload_multi(const boost::shared_ptr<request> &req, const boost::shared_ptr<object> &obj, size_t size, int fd);
 
-    boost::shared_ptr<thread_pool> _tp_fg, _tp_bg;
+    thread_pool::ptr _tp_fg, _tp_bg;
   };
 }
 

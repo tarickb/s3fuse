@@ -3,7 +3,6 @@
 
 #include "config.hh"
 #include "file_transfer.hh"
-#include "fs.hh"
 #include "logging.hh"
 #include "object.hh"
 #include "request.hh"
@@ -224,12 +223,12 @@ int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj
   obj->set_md5(returned_md5, etag);
 
   // we don't need to commit the metadata if we got a valid etag back (since it'll be consistent)
-  return valid_md5 ? 0 : fs::commit_metadata(req, obj);
+  return valid_md5 ? 0 : obj->commit_metadata(req);
 }
 
 int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj, size_t size, int fd)
 {
-  const std::string &url = obj->get_url();
+  const string &url = obj->get_url();
   string upload_id, complete_upload;
   bool success = true;
   vector<transfer_part> parts((size + config::get_upload_chunk_size() - 1) / config::get_upload_chunk_size());
@@ -351,5 +350,5 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   // set the MD5 digest manually because the etag we get back is not itself a valid digest
   obj->set_md5(computed_md5, etag);
 
-  return fs::commit_metadata(req, obj);
+  return obj->commit_metadata(req);
 }

@@ -3,12 +3,12 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/xattr.h>
 
 #include <pugixml/pugixml.hpp>
 
 #include "file_transfer.hh"
 #include "fs.hh"
+#include "mutexes.hh"
 #include "request.hh"
 #include "util.hh"
 
@@ -19,7 +19,6 @@ using namespace std;
 using namespace s3;
 
 // TODO: try/catch everywhere! (or, get rid of exceptions)
-// TODO: check error codes after run()
 
 #define ASSERT_NO_TRAILING_SLASH(str) do { if ((str)[(str).size() - 1] == '/') return -EINVAL; } while (0)
 
@@ -34,8 +33,8 @@ namespace
 fs::fs()
   : _tp_fg(thread_pool::create("fs-fg")),
     _tp_bg(thread_pool::create("fs-bg")),
-    _object_cache(_tp_fg),
-    _open_files(file_transfer::ptr(new file_transfer(_tp_fg, _tp_bg)))
+    _mutexes(new mutexes()),
+    _object_cache(_tp_fg, _mutexes, file_transfer::ptr(new file_transfer(_tp_fg, _tp_bg)))
 {
 }
 
@@ -43,26 +42,6 @@ fs::~fs()
 {
   _tp_fg->terminate();
   _tp_bg->terminate();
-}
-
-int fs::commit_metadata(const request::ptr &req, const object::ptr &obj)
-{
-  // commit the new headers
-  req->init(HTTP_PUT);
-  req->set_url(obj->get_url());
-  req->set_header("x-amz-copy-source", obj->get_url());
-  req->set_header("x-amz-copy-source-if-match", obj->get_etag());
-  req->set_header("x-amz-metadata-directive", "REPLACE");
-  req->set_meta_headers(obj);
-
-  req->run();
-
-  if (req->get_response_code() != 200) {
-    S3_DEBUG("fs::commit_metadata", "failed to commit object metadata for [%s].\n", obj->get_url().c_str());
-    return -EIO;
-  }
-
-  return 0;
 }
 
 int fs::remove_object(const request::ptr &req, const string &url)
@@ -141,7 +120,7 @@ int fs::__get_stats(const request::ptr &req, const string &path, struct stat *s,
   return 0;
 }
 
-int fs::__rename_object(const request::ptr &req, const std::string &from, const std::string &to)
+int fs::__rename_object(const request::ptr &req, const string &from, const string &to)
 {
   object::ptr obj;
   int r;
@@ -181,7 +160,7 @@ int fs::copy_file(const request::ptr &req, const string &from, const string &to)
   return (req->get_response_code() == 200) ? 0 : -EIO;
 }
 
-int fs::__change_metadata(const request::ptr &req, const std::string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime)
+int fs::__change_metadata(const request::ptr &req, const string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime)
 {
   object::ptr obj;
 
@@ -204,10 +183,10 @@ int fs::__change_metadata(const request::ptr &req, const std::string &path, mode
   if (mtime != time_t(-1))
     obj->set_mtime(mtime);
 
-  return commit_metadata(req, obj);
+  return obj->commit_metadata(req);
 }
 
-int fs::__read_directory(const request::ptr &req, const std::string &_path, fuse_fill_dir_t filler, void *buf)
+int fs::__read_directory(const request::ptr &req, const string &_path, fuse_fill_dir_t filler, void *buf)
 {
   size_t path_len;
   string marker = "";
@@ -230,6 +209,9 @@ int fs::__read_directory(const request::ptr &req, const std::string &_path, fuse
 
     req->set_url(object::get_bucket_url(), string("delimiter=/&prefix=") + util::url_encode(path) + "&marker=" + marker);
     req->run();
+
+    if (req->get_response_code() != 200)
+      return -EIO;
 
     res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
 
@@ -274,7 +256,7 @@ int fs::__read_directory(const request::ptr &req, const std::string &_path, fuse
   return 0;
 }
 
-int fs::__create_object(const request::ptr &req, const std::string &path, object_type type, mode_t mode, const std::string &symlink_target)
+int fs::__create_object(const request::ptr &req, const string &path, object_type type, mode_t mode, const string &symlink_target)
 {
   object::ptr obj;
 
@@ -285,8 +267,7 @@ int fs::__create_object(const request::ptr &req, const std::string &path, object
     return -EEXIST;
   }
 
-  obj.reset(new object(path));
-  obj->set_defaults(type);
+  obj.reset(new object(_mutexes, path, type));
   obj->set_mode(mode);
 
   req->init(HTTP_PUT);
@@ -298,10 +279,10 @@ int fs::__create_object(const request::ptr &req, const std::string &path, object
 
   req->run();
 
-  return 0;
+  return (req->get_response_code() == 200) ? 0 : -EIO;
 }
 
-int fs::__remove_object(const request::ptr &req, const std::string &path)
+int fs::__remove_object(const request::ptr &req, const string &path)
 {
   object::ptr obj;
 
@@ -319,7 +300,7 @@ int fs::__remove_object(const request::ptr &req, const std::string &path)
   return remove_object(req, obj->get_url());
 }
 
-int fs::__read_symlink(const request::ptr &req, const std::string &path, std::string *target)
+int fs::__read_symlink(const request::ptr &req, const string &path, string *target)
 {
   object::ptr obj;
 
@@ -350,9 +331,7 @@ int fs::__read_symlink(const request::ptr &req, const std::string &path, std::st
 
 int fs::__set_attr(const request::ptr &req, const string &path, const string &name, const string &value, int flags)
 {
-  mutex::scoped_lock lock(_metadata_mutex, defer_lock);
   object::ptr obj;
-  string t;
   int r;
 
   ASSERT_NO_TRAILING_SLASH(path);
@@ -362,27 +341,16 @@ int fs::__set_attr(const request::ptr &req, const string &path, const string &na
   if (!obj)
     return -ENOENT;
 
-  lock.lock();
-
-  if (flags & XATTR_CREATE && obj->get_metadata(name, &t) == 0)
-    return -EEXIST;
-
-  if (flags & XATTR_REPLACE && obj->get_metadata(name, &t) != 0)
-    return -ENODATA;
-
-  r = obj->set_metadata(name, value);
-
-  lock.unlock();
+  r = obj->set_metadata(name, value, flags);
 
   if (r)
     return r;
 
-  return commit_metadata(req, obj);
+  return obj->commit_metadata(req);
 }
 
 int fs::__remove_attr(const request::ptr &req, const string &path, const string &name)
 {
-  mutex::scoped_lock lock(_metadata_mutex, defer_lock);
   object::ptr obj;
   int r;
 
@@ -393,14 +361,10 @@ int fs::__remove_attr(const request::ptr &req, const string &path, const string 
   if (!obj)
     return -ENOENT;
 
-  lock.lock();
-
   r = obj->remove_metadata(name);
-
-  lock.unlock();
 
   if (r)
     return r;
 
-  return commit_metadata(req, obj);
+  return obj->commit_metadata(req);
 }

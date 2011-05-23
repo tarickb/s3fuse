@@ -5,7 +5,6 @@
 #include <string.h>
 
 #include <string>
-#include <pugixml/pugixml.hpp>
 
 #include "config.hh"
 #include "fs.hh"
@@ -206,7 +205,6 @@ int s3_getxattr(const char *path, const char *name, char *buffer, size_t max_siz
   string attr;
   int r;
 
-  S3_DEBUG("s3_getxattr", "path: %s, name: %s, max_size: %zu\n", path, name, max_size);
   ASSERT_LEADING_SLASH(path);
 
   r = g_fs->get_attr(path + 1, name, &attr);
