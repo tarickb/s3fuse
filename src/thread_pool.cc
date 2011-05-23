@@ -79,6 +79,8 @@ namespace s3
   private:
     _worker_thread(const thread_pool::ptr &pool)
       : _request(new request()),
+        _time_in_function(0.),
+        _time_in_request(0.),
         _pool(pool)
     { }
 
