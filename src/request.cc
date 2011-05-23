@@ -346,7 +346,7 @@ void request::run()
 
   _timeout = time(NULL) + config::get_request_timeout_in_s();
 
-  if (curl_easy_perform(_curl) != 0)
+  if (curl_easy_perform(_curl) != CURLE_OK)
     throw runtime_error(_curl_error);
 
   if (_canceled)
@@ -355,8 +355,8 @@ void request::run()
   // reset this here so that subsequent calls to check_timeout() don't fail
   _timeout = 0;
 
-  curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code);
-  curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified);
+  TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code));
+  TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
 
   // TODO: add loop for timeouts and whatnot
   elapsed_time = util::get_current_time() - elapsed_time;
