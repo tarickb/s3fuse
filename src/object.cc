@@ -157,7 +157,7 @@ void object::request_init()
   _url.clear();
 }
 
-void object::request_process_header(const std::string &key, const std::string &value)
+void object::request_process_header(const string &key, const string &value)
 {
   // this doesn't need to lock the metadata mutex because the object won't be in the cache (and thus
   // isn't shareable) until the request has finished processing

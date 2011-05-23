@@ -148,7 +148,7 @@ namespace s3
 
     shared_ptr<thread> _thread;
     mutex _mutex;
-    shared_ptr<request> _request;
+    request::ptr _request;
     double _time_in_function, _time_in_request;
 
     // access controlled by _mutex
@@ -234,7 +234,7 @@ async_handle thread_pool::post(const worker_function &fn, int timeout_in_s)
 
 int thread_pool::wait(const async_handle &handle)
 {
-  boost::mutex::scoped_lock lock(_ah_mutex);
+  mutex::scoped_lock lock(_ah_mutex);
 
   while (!handle->done)
     _ah_condition.wait(lock);

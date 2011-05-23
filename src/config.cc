@@ -13,7 +13,7 @@ using namespace s3;
 
 namespace
 {
-  const std::string DEFAULT_CONFIG_FILE = "/etc/s3fuse.conf";
+  const string DEFAULT_CONFIG_FILE = "/etc/s3fuse.conf";
 }
 
 #define CONFIG(type, name, def) type config::s_ ## name = (def);

@@ -121,7 +121,7 @@ int fs::__get_stats(const request::ptr &req, const string &path, struct stat *s,
   return 0;
 }
 
-int fs::__rename_object(const request::ptr &req, const std::string &from, const std::string &to)
+int fs::__rename_object(const request::ptr &req, const string &from, const string &to)
 {
   object::ptr obj;
   int r;
@@ -161,7 +161,7 @@ int fs::copy_file(const request::ptr &req, const string &from, const string &to)
   return (req->get_response_code() == 200) ? 0 : -EIO;
 }
 
-int fs::__change_metadata(const request::ptr &req, const std::string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime)
+int fs::__change_metadata(const request::ptr &req, const string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime)
 {
   object::ptr obj;
 
@@ -187,7 +187,7 @@ int fs::__change_metadata(const request::ptr &req, const std::string &path, mode
   return obj->commit_metadata(req);
 }
 
-int fs::__read_directory(const request::ptr &req, const std::string &_path, fuse_fill_dir_t filler, void *buf)
+int fs::__read_directory(const request::ptr &req, const string &_path, fuse_fill_dir_t filler, void *buf)
 {
   size_t path_len;
   string marker = "";
@@ -254,7 +254,7 @@ int fs::__read_directory(const request::ptr &req, const std::string &_path, fuse
   return 0;
 }
 
-int fs::__create_object(const request::ptr &req, const std::string &path, object_type type, mode_t mode, const std::string &symlink_target)
+int fs::__create_object(const request::ptr &req, const string &path, object_type type, mode_t mode, const string &symlink_target)
 {
   object::ptr obj;
 
@@ -280,7 +280,7 @@ int fs::__create_object(const request::ptr &req, const std::string &path, object
   return 0;
 }
 
-int fs::__remove_object(const request::ptr &req, const std::string &path)
+int fs::__remove_object(const request::ptr &req, const string &path)
 {
   object::ptr obj;
 
@@ -298,7 +298,7 @@ int fs::__remove_object(const request::ptr &req, const std::string &path)
   return remove_object(req, obj->get_url());
 }
 
-int fs::__read_symlink(const request::ptr &req, const std::string &path, std::string *target)
+int fs::__read_symlink(const request::ptr &req, const string &path, string *target)
 {
   object::ptr obj;
 

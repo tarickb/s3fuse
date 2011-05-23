@@ -5,7 +5,6 @@
 #include <string.h>
 
 #include <string>
-#include <pugixml/pugixml.hpp>
 
 #include "config.hh"
 #include "fs.hh"

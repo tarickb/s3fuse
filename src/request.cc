@@ -3,13 +3,9 @@
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
-#include <pugixml/pugixml.hpp>
 #include <sys/stat.h>
 
-#include <iostream>
 #include <stdexcept>
-#include <boost/lexical_cast.hpp>
-#include <boost/thread.hpp>
 
 #include "config.hh"
 #include "object.hh"
@@ -17,8 +13,6 @@
 #include "request.hh"
 #include "util.hh"
 
-using namespace boost;
-using namespace pugi;
 using namespace std;
 
 using namespace s3;
@@ -244,7 +238,7 @@ void request::set_output_fd(int fd, off_t offset)
   _output_offset = offset;
 }
 
-void request::set_input_data(const std::string &s)
+void request::set_input_data(const string &s)
 {
   _input_data = s;
   _input_fd = -1;

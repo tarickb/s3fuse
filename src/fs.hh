@@ -8,7 +8,6 @@
 
 #include <string>
 #include <boost/bind.hpp>
-#include <boost/thread.hpp>
 
 #include "object_cache.hh"
 #include "open_file.hh"

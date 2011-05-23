@@ -4,9 +4,7 @@
 #include <stdint.h>
 #include <sys/stat.h>
 
-#include <string>
 #include <boost/shared_ptr.hpp>
-#include <boost/thread.hpp>
 
 namespace s3
 {

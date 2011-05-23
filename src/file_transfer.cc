@@ -228,7 +228,7 @@ int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj
 
 int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj, size_t size, int fd)
 {
-  const std::string &url = obj->get_url();
+  const string &url = obj->get_url();
   string upload_id, complete_upload;
   bool success = true;
   vector<transfer_part> parts((size + config::get_upload_chunk_size() - 1) / config::get_upload_chunk_size());

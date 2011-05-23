@@ -32,7 +32,7 @@ string util::base64_encode(const uint8_t *input, size_t size)
   return ret;
 }
 
-string util::sign(const std::string &key, const std::string &data)
+string util::sign(const string &key, const string &data)
 {
   unsigned int hmac_md5_len;
   uint8_t hmac_md5[EVP_MAX_MD_SIZE];
@@ -106,7 +106,7 @@ string util::hex_encode(const uint8_t *input, size_t size)
   return ret;
 }
 
-string util::url_encode(const std::string &url)
+string util::url_encode(const string &url)
 {
   const char *hex = "0123456789ABCDEF";
   string ret;

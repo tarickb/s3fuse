@@ -1,16 +1,15 @@
-#include "file_transfer.hh"
-#include "mutexes.hh"
 #include "object_cache.hh"
 #include "request.hh"
 
 using namespace boost;
+using namespace std;
 
 using namespace s3;
 
 object_cache::object_cache(
   const thread_pool::ptr &pool, 
-  const mutexes::ptr &mutexes,
-  const file_transfer::ptr &file_transfer)
+  const boost::shared_ptr<mutexes> &mutexes,
+  const boost::shared_ptr<file_transfer> &file_transfer)
   : _pool(pool),
     _mutexes(mutexes),
     _file_transfer(file_transfer),
@@ -41,7 +40,7 @@ object_cache::~object_cache()
     S3_DEBUG("object_cache::~object_cache", "number of opened files: %ju\n", static_cast<uintmax_t>(_next_handle));
 }
 
-int object_cache::__fetch(const request::ptr &req, const std::string &path, int hints, object::ptr *_obj)
+int object_cache::__fetch(const request::ptr &req, const string &path, int hints, object::ptr *_obj)
 {
   object::ptr &obj = *_obj;
 
