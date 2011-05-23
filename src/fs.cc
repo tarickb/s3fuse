@@ -19,7 +19,6 @@ using namespace std;
 using namespace s3;
 
 // TODO: try/catch everywhere! (or, get rid of exceptions)
-// TODO: check error codes after run()
 
 #define ASSERT_NO_TRAILING_SLASH(str) do { if ((str)[(str).size() - 1] == '/') return -EINVAL; } while (0)
 
@@ -211,6 +210,9 @@ int fs::__read_directory(const request::ptr &req, const string &_path, fuse_fill
     req->set_url(object::get_bucket_url(), string("delimiter=/&prefix=") + util::url_encode(path) + "&marker=" + marker);
     req->run();
 
+    if (req->get_response_code() != 200)
+      return -EIO;
+
     res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
 
     if (res.status != status_ok) {
@@ -277,7 +279,7 @@ int fs::__create_object(const request::ptr &req, const string &path, object_type
 
   req->run();
 
-  return 0;
+  return (req->get_response_code() == 200) ? 0 : -EIO;
 }
 
 int fs::__remove_object(const request::ptr &req, const string &path)
