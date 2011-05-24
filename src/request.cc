@@ -317,6 +317,7 @@ bool request::check_timeout()
 
 void request::run()
 {
+  int r;
   curl_slist *headers = NULL;
   double elapsed_time = util::get_current_time();
 
@@ -345,15 +346,14 @@ void request::run()
     _target_object->request_init();
 
   _timeout = time(NULL) + config::get_request_timeout_in_s();
+  r = curl_easy_perform(_curl);
+  _timeout = 0; // reset this here so that subsequent calls to check_timeout() don't fail
 
-  if (curl_easy_perform(_curl) != CURLE_OK)
+  if (r != CURLE_OK)
     throw runtime_error(_curl_error);
 
   if (_canceled)
     throw runtime_error("request timed out.");
-
-  // reset this here so that subsequent calls to check_timeout() don't fail
-  _timeout = 0;
 
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code));
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
