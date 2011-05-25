@@ -54,12 +54,24 @@ int fs::remove_object(const request::ptr &req, const string &url)
   return (req->get_response_code() == 204) ? 0 : -EIO;
 }
 
+struct rename_operation
+{
+  string old_name;
+  wait_handle handle;
+
+  inline rename_operation(const string &old_name_, const wait_handle &handle_)
+    : old_name(old_name_),
+      handle(handle_)
+  { }
+};
+
 int fs::rename_children(const request::ptr &req, const string &_from, const string &_to)
 {
   size_t from_len;
   string marker = "";
   bool truncated = true;
   string from, to;
+  list<rename_operation> pending_renames;
 
   if (_from.empty())
     return -EINVAL;
@@ -95,13 +107,21 @@ int fs::rename_children(const request::ptr &req, const string &_from, const stri
       marker = doc.document_element().child_value("NextMarker");
 
     for (xpath_node_set::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
+      rename_operation oper;
       const char *full_path_cs = itor->node().child_value("Key");
       const char *relative_path_cs = full_path_cs + from_len;
       string new_name = to + relative_path_cs;
 
+      oper.old_name = full_path_cs;
+      oper.handle = _tp_bg->post(bind(&fs::copy_file, this, _1, oper.old_name, new_name));
+
+      pending_renames.push_back(oper);
+
       S3_DEBUG("fs::rename_children", "[%s] -> [%s]\n", full_path_cs, new_name.c_str());
     }
   }
+
+  PULL STUFF FROM THE LIST!!!
 
   return 0;
 }
