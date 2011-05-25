@@ -54,15 +54,12 @@ int fs::remove_object(const request::ptr &req, const string &url)
   return (req->get_response_code() == 204) ? 0 : -EIO;
 }
 
+typedef shared_ptr<string> string_ptr;
+
 struct rename_operation
 {
-  string old_name;
-  wait_handle handle;
-
-  inline rename_operation(const string &old_name_, const wait_handle &handle_)
-    : old_name(old_name_),
-      handle(handle_)
-  { }
+  string_ptr old_name;
+  async_handle handle;
 };
 
 int fs::rename_children(const request::ptr &req, const string &_from, const string &_to)
@@ -71,7 +68,7 @@ int fs::rename_children(const request::ptr &req, const string &_from, const stri
   string marker = "";
   bool truncated = true;
   string from, to;
-  list<rename_operation> pending_renames;
+  list<rename_operation> pending_renames, pending_deletes;
 
   if (_from.empty())
     return -EINVAL;
@@ -112,8 +109,8 @@ int fs::rename_children(const request::ptr &req, const string &_from, const stri
       const char *relative_path_cs = full_path_cs + from_len;
       string new_name = to + relative_path_cs;
 
-      oper.old_name = full_path_cs;
-      oper.handle = _tp_bg->post(bind(&fs::copy_file, this, _1, oper.old_name, new_name));
+      oper.old_name.reset(new string(full_path_cs));
+      oper.handle = _tp_bg->post(bind(&fs::copy_file, this, _1, *oper.old_name, new_name));
 
       pending_renames.push_back(oper);
 
@@ -121,7 +118,34 @@ int fs::rename_children(const request::ptr &req, const string &_from, const stri
     }
   }
 
-  PULL STUFF FROM THE LIST!!!
+  while (!pending_renames.empty()) {
+    int r;
+    rename_operation &oper = pending_renames.front();
+
+    r = _tp_bg->wait(oper.handle);
+
+    if (r)
+      return r;
+
+    oper.handle.reset();
+    pending_deletes.push_back(oper);
+    pending_renames.pop_front();
+  }
+
+  // specify OT_FILE because it doesn't transform the path
+  for (list<rename_operation>::iterator itor = pending_deletes.begin(); itor != pending_deletes.end(); ++itor)
+    itor->handle = _tp_bg->post(bind(&fs::remove_object, this, _1, object::build_url(*itor->old_name, OT_FILE)));
+
+  while (!pending_deletes.empty()) {
+    int r;
+    const rename_operation &oper = pending_deletes.front();
+
+    r = _tp_bg->wait(oper.handle);
+    pending_deletes.pop_front();
+
+    if (r)
+      return r;
+  }
 
   return 0;
 }
