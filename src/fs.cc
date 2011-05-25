@@ -54,11 +54,56 @@ int fs::remove_object(const request::ptr &req, const string &url)
   return (req->get_response_code() == 204) ? 0 : -EIO;
 }
 
-int fs::rename_children(const string &from, const string &to)
+int fs::rename_children(const request::ptr &req, const string &_from, const string &_to)
 {
-  // TODO: rename children!
+  size_t from_len;
+  string marker = "";
+  bool truncated = true;
+  string from, to;
 
-  return -EIO;
+  if (_from.empty())
+    return -EINVAL;
+
+  from = _from + "/";
+  to = _to + "/";
+  from_len = from.size();
+
+  req->init(HTTP_GET);
+
+  while (truncated) {
+    xml_document doc;
+    xml_parse_result res;
+    xpath_node_set prefixes, keys;
+
+    req->set_url(object::get_bucket_url(), string("prefix=") + util::url_encode(from) + "&marker=" + marker);
+    req->run();
+
+    if (req->get_response_code() != 200)
+      return -EIO;
+
+    res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+
+    if (res.status != status_ok) {
+      S3_DEBUG("fs::rename_children", "failed to parse response: %s\n", res.description());
+      return -EIO;
+    }
+
+    truncated = (strcmp(doc.document_element().child_value("IsTruncated"), "true") == 0);
+    keys = KEY_QUERY.evaluate_node_set(doc);
+
+    if (truncated)
+      marker = doc.document_element().child_value("NextMarker");
+
+    for (xpath_node_set::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
+      const char *full_path_cs = itor->node().child_value("Key");
+      const char *relative_path_cs = full_path_cs + from_len;
+      string new_name = to + relative_path_cs;
+
+      S3_DEBUG("fs::rename_children", "[%s] -> [%s]\n", full_path_cs, new_name.c_str());
+    }
+  }
+
+  return 0;
 }
 
 bool fs::is_directory_empty(const request::ptr &req, const string &path)
@@ -123,7 +168,6 @@ int fs::__get_stats(const request::ptr &req, const string &path, struct stat *s,
 int fs::__rename_object(const request::ptr &req, const string &from, const string &to)
 {
   object::ptr obj;
-  int r;
 
   ASSERT_NO_TRAILING_SLASH(from);
   ASSERT_NO_TRAILING_SLASH(to);
@@ -137,15 +181,16 @@ int fs::__rename_object(const request::ptr &req, const string &from, const strin
     return -EEXIST;
 
   if (obj->get_type() == OT_DIRECTORY)
-    return rename_children(from, to);
+    return rename_children(req, from, to);
+  else {
+    int r = copy_file(req, from, to);
 
-  r = copy_file(req, from, to);
+    if (r)
+      return r;
 
-  if (r)
-    return r;
-
-  _object_cache.remove(from);
-  return remove_object(req, obj->get_url());
+    _object_cache.remove(from);
+    return remove_object(req, obj->get_url());
+  }
 }
 
 int fs::copy_file(const request::ptr &req, const string &from, const string &to)
