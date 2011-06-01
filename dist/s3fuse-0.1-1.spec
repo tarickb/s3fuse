@@ -9,12 +9,12 @@ Name: %{name}
 Version: %{version}
 Release: %{release}
 Source: %{name}-%{version}.tar.gz
-Vendor: Tarick Bedeir
 Group: Applications/System
 BuildRoot: %{_builddir}/%{name}-root
-License: Commercial
+License: BSD
 
 %description
+Provides a FUSE filesystem driver for Amazon AWS S3 buckets.
 
 %prep
 %setup -q -n %{name}-%{version}
