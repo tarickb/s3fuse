@@ -4,7 +4,7 @@
 #include <string>
 #include <boost/shared_ptr.hpp>
 
-#include "thread_pool.hh"
+#include "thread_pool.h"
 
 namespace s3
 {

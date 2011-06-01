@@ -3,8 +3,8 @@
 #include <fstream>
 #include <boost/lexical_cast.hpp>
 
-#include "config.hh"
-#include "logging.hh"
+#include "config.h"
+#include "logger.h"
 
 using namespace boost;
 using namespace std;
@@ -30,7 +30,7 @@ int config::init(const string &file)
   int line_number = 0;
 
   if (ifs.fail()) {
-    S3_ERROR("config::init", "cannot open config file.\n");
+    S3_LOG(LOG_ERR, "config::init", "cannot open config file.\n");
     return -EIO;
   }
 
@@ -51,7 +51,7 @@ int config::init(const string &file)
     pos = line.find('=');
 
     if (pos == string::npos) {
-      S3_ERROR("config::init", "error at line %i: missing '='.\n", line_number);
+      S3_LOG(LOG_ERR, "config::init", "error at line %i: missing '='.\n", line_number);
       return -EIO;
     }
 
@@ -71,7 +71,7 @@ int config::init(const string &file)
     #undef CONFIG
     #undef CONFIG_REQUIRED
 
-    S3_ERROR("config::init", "error at line %i: unknown directive '%s'\n", line_number, key.c_str());
+    S3_LOG(LOG_ERR, "config::init", "error at line %i: unknown directive '%s'\n", line_number, key.c_str());
     return -EIO;
   }
 
@@ -79,7 +79,7 @@ int config::init(const string &file)
 
   #define CONFIG_REQUIRED(type, name, def) \
     if (s_ ## name == (def)) { \
-      S3_ERROR("config::init", "required key '%s' not defined.\n", #name); \
+      S3_LOG(LOG_ERR, "config::init", "required key '%s' not defined.\n", #name); \
       return -EIO; \
     }
 

@@ -1,5 +1,5 @@
-#include "object_cache.hh"
-#include "request.hh"
+#include "object_cache.h"
+#include "request.h"
 
 using namespace boost;
 using namespace std;
@@ -26,7 +26,8 @@ object_cache::~object_cache()
   if (total == 0)
     total = 1; // avoid NaNs below
 
-  S3_DEBUG(
+  S3_LOG(
+    LOG_DEBUG,
     "object_cache::~object_cache", 
     "hits: %" PRIu64 " (%.02f%%), misses: %" PRIu64 " (%.02f%%), expiries: %" PRIu64 " (%.02f%%)\n", 
     _hits,
@@ -37,7 +38,7 @@ object_cache::~object_cache()
     double(_expiries) / double(total) * 100.0);
 
   if (_next_handle)
-    S3_DEBUG("object_cache::~object_cache", "number of opened files: %ju\n", static_cast<uintmax_t>(_next_handle));
+    S3_LOG(LOG_DEBUG, "object_cache::~object_cache", "number of opened files: %ju\n", static_cast<uintmax_t>(_next_handle));
 }
 
 int object_cache::__fetch(const request::ptr &req, const string &path, int hints, object::ptr *_obj)

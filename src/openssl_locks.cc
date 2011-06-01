@@ -1,5 +1,3 @@
-#include "logging.hh"
-
 #include <pthread.h>
 #include <curl/curl.h>
 #include <openssl/crypto.h>
@@ -7,7 +5,8 @@
 #include <stdexcept>
 #include <boost/thread.hpp>
 
-#include "openssl_locks.hh"
+#include "logger.h"
+#include "openssl_locks.h"
 
 using namespace boost;
 using namespace std;
@@ -43,7 +42,7 @@ namespace
     if (!ver)
       throw runtime_error("curl_version_info() failed.");
 
-    S3_DEBUG("openssl_locks::init", "ssl version: %s\n", ver->ssl_version);
+    S3_LOG(LOG_DEBUG, "openssl_locks::init", "ssl version: %s\n", ver->ssl_version);
 
     if (strstr(ver->ssl_version, "OpenSSL") == NULL)
       throw runtime_error("curl reports unsupported non-OpenSSL SSL library. cannot continue.");

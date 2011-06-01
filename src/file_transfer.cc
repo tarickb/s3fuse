@@ -1,13 +1,13 @@
 #include <boost/lexical_cast.hpp>
 #include <pugixml/pugixml.hpp>
 
-#include "config.hh"
-#include "file_transfer.hh"
-#include "logging.hh"
-#include "object.hh"
-#include "request.hh"
-#include "thread_pool.hh"
-#include "util.hh"
+#include "config.h"
+#include "file_transfer.h"
+#include "logger.h"
+#include "object.h"
+#include "request.h"
+#include "thread_pool.h"
+#include "util.h"
 
 using namespace boost;
 using namespace pugi;
@@ -77,7 +77,7 @@ namespace
       return -EIO;
 
     if (req->get_response_header("ETag") != part->etag) {
-      S3_DEBUG("file_transfer::upload_part", "md5 mismatch. expected %s, got %s.\n", part->etag.c_str(), req->get_response_header("ETag").c_str());
+      S3_LOG(LOG_WARNING, "file_transfer::upload_part", "md5 mismatch. expected %s, got %s.\n", part->etag.c_str(), req->get_response_header("ETag").c_str());
       return -EAGAIN; // assume it's a temporary failure
     }
 
@@ -112,7 +112,7 @@ int file_transfer::__download(const request::ptr &req, const object::ptr &obj, i
     string computed_md5 = util::compute_md5(fd, MOT_HEX);
 
     if (computed_md5 != expected_md5) {
-      S3_DEBUG("file_transfer::__download", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), computed_md5.c_str());
+      S3_LOG(LOG_WARNING, "file_transfer::__download", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), computed_md5.c_str());
 
       return -EIO;
     }
@@ -164,7 +164,7 @@ int file_transfer::download_multi(const string &url, size_t size, int fd)
     result = _tp_bg->wait(part->handle);
 
     if (result == -EAGAIN || result == -ETIMEDOUT) {
-      S3_DEBUG("file_transfer::download_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
+      S3_LOG(LOG_DEBUG, "file_transfer::download_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
       part->retry_count++;
 
       if (part->retry_count > config::get_max_transfer_retries())
@@ -186,7 +186,7 @@ int file_transfer::__upload(const request::ptr &req, const object::ptr &obj, int
   size_t size;
 
   if (fsync(fd) == -1) {
-    S3_DEBUG("file_transfer::__upload", "fsync failed with error %i.\n", errno);
+    S3_LOG(LOG_WARNING, "file_transfer::__upload", "fsync failed with error %i.\n", errno);
     return -errno;
   }
 
@@ -212,7 +212,7 @@ int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj
   req->run();
 
   if (req->get_response_code() != 200) {
-    S3_DEBUG("file_transfer::upload_single", "failed to upload for [%s].\n", obj->get_url().c_str());
+    S3_LOG(LOG_WARNING, "file_transfer::upload_single", "failed to upload for [%s].\n", obj->get_url().c_str());
     return -EIO;
   }
 
@@ -249,7 +249,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
 
   if (res.status != status_ok) {
-    S3_DEBUG("file_transfer::upload_multi", "failed to parse response: %s\n", res.description());
+    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to parse response: %s\n", res.description());
     return -EIO;
   }
 
@@ -277,7 +277,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
     result = _tp_bg->wait(part->handle);
 
     if (result != 0)
-      S3_DEBUG("file_transfer::upload_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
+      S3_LOG(LOG_DEBUG, "file_transfer::upload_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
 
     // the default action is to not retry the failed part, and leave it with success = false
 
@@ -309,7 +309,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   complete_upload += "</CompleteMultipartUpload>";
 
   if (!success) {
-    S3_DEBUG("file_transfer::upload_multi", "one or more parts failed to upload for [%s].\n", url.c_str());
+    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "one or more parts failed to upload for [%s].\n", url.c_str());
 
     req->init(HTTP_DELETE);
     req->set_url(url + "?uploadId=" + upload_id);
@@ -327,21 +327,21 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   req->run();
 
   if (req->get_response_code() != 200) {
-    S3_DEBUG("file_transfer::upload_multi", "failed to complete multipart upload for [%s] with error %li.\n", url.c_str(), req->get_response_code());
+    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to complete multipart upload for [%s] with error %li.\n", url.c_str(), req->get_response_code());
     return -EIO;
   }
 
   res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
 
   if (res.status != status_ok) {
-    S3_DEBUG("file_transfer::upload_multi", "failed to parse response: %s\n", res.description());
+    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to parse response: %s\n", res.description());
     return -EIO;
   }
 
   etag = doc.document_element().child_value("ETag");
 
   if (etag.empty()) {
-    S3_DEBUG("file_transfer::upload_multi", "no etag on multipart upload of [%s]. response: %s\n", url.c_str(), req->get_response_data().c_str());
+    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "no etag on multipart upload of [%s]. response: %s\n", url.c_str(), req->get_response_data().c_str());
     return -EIO;
   }
 

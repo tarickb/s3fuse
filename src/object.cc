@@ -1,10 +1,10 @@
 #include <string.h>
 #include <sys/xattr.h>
 
-#include "config.hh"
-#include "logging.hh"
-#include "object.hh"
-#include "request.hh"
+#include "config.h"
+#include "logger.h"
+#include "object.h"
+#include "request.h"
 
 using namespace boost;
 using namespace std;
@@ -277,7 +277,7 @@ int object::commit_metadata(const request::ptr &req)
   req->run();
 
   if (req->get_response_code() != 200) {
-    S3_DEBUG("object::commit_metadata", "failed to commit object metadata for [%s].\n", _url.c_str());
+    S3_LOG(LOG_WARNING, "object::commit_metadata", "failed to commit object metadata for [%s].\n", _url.c_str());
     return -EIO;
   }
 

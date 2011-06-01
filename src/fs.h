@@ -9,9 +9,9 @@
 #include <string>
 #include <boost/bind.hpp>
 
-#include "object_cache.hh"
-#include "open_file.hh"
-#include "thread_pool.hh"
+#include "object_cache.h"
+#include "open_file.h"
+#include "thread_pool.h"
 
 namespace s3
 {

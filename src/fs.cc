@@ -1,16 +1,15 @@
-#include "logging.hh"
-
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 
 #include <pugixml/pugixml.hpp>
 
-#include "file_transfer.hh"
-#include "fs.hh"
-#include "mutexes.hh"
-#include "request.hh"
-#include "util.hh"
+#include "logger.h"
+#include "file_transfer.h"
+#include "fs.h"
+#include "mutexes.h"
+#include "request.h"
+#include "util.h"
 
 using namespace boost;
 using namespace pugi;
@@ -97,7 +96,7 @@ int fs::rename_children(const request::ptr &req, const string &_from, const stri
     res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
 
     if (res.status != status_ok) {
-      S3_DEBUG("fs::rename_children", "failed to parse response: %s\n", res.description());
+      S3_LOG(LOG_WARNING, "fs::rename_children", "failed to parse response: %s\n", res.description());
       return -EIO;
     }
 
@@ -118,7 +117,7 @@ int fs::rename_children(const request::ptr &req, const string &_from, const stri
 
       pending_renames.push_back(oper);
 
-      S3_DEBUG("fs::rename_children", "[%s] -> [%s]\n", full_path_cs, new_name.c_str());
+      S3_LOG(LOG_DEBUG, "fs::rename_children", "[%s] -> [%s]\n", full_path_cs, new_name.c_str());
     }
   }
 
@@ -180,7 +179,7 @@ bool fs::is_directory_empty(const request::ptr &req, const string &path)
   res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
 
   if (res.status != status_ok) {
-    S3_DEBUG("fs::is_directory_empty", "failed to parse response: %s\n", res.description());
+    S3_LOG(LOG_WARNING, "fs::is_directory_empty", "failed to parse response: %s\n", res.description());
     return false;
   }
 
@@ -309,7 +308,7 @@ int fs::__read_directory(const request::ptr &req, const string &_path, fuse_fill
     res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
 
     if (res.status != status_ok) {
-      S3_DEBUG("fs::__read_directory", "failed to parse response: %s\n", res.description());
+      S3_LOG(LOG_WARNING, "fs::__read_directory", "failed to parse response: %s\n", res.description());
       return -EIO;
     }
 
@@ -356,7 +355,7 @@ int fs::__create_object(const request::ptr &req, const string &path, object_type
   ASSERT_NO_TRAILING_SLASH(path);
 
   if (_object_cache.get(req, path)) {
-    S3_DEBUG("fs::__create_object", "attempt to overwrite object at path %s.\n", path.c_str());
+    S3_LOG(LOG_DEBUG, "fs::__create_object", "attempt to overwrite object at path %s.\n", path.c_str());
     return -EEXIST;
   }
 

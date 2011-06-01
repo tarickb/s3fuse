@@ -1,8 +1,8 @@
-#include "file_transfer.hh"
-#include "logging.hh"
-#include "mutexes.hh"
-#include "object.hh"
-#include "open_file.hh"
+#include "file_transfer.h"
+#include "logger.h"
+#include "mutexes.h"
+#include "object.h"
+#include "open_file.h"
 
 using namespace boost;
 using namespace std;
@@ -40,7 +40,7 @@ open_file::open_file(
   _fd = mkstemp(temp_name);
   unlink(temp_name);
 
-  S3_DEBUG("open_file::open_file", "opening [%s] in [%s].\n", obj->get_path().c_str(), temp_name);
+  S3_LOG(LOG_DEBUG, "open_file::open_file", "opening [%s] in [%s].\n", obj->get_path().c_str(), temp_name);
 
   if (_fd == -1)
     throw runtime_error("error calling mkstemp()");
@@ -51,7 +51,7 @@ open_file::open_file(
 
 open_file::~open_file()
 {
-  S3_DEBUG("open_file::~open_file", "closing temporary file for [%s].\n", _obj->get_path().c_str());
+  S3_LOG(LOG_DEBUG, "open_file::~open_file", "closing temporary file for [%s].\n", _obj->get_path().c_str());
   close(_fd);
 }
 
@@ -61,7 +61,7 @@ int open_file::init()
   int r;
 
   if (_status & FS_READY) {
-    S3_DEBUG("open_file::init", "attempt to init file with FS_READY set for [%s].\n", _obj->get_path().c_str());
+    S3_LOG(LOG_WARNING, "open_file::init", "attempt to init file with FS_READY set for [%s].\n", _obj->get_path().c_str());
     return -EINVAL;
   }
 
@@ -72,7 +72,7 @@ int open_file::init()
   if (r)
     _error = r;
 
-  S3_DEBUG("open_file::init", "file [%s] ready.\n", _obj->get_path().c_str());
+  S3_LOG(LOG_WARNING, "open_file::init", "file [%s] ready.\n", _obj->get_path().c_str());
 
   _status |= FS_READY | FS_FLUSHABLE | FS_WRITEABLE;
   _mutexes->get_file_status_condition().notify_all();
@@ -83,7 +83,7 @@ int open_file::init()
 int open_file::cleanup()
 {
   if (!(_status & FS_ZOMBIE)) {
-    S3_DEBUG("open_file::cleanup", "attempt to clean up file with FS_ZOMBIE not set for [%s].\n", _obj->get_path().c_str());
+    S3_LOG(LOG_WARNING, "open_file::cleanup", "attempt to clean up file with FS_ZOMBIE not set for [%s].\n", _obj->get_path().c_str());
     return -EINVAL;
   }
 
@@ -95,17 +95,17 @@ int open_file::add_reference(uint64_t *handle)
   mutex::scoped_lock lock(_mutexes->get_file_status_mutex());
 
   if (_status & FS_ZOMBIE) {
-    S3_DEBUG("open_file::add_reference", "attempt to add reference for file with FS_ZOMBIE set for [%s].\n", _obj->get_path().c_str());
+    S3_LOG(LOG_WARNING, "open_file::add_reference", "attempt to add reference for file with FS_ZOMBIE set for [%s].\n", _obj->get_path().c_str());
     return -EINVAL;
   }
 
   if (!(_status & FS_READY)) {
-    S3_DEBUG("open_file::add_reference", "file [%s] not yet ready. waiting.\n", _obj->get_path().c_str());
+    S3_LOG(LOG_DEBUG, "open_file::add_reference", "file [%s] not yet ready. waiting.\n", _obj->get_path().c_str());
 
     while (!(_status & FS_READY))
       _mutexes->get_file_status_condition().wait(lock);
 
-    S3_DEBUG("open_file::add_reference", "done waiting for [%s]. error: %i.\n", _obj->get_path().c_str(), _error);
+    S3_LOG(LOG_DEBUG, "open_file::add_reference", "done waiting for [%s]. error: %i.\n", _obj->get_path().c_str(), _error);
 
     if (_error)
       return _error;
@@ -122,14 +122,14 @@ bool open_file::release()
   mutex::scoped_lock lock(_mutexes->get_file_status_mutex());
 
   if (_ref_count == 0) {
-    S3_DEBUG("open_file::release", "attempt to release handle on [%s] with zero ref-count.\n", _obj->get_path().c_str());
+    S3_LOG(LOG_WARNING, "open_file::release", "attempt to release handle on [%s] with zero ref-count.\n", _obj->get_path().c_str());
     return -EINVAL;
   }
 
   _ref_count--;
 
   if (_ref_count == 0) {
-    S3_DEBUG("open_file::release", "file [%s] is now a zombie.\n", _obj->get_path().c_str());
+    S3_LOG(LOG_DEBUG, "open_file::release", "file [%s] is now a zombie.\n", _obj->get_path().c_str());
     _status |= FS_ZOMBIE;
   }
 
@@ -142,7 +142,7 @@ int open_file::truncate(off_t offset)
   int r;
 
   if (!(_status & FS_READY) || !(_status & FS_WRITEABLE)) {
-    S3_DEBUG("open_file::truncate", "failing truncate attempt on [%s] with status %i.\n", _obj->get_path().c_str(), _status);
+    S3_LOG(LOG_WARNING, "open_file::truncate", "failing truncate attempt on [%s] with status %i.\n", _obj->get_path().c_str(), _status);
     return -EBUSY;
   }
 
@@ -163,13 +163,13 @@ int open_file::flush()
   int r;
 
   if (!(_status & FS_DIRTY)) {
-    S3_DEBUG("open_file::flush", "skipping flush for file [%s].\n", _obj->get_path().c_str());
+    S3_LOG(LOG_DEBUG, "open_file::flush", "skipping flush for file [%s].\n", _obj->get_path().c_str());
     return 0;
   }
 
   // force flush in zombie state even if not flushable
   if (!(_status & FS_FLUSHABLE) && !(_status & FS_ZOMBIE)) {
-    S3_DEBUG("open_file::flush", "failing concurrent flush call for [%s].\n", _obj->get_path().c_str());
+    S3_LOG(LOG_WARNING, "open_file::flush", "failing concurrent flush call for [%s].\n", _obj->get_path().c_str());
     return -EBUSY;
   }
 
@@ -182,7 +182,7 @@ int open_file::flush()
   if (r == 0)
     _status &= ~FS_DIRTY;
   else
-    S3_DEBUG("open_file::flush", "failed to upload [%s] with error %i.\n", _obj->get_path().c_str(), r);
+    S3_LOG(LOG_WARNING, "open_file::flush", "failed to upload [%s] with error %i.\n", _obj->get_path().c_str(), r);
 
   _status |= FS_FLUSHABLE | FS_WRITEABLE;
 
@@ -195,7 +195,7 @@ int open_file::write(const char *buffer, size_t size, off_t offset)
   int r;
 
   if (!(_status & FS_READY) || !(_status & FS_WRITEABLE)) {
-    S3_DEBUG("open_file::write", "failing write attempt on [%s] with status %i.\n", _obj->get_path().c_str(), _status);
+    S3_LOG(LOG_WARNING, "open_file::write", "failing write attempt on [%s] with status %i.\n", _obj->get_path().c_str(), _status);
     return -EBUSY;
   }
 
@@ -215,7 +215,7 @@ int open_file::read(char *buffer, size_t size, off_t offset)
   mutex::scoped_lock lock(_mutexes->get_file_status_mutex());
 
   if (!(_status & FS_READY)) {
-    S3_DEBUG("open_file::read", "read on [%s] when file isn't ready.\n", _obj->get_path().c_str());
+    S3_LOG(LOG_WARNING, "open_file::read", "read on [%s] when file isn't ready.\n", _obj->get_path().c_str());
     return -EBUSY;
   }
 

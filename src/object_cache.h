@@ -6,9 +6,9 @@
 #include <boost/smart_ptr.hpp>
 #include <boost/thread.hpp>
 
-#include "logging.hh"
-#include "object.hh"
-#include "thread_pool.hh"
+#include "logger.h"
+#include "object.h"
+#include "thread_pool.h"
 
 namespace s3
 {
@@ -83,7 +83,7 @@ namespace s3
       open_file::ptr file;
 
       if (!obj) {
-        S3_DEBUG("object_cache::open_handle", "cannot open file [%s].\n", path.c_str());
+        S3_LOG(LOG_WARNING, "object_cache::open_handle", "cannot open file [%s].\n", path.c_str());
         return -ENOENT;
       }
 
@@ -106,7 +106,7 @@ namespace s3
         lock.lock();
 
         if (r) {
-          S3_DEBUG("object_cache::open_handle", "failed to open file [%s] with error %i.\n", obj->get_path().c_str(), r);
+          S3_LOG(LOG_WARNING, "object_cache::open_handle", "failed to open file [%s] with error %i.\n", obj->get_path().c_str(), r);
 
           obj->set_open_file(open_file::ptr());
           _handle_map.erase(handle);
@@ -124,7 +124,7 @@ namespace s3
       object::ptr obj;
 
       if (itor == _handle_map.end()) {
-        S3_DEBUG("object_cache::release_handle", "attempt to release handle not in map.\n");
+        S3_LOG(LOG_WARNING, "object_cache::release_handle", "attempt to release handle not in map.\n");
         return -EINVAL;
       }
 

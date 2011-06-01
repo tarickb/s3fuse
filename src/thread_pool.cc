@@ -1,8 +1,7 @@
-#include "logging.hh"
-
-#include "request.hh"
-#include "thread_pool.hh"
-#include "util.hh"
+#include "logger.h"
+#include "request.h"
+#include "thread_pool.h"
+#include "util.h"
 
 using namespace boost;
 using namespace std;
@@ -38,7 +37,8 @@ namespace s3
     ~_worker_thread()
     {
       if (_time_in_function > 0.0)
-        S3_DEBUG(
+        S3_LOG(
+          LOG_DEBUG,
           "_worker_thread::~_worker_thread", 
           "time in request/function: %.2f s/%.2f s (%.2f %%)\n", 
           _time_in_request, 
@@ -127,11 +127,11 @@ namespace s3
           _time_in_request += _request->get_current_run_time();
 
         } catch (std::exception &e) {
-          S3_ERROR("_worker_thread::worker", "caught exception: %s\n", e.what());
+          S3_LOG(LOG_WARNING, "_worker_thread::worker", "caught exception: %s\n", e.what());
           r = -ECANCELED;
 
         } catch (...) {
-          S3_ERROR("_worker_thread::worker", "caught unknown exception.\n");
+          S3_LOG(LOG_WARNING, "_worker_thread::worker", "caught unknown exception.\n");
           r = -ECANCELED;
         }
 
@@ -193,7 +193,7 @@ void thread_pool::terminate()
   // give the threads precisely one second to clean up (and print debug info), otherwise skip them and move on
   usleep(1e6);
 
-  S3_DEBUG("thread_pool::terminate", "[%s] respawn counter: %i.\n", _id.c_str(), _respawn_counter);
+  S3_LOG(LOG_DEBUG, "thread_pool::terminate", "[%s] respawn counter: %i.\n", _id.c_str(), _respawn_counter);
 }
 
 _queue_item thread_pool::get_next_queue_item()

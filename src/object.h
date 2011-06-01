@@ -9,9 +9,9 @@
 #include <string>
 #include <boost/smart_ptr.hpp>
 
-#include "mutexes.hh"
-#include "open_file.hh"
-#include "util.hh"
+#include "mutexes.h"
+#include "open_file.h"
+#include "util.h"
 
 namespace s3
 {

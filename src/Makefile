@@ -14,6 +14,7 @@ MAKE_DEP  = gcc -M $(CPPFLAGS) -o $(DEP_FILE).d $<
 S3_SRCS  := config.cc \
 						file_transfer.cc \
 						fs.cc \
+						logger.cc \
 						object.cc \
 						object_cache.cc \
 						open_file.cc \

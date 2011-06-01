@@ -1,5 +1,3 @@
-#include "logging.hh"
-
 #include <errno.h>
 #include <getopt.h>
 #include <stdlib.h>
@@ -7,29 +5,29 @@
 
 #include <string>
 
-#include "config.hh"
-#include "fs.hh"
-#include "version.hh"
+#include "config.h"
+#include "fs.h"
+#include "logger.h"
+#include "version.h"
 
 using namespace std;
 
 namespace
 {
-  const struct option OPTIONS[] = {
-    { "config",  required_argument, NULL, 'c' },
-    { "help",    no_argument,       NULL, 'h' },
-    { "verbose", no_argument,       NULL, 'v' },
-    { "version", no_argument,       NULL, 'V' },
-    { "option",  required_argument, NULL, 'o' } };
-
-  const char *OPTION_STRING = "c:hvVo:";
+  struct options
+  {
+    const char *arg0;
+    string config;
+    int verbosity;
+    bool have_mountpoint;
+  };
 
   s3::fs *g_fs = NULL;
 }
 
 #define ASSERT_LEADING_SLASH(str) do { if ((str)[0] != '/') return -EINVAL; } while (0)
 
-int s3_getattr(const char *path, struct stat *s)
+int wrap_getattr(const char *path, struct stat *s)
 {
   ASSERT_LEADING_SLASH(path);
 
@@ -43,43 +41,43 @@ int s3_getattr(const char *path, struct stat *s)
   return g_fs->get_stats(path + 1, s);
 }
 
-int s3_chown(const char *path, uid_t uid, gid_t gid)
+int wrap_chown(const char *path, uid_t uid, gid_t gid)
 {
-  S3_DEBUG("s3_chown", "path: %s, user: %i, group: %i\n", path, uid, gid);
+  S3_LOG(LOG_DEBUG, "chown", "path: %s, user: %i, group: %i\n", path, uid, gid);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->change_owner(path + 1, uid, gid);
 }
 
-int s3_chmod(const char *path, mode_t mode)
+int wrap_chmod(const char *path, mode_t mode)
 {
-  S3_DEBUG("s3_chmod", "path: %s, mode: %i\n", path, mode);
+  S3_LOG(LOG_DEBUG, "chmod", "path: %s, mode: %i\n", path, mode);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->change_mode(path + 1, mode);
 }
 
-int s3_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, fuse_file_info *file_info)
+int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, fuse_file_info *file_info)
 {
-  S3_DEBUG("s3_readdir", "path: %s\n", path);
+  S3_LOG(LOG_DEBUG, "readdir", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->read_directory(path + 1, filler, buf);
 }
 
-int s3_mkdir(const char *path, mode_t mode)
+int wrap_mkdir(const char *path, mode_t mode)
 {
-  S3_DEBUG("s3_mkdir", "path: %s, mode: %#o\n", path, mode);
+  S3_LOG(LOG_DEBUG, "mkdir", "path: %s, mode: %#o\n", path, mode);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->create_directory(path + 1, mode);
 }
 
-int s3_create(const char *path, mode_t mode, fuse_file_info *file_info)
+int wrap_create(const char *path, mode_t mode, fuse_file_info *file_info)
 {
   int r;
 
-  S3_DEBUG("s3_create", "path: %s, mode: %#o\n", path, mode);
+  S3_LOG(LOG_DEBUG, "create", "path: %s, mode: %#o\n", path, mode);
   ASSERT_LEADING_SLASH(path);
 
   r = g_fs->create_file(path + 1, mode);
@@ -90,108 +88,108 @@ int s3_create(const char *path, mode_t mode, fuse_file_info *file_info)
   return g_fs->open(path + 1, &file_info->fh);
 }
 
-int s3_open(const char *path, fuse_file_info *file_info)
+int wrap_open(const char *path, fuse_file_info *file_info)
 {
-  S3_DEBUG("s3_open", "path: %s\n", path);
+  S3_LOG(LOG_DEBUG, "open", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->open(path + 1, &file_info->fh);
 }
 
-int s3_read(const char *path, char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
+int wrap_read(const char *path, char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
 {
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->read(file_info->fh, buffer, size, offset);
 }
 
-int s3_write(const char *path, const char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
+int wrap_write(const char *path, const char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
 {
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->write(file_info->fh, buffer, size, offset);
 }
 
-int s3_flush(const char *path, fuse_file_info *file_info)
+int wrap_flush(const char *path, fuse_file_info *file_info)
 {
-  S3_DEBUG("s3_flush", "path: %s\n", path);
+  S3_LOG(LOG_DEBUG, "flush", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->flush(file_info->fh);
 }
 
-int s3_release(const char *path, fuse_file_info *file_info)
+int wrap_release(const char *path, fuse_file_info *file_info)
 {
-  S3_DEBUG("s3_release", "path: %s\n", path);
+  S3_LOG(LOG_DEBUG, "release", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->release(file_info->fh);
 }
 
-int s3_access(const char *path, int mode)
+int wrap_access(const char *path, int mode)
 {
-  S3_DEBUG("s3_access", "path: %s, mask: %i\n", path, mode);
+  S3_LOG(LOG_DEBUG, "access", "path: %s, mask: %i\n", path, mode);
   ASSERT_LEADING_SLASH(path);
 
   // TODO: check access
   return 0;
 }
 
-int s3_truncate(const char *path, off_t offset)
+int wrap_truncate(const char *path, off_t offset)
 {
-  S3_DEBUG("s3_truncate", "path: %s, offset: %ji\n", path, static_cast<intmax_t>(offset));
+  S3_LOG(LOG_DEBUG, "truncate", "path: %s, offset: %ji\n", path, static_cast<intmax_t>(offset));
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->truncate(path + 1, offset);
 }
 
-int s3_unlink(const char *path)
+int wrap_unlink(const char *path)
 {
-  S3_DEBUG("s3_unlink", "path: %s\n", path);
+  S3_LOG(LOG_DEBUG, "unlink", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->remove_file(path + 1);
 }
 
-int s3_rmdir(const char *path)
+int wrap_rmdir(const char *path)
 {
-  S3_DEBUG("s3_rmdir", "path: %s\n", path);
+  S3_LOG(LOG_DEBUG, "rmdir", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->remove_directory(path + 1);
 }
 
-int s3_rename(const char *from, const char *to)
+int wrap_rename(const char *from, const char *to)
 {
-  S3_DEBUG("s3_rename", "from: %s, to: %s\n", from, to);
+  S3_LOG(LOG_DEBUG, "rename", "from: %s, to: %s\n", from, to);
   ASSERT_LEADING_SLASH(from);
   ASSERT_LEADING_SLASH(to);
 
   return g_fs->rename_object(from + 1, to + 1);
 }
 
-int s3_utimens(const char *path, const timespec times[2])
+int wrap_utimens(const char *path, const timespec times[2])
 {
-  S3_DEBUG("s3_utimens", "path: %s, time: %li\n", path, times[1].tv_sec);
+  S3_LOG(LOG_DEBUG, "utimens", "path: %s, time: %li\n", path, times[1].tv_sec);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->change_mtime(path + 1, times[1].tv_sec);
 }
 
-int s3_symlink(const char *target, const char *path)
+int wrap_symlink(const char *target, const char *path)
 {
-  S3_DEBUG("s3_symlink", "path: %s, target: %s\n", path, target);
+  S3_LOG(LOG_DEBUG, "symlink", "path: %s, target: %s\n", path, target);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->create_symlink(path + 1, target);
 }
 
-int s3_readlink(const char *path, char *buffer, size_t max_size)
+int wrap_readlink(const char *path, char *buffer, size_t max_size)
 {
   string target;
   int r;
 
-  S3_DEBUG("s3_readlink", "path: %s, max_size: %zu\n", path, max_size);
+  S3_LOG(LOG_DEBUG, "readlink", "path: %s, max_size: %zu\n", path, max_size);
   ASSERT_LEADING_SLASH(path);
 
   r = g_fs->read_symlink(path + 1, &target);
@@ -211,7 +209,7 @@ int s3_readlink(const char *path, char *buffer, size_t max_size)
   return 0;
 }
 
-int s3_getxattr(const char *path, const char *name, char *buffer, size_t max_size)
+int wrap_getxattr(const char *path, const char *name, char *buffer, size_t max_size)
 {
   string attr;
   int r;
@@ -238,9 +236,9 @@ int s3_getxattr(const char *path, const char *name, char *buffer, size_t max_siz
   return max_size + 1; // +1 for \0
 }
 
-int s3_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
+int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
 {
-  S3_DEBUG("s3_setxattr", "path: %s, name: %s, value: %s\n", path, name, value);
+  S3_LOG(LOG_DEBUG, "setxattr", "path: %s, name: %s, value: %s\n", path, name, value);
   ASSERT_LEADING_SLASH(path);
 
   if (value[size - 1] != '\0')
@@ -249,13 +247,13 @@ int s3_setxattr(const char *path, const char *name, const char *value, size_t si
   return g_fs->set_attr(path + 1, name, value, flags);
 }
 
-int s3_listxattr(const char *path, char *buffer, size_t size)
+int wrap_listxattr(const char *path, char *buffer, size_t size)
 {
   vector<string> attrs;
   size_t required_size = 0;
   int r;
 
-  S3_DEBUG("s3_listxattr", "path: %s, size: %zu\n", path, size);
+  S3_LOG(LOG_DEBUG, "listxattr", "path: %s, size: %zu\n", path, size);
   ASSERT_LEADING_SLASH(path);
 
   r = g_fs->list_attr(path + 1, &attrs);
@@ -280,9 +278,9 @@ int s3_listxattr(const char *path, char *buffer, size_t size)
   return required_size;
 }
 
-int s3_removexattr(const char *path, const char *name)
+int wrap_removexattr(const char *path, const char *name)
 {
-  S3_DEBUG("s3_removexattr", "path: %s, name: %s\n", path, name);
+  S3_LOG(LOG_DEBUG, "removexattr", "path: %s, name: %s\n", path, name);
   ASSERT_LEADING_SLASH(path);
 
   return g_fs->remove_attr(path + 1, name);
@@ -311,74 +309,90 @@ int print_usage(const char *arg0)
   return 0;
 }
 
-int main(int argc, char **argv)
+int process_argument(void *data, const char *arg, int key, struct fuse_args *out_args)
 {
-  int r, verbosity = 0;
-  const char *arg0 = argv[0];
-  fuse_operations opers;
-  fuse_args args = FUSE_ARGS_INIT(0, NULL);
-  string config;
+  options *opt = static_cast<options *>(data);
 
-  while ((r = getopt_long(argc, argv, OPTION_STRING, OPTIONS, NULL)) != -1) {
-    switch (r) {
-      case 'c':
-        config = optarg;
-        break;
-
-      case 'v':
-        verbosity++;
-        break;
-
-      case 'V':
-        return print_version();
-
-      case 'o':
-        fuse_opt_add_arg(&args, "-o");
-        fuse_opt_add_arg(&args, optarg);
-        break;
-
-      default: // covers 'h', '?', ':'
-        return print_usage(arg0);
-    }
+  if (strcmp(arg, "-V") == 0 || strcmp(arg, "--version") == 0) {
+    print_version();
+    exit(0);
   }
 
-  for (int i = optind; i < argc; i++)
-    fuse_opt_add_arg(&args, argv[i]);
+  if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) {
+    print_usage(opt->arg0);
+    exit(1);
+  }
 
-  memset(&opers, 0, sizeof(opers));
+  if (strcmp(arg, "-v") == 0 || strcmp(arg, "--verbose") == 0) {
+    opt->verbosity++;
+    return 0;
+  }
 
-  opers.access = s3_access;
-  opers.chmod = s3_chmod;
-  opers.chown = s3_chown;
-  opers.create = s3_create;
-  opers.getattr = s3_getattr;
-  opers.getxattr = s3_getxattr;
-  opers.flush = s3_flush;
-  opers.listxattr = s3_listxattr;
-  opers.mkdir = s3_mkdir;
-  opers.open = s3_open;
-  opers.read = s3_read;
-  opers.readdir = s3_readdir;
-  opers.readlink = s3_readlink;
-  opers.release = s3_release;
-  opers.removexattr = s3_removexattr;
-  opers.rename = s3_rename;
-  opers.rmdir = s3_rmdir;
-  opers.setxattr = s3_setxattr;
-  opers.symlink = s3_symlink;
-  opers.truncate = s3_truncate;
-  opers.unlink = s3_unlink;
-  opers.utimens = s3_utimens;
-  opers.write = s3_write;
+  if (strstr(arg, "config=") == arg) {
+    opt->config = arg + 7;
+    return 0;
+  }
 
-  r = s3::config::init(config);
+  if (key == FUSE_OPT_KEY_NONOPT)
+    opt->have_mountpoint = true; // assume that the mountpoint is the only non-option
+
+  return 1;
+}
+
+int main(int argc, char **argv)
+{
+  int r;
+  fuse_operations ops;
+  fuse_args args = FUSE_ARGS_INIT(argc, argv);
+  options opts;
+
+  opts.verbosity = LOG_ERR;
+  opts.arg0 = argv[0];
+  opts.have_mountpoint = false;
+
+  fuse_opt_parse(&args, &opts, NULL, process_argument);
+
+  if (!opts.have_mountpoint) {
+    print_usage(opts.arg0);
+    exit(1);
+  }
+
+  memset(&ops, 0, sizeof(ops));
+
+  ops.access = wrap_access;
+  ops.chmod = wrap_chmod;
+  ops.chown = wrap_chown;
+  ops.create = wrap_create;
+  ops.getattr = wrap_getattr;
+  ops.getxattr = wrap_getxattr;
+  ops.flush = wrap_flush;
+  ops.listxattr = wrap_listxattr;
+  ops.mkdir = wrap_mkdir;
+  ops.open = wrap_open;
+  ops.read = wrap_read;
+  ops.readdir = wrap_readdir;
+  ops.readlink = wrap_readlink;
+  ops.release = wrap_release;
+  ops.removexattr = wrap_removexattr;
+  ops.rename = wrap_rename;
+  ops.rmdir = wrap_rmdir;
+  ops.setxattr = wrap_setxattr;
+  ops.symlink = wrap_symlink;
+  ops.truncate = wrap_truncate;
+  ops.unlink = wrap_unlink;
+  ops.utimens = wrap_utimens;
+  ops.write = wrap_write;
+
+  s3::logger::init(opts.verbosity);
+
+  r = s3::config::init(opts.config);
 
   if (r)
     return r;
 
   g_fs = new s3::fs();
 
-  r = fuse_main(args.argc, args.argv, &opers, NULL);
+  r = fuse_main(args.argc, args.argv, &ops, NULL);
 
   delete g_fs;
   return r;

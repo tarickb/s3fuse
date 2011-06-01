@@ -1,5 +1,3 @@
-#include "logging.hh"
-
 #include <stdint.h>
 #include <string.h>
 #include <time.h>
@@ -7,11 +5,12 @@
 
 #include <stdexcept>
 
-#include "config.hh"
-#include "object.hh"
-#include "openssl_locks.hh"
-#include "request.hh"
-#include "util.hh"
+#include "logger.h"
+#include "config.h"
+#include "object.h"
+#include "openssl_locks.h"
+#include "request.h"
+#include "util.h"
 
 using namespace std;
 
@@ -59,7 +58,8 @@ request::~request()
   curl_easy_cleanup(_curl);
 
   if (_run_count > 0)
-    S3_DEBUG(
+    S3_LOG(
+      LOG_DEBUG,
       "request::~request", 
       "served %" PRIu64 " requests at an average of %.02f ms per request.\n", 
       _run_count,
@@ -306,7 +306,7 @@ void request::build_signature()
 bool request::check_timeout()
 {
   if (_timeout && time(NULL) > _timeout) {
-    S3_DEBUG("request::check_timeout", "timed out.\n");
+    S3_LOG(LOG_WARNING, "request::check_timeout", "timed out.\n");
 
     _canceled = true;
     return true;
@@ -362,7 +362,7 @@ void request::run()
   elapsed_time = util::get_current_time() - elapsed_time;
 
   if (_response_code >= 300 && _response_code != 404)
-    S3_DEBUG("request::run", "request for [%s] failed with response: %s\n", _url.c_str(), _output_data.c_str());
+    S3_LOG(LOG_WARNING, "request::run", "request for [%s] failed with response: %s\n", _url.c_str(), _output_data.c_str());
 
   // don't save the time for the first request since it's likely to be disproportionately large
   if (_run_count > 0)

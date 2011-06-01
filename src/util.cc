@@ -8,7 +8,7 @@
 
 #include <stdexcept>
 
-#include "util.hh"
+#include "util.h"
 
 using namespace s3;
 using namespace std;
