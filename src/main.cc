@@ -295,7 +295,7 @@ int wrap_removexattr(const char *path, const char *name)
 
 int print_version()
 {
-  printf("%s, version %s\n", s3::APP_NAME, s3::APP_VERSION);
+  printf("%s, %s, version %s\n", s3::APP_FULL_NAME, s3::APP_NAME, s3::APP_VERSION);
 
   return 0;
 }

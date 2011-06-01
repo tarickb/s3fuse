@@ -3,8 +3,9 @@
 
 namespace s3
 {
-  const char *APP_NAME = "s3fuse";
-  const char *APP_VERSION = "0.1";
+  const char *APP_FULL_NAME = PACKAGE_NAME;
+  const char *APP_NAME = PACKAGE_TARNAME;
+  const char *APP_VERSION = PACKAGE_VERSION;
 }
 
 #endif
