@@ -1,0 +1,11 @@
+Source: s3fuse
+Section: utils
+Priority: extra
+Maintainer: Tarick Bedeir <tarick@bedeir.com>
+Build-Depends: debhelper (>= 7.0.50~), autotools-dev
+Standards-Version: 3.8.4
+
+Package: s3fuse
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: FUSE filesystem driver for Amazon AWS S3 buckets.
