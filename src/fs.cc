@@ -18,7 +18,6 @@ using namespace std;
 using namespace s3;
 
 // TODO: rewrite using libxml2?
-// TODO: set up for autoconf
 
 #define ASSERT_NO_TRAILING_SLASH(str) do { if ((str)[(str).size() - 1] == '/') return -EINVAL; } while (0)
 

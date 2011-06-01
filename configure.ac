@@ -28,5 +28,5 @@ AC_TYPE_UINT8_T
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS([ftruncate gettimeofday memset strchr strerror strstr strtol])
 
-AC_CONFIG_FILES([src/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile])
 AC_OUTPUT
