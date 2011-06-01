@@ -1,5 +1,5 @@
-#ifndef S3_THREAD_POOL_HH
-#define S3_THREAD_POOL_HH
+#ifndef S3_THREAD_POOL_H
+#define S3_THREAD_POOL_H
 
 #include <pthread.h>
 #include <sys/time.h>

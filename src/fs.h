@@ -1,5 +1,5 @@
-#ifndef S3_FS_HH
-#define S3_FS_HH
+#ifndef S3_FS_H
+#define S3_FS_H
 
 #define FUSE_USE_VERSION 26
 

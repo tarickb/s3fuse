@@ -1,5 +1,5 @@
-#ifndef S3_OBJECT_HH
-#define S3_OBJECT_HH
+#ifndef S3_OBJECT_H
+#define S3_OBJECT_H
 
 #include <string.h>
 #include <sys/stat.h>

@@ -1,5 +1,5 @@
-#ifndef S3_MUTEXES_HH
-#define S3_MUTEXES_HH
+#ifndef S3_MUTEXES_H
+#define S3_MUTEXES_H
 
 #include <boost/smart_ptr.hpp>
 #include <boost/thread.hpp>

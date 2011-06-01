@@ -1,5 +1,5 @@
-#ifndef S3_OPEN_FILE_HH
-#define S3_OPEN_FILE_HH
+#ifndef S3_OPEN_FILE_H
+#define S3_OPEN_FILE_H
 
 #include <stdint.h>
 #include <sys/stat.h>

@@ -1,5 +1,5 @@
-#ifndef S3_FILE_TRANSFER_HH
-#define S3_FILE_TRANSFER_HH
+#ifndef S3_FILE_TRANSFER_H
+#define S3_FILE_TRANSFER_H
 
 #include <string>
 #include <boost/shared_ptr.hpp>

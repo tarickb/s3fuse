@@ -1,5 +1,5 @@
-#ifndef S3_CONFIG_HH
-#define S3_CONFIG_HH
+#ifndef S3_CONFIG_H
+#define S3_CONFIG_H
 
 #include <string>
 

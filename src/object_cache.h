@@ -1,5 +1,5 @@
-#ifndef S3_OBJECT_CACHE_HH
-#define S3_OBJECT_CACHE_HH
+#ifndef S3_OBJECT_CACHE_H
+#define S3_OBJECT_CACHE_H
 
 #include <map>
 #include <string>

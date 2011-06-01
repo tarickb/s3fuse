@@ -1,5 +1,5 @@
-#ifndef S3_REQUEST_HH
-#define S3_REQUEST_HH
+#ifndef S3_REQUEST_H
+#define S3_REQUEST_H
 
 #include <stdint.h>
 #include <stdio.h>

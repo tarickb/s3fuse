@@ -1,5 +1,5 @@
-#ifndef S3_UTIL_HH
-#define S3_UTIL_HH
+#ifndef S3_UTIL_H
+#define S3_UTIL_H
 
 #include <stdint.h>
 #include <stdio.h>

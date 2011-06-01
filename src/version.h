@@ -1,5 +1,5 @@
-#ifndef S3_VERSION_HH
-#define S3_VERSION_HH
+#ifndef S3_VERSION_H
+#define S3_VERSION_H
 
 namespace s3
 {

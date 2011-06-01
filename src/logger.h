@@ -1,5 +1,5 @@
-#ifndef S3_LOGGER_HH
-#define S3_LOGGER_HH
+#ifndef S3_LOGGER_H
+#define S3_LOGGER_H
 
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>

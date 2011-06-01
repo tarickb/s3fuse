@@ -1,5 +1,5 @@
-#ifndef S3_OPENSSL_LOCKS_HH
-#define S3_OPENSSL_LOCKS_HH
+#ifndef S3_OPENSSL_LOCKS_H
+#define S3_OPENSSL_LOCKS_H
 
 namespace s3
 {
