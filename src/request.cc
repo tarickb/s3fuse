@@ -317,9 +317,7 @@ bool request::check_timeout()
 
 void request::run()
 {
-  int r;
   curl_slist *headers = NULL;
-  double elapsed_time = util::get_current_time();
 
   // sanity
   if (_url.empty())
@@ -345,33 +343,57 @@ void request::run()
   if (_target_object)
     _target_object->request_init();
 
-  _timeout = time(NULL) + config::get_request_timeout_in_s();
-  r = curl_easy_perform(_curl);
-  _timeout = 0; // reset this here so that subsequent calls to check_timeout() don't fail
+  for (int i = 0; i < config::get_max_transfer_retries(); i++) {
+    int r;
+    double elapsed_time;
 
-  if (r != CURLE_OK)
-    throw runtime_error(_curl_error);
+    _timeout = time(NULL) + config::get_request_timeout_in_s();
+    r = curl_easy_perform(_curl);
+    _timeout = 0; // reset this here so that subsequent calls to check_timeout() don't fail
 
-  if (_canceled)
-    throw runtime_error("request timed out.");
+    if (_canceled)
+      throw runtime_error("request timed out.");
+
+    TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &elapsed_time));
+
+    // don't save the time for the first request since it's likely to be disproportionately large
+    if (_run_count > 0)
+      _total_run_time += elapsed_time;
+
+    // but save it in _current_run_time since it's compared to overall function time (i.e., it's relative)
+    _current_run_time += elapsed_time;
+
+    _run_count++;
+
+    if (r == CURLE_OK)
+      break;
+
+    if (
+      r == CURLE_COULDNT_RESOLVE_PROXY || 
+      r == CURLE_COULDNT_RESOLVE_HOST || 
+      r == CURLE_COULDNT_CONNECT || 
+      r == CURLE_PARTIAL_FILE || 
+      r == CURLE_UPLOAD_FAILED || 
+      r == CURLE_OPERATION_TIMEDOUT || 
+      r == CURLE_SSL_CONNECT_ERROR || 
+      r == CURLE_GOT_NOTHING || 
+      r == CURLE_SEND_ERROR || 
+      r == CURLE_RECV_ERROR || 
+      r == CURLE_BAD_CONTENT_ENCODING)
+    {
+      S3_LOG(LOG_WARNING, "request::run", "got error [%s]. retrying.\n", _curl_error);
+      continue;
+    }
+
+    if (r != CURLE_OK)
+      throw runtime_error(_curl_error);
+  }
 
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code));
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
 
-  // TODO: add loop for timeouts and whatnot
-  elapsed_time = util::get_current_time() - elapsed_time;
-
   if (_response_code >= 300 && _response_code != 404)
     S3_LOG(LOG_WARNING, "request::run", "request for [%s] failed with response: %s\n", _url.c_str(), _output_data.c_str());
-
-  // don't save the time for the first request since it's likely to be disproportionately large
-  if (_run_count > 0)
-    _total_run_time += elapsed_time;
-
-  // but save it in _current_run_time since it's compared to overall function time (i.e., it's relative)
-  _current_run_time += elapsed_time;
-
-  _run_count++;
 
   if (_target_object)
     _target_object->request_process_response(this);

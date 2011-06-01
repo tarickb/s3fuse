@@ -120,7 +120,7 @@ namespace s3
       return _object_cache.open_handle(path, handle);
     }
 
-    inline int truncate(const std::string &path, off_t offset) 
+    inline int truncate_by_path(const std::string &path, off_t offset) 
     {
       uint64_t handle;
       int r;

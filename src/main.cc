@@ -10,7 +10,10 @@
 #include "logger.h"
 #include "version.h"
 
+using namespace boost;
 using namespace std;
+
+#define ASSERT_LEADING_SLASH(str) do { if ((str)[0] != '/') return -EINVAL; } while (0)
 
 namespace
 {
@@ -22,10 +25,23 @@ namespace
     bool have_mountpoint;
   };
 
-  s3::fs *g_fs = NULL;
-}
+  int try_catch(boost::function0<int> fn)
+  {
+    try {
+      return fn();
 
-#define ASSERT_LEADING_SLASH(str) do { if ((str)[0] != '/') return -EINVAL; } while (0)
+    } catch (const std::exception &e) {
+      S3_LOG(LOG_WARNING, "try_catch", "caught exception: %s\n", e.what());
+
+    } catch (...) {
+      S3_LOG(LOG_WARNING, "try_catch", "caught unknown exception\n");
+    }
+
+    return -ECANCELED;
+  }
+
+  s3::fs *s_fs;
+}
 
 int wrap_getattr(const char *path, struct stat *s)
 {
@@ -38,7 +54,7 @@ int wrap_getattr(const char *path, struct stat *s)
     return 0;
   }
 
-  return g_fs->get_stats(path + 1, s);
+  return try_catch(bind(&s3::fs::get_stats, s_fs, path + 1, s));
 }
 
 int wrap_chown(const char *path, uid_t uid, gid_t gid)
@@ -46,7 +62,7 @@ int wrap_chown(const char *path, uid_t uid, gid_t gid)
   S3_LOG(LOG_DEBUG, "chown", "path: %s, user: %i, group: %i\n", path, uid, gid);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->change_owner(path + 1, uid, gid);
+  return try_catch(bind(&s3::fs::change_owner, s_fs, path + 1, uid, gid));
 }
 
 int wrap_chmod(const char *path, mode_t mode)
@@ -54,7 +70,7 @@ int wrap_chmod(const char *path, mode_t mode)
   S3_LOG(LOG_DEBUG, "chmod", "path: %s, mode: %i\n", path, mode);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->change_mode(path + 1, mode);
+  return try_catch(bind(&s3::fs::change_mode, s_fs, path + 1, mode));
 }
 
 int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, fuse_file_info *file_info)
@@ -62,7 +78,7 @@ int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, fus
   S3_LOG(LOG_DEBUG, "readdir", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->read_directory(path + 1, filler, buf);
+  return try_catch(bind(&s3::fs::read_directory, s_fs, path + 1, filler, buf));
 }
 
 int wrap_mkdir(const char *path, mode_t mode)
@@ -70,7 +86,7 @@ int wrap_mkdir(const char *path, mode_t mode)
   S3_LOG(LOG_DEBUG, "mkdir", "path: %s, mode: %#o\n", path, mode);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->create_directory(path + 1, mode);
+  return try_catch(bind(&s3::fs::create_directory, s_fs, path + 1, mode));
 }
 
 int wrap_create(const char *path, mode_t mode, fuse_file_info *file_info)
@@ -80,12 +96,12 @@ int wrap_create(const char *path, mode_t mode, fuse_file_info *file_info)
   S3_LOG(LOG_DEBUG, "create", "path: %s, mode: %#o\n", path, mode);
   ASSERT_LEADING_SLASH(path);
 
-  r = g_fs->create_file(path + 1, mode);
+  r = try_catch(bind(&s3::fs::create_file, s_fs, path + 1, mode));
 
   if (r)
     return r;
 
-  return g_fs->open(path + 1, &file_info->fh);
+  return try_catch(bind(&s3::fs::open, s_fs, path + 1, &file_info->fh));
 }
 
 int wrap_open(const char *path, fuse_file_info *file_info)
@@ -93,21 +109,21 @@ int wrap_open(const char *path, fuse_file_info *file_info)
   S3_LOG(LOG_DEBUG, "open", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->open(path + 1, &file_info->fh);
+  return try_catch(bind(&s3::fs::open, s_fs, path + 1, &file_info->fh));
 }
 
 int wrap_read(const char *path, char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
 {
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->read(file_info->fh, buffer, size, offset);
+  return try_catch(bind(&s3::fs::read, s_fs, file_info->fh, buffer, size, offset));
 }
 
 int wrap_write(const char *path, const char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
 {
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->write(file_info->fh, buffer, size, offset);
+  return try_catch(bind(&s3::fs::write, s_fs, file_info->fh, buffer, size, offset));
 }
 
 int wrap_flush(const char *path, fuse_file_info *file_info)
@@ -115,7 +131,7 @@ int wrap_flush(const char *path, fuse_file_info *file_info)
   S3_LOG(LOG_DEBUG, "flush", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->flush(file_info->fh);
+  return try_catch(bind(&s3::fs::flush, s_fs, file_info->fh));
 }
 
 int wrap_release(const char *path, fuse_file_info *file_info)
@@ -123,16 +139,7 @@ int wrap_release(const char *path, fuse_file_info *file_info)
   S3_LOG(LOG_DEBUG, "release", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->release(file_info->fh);
-}
-
-int wrap_access(const char *path, int mode)
-{
-  S3_LOG(LOG_DEBUG, "access", "path: %s, mask: %i\n", path, mode);
-  ASSERT_LEADING_SLASH(path);
-
-  // TODO: check access
-  return 0;
+  return try_catch(bind(&s3::fs::release, s_fs, file_info->fh));
 }
 
 int wrap_truncate(const char *path, off_t offset)
@@ -140,7 +147,7 @@ int wrap_truncate(const char *path, off_t offset)
   S3_LOG(LOG_DEBUG, "truncate", "path: %s, offset: %ji\n", path, static_cast<intmax_t>(offset));
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->truncate(path + 1, offset);
+  return try_catch(bind(&s3::fs::truncate_by_path, s_fs, path + 1, offset));
 }
 
 int wrap_unlink(const char *path)
@@ -148,7 +155,7 @@ int wrap_unlink(const char *path)
   S3_LOG(LOG_DEBUG, "unlink", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->remove_file(path + 1);
+  return try_catch(bind(&s3::fs::remove_file, s_fs, path + 1));
 }
 
 int wrap_rmdir(const char *path)
@@ -156,7 +163,7 @@ int wrap_rmdir(const char *path)
   S3_LOG(LOG_DEBUG, "rmdir", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->remove_directory(path + 1);
+  return try_catch(bind(&s3::fs::remove_directory, s_fs, path + 1));
 }
 
 int wrap_rename(const char *from, const char *to)
@@ -165,7 +172,7 @@ int wrap_rename(const char *from, const char *to)
   ASSERT_LEADING_SLASH(from);
   ASSERT_LEADING_SLASH(to);
 
-  return g_fs->rename_object(from + 1, to + 1);
+  return try_catch(bind(&s3::fs::rename_object, s_fs, from + 1, to + 1));
 }
 
 int wrap_utimens(const char *path, const timespec times[2])
@@ -173,7 +180,7 @@ int wrap_utimens(const char *path, const timespec times[2])
   S3_LOG(LOG_DEBUG, "utimens", "path: %s, time: %li\n", path, times[1].tv_sec);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->change_mtime(path + 1, times[1].tv_sec);
+  return try_catch(bind(&s3::fs::change_mtime, s_fs, path + 1, times[1].tv_sec));
 }
 
 int wrap_symlink(const char *target, const char *path)
@@ -181,7 +188,7 @@ int wrap_symlink(const char *target, const char *path)
   S3_LOG(LOG_DEBUG, "symlink", "path: %s, target: %s\n", path, target);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->create_symlink(path + 1, target);
+  return try_catch(bind(&s3::fs::create_symlink, s_fs, path + 1, target));
 }
 
 int wrap_readlink(const char *path, char *buffer, size_t max_size)
@@ -192,7 +199,7 @@ int wrap_readlink(const char *path, char *buffer, size_t max_size)
   S3_LOG(LOG_DEBUG, "readlink", "path: %s, max_size: %zu\n", path, max_size);
   ASSERT_LEADING_SLASH(path);
 
-  r = g_fs->read_symlink(path + 1, &target);
+  r = try_catch(bind(&s3::fs::read_symlink, s_fs, path + 1, &target));
 
   if (r)
     return r;
@@ -216,7 +223,7 @@ int wrap_getxattr(const char *path, const char *name, char *buffer, size_t max_s
 
   ASSERT_LEADING_SLASH(path);
 
-  r = g_fs->get_attr(path + 1, name, &attr);
+  r = try_catch(bind(&s3::fs::get_attr, s_fs, path + 1, name, &attr));
 
   if (r)
     return r;
@@ -244,7 +251,7 @@ int wrap_setxattr(const char *path, const char *name, const char *value, size_t 
   if (value[size - 1] != '\0')
     return -EINVAL; // require null-terminated string for "value"
 
-  return g_fs->set_attr(path + 1, name, value, flags);
+  return try_catch(bind(&s3::fs::set_attr, s_fs, path + 1, name, value, flags));
 }
 
 int wrap_listxattr(const char *path, char *buffer, size_t size)
@@ -256,7 +263,7 @@ int wrap_listxattr(const char *path, char *buffer, size_t size)
   S3_LOG(LOG_DEBUG, "listxattr", "path: %s, size: %zu\n", path, size);
   ASSERT_LEADING_SLASH(path);
 
-  r = g_fs->list_attr(path + 1, &attrs);
+  r = try_catch(bind(&s3::fs::list_attr, s_fs, path + 1, &attrs));
 
   if (r)
     return r;
@@ -283,7 +290,7 @@ int wrap_removexattr(const char *path, const char *name)
   S3_LOG(LOG_DEBUG, "removexattr", "path: %s, name: %s\n", path, name);
   ASSERT_LEADING_SLASH(path);
 
-  return g_fs->remove_attr(path + 1, name);
+  return try_catch(bind(&s3::fs::remove_attr, s_fs, path + 1, name));
 }
 
 int print_version()
@@ -359,7 +366,6 @@ int main(int argc, char **argv)
 
   memset(&ops, 0, sizeof(ops));
 
-  ops.access = wrap_access;
   ops.chmod = wrap_chmod;
   ops.chown = wrap_chown;
   ops.create = wrap_create;
@@ -390,10 +396,9 @@ int main(int argc, char **argv)
   if (r)
     return r;
 
-  g_fs = new s3::fs();
-
+  s_fs = new s3::fs();
   r = fuse_main(args.argc, args.argv, &ops, NULL);
+  delete s_fs;
 
-  delete g_fs;
   return r;
 }

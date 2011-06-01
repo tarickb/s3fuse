@@ -17,10 +17,7 @@ using namespace std;
 
 using namespace s3;
 
-// TODO: try/catch everywhere! (or, get rid of exceptions)
-// TODO: support multiple buckets (with a different set of credentials each)
 // TODO: rewrite using libxml2?
-// TODO: rename .cc to .. what?
 // TODO: set up for autoconf
 
 #define ASSERT_NO_TRAILING_SLASH(str) do { if ((str)[(str).size() - 1] == '/') return -EINVAL; } while (0)
