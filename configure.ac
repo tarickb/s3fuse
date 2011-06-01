@@ -1,5 +1,5 @@
 AC_PREREQ([2.67])
-AC_INIT([FUSE Driver for Amazon S3], [0.1], [], [fuse-s3])
+AC_INIT([FUSE Driver for Amazon S3], [0.1], [], [s3fuse])
 AM_INIT_AUTOMAKE([no-define foreign])
 AC_CONFIG_SRCDIR([src/logger.h])
 
@@ -28,5 +28,5 @@ AC_TYPE_UINT8_T
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS([ftruncate gettimeofday memset strchr strerror strstr strtol])
 
-AC_CONFIG_FILES([Makefile src/Makefile])
+AC_CONFIG_FILES([Makefile dist/Makefile src/Makefile])
 AC_OUTPUT
