@@ -1,6 +1,7 @@
 #include "logging.hh"
 
 #include <errno.h>
+#include <getopt.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -8,11 +9,21 @@
 
 #include "config.hh"
 #include "fs.hh"
+#include "version.hh"
 
 using namespace std;
 
 namespace
 {
+  const struct option OPTIONS[] = {
+    { "config",  required_argument, NULL, 'c' },
+    { "help",    no_argument,       NULL, 'h' },
+    { "verbose", no_argument,       NULL, 'v' },
+    { "version", no_argument,       NULL, 'V' },
+    { "option",  required_argument, NULL, 'o' } };
+
+  const char *OPTION_STRING = "c:hvVo:";
+
   s3::fs *g_fs = NULL;
 }
 
@@ -277,10 +288,62 @@ int s3_removexattr(const char *path, const char *name)
   return g_fs->remove_attr(path + 1, name);
 }
 
+int print_version()
+{
+  printf("%s, version %s\n", s3::APP_NAME, s3::APP_VERSION);
+
+  return 0;
+}
+
+int print_usage(const char *arg0)
+{
+  fprintf(stderr, 
+    "Usage: %s [OPTION] MOUNT_POINT\n"
+    "\n"
+    "Options:\n"
+    "  -c, --config=FILE    use FILE as the configuration file\n"
+    "  -h, --help           print this help message and exit\n"
+    "  -o OPT...            pass OPT (comma-separated) to FUSE\n"
+    "  -v, --verbose        enable logging to stderr (can be repeated for more verbosity)\n"
+    "  -V, --version        print version and exit\n",
+    arg0);
+
+  return 0;
+}
+
 int main(int argc, char **argv)
 {
-  int r;
+  int r, verbosity = 0;
+  const char *arg0 = argv[0];
   fuse_operations opers;
+  fuse_args args = FUSE_ARGS_INIT(0, NULL);
+  string config;
+
+  while ((r = getopt_long(argc, argv, OPTION_STRING, OPTIONS, NULL)) != -1) {
+    switch (r) {
+      case 'c':
+        config = optarg;
+        break;
+
+      case 'v':
+        verbosity++;
+        break;
+
+      case 'V':
+        return print_version();
+
+      case 'o':
+        fuse_opt_add_arg(&args, "-o");
+        fuse_opt_add_arg(&args, optarg);
+        break;
+
+      default: // covers 'h', '?', ':'
+        return print_usage(arg0);
+    }
+  }
+
+  for (int i = optind; i < argc; i++)
+    fuse_opt_add_arg(&args, argv[i]);
 
   memset(&opers, 0, sizeof(opers));
 
@@ -308,15 +371,14 @@ int main(int argc, char **argv)
   opers.utimens = s3_utimens;
   opers.write = s3_write;
 
-  // TODO: allow config file override?
-  r = s3::config::init();
+  r = s3::config::init(config);
 
   if (r)
     return r;
 
   g_fs = new s3::fs();
 
-  r = fuse_main(argc, argv, &opers, NULL);
+  r = fuse_main(args.argc, args.argv, &opers, NULL);
 
   delete g_fs;
   return r;
