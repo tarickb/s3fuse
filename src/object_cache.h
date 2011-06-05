@@ -139,7 +139,11 @@ namespace s3
 
         // keep in _cache_map until cleanup() returns so that any concurrent attempts to open the file fail
         _cache_map.erase(obj->get_path());
-        // TODO: verify that this destroys the object!
+
+        // _obj's reference to the open file is deliberately not reset.  we do this to handle the case where 
+        // an object pointer has already been returned by get() but has not yet been used.  an attempt to call
+        // open_handle() on this zombie object will fail, but metadata calls will still return more-or-less 
+        // correct information (except the MD5 sum, for instance).
       }
 
       return 0;

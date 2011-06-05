@@ -1,6 +1,6 @@
 %define name s3fuse
-%define version 0.1
-%define release 1
+%define version __VERSION__
+%define release __RELEASE__
 
 %define debug_package %{nil}
 
@@ -8,7 +8,7 @@ Summary: FUSE Driver for AWS S3
 Name: %{name}
 Version: %{version}
 Release: %{release}
-Source: %{name}-%{version}.tar.gz
+Source: %{name}-%{version}-%{release}.tar.gz
 Group: Applications/System
 BuildRoot: %{_builddir}/%{name}-root
 License: BSD
@@ -20,6 +20,7 @@ Provides a FUSE filesystem driver for Amazon AWS S3 buckets.
 %setup -q -n %{name}-%{version}
 
 %build
+autoreconf --force --install
 ./configure --prefix=/usr --sysconfdir=/etc
 make
 
