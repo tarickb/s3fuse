@@ -14,7 +14,7 @@ using namespace s3;
 
 namespace
 {
-  const char *AWS_S3_NS = "http://s3.amazonaws.com/doc/2006-03-01";
+  const char *AWS_S3_NS = "http://s3.amazonaws.com/doc/2006-03-01/";
 
   Node::PrefixNsMap s_ns_map;
 }
@@ -64,7 +64,7 @@ int xml::find(const xml::document &doc, const char *xpath, string *element)
     if (!doc)
       throw runtime_error("got null document pointer.");
 
-    nodes = doc->get_document()->get_root_node()->find(xpath);
+    nodes = doc->get_document()->get_root_node()->find(xpath, s_ns_map);
 
     if (nodes.empty())
       throw runtime_error("no matching nodes.");
@@ -95,7 +95,7 @@ int xml::find(const xml::document &doc, const char *xpath, xml::element_list *li
     if (!doc)
       throw runtime_error("got null document pointer.");
 
-    nodes = doc->get_document()->get_root_node()->find(xpath);
+    nodes = doc->get_document()->get_root_node()->find(xpath, s_ns_map);
 
     for (NodeSet::const_iterator itor = nodes.begin(); itor != nodes.end(); ++itor) {
       TextNode *text = dynamic_cast<Element *>(*itor)->get_child_text();
