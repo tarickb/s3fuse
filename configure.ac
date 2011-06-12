@@ -1,5 +1,5 @@
 AC_PREREQ([2.67])
-AC_INIT([FUSE Driver for Amazon S3], [0.1], [], [s3fuse])
+AC_INIT([FUSE Driver for Amazon S3], m4_esyscmd_s([echo $VERSION]), [], [s3fuse])
 AM_INIT_AUTOMAKE([no-define foreign])
 AC_CONFIG_SRCDIR([src/logger.h])
 

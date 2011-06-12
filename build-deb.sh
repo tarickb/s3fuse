@@ -13,6 +13,7 @@ if [ ! -d debian ] || [ ! -d src ]; then
 fi
 
 . version-info.sh
+export VERSION RELEASE
 
 TEMP_DIR=$(mktemp -d)
 SRC_DIR=$(pwd)
