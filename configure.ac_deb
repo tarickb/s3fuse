@@ -10,7 +10,8 @@ AC_CHECK_LIB([boost_thread], [main])
 AC_CHECK_LIB([curl], [Curl_perform])
 AC_CHECK_LIB([fuse], [fuse_opt_parse])
 AC_CHECK_LIB([pthread], [pthread_create])
-AC_CHECK_LIB([pugixml], [_ZN4pugi8xml_node11append_copyERKS0_])
+
+PKG_CHECK_MODULES([DEPS], [libxml-2.0 >= 2.7.8 libxml++-2.6 >= 2.30.0])
 
 AC_CHECK_HEADERS([inttypes.h stdint.h stdlib.h string.h sys/time.h syslog.h])
 

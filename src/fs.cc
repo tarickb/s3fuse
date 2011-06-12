@@ -2,22 +2,18 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <pugixml/pugixml.hpp>
-
 #include "logger.h"
 #include "file_transfer.h"
 #include "fs.h"
 #include "mutexes.h"
 #include "request.h"
 #include "util.h"
+#include "xml.h"
 
 using namespace boost;
-using namespace pugi;
 using namespace std;
 
 using namespace s3;
-
-// TODO: rewrite using libxml2?
 
 #define ASSERT_NO_TRAILING_SLASH(str) do { if ((str)[(str).size() - 1] == '/') return -EINVAL; } while (0)
 
@@ -25,8 +21,24 @@ namespace
 {
   const string SYMLINK_PREFIX = "SYMLINK:";
 
-  const xpath_query PREFIX_QUERY("/ListBucketResult/CommonPrefixes/Prefix");
-  const xpath_query KEY_QUERY("/ListBucketResult/Contents");
+  const char *IS_TRUNCATED_XPATH = "/s3:ListBucketResult/s3:IsTruncated";
+  const char *         KEY_XPATH = "/s3:ListBucketResult/s3:Contents/s3:Key";
+  const char * NEXT_MARKER_XPATH = "/s3:ListBucketResult/s3:NextMarker";
+  const char *      PREFIX_XPATH = "/s3:ListBucketResult/s3:CommonPrefixes/s3:Prefix";
+
+  int check_if_truncated(const xml::document &doc, bool *truncated)
+  {
+    int r;
+    string temp;
+
+    r = xml::find(doc, IS_TRUNCATED_XPATH, &temp);
+
+    if (r)
+      return r;
+
+    *truncated = (temp == "true");
+    return 0;
+  }
 }
 
 fs::fs()
@@ -35,6 +47,7 @@ fs::fs()
     _mutexes(new mutexes()),
     _object_cache(_tp_fg, _mutexes, file_transfer::ptr(new file_transfer(_tp_fg, _tp_bg)))
 {
+  xml::init();
 }
 
 fs::~fs()
@@ -79,9 +92,9 @@ int fs::rename_children(const request::ptr &req, const string &_from, const stri
   req->init(HTTP_GET);
 
   while (truncated) {
-    xml_document doc;
-    xml_parse_result res;
-    xpath_node_set prefixes, keys;
+    xml::document doc;
+    xml::element_list keys;
+    int r;
 
     req->set_url(object::get_bucket_url(), string("prefix=") + util::url_encode(from) + "&marker=" + marker);
     req->run();
@@ -89,22 +102,25 @@ int fs::rename_children(const request::ptr &req, const string &_from, const stri
     if (req->get_response_code() != 200)
       return -EIO;
 
-    res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+    doc = xml::parse(req->get_response_data());
 
-    if (res.status != status_ok) {
-      S3_LOG(LOG_WARNING, "fs::rename_children", "failed to parse response: %s\n", res.description());
+    if (!doc) {
+      S3_LOG(LOG_WARNING, "fs::rename_children", "failed to parse response.\n");
       return -EIO;
     }
 
-    truncated = (strcmp(doc.document_element().child_value("IsTruncated"), "true") == 0);
-    keys = KEY_QUERY.evaluate_node_set(doc);
+    if ((r = check_if_truncated(doc, &truncated)))
+      return r;
 
-    if (truncated)
-      marker = doc.document_element().child_value("NextMarker");
+    if (truncated && (r = xml::find(doc, NEXT_MARKER_XPATH, &marker)))
+      return r;
 
-    for (xpath_node_set::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
+    if ((r = xml::find(doc, KEY_XPATH, &keys)))
+      return r;
+
+    for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
       rename_operation oper;
-      const char *full_path_cs = itor->node().child_value("Key");
+      const char *full_path_cs = itor->c_str();
       const char *relative_path_cs = full_path_cs + from_len;
       string new_name = to + relative_path_cs;
 
@@ -151,9 +167,8 @@ int fs::rename_children(const request::ptr &req, const string &_from, const stri
 
 bool fs::is_directory_empty(const request::ptr &req, const string &path)
 {
-  xml_document doc;
-  xml_parse_result res;
-  xpath_node_set keys;
+  xml::document doc;
+  xml::element_list keys;
 
   ASSERT_NO_TRAILING_SLASH(path);
 
@@ -172,14 +187,15 @@ bool fs::is_directory_empty(const request::ptr &req, const string &path)
   if (req->get_response_code() != 200)
     return false;
 
-  res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+  doc = xml::parse(req->get_response_data());
 
-  if (res.status != status_ok) {
-    S3_LOG(LOG_WARNING, "fs::is_directory_empty", "failed to parse response: %s\n", res.description());
+  if (!doc) {
+    S3_LOG(LOG_WARNING, "fs::is_directory_empty", "failed to parse response.\n");
     return false;
   }
 
-  keys = KEY_QUERY.evaluate_node_set(doc);
+  if (xml::find(doc, KEY_XPATH, &keys))
+    return false;
 
   return (keys.size() == 1);
 }
@@ -291,9 +307,9 @@ int fs::__read_directory(const request::ptr &req, const string &_path, fuse_fill
   req->init(HTTP_GET);
 
   while (truncated) {
-    xml_document doc;
-    xml_parse_result res;
-    xpath_node_set prefixes, keys;
+    int r;
+    xml::document doc;
+    xml::element_list prefixes, keys;
 
     req->set_url(object::get_bucket_url(), string("delimiter=/&prefix=") + util::url_encode(path) + "&marker=" + marker);
     req->run();
@@ -301,22 +317,27 @@ int fs::__read_directory(const request::ptr &req, const string &_path, fuse_fill
     if (req->get_response_code() != 200)
       return -EIO;
 
-    res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+    doc = xml::parse(req->get_response_data());
 
-    if (res.status != status_ok) {
-      S3_LOG(LOG_WARNING, "fs::__read_directory", "failed to parse response: %s\n", res.description());
+    if (!doc) {
+      S3_LOG(LOG_WARNING, "fs::__read_directory", "failed to parse response.\n");
       return -EIO;
     }
 
-    truncated = (strcmp(doc.document_element().child_value("IsTruncated"), "true") == 0);
-    prefixes = PREFIX_QUERY.evaluate_node_set(doc);
-    keys = KEY_QUERY.evaluate_node_set(doc);
+    if ((r = check_if_truncated(doc, &truncated)))
+      return r;
 
-    if (truncated)
-      marker = doc.document_element().child_value("NextMarker");
+    if (truncated && (r = xml::find(doc, NEXT_MARKER_XPATH, &marker)))
+      return r;
 
-    for (xpath_node_set::const_iterator itor = prefixes.begin(); itor != prefixes.end(); ++itor) {
-      const char *full_path_cs = itor->node().child_value();
+    if ((r = xml::find(doc, PREFIX_XPATH, &prefixes)))
+      return r;
+
+    if ((r = xml::find(doc, KEY_XPATH, &keys)))
+      return r;
+
+    for (xml::element_list::const_iterator itor = prefixes.begin(); itor != prefixes.end(); ++itor) {
+      const char *full_path_cs = itor->c_str();
       const char *relative_path_cs = full_path_cs + path_len;
       string full_path, relative_path;
 
@@ -328,10 +349,10 @@ int fs::__read_directory(const request::ptr &req, const string &_path, fuse_fill
       filler(buf, relative_path.c_str(), NULL, 0);
     }
 
-    for (xpath_node_set::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
-      const char *full_path_cs = itor->node().child_value("Key");
+    for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
+      const char *full_path_cs = itor->c_str();
 
-      if (strcmp(path.data(), full_path_cs) != 0) {
+      if (strcmp(path.c_str(), full_path_cs) != 0) {
         string relative_path(full_path_cs + path_len);
         string full_path(full_path_cs);
 

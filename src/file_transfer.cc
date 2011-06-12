@@ -1,5 +1,4 @@
 #include <boost/lexical_cast.hpp>
-#include <pugixml/pugixml.hpp>
 
 #include "config.h"
 #include "file_transfer.h"
@@ -8,16 +7,17 @@
 #include "request.h"
 #include "thread_pool.h"
 #include "util.h"
+#include "xml.h"
 
 using namespace boost;
-using namespace pugi;
 using namespace std;
 
 using namespace s3;
 
 namespace
 {
-  const xpath_query UPLOADID_QUERY("/InitiateMultipartUploadResult/UploadId");
+  const char *     ETAG_XPATH = "/s3:CompleteMultipartUploadResult/s3:ETag";
+  const char *UPLOAD_ID_XPATH = "/s3:InitiateMultipartUploadResult/s3:UploadId";
 
   struct transfer_part
   {
@@ -233,9 +233,9 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   bool success = true;
   vector<transfer_part> parts((size + config::get_upload_chunk_size() - 1) / config::get_upload_chunk_size());
   list<transfer_part *> parts_in_progress;
-  xml_document doc;
-  xml_parse_result res;
+  xml::document doc;
   string etag, computed_md5;
+  int r;
 
   req->init(HTTP_POST);
   req->set_url(url + "?uploads");
@@ -246,14 +246,15 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   if (req->get_response_code() != 200)
     return -EIO;
 
-  res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+  doc = xml::parse(req->get_response_data());
 
-  if (res.status != status_ok) {
-    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to parse response: %s\n", res.description());
+  if (doc) {
+    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to parse response.\n");
     return -EIO;
   }
 
-  upload_id = doc.document_element().child_value("UploadId");
+  if ((r = xml::find(doc, UPLOAD_ID_XPATH, &upload_id)))
+    return r;
 
   if (upload_id.empty())
     return -EIO;
@@ -331,14 +332,15 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
     return -EIO;
   }
 
-  res = doc.load_buffer(req->get_response_data().data(), req->get_response_data().size());
+  doc = xml::parse(req->get_response_data());
 
-  if (res.status != status_ok) {
-    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to parse response: %s\n", res.description());
+  if (doc) {
+    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to parse response.\n");
     return -EIO;
   }
 
-  etag = doc.document_element().child_value("ETag");
+  if ((r = xml::find(doc, ETAG_XPATH, &etag)))
+    return r;
 
   if (etag.empty()) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "no etag on multipart upload of [%s]. response: %s\n", url.c_str(), req->get_response_data().c_str());

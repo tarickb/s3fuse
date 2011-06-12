@@ -1,11 +1,10 @@
-PUGIXML      = ~/packages/pugixml-1.0
 bin_PROGRAMS = s3fuse xattr
 
 AM_CXXFLAGS  = -g -Wall -Werror
 AM_CFLAGS    = -g -Wall -Werror
 
-s3fuse_CPPFLAGS  = -I $(PUGIXML)/include -D_FILE_OFFSET_BITS=64
-s3fuse_LDADD     = -L $(PUGIXML)/lib -lpugixml
+s3fuse_CPPFLAGS  = $(DEPS_CFLAGS) -D_FILE_OFFSET_BITS=64
+s3fuse_LDADD     = $(DEPS_LIBS)
 s3fuse_SOURCES = \
 	config.cc \
 	config.inc \
@@ -32,7 +31,9 @@ s3fuse_SOURCES = \
 	thread_pool.h \
 	util.cc \
 	util.h \
-	version.h
+	version.h \
+	xml.cc \
+	xml.h
 
 xattr_SOURCES = \
 	xattr.c
