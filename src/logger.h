@@ -19,13 +19,16 @@ namespace s3
     {
       va_list args;
 
-      va_start(args, message);
-
-      if (level <= s_max_level)
+      if (level <= s_max_level) {
+        va_start(args, message);
         vfprintf(stderr, message, args);
+        va_end(args);
+      }
 
+      // can't reuse va_list
+
+      va_start(args, message);
       vsyslog(level, message, args);
-
       va_end(args);
     }
 

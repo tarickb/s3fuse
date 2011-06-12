@@ -248,7 +248,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
 
   doc = xml::parse(req->get_response_data());
 
-  if (doc) {
+  if (!doc) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to parse response.\n");
     return -EIO;
   }
@@ -334,7 +334,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
 
   doc = xml::parse(req->get_response_data());
 
-  if (doc) {
+  if (!doc) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to parse response.\n");
     return -EIO;
   }
