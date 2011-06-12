@@ -7,7 +7,7 @@ fi
 
 for D in src dist; do
   pushd $D >& /dev/null
-    make clean >& /dev/null
+    make clean depclean >& /dev/null
     rm -f Makefile Makefile.in
   popd >& /dev/null
 done
