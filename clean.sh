@@ -7,8 +7,8 @@ fi
 
 for D in src dist; do
   pushd $D >& /dev/null
+    make clean distclean >& /dev/null
     rm -rf .deps >& /dev/null
-    make clean >& /dev/null
     rm -f Makefile Makefile.in
   popd >& /dev/null
 done
@@ -16,9 +16,9 @@ done
 rm -f *.m4
 rm -rf autom4te.cache
 rm -f config.*
-rm -f configure configure.ac
+rm -f configure
 rm -f depcomp
 rm -f install-sh
-rm -f Makefile Makefile.in Makefile.am
+rm -f Makefile Makefile.in
 rm -f missing
 rm -f *.tar.gz

@@ -23,16 +23,13 @@ mkdir s3fuse-$VERSION || exit 1
 cd s3fuse-$VERSION || exit 1
 
 cp -r $SRC_DIR/* . || exit 1
-rm -rf build-deb.sh build-rpm.sh clean.sh configure.* debian dist/release.sh dist/*.spec* Makefile.* || exit 1
+rm -rf *.sh debian dist/release.sh dist/*.spec* || exit 1
 find . -type d -name .svn | xargs rm -rf || exit 1
 
 cat $SRC_DIR/dist/s3fuse.spec.in \
   | sed -e "s/__VERSION__/$VERSION/g" -e "s/__RELEASE__/$RELEASE/g" \
   > dist/s3fuse.spec \
   || exit 1
-
-cp $SRC_DIR/configure.ac_rpm configure.ac || exit 1
-cp $SRC_DIR/Makefile.am_rpm Makefile.am || exit 1
 
 cd .. || exit 1
 
