@@ -8,7 +8,7 @@ AC_PROG_CC
 
 AC_ARG_ENABLE(
   [build-rpm], 
-  [ --enable-build-rpm Enable RPM build support],
+  [  --enable-build-rpm Enable RPM build support],
   [case "${enableval}" in
     yes) build_rpm=true ;;
     no)  build_rpm=false ;;

@@ -88,18 +88,25 @@ int remove_attribute(const char *path, const char *name)
 
 int main(int argc, char **argv)
 {
-  if (argc == 2)
-    return list_attributes(argv[1]);
+  int offset = 0, remove = 0;
+
+  if (argc > 1 && strcmp(argv[1], "--remove") == 0) {
+    remove = 1;
+    offset++;
+    argc--;
+  }  
+
+  if (argc == 2 && !remove)
+    return list_attributes(argv[offset + 1]);
+
+  if (argc == 3 && remove)
+    return remove_attribute(argv[offset + 1], argv[offset + 2]);
 
   if (argc == 3)
-    return get_attribute(argv[1], argv[2]);
+    return get_attribute(argv[offset + 1], argv[offset + 2]);
 
-  if (argc == 4) {
-    if (strcmp(argv[1], "--remove") == 0)
-      return remove_attribute(argv[2], argv[3]);
-    else
-      return set_attribute(argv[1], argv[2], argv[3]);
-  }
+  if (argc == 4 && !remove)
+    return set_attribute(argv[1], argv[2], argv[3]);
 
   fprintf(stderr, "usage: %s [--remove] <path> [attribute-name] [attribute-value]\n", argv[0]);
   return 1;
