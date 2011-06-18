@@ -1,6 +1,4 @@
 %define name s3fuse
-%define version __VERSION__
-%define release __RELEASE__
 
 %define debug_package %{nil}
 
