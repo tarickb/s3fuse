@@ -54,17 +54,30 @@ object::object(const mutexes::ptr &mutexes, const string &path, object_type type
     _expiry(0),
     _open_fd(-1)
 {
-  memset(&_stat, 0, sizeof(_stat));
+  init_stat();
 
-  _stat.st_uid = config::get_default_uid();
-  _stat.st_gid = config::get_default_gid();
-  _stat.st_mode = config::get_default_mode() | get_mode_by_type(type);
-  _stat.st_nlink  = 1; // laziness (see FUSE FAQ re. find)
+  _stat.st_mode |= get_mode_by_type(type);
   _stat.st_mtime = time(NULL);
 
   _content_type = ((type == OT_SYMLINK) ? string(SYMLINK_CONTENT_TYPE) : config::get_default_content_type());
   _expiry = time(NULL) + config::get_cache_expiry_in_s();
   _url = build_url(_path, _type);
+}
+
+void object::init_stat()
+{
+  memset(&_stat, 0, sizeof(_stat));
+
+  _stat.st_nlink = 1; // laziness (see FUSE FAQ re. find)
+  _stat.st_mode  = config::get_default_mode();
+  _stat.st_uid   = config::get_default_uid();
+  _stat.st_gid   = config::get_default_gid();
+
+  if (_stat.st_uid == UID_MAX)
+    _stat.st_uid = geteuid();
+
+  if (_stat.st_gid == GID_MAX)
+    _stat.st_gid = getegid();
 }
 
 int object::set_metadata(const string &key, const string &value, int flags)
@@ -144,7 +157,7 @@ void object::set_mode(mode_t mode)
 
 void object::request_init()
 {
-  memset(&_stat, 0, sizeof(_stat));
+  init_stat();
 
   _type = OT_INVALID;
   _content_type.clear();
@@ -209,12 +222,7 @@ void object::request_process_response(request *req)
 
   _url = build_url(_path, _type);
 
-  _stat.st_mode   = (_stat.st_mode == 0) ? config::get_default_mode() : _stat.st_mode;
-  _stat.st_uid    = (_stat.st_uid  == 0) ? config::get_default_uid()  : _stat.st_uid;
-  _stat.st_gid    = (_stat.st_gid  == 0) ? config::get_default_gid()  : _stat.st_gid;
-
   _stat.st_mode  |= get_mode_by_type(_type);
-  _stat.st_nlink  = 1; // laziness (see FUSE FAQ re. find)
 
   // this workaround is for cases when the file was updated by someone else and the mtime header wasn't set
   if (_mtime_etag != _etag && req->get_last_modified() > _stat.st_mtime)

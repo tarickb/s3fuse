@@ -21,8 +21,8 @@ namespace
   {
     const char *arg0;
     string config;
+    string mountpoint;
     int verbosity;
-    bool have_mountpoint;
   };
 
   int try_catch(boost::function0<int> fn)
@@ -41,14 +41,17 @@ namespace
   }
 
   s3::fs *s_fs;
+  int s_mountpoint_mode;
 }
 
 int wrap_getattr(const char *path, struct stat *s)
 {
   ASSERT_LEADING_SLASH(path);
 
+  memset(s, 0, sizeof(*s));
+
   if (strcmp(path, "/") == 0) {
-    s->st_mode = S_IFDIR | s3::config::get_mountpoint_mode();
+    s->st_mode = s_mountpoint_mode;
     s->st_nlink = 1; // because calculating nlink is hard! (see FUSE FAQ)
 
     return 0;
@@ -341,9 +344,53 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
   }
 
   if (key == FUSE_OPT_KEY_NONOPT)
-    opt->have_mountpoint = true; // assume that the mountpoint is the only non-option
+    opt->mountpoint = arg; // assume that the mountpoint is the only non-option
 
   return 1;
+}
+
+void build_ops(fuse_operations *ops)
+{
+  memset(ops, 0, sizeof(*ops));
+
+  ops->chmod = wrap_chmod;
+  ops->chown = wrap_chown;
+  ops->create = wrap_create;
+  ops->getattr = wrap_getattr;
+  ops->getxattr = wrap_getxattr;
+  ops->flush = wrap_flush;
+  ops->listxattr = wrap_listxattr;
+  ops->mkdir = wrap_mkdir;
+  ops->open = wrap_open;
+  ops->read = wrap_read;
+  ops->readdir = wrap_readdir;
+  ops->readlink = wrap_readlink;
+  ops->release = wrap_release;
+  ops->removexattr = wrap_removexattr;
+  ops->rename = wrap_rename;
+  ops->rmdir = wrap_rmdir;
+  ops->setxattr = wrap_setxattr;
+  ops->symlink = wrap_symlink;
+  ops->truncate = wrap_truncate;
+  ops->unlink = wrap_unlink;
+  ops->utimens = wrap_utimens;
+  ops->write = wrap_write;
+}
+
+int init(const options &opts)
+{
+  int r;
+  struct stat mp_stat;
+
+  if ((r = stat(opts.mountpoint.c_str(), &mp_stat)))
+    return r;
+
+  s_mountpoint_mode = S_IFDIR | mp_stat.st_mode;
+
+  s3::logger::init(opts.verbosity);
+  r = s3::config::init(opts.config);
+
+  return r;
 }
 
 int main(int argc, char **argv)
@@ -355,45 +402,17 @@ int main(int argc, char **argv)
 
   opts.verbosity = LOG_ERR;
   opts.arg0 = argv[0];
-  opts.have_mountpoint = false;
 
   fuse_opt_parse(&args, &opts, NULL, process_argument);
 
-  if (!opts.have_mountpoint) {
+  if (opts.mountpoint.empty()) {
     print_usage(opts.arg0);
     exit(1);
   }
 
-  memset(&ops, 0, sizeof(ops));
+  build_ops(&ops);
 
-  ops.chmod = wrap_chmod;
-  ops.chown = wrap_chown;
-  ops.create = wrap_create;
-  ops.getattr = wrap_getattr;
-  ops.getxattr = wrap_getxattr;
-  ops.flush = wrap_flush;
-  ops.listxattr = wrap_listxattr;
-  ops.mkdir = wrap_mkdir;
-  ops.open = wrap_open;
-  ops.read = wrap_read;
-  ops.readdir = wrap_readdir;
-  ops.readlink = wrap_readlink;
-  ops.release = wrap_release;
-  ops.removexattr = wrap_removexattr;
-  ops.rename = wrap_rename;
-  ops.rmdir = wrap_rmdir;
-  ops.setxattr = wrap_setxattr;
-  ops.symlink = wrap_symlink;
-  ops.truncate = wrap_truncate;
-  ops.unlink = wrap_unlink;
-  ops.utimens = wrap_utimens;
-  ops.write = wrap_write;
-
-  s3::logger::init(opts.verbosity);
-
-  r = s3::config::init(opts.config);
-
-  if (r)
+  if ((r = init(opts)))
     return r;
 
   s_fs = new s3::fs();

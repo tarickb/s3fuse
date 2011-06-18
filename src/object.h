@@ -115,6 +115,8 @@ namespace s3
       _open_fd = open_file->get_fd();
     }
 
+    void init_stat();
+
     void request_init();
     void request_process_header(const std::string &key, const std::string &value);
     void request_process_response(request *req);

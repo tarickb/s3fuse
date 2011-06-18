@@ -1,10 +1,9 @@
 // format is:
 // CONFIG(type, name, default-value)
 
-CONFIG(int, default_uid, 0);
-CONFIG(int, default_gid, 0);
+CONFIG(int, default_uid, UID_MAX);
+CONFIG(int, default_gid, GID_MAX);
 CONFIG(int, default_mode, 0755);
-CONFIG(int, mountpoint_mode, 0755);
 
 CONFIG(int, cache_expiry_in_s, 3 * 60);
 
