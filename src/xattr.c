@@ -1,7 +1,8 @@
 /*
  * xattr.c
  * -------------------------------------------------------------------------
- * 
+ * Simple utility to list/get/set/remove extended attributes on a filesystem
+ * object.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2011, Tarick Bedeir.

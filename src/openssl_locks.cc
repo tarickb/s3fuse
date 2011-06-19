@@ -1,7 +1,10 @@
 /*
  * openssl_locks.cc
  * -------------------------------------------------------------------------
+ * Provides lock callbacks required to use OpenSSL in a multithreaded
+ * application.  See:
  * 
+ *   http://www.openssl.org/docs/crypto/threads.html
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2011, Tarick Bedeir.
