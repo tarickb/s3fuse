@@ -24,8 +24,10 @@ mkdir s3fuse-$VERSION || exit 1
 cd s3fuse-$VERSION || exit 1
 
 cp -r $SRC_DIR/* . || exit 1
+./clean.sh || exit 1
 rm -rf *.sh debian dist/release.sh || exit 1
 find . -type d -name .svn | xargs rm -rf || exit 1
+cp $SRC_DIR/build-config.sh . || exit 1
 
 cd .. || exit 1
 

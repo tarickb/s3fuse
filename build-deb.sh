@@ -27,6 +27,7 @@ cp -r $SRC_DIR/* . || exit 1
 ./clean.sh || exit 1
 rm -rf *.sh debian/*.in dist/*.in || exit 1
 find . -type d -name .svn | xargs rm -rf || exit 1
+cp $SRC_DIR/build-config.sh . || exit 1
 
 for F in files.in; do
   cat $SRC_DIR/debian/$F \

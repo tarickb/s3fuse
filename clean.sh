@@ -10,6 +10,7 @@ for D in src dist; do
     make clean distclean >& /dev/null
     rm -rf .deps >& /dev/null
     rm -f Makefile Makefile.in
+    rm -f s3fuse.conf
   popd >& /dev/null
 done
 

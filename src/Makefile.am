@@ -4,6 +4,7 @@ AM_CXXFLAGS  = -g -Wall -Werror
 AM_CFLAGS    = -g -Wall -Werror
 
 s3fuse_CPPFLAGS  = $(DEPS_CFLAGS) -D_FILE_OFFSET_BITS=64
+s3fuse_LDFLAGS   = -Wl,--as-needed
 s3fuse_LDADD     = $(DEPS_LIBS)
 s3fuse_SOURCES = \
 	config.cc \
