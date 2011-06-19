@@ -349,6 +349,29 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
   return 1;
 }
 
+int pre_init(const options &opts)
+{
+  int r;
+  struct stat mp_stat;
+
+  if ((r = stat(opts.mountpoint.c_str(), &mp_stat)))
+    return r;
+
+  s_mountpoint_mode = S_IFDIR | mp_stat.st_mode;
+
+  s3::logger::init(opts.verbosity);
+  r = s3::config::init(opts.config);
+
+  return r;
+}
+
+void * init(fuse_conn_info *info)
+{
+  s_fs = new s3::fs();
+
+  return NULL;
+}
+
 void build_ops(fuse_operations *ops)
 {
   memset(ops, 0, sizeof(*ops));
@@ -359,6 +382,7 @@ void build_ops(fuse_operations *ops)
   ops->getattr = wrap_getattr;
   ops->getxattr = wrap_getxattr;
   ops->flush = wrap_flush;
+  ops->init = init;
   ops->listxattr = wrap_listxattr;
   ops->mkdir = wrap_mkdir;
   ops->open = wrap_open;
@@ -375,22 +399,6 @@ void build_ops(fuse_operations *ops)
   ops->unlink = wrap_unlink;
   ops->utimens = wrap_utimens;
   ops->write = wrap_write;
-}
-
-int init(const options &opts)
-{
-  int r;
-  struct stat mp_stat;
-
-  if ((r = stat(opts.mountpoint.c_str(), &mp_stat)))
-    return r;
-
-  s_mountpoint_mode = S_IFDIR | mp_stat.st_mode;
-
-  s3::logger::init(opts.verbosity);
-  r = s3::config::init(opts.config);
-
-  return r;
 }
 
 int main(int argc, char **argv)
@@ -412,10 +420,9 @@ int main(int argc, char **argv)
 
   build_ops(&ops);
 
-  if ((r = init(opts)))
+  if ((r = pre_init(opts)))
     return r;
 
-  s_fs = new s3::fs();
   r = fuse_main(args.argc, args.argv, &ops, NULL);
   delete s_fs;
 
