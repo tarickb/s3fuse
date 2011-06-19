@@ -1,0 +1,24 @@
+s3fuse
+======
+
+s3fuse is a FUSE (Filesystem in Userspace) driver for Amazon S3.
+
+- For notes on building and installing s3fuse, see INSTALL.
+- For copyright/license information, see COPYING.
+
+Goals
+-----
+
+- Thread safety -- concurrent operations should behave according to the 
+  "principle of least surprise".
+- Compatibility with other S3 applications, including Amazon's web-based S3
+  browser.
+- Improved upload/download performance (by using multipart transfers).
+- Support for extended file attributes.
+- Support for consistency checking (using S3's MD5-testing features).
+
+Known Issues
+------------
+
+- Reduced-redundancy storage (RRS) is not supported.
+- No attempt is made to match MIME types to file extensions.
