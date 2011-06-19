@@ -5,6 +5,7 @@ s3fuse is a FUSE (Filesystem in Userspace) driver for Amazon S3.
 
 - For notes on building and installing s3fuse, see INSTALL.
 - For copyright/license information, see COPYING.
+- For notes on running s3fuse, keep reading.
 
 Goals
 -----
@@ -22,3 +23,39 @@ Known Issues
 
 - Reduced-redundancy storage (RRS) is not supported.
 - No attempt is made to match MIME types to file extensions.
+
+Running
+-------
+
+s3fuse can be launched from the command line:
+
+  s3fuse [options] <mountpoint>
+
+Some (potentially useful) command line options:
+
+  -f                Keeps s3fuse in the foreground (i.e., prevents it from 
+                    daemonizing).  Useful when debugging.
+  -v                Enable verbose logging to stderr (repeat for added 
+                    verbosity).
+  -o <fuse-options> Pass additional options, separated by commas.
+    options:
+      allow_other   Allow other users to access the mounted file system.
+      allow_root    Allow root to access the mounted file system.
+      config=<file> Use <file> rather than the default configuration file.
+
+This is not intended to be an exhaustive listing of FUSE options.
+
+Alternatively, s3fuse can be launched by mount if an appropriate entry exists
+in /etc/fstab:
+
+  s3fuse <mountpount> fuse defaults,noauto,user,allow_other 0 0
+
+"user" allows non-root users to mount the file system.  "noauto" prevents the
+file system from being automatically mounted at boot.
+
+Multiple buckets can be mounted simultaneously, provided each has its own
+configuration file and a corresponding entry in /etc/fstab:
+
+  s3fuse /media/bucket0 fuse defaults,noauto,user,allow_other,config=/etc/s3fuse.bucket0.conf 0 0
+  s3fuse /media/bucket1 fuse defaults,noauto,user,allow_other,config=/etc/s3fuse.bucket1.conf 0 0
+
