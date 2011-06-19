@@ -1,6 +1,15 @@
 Building s3fuse
 ===============
 
+From a Distribution Tarball
+---------------------------
+
+To build from a distribution tarball (s3fuse-*.tar.gz):
+
+  ./configure
+  make
+  make install
+
 Working Copies
 --------------
 
@@ -9,7 +18,8 @@ To build a working copy in the source directory:
   ./build.sh
   make
 
-This will invoke "autoreconf" to build the configure scripts, then call "./configure".
+build.sh will invoke "autoreconf" to build the configure scripts, then call 
+"./configure".
 
 Debian Packages
 ---------------
@@ -25,7 +35,8 @@ To build an RPM:
 
   ./build-rpm.sh <rpm-top-level-dir>
 
-The top-level directory should contain directories named RPMS, SRPMS, SOURCES, SPECS, and BUILD.
+The top-level directory should contain directories named RPMS, SRPMS, SOURCES, 
+SPECS, and BUILD.
 
 Installing s3fuse
 =================
@@ -40,4 +51,5 @@ Then edit /etc/s3fuse.conf.  The following keys must be defined:
   - aws_secret: This is your Secret Access Key.
   - bucket_name: This is the name of your S3 bucket.
 
-AWS credentials can be obtained using Amazon's AWS console.  The console can also be used to create an S3 bucket.
+AWS credentials can be obtained using Amazon's AWS console.  The console can 
+also be used to create an S3 bucket.

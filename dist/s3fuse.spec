@@ -9,7 +9,7 @@ Release: %{release}
 Source: %{name}-%{version}-%{release}.tar.gz
 Group: Applications/System
 BuildRoot: %{_builddir}/%{name}-root
-License: BSD
+License: Apache-2.0
 
 %description
 Provides a FUSE filesystem driver for Amazon AWS S3 buckets.
