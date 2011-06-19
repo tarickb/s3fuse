@@ -315,7 +315,7 @@ bool request::check_timeout()
   return false;
 }
 
-void request::run()
+void request::run(int timeout_in_s)
 {
   curl_slist *headers = NULL;
 
@@ -347,7 +347,7 @@ void request::run()
     int r;
     double elapsed_time;
 
-    _timeout = time(NULL) + config::get_request_timeout_in_s();
+    _timeout = time(NULL) + ((timeout_in_s == -1) ? config::get_request_timeout_in_s() : timeout_in_s);
     r = curl_easy_perform(_curl);
     _timeout = 0; // reset this here so that subsequent calls to check_timeout() don't fail
 

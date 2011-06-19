@@ -30,6 +30,8 @@ namespace s3
   class request : boost::noncopyable
   {
   public:
+    static const int DEFAULT_REQUEST_TIMEOUT = -1;
+
     typedef boost::shared_ptr<request> ptr;
 
     request();
@@ -64,7 +66,7 @@ namespace s3
 
     bool check_timeout();
 
-    void run();
+    void run(int timeout_in_s = DEFAULT_REQUEST_TIMEOUT);
 
   private:
     static size_t process_header(char *data, size_t size, size_t items, void *context);

@@ -45,7 +45,7 @@ namespace
       string("-") + 
       lexical_cast<string>(part->offset + part->size));
 
-    req->run();
+    req->run(config::get_transfer_timeout_in_s());
     rc = req->get_response_code();
 
     if (rc == 500 || rc == 503)
@@ -68,7 +68,7 @@ namespace
     req->set_url(url + "?partNumber=" + lexical_cast<string>(part->id + 1) + "&uploadId=" + upload_id);
     req->set_input_fd(fd, part->size, part->offset);
 
-    req->run();
+    req->run(config::get_transfer_timeout_in_s());
     rc = req->get_response_code();
 
     if (rc == 500 || rc == 503)
@@ -129,7 +129,7 @@ int file_transfer::download_single(const request::ptr &req, const string &url, i
   req->set_url(url);
   req->set_output_fd(fd);
 
-  req->run();
+  req->run(config::get_transfer_timeout_in_s());
   rc = req->get_response_code();
 
   if (rc == 404)
@@ -209,7 +209,7 @@ int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj
   req->set_header("Content-MD5", util::compute_md5(fd));
   req->set_input_fd(fd, size);
 
-  req->run();
+  req->run(config::get_transfer_timeout_in_s());
 
   if (req->get_response_code() != 200) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_single", "failed to upload for [%s].\n", obj->get_url().c_str());
@@ -325,7 +325,9 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   req->set_input_data(complete_upload);
   req->set_header("Content-Type", "");
 
-  req->run();
+  // use the transfer timeout because completing a multi-part upload can take a long time
+  // see http://docs.amazonwebservices.com/AmazonS3/latest/API/index.html?mpUploadComplete.html
+  req->run(config::get_transfer_timeout_in_s());
 
   if (req->get_response_code() != 200) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to complete multipart upload for [%s] with error %li.\n", url.c_str(), req->get_response_code());

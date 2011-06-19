@@ -8,11 +8,6 @@ if [ ! -f "$_IN" ]; then
   exit 1
 fi
 
-if [ -f "$_OUT" ]; then
-  echo output file $_OUT already exists.
-  exit 2
-fi
-
 cat $_IN \
   | grep "^\<CONFIG_REQUIRED\>" \
   | sed -e 's/CONFIG_REQUIRED(//' -e 's/)//' -e 's/, /%%%%/g' -e 's/; \/\/ /%%%%/' -e 's/;//' \
