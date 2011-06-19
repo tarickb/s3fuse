@@ -365,7 +365,7 @@ int fs::__read_directory(const request::ptr &req, const string &_path, fuse_fill
   return 0;
 }
 
-int fs::__create_object(const request::ptr &req, const string &path, object_type type, mode_t mode, const string &symlink_target)
+int fs::__create_object(const request::ptr &req, const string &path, object_type type, mode_t mode, uid_t uid, gid_t gid, const string &symlink_target)
 {
   object::ptr obj;
 
@@ -378,6 +378,8 @@ int fs::__create_object(const request::ptr &req, const string &path, object_type
 
   obj.reset(new object(_mutexes, path, type));
   obj->set_mode(mode);
+  obj->set_uid(uid);
+  obj->set_gid(gid);
 
   req->init(HTTP_PUT);
   req->set_url(obj->get_url());

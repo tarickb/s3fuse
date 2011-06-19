@@ -33,19 +33,19 @@ namespace s3
       return _tp_fg->call(boost::bind(&fs::__read_directory, this, _1, path, filler, buf));
     }
 
-    inline int create_file(const std::string &path, mode_t mode)
+    inline int create_file(const std::string &path, mode_t mode, uid_t uid, gid_t gid)
     {
-      return _tp_fg->call(boost::bind(&fs::__create_object, this, _1, path, OT_FILE, mode, ""));
+      return _tp_fg->call(boost::bind(&fs::__create_object, this, _1, path, OT_FILE, mode, uid, gid, ""));
     }
 
-    inline int create_directory(const std::string &path, mode_t mode)
+    inline int create_directory(const std::string &path, mode_t mode, uid_t uid, gid_t gid)
     {
-      return _tp_fg->call(boost::bind(&fs::__create_object, this, _1, path, OT_DIRECTORY, mode, ""));
+      return _tp_fg->call(boost::bind(&fs::__create_object, this, _1, path, OT_DIRECTORY, mode, uid, gid, ""));
     }
 
-    inline int create_symlink(const std::string &path, const std::string &target)
+    inline int create_symlink(const std::string &path, uid_t uid, gid_t gid, const std::string &target)
     {
-      return _tp_fg->call(boost::bind(&fs::__create_object, this, _1, path, OT_SYMLINK, 0, target));
+      return _tp_fg->call(boost::bind(&fs::__create_object, this, _1, path, OT_SYMLINK, 0, uid, gid, target));
     }
 
     inline int change_owner(const std::string &path, uid_t uid, gid_t gid)
@@ -193,7 +193,7 @@ namespace s3
     bool is_directory_empty(const request_ptr &req, const std::string &path);
 
     int  __change_metadata (const request_ptr &req, const std::string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime);
-    int  __create_object   (const request_ptr &req, const std::string &path, object_type type, mode_t mode, const std::string &symlink_target);
+    int  __create_object   (const request_ptr &req, const std::string &path, object_type type, mode_t mode, uid_t uid, gid_t gid, const std::string &symlink_target);
     int  __get_stats       (const request_ptr &req, const std::string &path, struct stat *s, int hints);
     int  __prefill_stats   (const request_ptr &req, const std::string &path, int hints);
     int  __read_directory  (const request_ptr &req, const std::string &path, fuse_fill_dir_t filler, void *buf);

@@ -86,20 +86,23 @@ int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, fus
 
 int wrap_mkdir(const char *path, mode_t mode)
 {
+  const fuse_context *ctx = fuse_get_context();
+
   S3_LOG(LOG_DEBUG, "mkdir", "path: %s, mode: %#o\n", path, mode);
   ASSERT_LEADING_SLASH(path);
 
-  return try_catch(bind(&s3::fs::create_directory, s_fs, path + 1, mode));
+  return try_catch(bind(&s3::fs::create_directory, s_fs, path + 1, mode, ctx->uid, ctx->gid));
 }
 
 int wrap_create(const char *path, mode_t mode, fuse_file_info *file_info)
 {
   int r;
+  const fuse_context *ctx = fuse_get_context();
 
   S3_LOG(LOG_DEBUG, "create", "path: %s, mode: %#o\n", path, mode);
   ASSERT_LEADING_SLASH(path);
 
-  r = try_catch(bind(&s3::fs::create_file, s_fs, path + 1, mode));
+  r = try_catch(bind(&s3::fs::create_file, s_fs, path + 1, mode, ctx->uid, ctx->gid));
 
   if (r)
     return r;
@@ -188,10 +191,12 @@ int wrap_utimens(const char *path, const timespec times[2])
 
 int wrap_symlink(const char *target, const char *path)
 {
+  const fuse_context *ctx = fuse_get_context();
+
   S3_LOG(LOG_DEBUG, "symlink", "path: %s, target: %s\n", path, target);
   ASSERT_LEADING_SLASH(path);
 
-  return try_catch(bind(&s3::fs::create_symlink, s_fs, path + 1, target));
+  return try_catch(bind(&s3::fs::create_symlink, s_fs, path + 1, ctx->uid, ctx->gid, target));
 }
 
 int wrap_readlink(const char *path, char *buffer, size_t max_size)
