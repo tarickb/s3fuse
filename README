@@ -10,8 +10,8 @@ s3fuse is a FUSE (Filesystem in Userspace) driver for Amazon S3.
 Goals
 -----
 
-- Thread safety -- concurrent operations should behave according to the 
-  "principle of least surprise".
+- Thread safety -- concurrent operations should behave according to the
+  principle of least astonishment.
 - Compatibility with other S3 applications, including Amazon's web-based S3
   browser.
 - Improved upload/download performance (by using multipart transfers).
