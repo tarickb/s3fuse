@@ -28,6 +28,7 @@
 
 #include <map>
 #include <string>
+#include <boost/function.hpp>
 #include <boost/smart_ptr.hpp>
 
 #include "mutexes.h"
@@ -51,7 +52,11 @@ namespace s3
   public:
     typedef boost::shared_ptr<object> ptr;
 
+    typedef std::list<std::string> dir_cache;
+    typedef boost::shared_ptr<dir_cache> dir_cache_ptr;
     typedef std::map<std::string, std::string> meta_map;
+
+    typedef boost::function1<void, const std::string &> dir_filler_function;
 
     static std::string get_bucket_url();
     static std::string build_url(const std::string &path, object_type type);
@@ -81,6 +86,41 @@ namespace s3
     inline object_type get_type() { return _type; }
     inline const std::string & get_path() { return _path; }
     inline const std::string & get_content_type() { return _content_type; }
+
+    inline bool is_directory_cached()
+    {
+      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+
+      return _dir_cache; 
+    }
+
+    inline void set_directory_cache(const dir_cache_ptr &dc)
+    {
+      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+
+      if (_type != OT_DIRECTORY)
+        throw std::runtime_error("cannot set directory cache on an object that isn't a directory!");
+
+      _dir_cache = dc;
+    }
+
+    inline void fill_directory(const dir_filler_function &filler)
+    {
+      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+      dir_cache_ptr dc;
+
+      // make local copy of _dir_cache so we don't hold the metadata mutex
+      // longer than necessary.
+
+      dc = _dir_cache;
+      lock.unlock();
+
+      if (!dc)
+        throw std::runtime_error("directory cache not set. cannot fill directory.");
+
+      for (dir_cache::const_iterator itor = dc->begin(); itor != dc->end(); ++itor)
+        filler(*itor);
+    }
 
     inline std::string get_etag()
     {
@@ -152,6 +192,7 @@ namespace s3
     // protected by _mutexes->get_object_metadata_mutex()
     meta_map _metadata;
     std::string _etag, _md5, _md5_etag;
+    dir_cache_ptr _dir_cache;
 
     // protected by mutex in object_cache
     open_file::ptr _open_file;

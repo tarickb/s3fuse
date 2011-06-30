@@ -1,8 +1,9 @@
 s3fuse (0.10) unstable; urgency=low
 
   * Updated usage/help message printed by main() to match arguments.
+  * Added directory cache. 
 
- -- Tarick Bedeir <tarick@bedeir.com>  Thu, 30 Jun 2011 11:29:57 -0500
+ -- Tarick Bedeir <tarick@bedeir.com>  Thu, 30 Jun 2011 18:14:25 -0500
 
 s3fuse (0.9) unstable; urgency=low
 

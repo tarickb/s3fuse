@@ -19,7 +19,10 @@
  * limitations under the License.
  */
 
+#define FUSE_USE_VERSION 26
+
 #include <errno.h>
+#include <fuse.h>
 #include <getopt.h>
 #include <stdlib.h>
 #include <string.h>
@@ -46,7 +49,7 @@ namespace
     int verbosity;
   };
 
-  int try_catch(boost::function0<int> fn)
+  int try_catch(const boost::function0<int> &fn)
   {
     try {
       return fn();
@@ -59,6 +62,11 @@ namespace
     }
 
     return -ECANCELED;
+  }
+
+  void dir_filler(fuse_fill_dir_t filler, void *buf, const std::string &path)
+  {
+    filler(buf, path.c_str(), NULL, 0);
   }
 
   s3::fs *s_fs;
@@ -102,7 +110,11 @@ int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, fus
   S3_LOG(LOG_DEBUG, "readdir", "path: %s\n", path);
   ASSERT_LEADING_SLASH(path);
 
-  return try_catch(bind(&s3::fs::read_directory, s_fs, path + 1, filler, buf));
+  return try_catch(bind(
+    &s3::fs::read_directory, 
+    s_fs, 
+    path + 1, 
+    s3::object::dir_filler_function(bind(&dir_filler, filler, buf, _1))));
 }
 
 int wrap_mkdir(const char *path, mode_t mode)

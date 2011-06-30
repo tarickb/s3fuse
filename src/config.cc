@@ -20,8 +20,10 @@
  */
 
 #include <errno.h>
+#include <string.h>
 
 #include <fstream>
+#include <stdexcept>
 #include <boost/lexical_cast.hpp>
 
 #include "config.h"
@@ -35,6 +37,63 @@ using namespace s3;
 namespace
 {
   const string DEFAULT_CONFIG_FILE = "/etc/s3fuse.conf";
+
+  template <typename T>
+  class option_parser_worker
+  {
+  public:
+    static void parse(const string &str, T *out)
+    {
+      *out = lexical_cast<T>(str);
+    }
+  };
+
+  template <>
+  class option_parser_worker<bool>
+  {
+  public:
+    static void parse(const string &_str, bool *out)
+    {
+      const char *str = _str.c_str();
+
+      if (!strcasecmp(str, "yes") || !strcasecmp(str, "true")  || !strcasecmp(str, "1") || !strcasecmp(str, "on") ) {
+        *out = true;
+        return;
+      }
+
+      if (!strcasecmp(str, "no")  || !strcasecmp(str, "false") || !strcasecmp(str, "0") || !strcasecmp(str, "off")) {
+        *out = false;
+        return;
+      }
+
+      throw runtime_error("cannot parse.");
+    }
+  };
+
+  template <typename T>
+  class option_parser
+  {
+  public:
+    static int parse(int line_number, const char *key, const char *type, const string &str, T *out)
+    {
+      try {
+        option_parser_worker<T>::parse(str, out);
+
+        return 0;
+
+      } catch (...) {
+        S3_LOG(
+          LOG_ERR, 
+          "config::init", "error at line %i: cannot parse [%s] for key [%s] of type %s.\n", 
+          line_number,
+          str.c_str(),
+          key,
+          type);
+
+        return -EIO;
+      }
+    }
+  };
 }
 
 #define CONFIG(type, name, def) type config::s_ ## name = (def);
@@ -81,7 +140,14 @@ int config::init(const string &file)
 
     #define CONFIG(type, name, def) \
       if (key == #name) { \
-        s_ ## name = lexical_cast<type>(value); \
+        if (option_parser<type>::parse( \
+          line_number, \
+          #name, \
+          #type, \
+          value, \
+          &s_ ## name)) \
+          return -EIO; \
+        \
         continue; \
       }
 

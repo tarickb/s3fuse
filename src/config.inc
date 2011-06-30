@@ -13,6 +13,7 @@ CONFIG(int, default_gid, GID_MAX); // GID for files in S3 that don't have a GID 
 CONFIG(int, default_mode, 0755); // mode for files in S3 that don't have a mode set
 
 CONFIG(int, cache_expiry_in_s, 3 * 60); // time in seconds before objects in stats cache expire
+CONFIG(bool, cache_directories, false); // cache directory listings ("true"/"yes" or "false"/"no")
 
 CONFIG(std::string, default_content_type, "binary/octet-stream"); // MIME type for newly-created objects
 CONFIG(size_t, download_chunk_size, 128 * 1024); // download chunk size, in bytes

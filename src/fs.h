@@ -22,9 +22,6 @@
 #ifndef S3_FS_H
 #define S3_FS_H
 
-#define FUSE_USE_VERSION 26
-
-#include <fuse.h>
 #include <time.h>
 
 #include <string>
@@ -49,9 +46,9 @@ namespace s3
       return _tp_fg->call(boost::bind(&fs::__get_stats, this, _1, path, s, HINT_NONE));
     }
 
-    inline int read_directory(const std::string &path, fuse_fill_dir_t filler, void *buf)
+    inline int read_directory(const std::string &path, const object::dir_filler_function &filler)
     {
-      return _tp_fg->call(boost::bind(&fs::__read_directory, this, _1, path, filler, buf));
+      return _tp_fg->call(boost::bind(&fs::__read_directory, this, _1, path, filler));
     }
 
     inline int create_file(const std::string &path, mode_t mode, uid_t uid, gid_t gid)
@@ -217,7 +214,7 @@ namespace s3
     int  __create_object   (const request_ptr &req, const std::string &path, object_type type, mode_t mode, uid_t uid, gid_t gid, const std::string &symlink_target);
     int  __get_stats       (const request_ptr &req, const std::string &path, struct stat *s, int hints);
     int  __prefill_stats   (const request_ptr &req, const std::string &path, int hints);
-    int  __read_directory  (const request_ptr &req, const std::string &path, fuse_fill_dir_t filler, void *buf);
+    int  __read_directory  (const request_ptr &req, const std::string &path, const object::dir_filler_function &filler);
     int  __read_symlink    (const request_ptr &req, const std::string &path, std::string *target);
     int  __remove_attr     (const request_ptr &req, const std::string &path, const std::string &name);
     int  __remove_object   (const request_ptr &req, const std::string &path);

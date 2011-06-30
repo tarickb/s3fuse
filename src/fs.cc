@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "config.h"
 #include "logger.h"
 #include "file_transfer.h"
 #include "fs.h"
@@ -311,17 +312,32 @@ int fs::__change_metadata(const request::ptr &req, const string &path, mode_t mo
   return obj->commit_metadata(req);
 }
 
-int fs::__read_directory(const request::ptr &req, const string &_path, fuse_fill_dir_t filler, void *buf)
+int fs::__read_directory(const request::ptr &req, const string &_path, const object::dir_filler_function &filler)
 {
   size_t path_len;
   string marker = "";
   bool truncated = true;
   string path;
+  object::ptr obj;
+  object::dir_cache_ptr dir_cache;
 
   ASSERT_NO_TRAILING_SLASH(_path);
 
   if (!_path.empty())
     path = _path + "/";
+
+  if (config::get_cache_directories()) {
+    obj = _object_cache.get(req, _path, HINT_IS_DIR);
+
+    if (obj && obj->is_directory_cached()) {
+      obj->fill_directory(filler);
+
+      return 0;
+    }
+
+    // otherwise, build a new cache
+    dir_cache.reset(new object::dir_cache());
+  }
 
   path_len = path.size();
 
@@ -367,7 +383,10 @@ int fs::__read_directory(const request::ptr &req, const string &_path, fuse_fill
       relative_path.assign(relative_path_cs, strlen(relative_path_cs) - 1);
 
       _tp_bg->call_async(bind(&fs::__prefill_stats, this, _1, full_path, HINT_IS_DIR));
-      filler(buf, relative_path.c_str(), NULL, 0);
+      filler(relative_path);
+
+      if (dir_cache)
+        dir_cache->push_back(relative_path);
     }
 
     for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
@@ -378,10 +397,16 @@ int fs::__read_directory(const request::ptr &req, const string &_path, fuse_fill
         string full_path(full_path_cs);
 
         _tp_bg->call_async(bind(&fs::__prefill_stats, this, _1, full_path, HINT_IS_FILE));
-        filler(buf, relative_path.c_str(), NULL, 0);
+        filler(relative_path);
+
+        if (dir_cache)
+          dir_cache->push_back(relative_path);
       }
     }
   }
+
+  if (dir_cache)
+    obj->set_directory_cache(dir_cache);
 
   return 0;
 }
