@@ -12,11 +12,11 @@ if [ ! -d debian ] || [ ! -d src ]; then
   exit 2
 fi
 
-. version-info.sh
-export VERSION RELEASE
-
+VERSION=`head -n 1 ChangeLog | sed -e 's/.*(//' -e 's/).*//'`
 TEMP_DIR=$(mktemp -d)
 SRC_DIR=$(pwd)
+
+export VERSION
 
 pushd $TEMP_DIR >& /dev/null || exit 1
 
@@ -25,16 +25,10 @@ cd s3fuse-$VERSION || exit 1
 
 cp -r $SRC_DIR/* . || exit 1
 ./clean.sh || exit 1
-rm -rf *.sh debian/*.in dist/*.in || exit 1
+rm -rf *.sh dist/*.in || exit 1
 find . -type d -name .svn | xargs rm -rf || exit 1
 cp $SRC_DIR/build-config.sh . || exit 1
-
-for F in files.in; do
-  cat $SRC_DIR/debian/$F \
-    | sed -e "s/__VERSION__/$VERSION/g" -e "s/__RELEASE__/$RELEASE/g" \
-    > debian/${F/.in/} \
-    || exit 1
-done
+cp ChangeLog debian/changelog || exit 1
 
 autoreconf --force --install || exit 1
 dpkg-buildpackage || echo "Might have failed to build package, but continuing anyway."

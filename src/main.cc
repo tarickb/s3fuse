@@ -332,12 +332,15 @@ int print_version()
 int print_usage(const char *arg0)
 {
   fprintf(stderr, 
-    "Usage: %s [OPTION] MOUNT_POINT\n"
+    "Usage: %s [options] <mountpoint>\n"
     "\n"
     "Options:\n"
-    "  -c, --config=FILE    use FILE as the configuration file\n"
+    "  -f                   stay in the foreground (i.e., do not daemonize)\n"
     "  -h, --help           print this help message and exit\n"
-    "  -o OPT...            pass OPT (comma-separated) to FUSE\n"
+    "  -o OPT...            pass OPT (comma-separated) to FUSE, such as:\n"
+    "     allow_other         allow other users to access the mounted file system\n"
+    "     allow_root          allow root to access the mounted file system\n"
+    "     config=<file>       use <file> rather than the default configuration file\n"
     "  -v, --verbose        enable logging to stderr (can be repeated for more verbosity)\n"
     "  -V, --version        print version and exit\n",
     arg0);
