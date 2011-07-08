@@ -147,7 +147,7 @@ namespace s3
           _time_in_function += end_time - start_time;
           _time_in_request += _request->get_current_run_time();
 
-        } catch (std::exception &e) {
+        } catch (const std::exception &e) {
           S3_LOG(LOG_WARNING, "_worker_thread::worker", "caught exception: %s\n", e.what());
           r = -ECANCELED;
 

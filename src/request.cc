@@ -338,6 +338,7 @@ bool request::check_timeout()
 
 void request::run(int timeout_in_s)
 {
+  int r = CURLE_OK;
   curl_slist *headers = NULL;
 
   // sanity
@@ -365,7 +366,6 @@ void request::run(int timeout_in_s)
     _target_object->request_init();
 
   for (int i = 0; i < config::get_max_transfer_retries(); i++) {
-    int r;
     double elapsed_time;
 
     _timeout = time(NULL) + ((timeout_in_s == -1) ? config::get_request_timeout_in_s() : timeout_in_s);
@@ -374,20 +374,6 @@ void request::run(int timeout_in_s)
 
     if (_canceled)
       throw runtime_error("request timed out.");
-
-    TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &elapsed_time));
-
-    // don't save the time for the first request since it's likely to be disproportionately large
-    if (_run_count > 0)
-      _total_run_time += elapsed_time;
-
-    // but save it in _current_run_time since it's compared to overall function time (i.e., it's relative)
-    _current_run_time += elapsed_time;
-
-    _run_count++;
-
-    if (r == CURLE_OK)
-      break;
 
     if (
       r == CURLE_COULDNT_RESOLVE_PROXY || 
@@ -406,9 +392,25 @@ void request::run(int timeout_in_s)
       continue;
     }
 
-    if (r != CURLE_OK)
-      throw runtime_error(_curl_error);
+		if (r == CURLE_OK) {
+			TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &elapsed_time));
+
+			// don't save the time for the first request since it's likely to be disproportionately large
+			if (_run_count > 0)
+				_total_run_time += elapsed_time;
+
+			// but save it in _current_run_time since it's compared to overall function time (i.e., it's relative)
+			_current_run_time += elapsed_time;
+
+			_run_count++;
+		}
+
+		// break on CURLE_OK or some other error where we don't want to try the request again
+		break;
   }
+
+	if (r != CURLE_OK)
+		throw runtime_error(_curl_error);
 
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code));
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
