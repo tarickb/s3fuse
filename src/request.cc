@@ -26,23 +26,18 @@
 
 #include <stdexcept>
 
-#include "logger.h"
+#include "aws_authenticator.h"
 #include "config.h"
+#include "logger.h"
 #include "object.h"
 #include "openssl_locks.h"
 #include "request.h"
-#include "util.h"
 
 using namespace std;
 
 using namespace s3;
 
 #define TEST_OK(x) do { if ((x) != CURLE_OK) throw runtime_error("call to " #x " failed."); } while (0)
-
-namespace
-{
-  const string AMZ_HEADER_PREFIX = "x-amz-";
-}
 
 request::request()
   : _current_run_time(0.0),
@@ -57,6 +52,8 @@ request::request()
     throw runtime_error("curl_easy_init() failed.");
 
   openssl_locks::init();
+
+  _authenticator.reset(new aws_authenticator());
 
   // stuff that's set in the ctor shouldn't be modified elsewhere, since the call to init() won't reset it
 
@@ -311,19 +308,6 @@ void request::build_request_time()
   _headers["Date"] = time_str;
 }
 
-void request::build_signature()
-{
-  string sig = "AWS " + config::get_aws_key() + ":";
-  string to_sign = _method + "\n" + _headers["Content-MD5"] + "\n" + _headers["Content-Type"] + "\n" + _headers["Date"] + "\n";
-
-  for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
-    if (!itor->second.empty() && itor->first.substr(0, AMZ_HEADER_PREFIX.size()) == AMZ_HEADER_PREFIX)
-      to_sign += itor->first + ":" + itor->second + "\n";
-
-  to_sign += _url;
-  _headers["Authorization"] = string("AWS ") + config::get_aws_key() + ":" + util::sign(config::get_aws_secret(), to_sign);
-}
-
 bool request::check_timeout()
 {
   if (_timeout && time(NULL) > _timeout) {
@@ -354,7 +338,7 @@ void request::run(int timeout_in_s)
   _response_headers.clear();
 
   build_request_time();
-  build_signature();
+  _authenticator->sign(this);
 
   for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
     headers = curl_slist_append(headers, (itor->first + ": " + itor->second).c_str());

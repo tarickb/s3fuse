@@ -33,6 +33,7 @@
 
 namespace s3
 {
+  class authenticator;
   class object;
   class worker_thread;
 
@@ -60,9 +61,12 @@ namespace s3
 
     void init(http_method method);
 
+    inline const std::string & get_method() { return _method; }
+
     void set_url(const std::string &url, const std::string &query_string = "");
     inline const std::string & get_url() { return _url; }
 
+    inline const header_map & get_headers() { return _headers; }
     inline void set_header(const std::string &name, const std::string &value) { _headers[name] = value; }
 
     void set_output_fd(int fd = -1, off_t offset = 0);
@@ -127,6 +131,8 @@ namespace s3
 
     bool _canceled;
     time_t _timeout;
+
+    boost::shared_ptr<authenticator> _authenticator;
   };
 }
 

@@ -1,4 +1,4 @@
-bin_PROGRAMS = s3fuse xattr
+bin_PROGRAMS = s3fuse xattr s3fuse_gs_get_token
 
 AM_CXXFLAGS  = -g -Wall -Werror
 AM_CFLAGS    = -g -Wall -Werror
@@ -7,6 +7,9 @@ s3fuse_CPPFLAGS  = $(DEPS_CFLAGS) -D_FILE_OFFSET_BITS=64
 s3fuse_LDFLAGS   = -Wl,--as-needed
 s3fuse_LDADD     = $(DEPS_LIBS)
 s3fuse_SOURCES = \
+	authenticator.h \
+	aws_authenticator.cc \
+	aws_authenticator.h \
 	config.cc \
 	config.inc \
 	config.h \
@@ -38,6 +41,9 @@ s3fuse_SOURCES = \
 
 xattr_SOURCES = \
 	xattr.c
+
+s3fuse_gs_get_token_SOURCES = \
+	gs_get_token.cc
 
 dist_sysconf_DATA = \
 	s3fuse.conf
