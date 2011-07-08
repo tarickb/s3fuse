@@ -1,15 +1,18 @@
-#include <stdio.h>
-
 #include <iostream>
+
+#include "gs_authenticator.h"
+#include "logger.h"
 
 using namespace std;
 
-const char *CLIENT_ID = "45323348671.apps.googleusercontent.com";
-const char *GS_SCOPE = "https://www.googleapis.com/auth/devstorage.read_write";
+using namespace s3;
 
 int main(int argc, char **argv)
 {
-  string file, code;
+  string file, code, access_token, refresh_token;
+  time_t expiry;
+
+  logger::init(10);
 
   if (argc != 2) {
     cerr << "Usage: " << argv[0] << " <token-file-name>" << endl;
@@ -22,15 +25,19 @@ int main(int argc, char **argv)
 
   cout << 
     "https://accounts.google.com/o/oauth2/auth?"
-    "client_id=" << CLIENT_ID << "&"
+    "client_id=" << gs_authenticator::get_client_id() << "&"
     "redirect_uri=urn:ietf:wg:oauth:2.0:oob&"
-    "scope=" << GS_SCOPE << "&"
+    "scope=" << gs_authenticator::get_scope() << "&"
     "response_type=code" << endl << endl;
 
   cout << "Please enter the authorization code: ";
   getline(cin, code);
 
-  cout << "Thank you!" << endl;
+  gs_authenticator::get_tokens(code, &access_token, &refresh_token, &expiry);
 
-  
+  cout << "Access token: " << access_token << endl;
+  cout << "Refresh token: " << refresh_token << endl;
+  cout << "Expiry: " << expiry << endl;
+
+  return 0;
 }

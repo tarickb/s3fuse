@@ -248,6 +248,12 @@ void request::set_url(const string &url, const string &query_string)
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_URL, curl_url.c_str()));
 }
 
+void request::set_full_url(const string &url)
+{
+  _url = url;
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_URL, url.c_str()));
+}
+
 void request::set_output_fd(int fd, off_t offset)
 {
   if (fd == -1 && offset != 0)
@@ -322,6 +328,7 @@ bool request::check_timeout()
 
 void request::run(int timeout_in_s)
 {
+  int r = CURLE_OK;
   curl_slist *headers = NULL;
 
   // sanity
@@ -349,7 +356,6 @@ void request::run(int timeout_in_s)
     _target_object->request_init();
 
   for (int i = 0; i < config::get_max_transfer_retries(); i++) {
-    int r;
     double elapsed_time;
 
     _timeout = time(NULL) + ((timeout_in_s == -1) ? config::get_request_timeout_in_s() : timeout_in_s);
@@ -388,11 +394,12 @@ void request::run(int timeout_in_s)
     {
       S3_LOG(LOG_WARNING, "request::run", "got error [%s]. retrying.\n", _curl_error);
       continue;
-    }
-
-    if (r != CURLE_OK)
-      throw runtime_error(_curl_error);
+    } else
+      break;
   }
+
+  if (r != CURLE_OK)
+    throw runtime_error(_curl_error);
 
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code));
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));

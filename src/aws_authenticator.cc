@@ -1,10 +1,5 @@
-#include <errno.h>
-
-#include <stdexcept>
-
 #include "aws_authenticator.h"
 #include "config.h"
-#include "logger.h"
 #include "request.h"
 #include "util.h"
 

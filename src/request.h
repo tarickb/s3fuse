@@ -63,6 +63,7 @@ namespace s3
 
     inline const std::string & get_method() { return _method; }
 
+    void set_full_url(const std::string &url);
     void set_url(const std::string &url, const std::string &query_string = "");
     inline const std::string & get_url() { return _url; }
 
