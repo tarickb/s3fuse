@@ -41,7 +41,7 @@ int main(int argc, char **argv)
   getline(cin, code);
 
   try {
-    gs_service_impl::get_tokens(gs_service_impl::GT_AUTH_CODE, code, &access_token, &refresh_token, &expiry);
+    gs_service_impl::get_tokens(gs_service_impl::GT_AUTH_CODE, code, &access_token, &expiry, &refresh_token);
 
   } catch (const std::exception &e) {
     cerr << "Failed to get tokens: " << e.what() << endl;

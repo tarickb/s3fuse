@@ -20,10 +20,11 @@ namespace s3
 
     static const std::string & get_client_id();
     static const std::string & get_oauth_scope();
-    static void get_tokens(get_tokens_mode mode, const std::string &key, std::string *access_token, std::string *refresh_token, time_t *expiry);
+    static void get_tokens(get_tokens_mode mode, const std::string &key, std::string *access_token, time_t *expiry, std::string *refresh_token);
 
     gs_service_impl();
 
+    virtual const std::string & get_header_prefix();
     virtual const std::string & get_url_prefix();
     virtual const std::string & get_xml_namespace();
 

@@ -15,12 +15,15 @@ using namespace s3;
 
 namespace
 {
+  const string GS_HEADER_PREFIX = "x-goog-";
   const string GS_URL_PREFIX = "https://commondatastorage.googleapis.com";
   const string GS_XML_NAMESPACE = "http://doc.s3.amazonaws.com/2006-03-01"; // "http://doc.commondatastorage.googleapis.com/2010-04-03";
+
   const string GS_EP_TOKEN = "https://accounts.google.com/o/oauth2/token";
+  const string GS_OAUTH_SCOPE = "https://www.googleapis.com/auth/devstorage.read_write";
+
   const string GS_CLIENT_ID = "45323348671.apps.googleusercontent.com";
   const string GS_CLIENT_SECRET = "vuN7FOnK1elQtqze_R9dE3tM";
-  const string GS_OAUTH_SCOPE = "https://www.googleapis.com/auth/devstorage.read_write";
 }
 
 const string & gs_service_impl::get_client_id()
@@ -33,7 +36,7 @@ const string & gs_service_impl::get_oauth_scope()
   return GS_OAUTH_SCOPE;
 }
 
-void gs_service_impl::get_tokens(get_tokens_mode mode, const string &key, string *access_token, string *refresh_token, time_t *expiry)
+void gs_service_impl::get_tokens(get_tokens_mode mode, const string &key, string *access_token, time_t *expiry, string *refresh_token)
 {
   request req;
   string data;
@@ -70,11 +73,11 @@ void gs_service_impl::get_tokens(get_tokens_mode mode, const string &key, string
   ss << req.get_response_data();
   read_json(ss, tree);
 
-  if (mode == GT_AUTH_CODE)
-    *refresh_token = tree.get<string>("refresh_token");
-
   *access_token = tree.get<string>("access_token");
   *expiry = time(NULL) + tree.get<int>("expires_in");
+
+  if (mode == GT_AUTH_CODE)
+    *refresh_token = tree.get<string>("refresh_token");
 }
 
 gs_service_impl::gs_service_impl()
@@ -91,6 +94,11 @@ gs_service_impl::gs_service_impl()
   getline(f, _refresh_token);
 
   refresh(lock);
+}
+
+const string & gs_service_impl::get_header_prefix()
+{
+  return GS_HEADER_PREFIX;
 }
 
 const string & gs_service_impl::get_url_prefix()
@@ -111,31 +119,24 @@ void gs_service_impl::sign(request *req)
     refresh(lock);
 
   req->set_header("Authorization", _access_token);
+  req->set_header("x-goog-api-version", "2");
 }
 
 void gs_service_impl::refresh(const mutex::scoped_lock &lock)
 {
-  string new_refresh;
-
   gs_service_impl::get_tokens(
     GT_REFRESH, 
     _refresh_token, 
     &_access_token,
-    &new_refresh,
-    &_expiry);
+    &_expiry,
+    NULL);
 
   S3_LOG(
     LOG_DEBUG, 
     "gs_service_impl::refresh", 
-    "using refresh [%s], got refresh [%s] and access [%s].\n",
+    "using refresh token [%s], got access token [%s].\n",
     _refresh_token.c_str(),
-    new_refresh.c_str(),
     _access_token.c_str());
 
-  if (new_refresh != _refresh_token) {
-    // TODO: write to disk?
-  }
-
-  _refresh_token = new_refresh;
   _access_token = "OAuth " + _access_token;
 }

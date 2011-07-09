@@ -281,8 +281,8 @@ int fs::copy_file(const request::ptr &req, const string &from, const string &to)
 {
   req->init(HTTP_PUT);
   req->set_url(object::build_url(to, OT_FILE));
-  req->set_header("x-amz-copy-source", object::build_url(from, OT_FILE));
-  req->set_header("x-amz-metadata-directive", "COPY");
+  req->set_header(service::get_header_prefix() + "copy-source", object::build_url(from, OT_FILE));
+  req->set_header(service::get_header_prefix() + "metadata-directive", "COPY");
 
   req->run();
 

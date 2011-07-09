@@ -16,9 +16,10 @@ using namespace s3;
 
 namespace
 {
+  const string AWS_HEADER_PREFIX = "x-amz-";
   const string AWS_URL_PREFIX = "https://s3.amazonaws.com";
   const string AWS_XML_NAMESPACE = "http://s3.amazonaws.com/doc/2006-03-01/";
-  const string AMZ_HEADER_PREFIX = "x-amz-";
+
   const string EMPTY = "";
 
   const string & safe_find(const header_map &map, const char *key)
@@ -49,6 +50,11 @@ aws_service_impl::aws_service_impl()
   _secret = fields[1];
 }
 
+const string & aws_service_impl::get_header_prefix()
+{
+  return AWS_HEADER_PREFIX;
+}
+
 const string & aws_service_impl::get_url_prefix()
 {
   return AWS_URL_PREFIX;
@@ -69,7 +75,7 @@ void aws_service_impl::sign(request *req)
     safe_find(headers, "Date") + "\n";
 
   for (header_map::const_iterator itor = headers.begin(); itor != headers.end(); ++itor)
-    if (!itor->second.empty() && itor->first.substr(0, AMZ_HEADER_PREFIX.size()) == AMZ_HEADER_PREFIX)
+    if (!itor->second.empty() && itor->first.substr(0, AWS_HEADER_PREFIX.size()) == AWS_HEADER_PREFIX)
       to_sign += itor->first + ":" + itor->second + "\n";
 
   to_sign += req->get_url();

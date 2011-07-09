@@ -46,7 +46,6 @@ s3fuse_SOURCES = \
 xattr_SOURCES = \
 	xattr.c
 
-# TODO: are all of these required?
 s3fuse_gs_get_token_SOURCES = \
 	aws_service_impl.cc \
 	aws_service_impl.h \
