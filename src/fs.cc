@@ -96,6 +96,19 @@ struct rename_operation
   async_handle handle;
 };
 
+void fs::invalidate_parent(const string &path)
+{
+  if (config::get_cache_directories()) {
+    string parent_path;
+    size_t last_slash = path.rfind('/');
+
+    parent_path = (last_slash == string::npos) ? "" : path.substr(0, last_slash);
+
+    S3_LOG(LOG_DEBUG, "fs::__create_object", "invalidating parent directory [%s] for [%s].\n", parent_path.c_str(), path.c_str());
+    _object_cache.remove(parent_path);
+  }
+}
+
 int fs::rename_children(const request::ptr &req, const string &_from, const string &_to)
 {
   size_t from_len;
@@ -222,6 +235,18 @@ bool fs::is_directory_empty(const request::ptr &req, const string &path)
   return (keys.size() == 1);
 }
 
+int fs::copy_file(const request::ptr &req, const string &from, const string &to)
+{
+  req->init(HTTP_PUT);
+  req->set_url(object::build_url(to, OT_FILE));
+  req->set_header("x-amz-copy-source", object::build_url(from, OT_FILE));
+  req->set_header("x-amz-metadata-directive", "COPY");
+
+  req->run();
+
+  return (req->get_response_code() == 200) ? 0 : -EIO;
+}
+
 int fs::__prefill_stats(const request::ptr &req, const string &path, int hints)
 {
   _object_cache.get(req, path, hints);
@@ -261,6 +286,9 @@ int fs::__rename_object(const request::ptr &req, const string &from, const strin
   if (_object_cache.get(req, to))
     return -EEXIST;
 
+  invalidate_parent(from);
+  invalidate_parent(to);
+
   if (obj->get_type() == OT_DIRECTORY)
     return rename_children(req, from, to);
   else {
@@ -272,18 +300,6 @@ int fs::__rename_object(const request::ptr &req, const string &from, const strin
     _object_cache.remove(from);
     return remove_object(req, obj->get_url());
   }
-}
-
-int fs::copy_file(const request::ptr &req, const string &from, const string &to)
-{
-  req->init(HTTP_PUT);
-  req->set_url(object::build_url(to, OT_FILE));
-  req->set_header("x-amz-copy-source", object::build_url(from, OT_FILE));
-  req->set_header("x-amz-metadata-directive", "COPY");
-
-  req->run();
-
-  return (req->get_response_code() == 200) ? 0 : -EIO;
 }
 
 int fs::__change_metadata(const request::ptr &req, const string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime)
@@ -422,6 +438,8 @@ int fs::__create_object(const request::ptr &req, const string &path, object_type
     return -EEXIST;
   }
 
+  invalidate_parent(path);
+
   obj.reset(new object(_mutexes, path, type));
   obj->set_mode(mode);
   obj->set_uid(uid);
@@ -453,7 +471,9 @@ int fs::__remove_object(const request::ptr &req, const string &path)
   if (obj->get_type() == OT_DIRECTORY && !is_directory_empty(req, obj->get_path()))
     return -ENOTEMPTY;
 
+  invalidate_parent(path);
   _object_cache.remove(path);
+
   return remove_object(req, obj->get_url());
 }
 

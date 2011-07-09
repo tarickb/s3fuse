@@ -83,7 +83,7 @@ namespace s3
         return;
 
       // TODO: force-delete the file?
-      if (itor->second->get_open_file())
+      if (itor->second && itor->second->get_open_file())
         _handle_map.erase(itor->second->get_open_file()->get_handle());
 
       _cache_map.erase(path);

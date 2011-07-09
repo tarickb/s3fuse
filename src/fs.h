@@ -205,6 +205,8 @@ namespace s3
       return _tp_fg->call(boost::bind(&fs::__change_metadata, this, _1, path, mode, uid, gid, mtime));
     }
 
+    void invalidate_parent(const std::string &path);
+
     int  copy_file         (const request_ptr &req, const std::string &from, const std::string &to);
     int  remove_object     (const request_ptr &req, const std::string &url);
     int  rename_children   (const request_ptr &req, const std::string &from, const std::string &to);
