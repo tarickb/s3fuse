@@ -10,7 +10,15 @@ namespace s3
   class aws_authenticator : public authenticator
   {
   public:
+    aws_authenticator();
+
+    virtual const std::string & get_url_prefix();
+    virtual const std::string & get_xml_namespace();
+
     virtual void sign(request *req);
+
+  private:
+    std::string _key, _secret;
   };
 }
 

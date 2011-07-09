@@ -21,10 +21,9 @@ CONFIG(size_t, upload_chunk_size, 5 * 1024 * 1024); // upload chunk size, in byt
 CONFIG(int, max_transfer_retries, 5); // maximum number of times a chunk transfer will be retried before failing
 CONFIG(int, transfer_timeout_in_s, 5 * 60); // transfer timeout in seconds, should be long enough to transfer download_chunk_size/upload_chunk_size
 
-CONFIG(std::string, url_prefix, "https://s3.amazonaws.com"); // S3 URL prefix
 CONFIG(bool, verbose_requests, false); // set CURLOPT_VERBOSE (enable verbosity in libcurl)
 CONFIG(int, request_timeout_in_s, 10); // request timeout in seconds (for all HTTP requests besides transfers)
 
-CONFIG_REQUIRED(std::string, aws_key, ""); // AWS key
-CONFIG_REQUIRED(std::string, aws_secret, ""); // AWS secret
-CONFIG_REQUIRED(std::string, bucket_name, ""); // S3 bucket name
+CONFIG_REQUIRED(std::string, service, ""); // service -- must be "aws" or "google-storage"
+CONFIG_REQUIRED(std::string, auth_data, ""); // service-specific authentication details (see documentation)
+CONFIG_REQUIRED(std::string, bucket_name, ""); // bucket name

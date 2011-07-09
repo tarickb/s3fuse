@@ -56,7 +56,7 @@ namespace s3
 
     typedef boost::shared_ptr<request> ptr;
 
-    request();
+    request(const boost::shared_ptr<authenticator> &authenticator = boost::shared_ptr<authenticator>());
     ~request();
 
     void init(http_method method);

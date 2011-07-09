@@ -113,7 +113,7 @@ namespace s3
 
     inline int get_attr(const std::string &path, const std::string &name, std::string *value)
     {
-      object::ptr obj = _object_cache.get(path);
+      object::ptr obj = _object_cache->get(path);
 
       if (!obj)
         return -ENOENT;
@@ -123,7 +123,7 @@ namespace s3
 
     inline int list_attr(const std::string &path, std::vector<std::string> *attrs)
     {
-      object::ptr obj = _object_cache.get(path);
+      object::ptr obj = _object_cache->get(path);
 
       if (!obj)
         return -ENOENT;
@@ -135,7 +135,7 @@ namespace s3
 
     inline int open(const std::string &path, uint64_t *handle)
     {
-      return _object_cache.open_handle(path, handle);
+      return _object_cache->open_handle(path, handle);
     }
 
     inline int truncate_by_path(const std::string &path, off_t offset) 
@@ -156,12 +156,12 @@ namespace s3
 
     inline int release(uint64_t handle) 
     {
-      return _object_cache.release_handle(handle);
+      return _object_cache->release_handle(handle);
     }
 
     inline int truncate(uint64_t handle, off_t offset)
     {
-      open_file::ptr file = _object_cache.get_file(handle);
+      open_file::ptr file = _object_cache->get_file(handle);
 
       if (!file)
         return -EINVAL;
@@ -171,7 +171,7 @@ namespace s3
 
     inline int flush(uint64_t handle) 
     {
-      open_file::ptr file = _object_cache.get_file(handle);
+      open_file::ptr file = _object_cache->get_file(handle);
 
       if (!file)
         return -EINVAL;
@@ -181,7 +181,7 @@ namespace s3
 
     inline int read(uint64_t handle, char *buffer, size_t size, off_t offset) 
     {
-      open_file::ptr file = _object_cache.get_file(handle);
+      open_file::ptr file = _object_cache->get_file(handle);
 
       if (!file)
         return -EINVAL;
@@ -191,7 +191,7 @@ namespace s3
 
     inline int write(uint64_t handle, const char *buffer, size_t size, off_t offset) 
     { 
-      open_file::ptr file = _object_cache.get_file(handle);
+      open_file::ptr file = _object_cache->get_file(handle);
 
       if (!file)
         return -EINVAL;
@@ -223,7 +223,7 @@ namespace s3
 
     thread_pool::ptr _tp_fg, _tp_bg;
     boost::shared_ptr<mutexes> _mutexes;
-    object_cache _object_cache;
+    object_cache::ptr _object_cache;
   };
 }
 

@@ -1,3 +1,4 @@
+#include <fstream>
 #include <iostream>
 
 #include "gs_authenticator.h"
@@ -10,6 +11,7 @@ using namespace s3;
 int main(int argc, char **argv)
 {
   string file, code, access_token, refresh_token;
+  ofstream *out;
   time_t expiry;
 
   logger::init(10);
@@ -19,7 +21,12 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  file = argv[1];
+  out = new ofstream(argv[1], ios_base::out | ios_base::trunc);
+
+  if (!out->good()) {
+    cerr << "Unable to open output file [" << argv[1] << "]." << endl;
+    return 1;
+  }
 
   cout << "Paste this URL into your browser:" << endl;
 
@@ -27,17 +34,23 @@ int main(int argc, char **argv)
     "https://accounts.google.com/o/oauth2/auth?"
     "client_id=" << gs_authenticator::get_client_id() << "&"
     "redirect_uri=urn:ietf:wg:oauth:2.0:oob&"
-    "scope=" << gs_authenticator::get_scope() << "&"
+    "scope=" << gs_authenticator::get_oauth_scope() << "&"
     "response_type=code" << endl << endl;
 
   cout << "Please enter the authorization code: ";
   getline(cin, code);
 
-  gs_authenticator::get_tokens(code, &access_token, &refresh_token, &expiry);
+  try {
+    gs_authenticator::get_tokens(gs_authenticator::GT_AUTH_CODE, code, &access_token, &refresh_token, &expiry);
 
-  cout << "Access token: " << access_token << endl;
-  cout << "Refresh token: " << refresh_token << endl;
-  cout << "Expiry: " << expiry << endl;
+  } catch (const std::exception &e) {
+    cerr << "Failed to get tokens: " << e.what() << endl;
+    return 1;
+  }
+
+  *out << refresh_token << endl;
+
+  cout << "Done!" << endl;
 
   return 0;
 }

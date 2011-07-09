@@ -7,6 +7,7 @@ AM_CPPFLAGS  = $(DEPS_CFLAGS) -D_FILE_OFFSET_BITS=64
 s3fuse_LDFLAGS   = -Wl,--as-needed
 s3fuse_LDADD     = $(DEPS_LIBS)
 s3fuse_SOURCES = \
+	authenticator.cc \
 	authenticator.h \
 	aws_authenticator.cc \
 	aws_authenticator.h \

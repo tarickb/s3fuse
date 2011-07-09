@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "authenticator.h"
 #include "config.h"
 #include "logger.h"
 #include "file_transfer.h"
@@ -64,12 +65,15 @@ namespace
 }
 
 fs::fs()
-  : _tp_fg(thread_pool::create("fs-fg")),
-    _tp_bg(thread_pool::create("fs-bg")),
-    _mutexes(new mutexes()),
-    _object_cache(_tp_fg, _mutexes, file_transfer::ptr(new file_transfer(_tp_fg, _tp_bg)))
 {
-  xml::init();
+  authenticator::ptr auth = authenticator::create(config::get_service());
+
+  xml::init(auth->get_xml_namespace());
+
+  _tp_fg = thread_pool::create("fs-fg", auth);
+  _tp_bg = thread_pool::create("fs-bg", auth);
+  _mutexes.reset(new mutexes()),
+  _object_cache.reset(new object_cache(_tp_fg, _mutexes, file_transfer::ptr(new file_transfer(_tp_fg, _tp_bg))));
 }
 
 fs::~fs()
@@ -224,7 +228,7 @@ bool fs::is_directory_empty(const request::ptr &req, const string &path)
 
 int fs::__prefill_stats(const request::ptr &req, const string &path, int hints)
 {
-  _object_cache.get(req, path, hints);
+  _object_cache->get(req, path, hints);
 
   return 0;
 }
@@ -235,7 +239,7 @@ int fs::__get_stats(const request::ptr &req, const string &path, struct stat *s,
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = _object_cache.get(req, path, hints);
+  obj = _object_cache->get(req, path, hints);
 
   if (!obj)
     return -ENOENT;
@@ -253,12 +257,12 @@ int fs::__rename_object(const request::ptr &req, const string &from, const strin
   ASSERT_NO_TRAILING_SLASH(from);
   ASSERT_NO_TRAILING_SLASH(to);
 
-  obj = _object_cache.get(req, from);
+  obj = _object_cache->get(req, from);
 
   if (!obj)
     return -ENOENT;
 
-  if (_object_cache.get(req, to))
+  if (_object_cache->get(req, to))
     return -EEXIST;
 
   if (obj->get_type() == OT_DIRECTORY)
@@ -269,7 +273,7 @@ int fs::__rename_object(const request::ptr &req, const string &from, const strin
     if (r)
       return r;
 
-    _object_cache.remove(from);
+    _object_cache->remove(from);
     return remove_object(req, obj->get_url());
   }
 }
@@ -292,7 +296,7 @@ int fs::__change_metadata(const request::ptr &req, const string &path, mode_t mo
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = _object_cache.get(req, path);
+  obj = _object_cache->get(req, path);
 
   if (!obj)
     return -ENOENT;
@@ -327,7 +331,7 @@ int fs::__read_directory(const request::ptr &req, const string &_path, const obj
     path = _path + "/";
 
   if (config::get_cache_directories()) {
-    obj = _object_cache.get(req, _path, HINT_IS_DIR);
+    obj = _object_cache->get(req, _path, HINT_IS_DIR);
 
     if (obj && obj->is_directory_cached()) {
       obj->fill_directory(filler);
@@ -353,6 +357,8 @@ int fs::__read_directory(const request::ptr &req, const string &_path, const obj
 
     if (req->get_response_code() != 200)
       return -EIO;
+
+    S3_LOG(LOG_DEBUG, "fs::__read_directory", "response: %s\n", req->get_response_data().c_str());
 
     doc = xml::parse(req->get_response_data());
 
@@ -417,7 +423,7 @@ int fs::__create_object(const request::ptr &req, const string &path, object_type
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  if (_object_cache.get(req, path)) {
+  if (_object_cache->get(req, path)) {
     S3_LOG(LOG_DEBUG, "fs::__create_object", "attempt to overwrite object at path %s.\n", path.c_str());
     return -EEXIST;
   }
@@ -445,7 +451,7 @@ int fs::__remove_object(const request::ptr &req, const string &path)
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = _object_cache.get(req, path, HINT_NONE);
+  obj = _object_cache->get(req, path, HINT_NONE);
 
   if (!obj)
     return -ENOENT;
@@ -453,7 +459,7 @@ int fs::__remove_object(const request::ptr &req, const string &path)
   if (obj->get_type() == OT_DIRECTORY && !is_directory_empty(req, obj->get_path()))
     return -ENOTEMPTY;
 
-  _object_cache.remove(path);
+  _object_cache->remove(path);
   return remove_object(req, obj->get_url());
 }
 
@@ -463,7 +469,7 @@ int fs::__read_symlink(const request::ptr &req, const string &path, string *targ
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = _object_cache.get(req, path);
+  obj = _object_cache->get(req, path);
 
   if (!obj)
     return -ENOENT;
@@ -493,7 +499,7 @@ int fs::__set_attr(const request::ptr &req, const string &path, const string &na
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = _object_cache.get(req, path);
+  obj = _object_cache->get(req, path);
 
   if (!obj)
     return -ENOENT;
@@ -513,7 +519,7 @@ int fs::__remove_attr(const request::ptr &req, const string &path, const string 
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = _object_cache.get(req, path);
+  obj = _object_cache->get(req, path);
 
   if (!obj)
     return -ENOENT;

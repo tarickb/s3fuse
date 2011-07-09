@@ -37,7 +37,7 @@ namespace s3
     typedef boost::shared_ptr<xmlpp::DomParser> document;
     typedef std::list<std::string> element_list;
 
-    static void init();
+    static void init(const std::string &ns);
 
     static document parse(const std::string &data);
 
