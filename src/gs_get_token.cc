@@ -1,7 +1,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "gs_authenticator.h"
+#include "gs_service_impl.h"
 #include "logger.h"
 
 using namespace std;
@@ -32,16 +32,16 @@ int main(int argc, char **argv)
 
   cout << 
     "https://accounts.google.com/o/oauth2/auth?"
-    "client_id=" << gs_authenticator::get_client_id() << "&"
+    "client_id=" << gs_service_impl::get_client_id() << "&"
     "redirect_uri=urn:ietf:wg:oauth:2.0:oob&"
-    "scope=" << gs_authenticator::get_oauth_scope() << "&"
+    "scope=" << gs_service_impl::get_oauth_scope() << "&"
     "response_type=code" << endl << endl;
 
   cout << "Please enter the authorization code: ";
   getline(cin, code);
 
   try {
-    gs_authenticator::get_tokens(gs_authenticator::GT_AUTH_CODE, code, &access_token, &refresh_token, &expiry);
+    gs_service_impl::get_tokens(gs_service_impl::GT_AUTH_CODE, code, &access_token, &refresh_token, &expiry);
 
   } catch (const std::exception &e) {
     cerr << "Failed to get tokens: " << e.what() << endl;

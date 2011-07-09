@@ -7,10 +7,8 @@ AM_CPPFLAGS  = $(DEPS_CFLAGS) -D_FILE_OFFSET_BITS=64
 s3fuse_LDFLAGS   = -Wl,--as-needed
 s3fuse_LDADD     = $(DEPS_LIBS)
 s3fuse_SOURCES = \
-	authenticator.cc \
-	authenticator.h \
-	aws_authenticator.cc \
-	aws_authenticator.h \
+	aws_service_impl.cc \
+	aws_service_impl.h \
 	config.cc \
 	config.inc \
 	config.h \
@@ -18,8 +16,8 @@ s3fuse_SOURCES = \
 	file_transfer.h \
 	fs.cc \
 	fs.h \
-	gs_authenticator.cc \
-	gs_authenticator.h \
+	gs_service_impl.cc \
+	gs_service_impl.h \
 	logger.cc \
 	logger.h \
 	main.cc \
@@ -34,6 +32,9 @@ s3fuse_SOURCES = \
 	openssl_locks.h \
 	request.cc \
 	request.h \
+	service.cc \
+	service.h \
+	service_impl.h \
 	thread_pool.cc \
 	thread_pool.h \
 	util.cc \
@@ -45,15 +46,15 @@ s3fuse_SOURCES = \
 xattr_SOURCES = \
 	xattr.c
 
+# TODO: are all of these required?
 s3fuse_gs_get_token_SOURCES = \
-	authenticator.h \
-	aws_authenticator.cc \
-	aws_authenticator.h \
+	aws_service_impl.cc \
+	aws_service_impl.h \
 	config.cc \
 	config.inc \
 	config.h \
-	gs_authenticator.cc \
-	gs_authenticator.h \
+	gs_service_impl.cc \
+	gs_service_impl.h \
 	gs_get_token.cc \
 	logger.cc \
 	logger.h \
@@ -66,6 +67,9 @@ s3fuse_gs_get_token_SOURCES = \
 	openssl_locks.h \
 	request.cc \
 	request.h \
+	service.cc \
+	service.h \
+	service_impl.h \
 	util.cc \
 	util.h
 

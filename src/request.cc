@@ -26,12 +26,12 @@
 
 #include <stdexcept>
 
-#include "authenticator.h"
 #include "config.h"
 #include "logger.h"
 #include "object.h"
 #include "openssl_locks.h"
 #include "request.h"
+#include "service.h"
 
 using namespace std;
 
@@ -39,13 +39,12 @@ using namespace s3;
 
 #define TEST_OK(x) do { if ((x) != CURLE_OK) throw runtime_error("call to " #x " failed."); } while (0)
 
-request::request(const authenticator::ptr &auth)
+request::request()
   : _current_run_time(0.0),
     _total_run_time(0.0),
     _run_count(0),
     _canceled(false),
-    _timeout(0),
-    _authenticator(auth)
+    _timeout(0)
 {
   _curl = curl_easy_init();
 
@@ -238,10 +237,7 @@ void request::set_url(const string &url, const string &query_string)
 {
   string curl_url;
 
-  if (!_authenticator)
-    throw runtime_error("cannot set partial url without authenticator.");
-
-  curl_url = _authenticator->get_url_prefix() + url;
+  curl_url = service::get_url_prefix() + url;
 
   if (!query_string.empty()) {
     curl_url += (curl_url.find('?') == string::npos) ? "?" : "&";
@@ -349,9 +345,7 @@ void request::run(int timeout_in_s)
   _response_headers.clear();
 
   build_request_time();
-
-  if (_authenticator)
-    _authenticator->sign(this);
+  service::sign(this);
 
   for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
     headers = curl_slist_append(headers, (itor->first + ": " + itor->second).c_str());

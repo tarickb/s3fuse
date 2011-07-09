@@ -3,7 +3,7 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 
-#include "aws_authenticator.h"
+#include "aws_service_impl.h"
 #include "config.h"
 #include "logger.h"
 #include "request.h"
@@ -29,7 +29,7 @@ namespace
   }
 }
 
-aws_authenticator::aws_authenticator()
+aws_service_impl::aws_service_impl()
 {
   vector<string> fields;
 
@@ -38,7 +38,7 @@ aws_authenticator::aws_authenticator()
   if (fields.size() != 2) {
     S3_LOG(
       LOG_CRIT, 
-      "aws_authenticator::aws_authenticator", 
+      "aws_service_impl::aws_service_impl", 
       "expected 2 fields for auth_data, found %i.\n",
       fields.size());
 
@@ -49,17 +49,17 @@ aws_authenticator::aws_authenticator()
   _secret = fields[1];
 }
 
-const string & aws_authenticator::get_url_prefix()
+const string & aws_service_impl::get_url_prefix()
 {
   return AWS_URL_PREFIX;
 }
 
-const string & aws_authenticator::get_xml_namespace()
+const string & aws_service_impl::get_xml_namespace()
 {
   return AWS_XML_NAMESPACE;
 }
 
-void aws_authenticator::sign(request *req)
+void aws_service_impl::sign(request *req)
 {
   const header_map &headers = req->get_headers();
   string to_sign = 

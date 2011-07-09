@@ -19,7 +19,6 @@
  * limitations under the License.
  */
 
-#include "authenticator.h"
 #include "logger.h"
 #include "request.h"
 #include "thread_pool.h"
@@ -68,9 +67,9 @@ namespace s3
           (_time_in_request / _time_in_function) * 100.0);
     }
 
-    static ptr create(const thread_pool::ptr &pool, const authenticator::ptr &auth)
+    static ptr create(const thread_pool::ptr &pool)
     {
-      ptr wt(new _worker_thread(pool, auth));
+      ptr wt(new _worker_thread(pool));
 
       // passing "wt", a shared_ptr, for "this" keeps the object alive so long as worker() hasn't returned
       wt->_thread.reset(new thread(bind(&_worker_thread::worker, wt)));
@@ -99,8 +98,8 @@ namespace s3
     }
 
   private:
-    _worker_thread(const thread_pool::ptr &pool, const authenticator::ptr &auth)
-      : _request(new request(auth)),
+    _worker_thread(const thread_pool::ptr &pool)
+      : _request(new request()),
         _time_in_function(0.),
         _time_in_request(0.),
         _pool(pool)
@@ -181,20 +180,19 @@ namespace s3
   };
 }
 
-thread_pool::thread_pool(const string &id, const authenticator::ptr &auth)
-  : _auth(auth),
-    _id(id),
+thread_pool::thread_pool(const string &id)
+  : _id(id),
     _done(false),
     _respawn_counter(0)
 {
 }
 
-thread_pool::ptr thread_pool::create(const string &id, const authenticator::ptr &auth, int num_threads)
+thread_pool::ptr thread_pool::create(const string &id, int num_threads)
 {
-  thread_pool::ptr tp(new thread_pool(id, auth));
+  thread_pool::ptr tp(new thread_pool(id));
 
   for (int i = 0; i < num_threads; i++)
-    tp->_threads.push_back(_worker_thread::create(tp, auth));
+    tp->_threads.push_back(_worker_thread::create(tp));
 
   tp->_watchdog_thread.reset(new thread(bind(&thread_pool::watchdog, tp.get())));
 
@@ -282,7 +280,7 @@ void thread_pool::watchdog()
     }
 
     for (int i = 0; i < respawn; i++)
-      _threads.push_back(_worker_thread::create(shared_from_this(), _auth));
+      _threads.push_back(_worker_thread::create(shared_from_this()));
 
     _respawn_counter += respawn;
     usleep(1e6);

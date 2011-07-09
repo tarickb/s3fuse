@@ -2,7 +2,7 @@
 #include <boost/property_tree/ptree.hpp>
 
 #include "config.h"
-#include "gs_authenticator.h"
+#include "gs_service_impl.h"
 #include "logger.h"
 #include "request.h"
 #include "util.h"
@@ -23,17 +23,17 @@ namespace
   const string GS_OAUTH_SCOPE = "https://www.googleapis.com/auth/devstorage.read_write";
 }
 
-const string & gs_authenticator::get_client_id()
+const string & gs_service_impl::get_client_id()
 {
   return GS_CLIENT_ID;
 }
 
-const string & gs_authenticator::get_oauth_scope()
+const string & gs_service_impl::get_oauth_scope()
 {
   return GS_OAUTH_SCOPE;
 }
 
-void gs_authenticator::get_tokens(get_tokens_mode mode, const string &key, string *access_token, string *refresh_token, time_t *expiry)
+void gs_service_impl::get_tokens(get_tokens_mode mode, const string &key, string *access_token, string *refresh_token, time_t *expiry)
 {
   request req;
   string data;
@@ -63,7 +63,7 @@ void gs_authenticator::get_tokens(get_tokens_mode mode, const string &key, strin
   req.run();
 
   if (req.get_response_code() != 200) {
-    S3_LOG(LOG_CRIT, "gs_authenticator::get_tokens", "token endpoint returned %i.\n", req.get_response_code());
+    S3_LOG(LOG_CRIT, "gs_service_impl::get_tokens", "token endpoint returned %i.\n", req.get_response_code());
     throw runtime_error("failed to get tokens.");
   }
 
@@ -77,7 +77,7 @@ void gs_authenticator::get_tokens(get_tokens_mode mode, const string &key, strin
   *expiry = time(NULL) + tree.get<int>("expires_in");
 }
 
-gs_authenticator::gs_authenticator()
+gs_service_impl::gs_service_impl()
   : _expiry(0)
 {
   mutex::scoped_lock lock(_mutex);
@@ -93,17 +93,17 @@ gs_authenticator::gs_authenticator()
   refresh(lock);
 }
 
-const string & gs_authenticator::get_url_prefix()
+const string & gs_service_impl::get_url_prefix()
 {
   return GS_URL_PREFIX;
 }
 
-const string & gs_authenticator::get_xml_namespace()
+const string & gs_service_impl::get_xml_namespace()
 {
   return GS_XML_NAMESPACE;
 }
 
-void gs_authenticator::sign(request *req)
+void gs_service_impl::sign(request *req)
 {
   mutex::scoped_lock lock(_mutex);
 
@@ -113,11 +113,11 @@ void gs_authenticator::sign(request *req)
   req->set_header("Authorization", _access_token);
 }
 
-void gs_authenticator::refresh(const mutex::scoped_lock &lock)
+void gs_service_impl::refresh(const mutex::scoped_lock &lock)
 {
   string new_refresh;
 
-  gs_authenticator::get_tokens(
+  gs_service_impl::get_tokens(
     GT_REFRESH, 
     _refresh_token, 
     &_access_token,
@@ -126,7 +126,7 @@ void gs_authenticator::refresh(const mutex::scoped_lock &lock)
 
   S3_LOG(
     LOG_DEBUG, 
-    "gs_authenticator::refresh", 
+    "gs_service_impl::refresh", 
     "using refresh [%s], got refresh [%s] and access [%s].\n",
     _refresh_token.c_str(),
     new_refresh.c_str(),

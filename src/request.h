@@ -33,7 +33,6 @@
 
 namespace s3
 {
-  class authenticator;
   class object;
   class worker_thread;
 
@@ -56,7 +55,7 @@ namespace s3
 
     typedef boost::shared_ptr<request> ptr;
 
-    request(const boost::shared_ptr<authenticator> &authenticator = boost::shared_ptr<authenticator>());
+    request();
     ~request();
 
     void init(http_method method);
@@ -132,8 +131,6 @@ namespace s3
 
     bool _canceled;
     time_t _timeout;
-
-    boost::shared_ptr<authenticator> _authenticator;
   };
 }
 

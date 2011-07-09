@@ -1,5 +1,5 @@
-#ifndef S3_AUTHENTICATOR_H
-#define S3_AUTHENTICATOR_H
+#ifndef S3_SERVICE_IMPL_H
+#define S3_SERVICE_IMPL_H
 
 #include <string>
 #include <boost/smart_ptr.hpp>
@@ -8,12 +8,10 @@ namespace s3
 {
   class request;
 
-  class authenticator
+  class service_impl
   {
   public:
-    typedef boost::shared_ptr<authenticator> ptr;
-
-    static ptr create(const std::string &service);
+    typedef boost::shared_ptr<service_impl> ptr;
 
     virtual const std::string & get_url_prefix() = 0;
     virtual const std::string & get_xml_namespace() = 0;

@@ -23,13 +23,13 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "authenticator.h"
 #include "config.h"
 #include "logger.h"
 #include "file_transfer.h"
 #include "fs.h"
 #include "mutexes.h"
 #include "request.h"
+#include "service.h"
 #include "util.h"
 #include "xml.h"
 
@@ -66,12 +66,11 @@ namespace
 
 fs::fs()
 {
-  authenticator::ptr auth = authenticator::create(config::get_service());
+  service::init(config::get_service());
+  xml::init(service::get_xml_namespace());
 
-  xml::init(auth->get_xml_namespace());
-
-  _tp_fg = thread_pool::create("fs-fg", auth);
-  _tp_bg = thread_pool::create("fs-bg", auth);
+  _tp_fg = thread_pool::create("fs-fg");
+  _tp_bg = thread_pool::create("fs-bg");
   _mutexes.reset(new mutexes()),
   _object_cache.reset(new object_cache(_tp_fg, _mutexes, file_transfer::ptr(new file_transfer(_tp_fg, _tp_bg))));
 }

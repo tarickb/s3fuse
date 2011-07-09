@@ -1,15 +1,15 @@
-#ifndef S3_GS_AUTHENTICATOR_H
-#define S3_GS_AUTHENTICATOR_H
+#ifndef S3_GS_SERVICE_IMPL_H
+#define S3_GS_SERVICE_IMPL_H
 
 #include <boost/thread.hpp>
 
-#include "authenticator.h"
+#include "service_impl.h"
 
 namespace s3
 {
   class request;
 
-  class gs_authenticator : public authenticator
+  class gs_service_impl : public service_impl
   {
   public:
     enum get_tokens_mode
@@ -22,7 +22,7 @@ namespace s3
     static const std::string & get_oauth_scope();
     static void get_tokens(get_tokens_mode mode, const std::string &key, std::string *access_token, std::string *refresh_token, time_t *expiry);
 
-    gs_authenticator();
+    gs_service_impl();
 
     virtual const std::string & get_url_prefix();
     virtual const std::string & get_xml_namespace();

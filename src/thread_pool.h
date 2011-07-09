@@ -34,7 +34,6 @@
 
 namespace s3
 {
-  class authenticator;
   class request;
 
   class _async_handle;
@@ -55,7 +54,7 @@ namespace s3
     static const int DEFAULT_NUM_THREADS = 8;
     static const int DEFAULT_TIMEOUT_IN_S = 3600;
 
-    static ptr create(const std::string &id, const boost::shared_ptr<authenticator> &auth, int num_threads = DEFAULT_NUM_THREADS);
+    static ptr create(const std::string &id, int num_threads = DEFAULT_NUM_THREADS);
 
     inline int call(const worker_function &fn)
     {
@@ -77,7 +76,7 @@ namespace s3
     typedef boost::shared_ptr<_worker_thread> wt_ptr;
     typedef std::list<wt_ptr> wt_list;
 
-    thread_pool(const std::string &id, const boost::shared_ptr<authenticator> &auth);
+    thread_pool(const std::string &id);
 
     _queue_item get_next_queue_item();
     void on_done(const async_handle &ah, int return_code);
@@ -88,7 +87,6 @@ namespace s3
     boost::mutex _list_mutex, _ah_mutex;
     boost::condition _list_condition, _ah_condition;
     boost::scoped_ptr<boost::thread> _watchdog_thread;
-    boost::shared_ptr<authenticator> _auth;
     std::string _id;
     bool _done;
     int _respawn_counter;

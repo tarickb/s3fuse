@@ -1,16 +1,16 @@
-#ifndef S3_AWS_AUTHENTICATOR_H
-#define S3_AWS_AUTHENTICATOR_H
+#ifndef S3_AWS_SERVICE_IMPL_H
+#define S3_AWS_SERVICE_IMPL_H
 
-#include "authenticator.h"
+#include "service_impl.h"
 
 namespace s3
 {
   class request;
 
-  class aws_authenticator : public authenticator
+  class aws_service_impl : public service_impl
   {
   public:
-    aws_authenticator();
+    aws_service_impl();
 
     virtual const std::string & get_url_prefix();
     virtual const std::string & get_xml_namespace();
