@@ -19,6 +19,10 @@
  * limitations under the License.
  */
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -41,20 +45,22 @@ namespace
   const string GS_XML_NAMESPACE = "http://doc.s3.amazonaws.com/2006-03-01"; // "http://doc.commondatastorage.googleapis.com/2010-04-03";
 
   const string GS_EP_TOKEN = "https://accounts.google.com/o/oauth2/token";
-  const string GS_OAUTH_SCOPE = "https://www.googleapis.com/auth/devstorage.read_write";
+  const string GS_OAUTH_SCOPE = "https%3a%2f%2fwww.googleapis.com%2fauth%2fdevstorage.read_write";
 
-  const string GS_CLIENT_ID = "45323348671.apps.googleusercontent.com";
-  const string GS_CLIENT_SECRET = "vuN7FOnK1elQtqze_R9dE3tM";
+  const string GS_CLIENT_ID = "591551582755.apps.googleusercontent.com";
+  const string GS_CLIENT_SECRET = "CQAaXZWfWJKdy_IV7TNZfO1P";
+
+  const string GS_NEW_TOKEN_URL = 
+    "https://accounts.google.com/o/oauth2/auth?"
+    "client_id=" + GS_CLIENT_ID + "&"
+    "redirect_uri=urn%3aietf%3awg%3aoauth%3a2.0%3aoob&"
+    "scope=" + GS_OAUTH_SCOPE + "&"
+    "response_type=code";
 }
 
-const string & gs_service_impl::get_client_id()
+const string & gs_service_impl::get_new_token_url()
 {
-  return GS_CLIENT_ID;
-}
-
-const string & gs_service_impl::get_oauth_scope()
-{
-  return GS_OAUTH_SCOPE;
+  return GS_NEW_TOKEN_URL;
 }
 
 void gs_service_impl::get_tokens(get_tokens_mode mode, const string &key, string *access_token, time_t *expiry, string *refresh_token)
@@ -101,19 +107,45 @@ void gs_service_impl::get_tokens(get_tokens_mode mode, const string &key, string
     *refresh_token = tree.get<string>("refresh_token");
 }
 
+void gs_service_impl::write_token(const string &file, const string &token)
+{
+  ofstream f(file.c_str(), ios::out | ios::trunc);
+
+  if (!f.good())
+    throw runtime_error("unable to open/create token file.");
+
+  if (chmod(file.c_str(), S_IRUSR | S_IWUSR))
+    throw runtime_error("failed to set permissions on token file.");
+
+  f << token << endl;
+}
+
+string gs_service_impl::read_token(const string &file)
+{
+  ifstream f(file.c_str(), ios::in);
+  struct stat s;
+  string token;
+
+  if (!f.good())
+    throw runtime_error("unable to open token file.");
+
+  if (stat(file.c_str(), &s))
+    throw runtime_error("unable to stat token file.");
+
+  if ((s.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) != (S_IRUSR | S_IWUSR))
+    throw runtime_error("token file must be readable/writeable only by owner.");
+
+  getline(f, token);
+
+  return token;
+}
+
 gs_service_impl::gs_service_impl()
   : _expiry(0)
 {
   mutex::scoped_lock lock(_mutex);
-  ifstream f(config::get_auth_data().c_str(), ios_base::in);
 
-  // TODO: check permissions on token file
-
-  if (!f.good())
-    throw runtime_error("failed to open token file.");
-
-  getline(f, _refresh_token);
-
+  _refresh_token = gs_service_impl::read_token(config::get_auth_data());
   refresh(lock);
 }
 

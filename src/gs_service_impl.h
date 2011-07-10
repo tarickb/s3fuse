@@ -39,9 +39,11 @@ namespace s3
       GT_REFRESH
     };
 
-    static const std::string & get_client_id();
-    static const std::string & get_oauth_scope();
+    static const std::string & get_new_token_url();
     static void get_tokens(get_tokens_mode mode, const std::string &key, std::string *access_token, time_t *expiry, std::string *refresh_token);
+
+    static void write_token(const std::string &file, const std::string &token);
+    static std::string read_token(const std::string &file);
 
     gs_service_impl();
 
