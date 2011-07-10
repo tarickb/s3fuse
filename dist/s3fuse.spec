@@ -2,7 +2,7 @@
 
 %define debug_package %{nil}
 
-Summary: FUSE Driver for AWS S3
+Summary: FUSE Driver for AWS S3 and Google Storage
 Name: %{name}
 Version: %{version}
 Release: %{release}
@@ -12,7 +12,7 @@ BuildRoot: %{_builddir}/%{name}-root
 License: Apache-2.0
 
 %description
-Provides a FUSE filesystem driver for Amazon AWS S3 buckets.
+Provides a FUSE filesystem driver for Amazon AWS S3 and Google Storage buckets.
 
 %prep
 %setup -q -n %{name}-%{version}
@@ -37,4 +37,5 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root)
 %config /etc/s3fuse.conf
 /usr/bin/s3fuse
+/usr/bin/s3fuse_gs_get_token
 /usr/bin/xattr

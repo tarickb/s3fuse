@@ -1,11 +1,12 @@
 s3fuse
 ======
 
-s3fuse is a FUSE (Filesystem in Userspace) driver for Amazon S3.
+s3fuse is a FUSE (Filesystem in Userspace) driver for Amazon S3 and Google 
+Storage.
 
 - For notes on building and installing s3fuse, see INSTALL.
 - For copyright/license information, see COPYING.
-- For notes on running s3fuse, keep reading.
+- For notes on configuring and running s3fuse, keep reading.
 
 Goals
 -----
@@ -23,6 +24,39 @@ Known Issues
 
 - Reduced-redundancy storage (RRS) is not supported.
 - No attempt is made to match MIME types to file extensions.
+- Directory representation is not compatible with Google Storage Manager.  In
+  practice, this means:
+  - Directories created by s3fuse appear to contain an empty, unnamed file in
+    Google Storage Manager.
+  - s3fuse lists empty directories created by Google Storage Manager as 
+    regular files named <directory-name>_$folder$.
+  - s3fuse cannot list the contents of directories created by Google Storage 
+    Manager.
+
+Configuration
+-------------
+
+Edit /etc/s3fuse.conf after installing.  The following keys must be defined:
+
+  - service: This must be either "aws" or "google-storage".
+  - bucket_name: This is the name of your S3 bucket.
+  - auth_data: Authentication data (service-specific, see below).
+
+auth_data for Amazon Web Services:
+
+  For Amazon S3, set auth_data to the AWS Access Key ID followed by a space,
+  followed by the AWS Secret Access Key, e.g.:
+
+    auth_data=AAAAAAAAAAAAAAAAAAAA 11111111111111111111111111/AAAAAAAAAAAAA
+
+  AWS credentials can be obtained using Amazon's AWS console.  The console 
+  can also be used to create an S3 bucket.
+
+auth_data for Google Storage:
+
+  For Google Storage, set auth_data to the name of a file containing an OAuth
+  refresh token created by s3fuse_gs_get_token.  This file should have its
+  mode set such that only the owner has read or write permissions.
 
 Running
 -------
