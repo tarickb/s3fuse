@@ -15,14 +15,25 @@ namespace s3
   public:
     static void init(const std::string &service);
 
-    inline static const std::string & get_header_prefix() { return s_impl->get_header_prefix(); }
-    inline static const std::string & get_url_prefix() { return s_impl->get_url_prefix(); }
-    inline static const std::string & get_xml_namespace() { return s_impl->get_xml_namespace(); }
+    // allow calls to succeed if s_impl is NULL because service::* methods are
+    // used during service_impl class initialization.
 
-    inline static void sign(request *req) { s_impl->sign(req); }
+    inline static const std::string & get_header_prefix() { return s_impl ? s_impl->get_header_prefix() : s_empty_string; }
+    inline static const std::string & get_url_prefix() { return s_impl ? s_impl->get_url_prefix() : s_empty_string; }
+    inline static const std::string & get_xml_namespace() { return s_impl ? s_impl->get_xml_namespace() : s_empty_string; }
+
+    inline static bool is_multipart_download_supported() { return s_impl ? s_impl->is_multipart_download_supported() : false; }
+    inline static bool is_multipart_upload_supported() { return s_impl ? s_impl->is_multipart_upload_supported() : false; }
+
+    inline static void sign(request *req)
+    {
+      if (s_impl)
+        s_impl->sign(req); 
+    }
 
   private:
     static service_impl::ptr s_impl;
+    static std::string s_empty_string;
   };
 }
 

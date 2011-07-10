@@ -111,6 +111,16 @@ const string & gs_service_impl::get_xml_namespace()
   return GS_XML_NAMESPACE;
 }
 
+bool gs_service_impl::is_multipart_download_supported()
+{
+  return true;
+}
+
+bool gs_service_impl::is_multipart_upload_supported()
+{
+  return false;
+}
+
 void gs_service_impl::sign(request *req)
 {
   mutex::scoped_lock lock(_mutex);

@@ -110,6 +110,9 @@ int object::set_metadata(const string &key, const string &value, int flags)
   if (strncmp(key.c_str(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) == 0)
     return -EINVAL;
 
+  if (key == "__md5__" || key == "__etag__" || key == "__content_type__")
+    return -EINVAL;
+
   if (flags & XATTR_CREATE && itor != _metadata.end())
     return -EEXIST;
 

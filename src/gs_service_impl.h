@@ -28,6 +28,9 @@ namespace s3
     virtual const std::string & get_url_prefix();
     virtual const std::string & get_xml_namespace();
 
+    virtual bool is_multipart_download_supported();
+    virtual bool is_multipart_upload_supported();
+
     virtual void sign(request *req);
 
   private:

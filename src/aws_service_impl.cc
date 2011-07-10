@@ -65,6 +65,16 @@ const string & aws_service_impl::get_xml_namespace()
   return AWS_XML_NAMESPACE;
 }
 
+bool aws_service_impl::is_multipart_download_supported()
+{
+  return true;
+}
+
+bool aws_service_impl::is_multipart_upload_supported()
+{
+  return true;
+}
+
 void aws_service_impl::sign(request *req)
 {
   const header_map &headers = req->get_headers();

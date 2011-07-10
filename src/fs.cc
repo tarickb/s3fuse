@@ -357,8 +357,6 @@ int fs::__read_directory(const request::ptr &req, const string &_path, const obj
     if (req->get_response_code() != 200)
       return -EIO;
 
-    S3_LOG(LOG_DEBUG, "fs::__read_directory", "response: %s\n", req->get_response_data().c_str());
-
     doc = xml::parse(req->get_response_data());
 
     if (!doc) {

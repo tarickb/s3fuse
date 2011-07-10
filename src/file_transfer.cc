@@ -26,6 +26,7 @@
 #include "logger.h"
 #include "object.h"
 #include "request.h"
+#include "service.h"
 #include "thread_pool.h"
 #include "util.h"
 #include "xml.h"
@@ -118,7 +119,7 @@ int file_transfer::__download(const request::ptr &req, const object::ptr &obj, i
   size_t size = obj->get_size();
   const string &url = obj->get_url(), &expected_md5 = obj->get_md5();
 
-  if (size > config::get_download_chunk_size())
+  if (service::is_multipart_download_supported() && size > config::get_download_chunk_size())
     r = download_multi(url, size, fd);
   else
     r = download_single(req, url, fd);
@@ -213,7 +214,7 @@ int file_transfer::__upload(const request::ptr &req, const object::ptr &obj, int
 
   size = obj->get_size();
 
-  if (size > config::get_upload_chunk_size())
+  if (service::is_multipart_upload_supported() && size > config::get_upload_chunk_size())
     return upload_multi(req, obj, size, fd);
   else
     return upload_single(req, obj, size, fd);
