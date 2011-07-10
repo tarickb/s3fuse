@@ -392,25 +392,25 @@ void request::run(int timeout_in_s)
       continue;
     }
 
-		if (r == CURLE_OK) {
-			TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &elapsed_time));
+    if (r == CURLE_OK) {
+      TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &elapsed_time));
 
-			// don't save the time for the first request since it's likely to be disproportionately large
-			if (_run_count > 0)
-				_total_run_time += elapsed_time;
+      // don't save the time for the first request since it's likely to be disproportionately large
+      if (_run_count > 0)
+        _total_run_time += elapsed_time;
 
-			// but save it in _current_run_time since it's compared to overall function time (i.e., it's relative)
-			_current_run_time += elapsed_time;
+      // but save it in _current_run_time since it's compared to overall function time (i.e., it's relative)
+      _current_run_time += elapsed_time;
 
-			_run_count++;
-		}
+      _run_count++;
+    }
 
-		// break on CURLE_OK or some other error where we don't want to try the request again
-		break;
+    // break on CURLE_OK or some other error where we don't want to try the request again
+    break;
   }
 
-	if (r != CURLE_OK)
-		throw runtime_error(_curl_error);
+  if (r != CURLE_OK)
+    throw runtime_error(_curl_error);
 
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code));
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
