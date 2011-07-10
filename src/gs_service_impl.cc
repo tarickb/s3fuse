@@ -89,6 +89,7 @@ void gs_service_impl::get_tokens(get_tokens_mode mode, const string &key, string
   req.init(HTTP_POST);
   req.set_full_url(GS_EP_TOKEN);
   req.set_input_data(data);
+  req.disable_signing();
 
   req.run();
 
@@ -178,8 +179,14 @@ void gs_service_impl::sign(request *req, bool last_sign_failed)
 {
   mutex::scoped_lock lock(_mutex);
 
-  if (last_sign_failed || time(NULL) >= _expiry)
+  // TODO: remove this
+  if (time(NULL) >= _expiry)
+    S3_LOG(LOG_CRIT, "gs_service_impl::sign", "TOKEN EXPIRED BUT TRYING ANYWAY!\n");
+
+  if (last_sign_failed) { // || time(NULL) >= _expiry) 
+    S3_LOG(LOG_CRIT, "gs_service_impl::sign", "refreshing token...\n");
     refresh(lock);
+  }
 
   req->set_header("Authorization", _access_token);
   req->set_header("x-goog-api-version", "2");

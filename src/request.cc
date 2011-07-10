@@ -97,6 +97,7 @@ void request::init(http_method method)
   _last_modified = 0;
   _headers.clear();
   _target_object.reset();
+  _sign = true;
 
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_UPLOAD, false));
@@ -344,11 +345,14 @@ void request::run(int timeout_in_s)
 
   for (int i = 0; i < 2; i++) {
     build_request_time();
-    service::sign(this, (i == 1));
+
+    if (_sign)
+      service::sign(this, (i == 1));
 
     internal_run(timeout_in_s);
 
-    if (_response_code != 401)
+    // TODO: replace with constants
+    if (!_sign || (_response_code != 401 && _response_code != 403))
       break;
   }
 }
@@ -420,7 +424,7 @@ void request::internal_run(int timeout_in_s)
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
 
   if (_response_code >= 300 && _response_code != 404)
-    S3_LOG(LOG_WARNING, "request::run", "request for [%s] failed with response: %s\n", _url.c_str(), _output_data.c_str());
+    S3_LOG(LOG_WARNING, "request::run", "request for [%s] failed with code %i and response: %s\n", _url.c_str(), _response_code, _output_data.c_str());
 
   if (_target_object)
     _target_object->request_process_response(this);

@@ -31,7 +31,6 @@ using namespace std;
 using namespace s3;
 
 service_impl::ptr service::s_impl;
-string service::s_empty_string;
 
 void service::init(const string &service)
 {

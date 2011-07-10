@@ -87,6 +87,8 @@ namespace s3
     inline void reset_current_run_time() { _current_run_time = 0.0; }
     inline double get_current_run_time() { return _current_run_time; }
 
+    inline void disable_signing() { _sign = false; }
+
     void set_meta_headers(const boost::shared_ptr<object> &object);
 
     bool check_timeout();
@@ -104,7 +106,7 @@ namespace s3
 
     void internal_run(int timeout_in_s);
 
-    // review reset() when making changes here
+    // review init() when making changes here
     CURL *_curl;
     char _curl_error[CURL_ERROR_SIZE];
 
@@ -133,6 +135,8 @@ namespace s3
 
     bool _canceled;
     time_t _timeout;
+
+    bool _sign;
   };
 }
 
