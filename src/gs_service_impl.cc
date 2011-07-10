@@ -179,14 +179,8 @@ void gs_service_impl::sign(request *req, bool last_sign_failed)
 {
   mutex::scoped_lock lock(_mutex);
 
-  // TODO: remove this
-  if (time(NULL) >= _expiry)
-    S3_LOG(LOG_CRIT, "gs_service_impl::sign", "TOKEN EXPIRED BUT TRYING ANYWAY!\n");
-
-  if (last_sign_failed) { // || time(NULL) >= _expiry) 
-    S3_LOG(LOG_CRIT, "gs_service_impl::sign", "refreshing token...\n");
+  if (last_sign_failed || time(NULL) >= _expiry) 
     refresh(lock);
-  }
 
   req->set_header("Authorization", _access_token);
   req->set_header("x-goog-api-version", "2");
