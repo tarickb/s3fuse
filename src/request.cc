@@ -328,9 +328,6 @@ bool request::check_timeout()
 
 void request::run(int timeout_in_s)
 {
-  int r = CURLE_OK;
-  curl_slist *headers = NULL;
-
   // sanity
   if (_url.empty())
     throw runtime_error("call set_url() first!");
@@ -341,11 +338,28 @@ void request::run(int timeout_in_s)
   if (_canceled)
     throw runtime_error("cannot reuse a canceled request.");
 
+  // run twice. if we fail with a 401 (unauthorized) error, try again but tell
+  // service::sign() that we failed on the last try. this allows GS, in 
+  // particular, to refresh its access token.
+
+  for (int i = 0; i < 2; i++) {
+    build_request_time();
+    service::sign(this, (i == 1));
+
+    internal_run(timeout_in_s);
+
+    if (_response_code != 401)
+      break;
+  }
+}
+
+void request::internal_run(int timeout_in_s)
+{
+  int r = CURLE_OK;
+  curl_slist *headers = NULL;
+
   _output_data.clear();
   _response_headers.clear();
-
-  build_request_time();
-  service::sign(this);
 
   for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
     headers = curl_slist_append(headers, (itor->first + ": " + itor->second).c_str());
@@ -365,20 +379,6 @@ void request::run(int timeout_in_s)
     if (_canceled)
       throw runtime_error("request timed out.");
 
-    TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &elapsed_time));
-
-    // don't save the time for the first request since it's likely to be disproportionately large
-    if (_run_count > 0)
-      _total_run_time += elapsed_time;
-
-    // but save it in _current_run_time since it's compared to overall function time (i.e., it's relative)
-    _current_run_time += elapsed_time;
-
-    _run_count++;
-
-    if (r == CURLE_OK)
-      break;
-
     if (
       r == CURLE_COULDNT_RESOLVE_PROXY || 
       r == CURLE_COULDNT_RESOLVE_HOST || 
@@ -394,8 +394,23 @@ void request::run(int timeout_in_s)
     {
       S3_LOG(LOG_WARNING, "request::run", "got error [%s]. retrying.\n", _curl_error);
       continue;
-    } else
-      break;
+    }
+
+    if (r == CURLE_OK) {
+      TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &elapsed_time));
+
+      // don't save the time for the first request since it's likely to be disproportionately large
+      if (_run_count > 0)
+        _total_run_time += elapsed_time;
+
+      // but save it in _current_run_time since it's compared to overall function time (i.e., it's relative)
+      _current_run_time += elapsed_time;
+
+      _run_count++;
+    }
+
+    // break on CURLE_OK or some other error where we don't want to try the request again
+    break;
   }
 
   if (r != CURLE_OK)

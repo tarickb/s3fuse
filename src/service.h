@@ -46,10 +46,11 @@ namespace s3
     inline static bool is_multipart_download_supported() { return s_impl ? s_impl->is_multipart_download_supported() : false; }
     inline static bool is_multipart_upload_supported() { return s_impl ? s_impl->is_multipart_upload_supported() : false; }
 
-    inline static void sign(request *req)
+    // set last_sign_failed = true if the last sign() attempt failed.
+    inline static void sign(request *req, bool last_sign_failed)
     {
       if (s_impl)
-        s_impl->sign(req); 
+        s_impl->sign(req, last_sign_failed); 
     }
 
   private:

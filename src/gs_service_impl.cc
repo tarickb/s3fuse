@@ -174,11 +174,11 @@ bool gs_service_impl::is_multipart_upload_supported()
   return false;
 }
 
-void gs_service_impl::sign(request *req)
+void gs_service_impl::sign(request *req, bool last_sign_failed)
 {
   mutex::scoped_lock lock(_mutex);
 
-  if (time(NULL) >= _expiry)
+  if (last_sign_failed || time(NULL) >= _expiry)
     refresh(lock);
 
   req->set_header("Authorization", _access_token);

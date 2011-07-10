@@ -102,6 +102,8 @@ namespace s3
     void build_request_time();
     void build_signature();
 
+    void internal_run(int timeout_in_s);
+
     // review reset() when making changes here
     CURL *_curl;
     char _curl_error[CURL_ERROR_SIZE];

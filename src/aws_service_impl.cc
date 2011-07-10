@@ -96,7 +96,7 @@ bool aws_service_impl::is_multipart_upload_supported()
   return true;
 }
 
-void aws_service_impl::sign(request *req)
+void aws_service_impl::sign(request *req, bool last_sign_failed)
 {
   const header_map &headers = req->get_headers();
   string to_sign = 

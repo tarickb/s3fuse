@@ -41,7 +41,7 @@ namespace s3
     virtual bool is_multipart_download_supported() = 0;
     virtual bool is_multipart_upload_supported() = 0;
 
-    virtual void sign(request *req) = 0;
+    virtual void sign(request *req, bool last_sign_failed) = 0;
   };
 }
 

@@ -40,7 +40,7 @@ namespace s3
     virtual bool is_multipart_download_supported();
     virtual bool is_multipart_upload_supported();
 
-    virtual void sign(request *req);
+    virtual void sign(request *req, bool last_sign_failed);
 
   private:
     std::string _key, _secret;
