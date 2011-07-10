@@ -45,18 +45,28 @@ Edit /etc/s3fuse.conf after installing.  The following keys must be defined:
 auth_data for Amazon Web Services:
 
   For Amazon S3, set auth_data to the AWS Access Key ID followed by a space,
-  followed by the AWS Secret Access Key, e.g.:
+  followed by the AWS Secret Access Key, i.e.:
 
-    auth_data=AAAAAAAAAAAAAAAAAAAA 11111111111111111111111111/AAAAAAAAAAAAA
+    auth_data=<aws-access-key-id> <aws-secret-access-key>
 
   AWS credentials can be obtained using Amazon's AWS console.  The console 
   can also be used to create an S3 bucket.
 
 auth_data for Google Storage:
 
-  For Google Storage, set auth_data to the name of a file containing an OAuth
-  refresh token created by s3fuse_gs_get_token.  This file should have its
-  mode set such that only the owner has read or write permissions.
+  To use Google Storage with OAuth, run s3fuse_gs_get_token to obtain a token:
+
+    s3fuse_gs_get_token <path-to-token-file>
+
+  This utility will generate a URL that must be copied and pasted into the 
+  address bar of a browser.  You will then be asked to sign into your Google
+  account (if not already signed in), and then asked to grant Google Storage
+  access rights to s3fuse.  After accepting, return to s3fuse_gs_get_token and
+  enter the authentication code.
+
+  Next, set auth_data in s3fuse.conf to the location of the token file, e.g.:
+
+    auth_data=/home/user/.s3fuse/gs.token
 
 Running
 -------
