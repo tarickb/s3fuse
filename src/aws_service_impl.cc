@@ -55,7 +55,7 @@ aws_service_impl::aws_service_impl()
 {
   vector<string> fields;
 
-  split(fields, config::get_auth_data(), is_any_of(" \t"), token_compress_on);
+  split(fields, config::get_auth_data(), is_any_of(string(" \t")), token_compress_on);
 
   if (fields.size() != 2) {
     S3_LOG(
