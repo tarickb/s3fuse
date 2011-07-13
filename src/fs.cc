@@ -251,7 +251,8 @@ int fs::__get_stats(const request::ptr &req, const string &path, struct stat *s,
 
 int fs::__rename_object(const request::ptr &req, const string &from, const string &to)
 {
-  object::ptr obj;
+  int r;
+  object::ptr obj, target_obj;
 
   ASSERT_NO_TRAILING_SLASH(from);
   ASSERT_NO_TRAILING_SLASH(to);
@@ -261,13 +262,28 @@ int fs::__rename_object(const request::ptr &req, const string &from, const strin
   if (!obj)
     return -ENOENT;
 
-  if (_object_cache->get(req, to))
-    return -EEXIST;
+  target_obj = _object_cache->get(req, to);
+
+  if (target_obj) {
+    if (
+      (obj->get_type() == OT_DIRECTORY && target_obj->get_type() != OT_DIRECTORY) ||
+      (obj->get_type() != OT_DIRECTORY && target_obj->get_type() == OT_DIRECTORY)
+    )
+      return -EINVAL;
+
+    // TODO: this doesn't handle the case where "to" points to a directory
+    // that isn't empty.
+
+    r = __remove_object(req, to);
+
+    if (r)
+      return r;
+  }
 
   if (obj->get_type() == OT_DIRECTORY)
     return rename_children(req, from, to);
   else {
-    int r = copy_file(req, from, to);
+    r = copy_file(req, from, to);
 
     if (r)
       return r;
