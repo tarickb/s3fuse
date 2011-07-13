@@ -94,7 +94,7 @@ int open_file::init()
   if (r)
     _error = r;
 
-  S3_LOG(LOG_WARNING, "open_file::init", "file [%s] ready.\n", _obj->get_path().c_str());
+  S3_LOG(LOG_DEBUG, "open_file::init", "file [%s] ready.\n", _obj->get_path().c_str());
 
   _status |= FS_READY | FS_FLUSHABLE | FS_WRITEABLE;
   _mutexes->get_file_status_condition().notify_all();
