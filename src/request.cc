@@ -351,8 +351,7 @@ void request::run(int timeout_in_s)
 
     internal_run(timeout_in_s);
 
-    // TODO: replace with constants
-    if (!_sign || (_response_code != 401 && _response_code != 403))
+    if (!_sign || (_response_code != HTTP_SC_UNAUTHORIZED && _response_code != HTTP_SC_FORBIDDEN))
       break;
   }
 }
@@ -423,7 +422,7 @@ void request::internal_run(int timeout_in_s)
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code));
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
 
-  if (_response_code >= 300 && _response_code != 404)
+  if (_response_code >= HTTP_SC_MULTIPLE_CHOICES && _response_code != HTTP_SC_NOT_FOUND)
     S3_LOG(LOG_WARNING, "request::run", "request for [%s] failed with code %i and response: %s\n", _url.c_str(), _response_code, _output_data.c_str());
 
   if (_target_object)

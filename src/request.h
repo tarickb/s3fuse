@@ -45,6 +45,19 @@ namespace s3
     HTTP_PUT
   };
 
+  enum http_status_code
+  {
+    HTTP_SC_OK = 200,
+    HTTP_SC_NO_CONTENT = 204,
+    HTTP_SC_PARTIAL_CONTENT = 206,
+    HTTP_SC_MULTIPLE_CHOICES = 300,
+    HTTP_SC_UNAUTHORIZED = 401,
+    HTTP_SC_FORBIDDEN = 403,
+    HTTP_SC_NOT_FOUND = 404,
+    HTTP_SC_INTERNAL_SERVER_ERROR = 500,
+    HTTP_SC_SERVICE_UNAVAILABLE = 503
+  };
+
   typedef std::map<std::string, std::string> header_map;
   typedef boost::shared_ptr<header_map> header_map_ptr;
 

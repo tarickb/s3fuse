@@ -88,7 +88,7 @@ int fs::remove_object(const request::ptr &req, const string &url)
 
   req->run();
 
-  return (req->get_response_code() == 204) ? 0 : -EIO;
+  return (req->get_response_code() == HTTP_SC_NO_CONTENT) ? 0 : -EIO;
 }
 
 typedef shared_ptr<string> string_ptr;
@@ -137,7 +137,7 @@ int fs::rename_children(const request::ptr &req, const string &_from, const stri
     req->set_url(object::get_bucket_url(), string("prefix=") + util::url_encode(from) + "&marker=" + marker);
     req->run();
 
-    if (req->get_response_code() != 200)
+    if (req->get_response_code() != HTTP_SC_OK)
       return -EIO;
 
     doc = xml::parse(req->get_response_data());
@@ -222,7 +222,7 @@ bool fs::is_directory_empty(const request::ptr &req, const string &path)
   req->run();
 
   // if the request fails, assume the directory's not empty
-  if (req->get_response_code() != 200)
+  if (req->get_response_code() != HTTP_SC_OK)
     return false;
 
   doc = xml::parse(req->get_response_data());
@@ -318,7 +318,7 @@ int fs::copy_file(const request::ptr &req, const string &from, const string &to)
 
   req->run();
 
-  return (req->get_response_code() == 200) ? 0 : -EIO;
+  return (req->get_response_code() == HTTP_SC_OK) ? 0 : -EIO;
 }
 
 int fs::__change_metadata(const request::ptr &req, const string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime)
@@ -386,7 +386,7 @@ int fs::__read_directory(const request::ptr &req, const string &_path, const obj
     req->set_url(object::get_bucket_url(), string("delimiter=/&prefix=") + util::url_encode(path) + "&marker=" + marker);
     req->run();
 
-    if (req->get_response_code() != 200)
+    if (req->get_response_code() != HTTP_SC_OK)
       return -EIO;
 
     doc = xml::parse(req->get_response_data());
@@ -473,7 +473,7 @@ int fs::__create_object(const request::ptr &req, const string &path, object_type
 
   req->run();
 
-  return (req->get_response_code() == 200) ? 0 : -EIO;
+  return (req->get_response_code() == HTTP_SC_OK) ? 0 : -EIO;
 }
 
 int fs::__remove_object(const request::ptr &req, const string &path)
@@ -515,7 +515,7 @@ int fs::__read_symlink(const request::ptr &req, const string &path, string *targ
 
   req->run();
   
-  if (req->get_response_code() != 200)
+  if (req->get_response_code() != HTTP_SC_OK)
     return -EIO;
 
   if (req->get_response_data().substr(0, SYMLINK_PREFIX.size()) != SYMLINK_PREFIX)

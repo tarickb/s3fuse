@@ -77,13 +77,13 @@ int object_cache::__fetch(const request::ptr &req, const string &path, int hints
     req->run();
   }
 
-  if (hints & HINT_IS_FILE || req->get_response_code() != 200) {
+  if (hints & HINT_IS_FILE || req->get_response_code() != HTTP_SC_OK) {
     // it's not a directory
     req->set_url(object::build_url(path, OT_INVALID));
     req->run();
   }
 
-  if (req->get_response_code() != 200)
+  if (req->get_response_code() != HTTP_SC_OK)
     obj.reset();
   else {
     mutex::scoped_lock lock(_mutex);

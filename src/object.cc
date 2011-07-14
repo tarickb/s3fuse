@@ -236,7 +236,7 @@ void object::request_process_response(request *req)
 
   const string &url = req->get_url();
 
-  if (url.empty() || req->get_response_code() != 200)
+  if (url.empty() || req->get_response_code() != HTTP_SC_OK)
     return;
 
   if (url[url.size() - 1] == '/')
@@ -311,7 +311,7 @@ int object::commit_metadata(const request::ptr &req)
 
   req->run();
 
-  if (req->get_response_code() != 200) {
+  if (req->get_response_code() != HTTP_SC_OK) {
     S3_LOG(LOG_WARNING, "object::commit_metadata", "failed to commit object metadata for [%s].\n", _url.c_str());
     return -EIO;
   }

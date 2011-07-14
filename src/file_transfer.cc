@@ -70,9 +70,9 @@ namespace
     req->run(config::get_transfer_timeout_in_s());
     rc = req->get_response_code();
 
-    if (rc == 500 || rc == 503)
+    if (rc == HTTP_SC_INTERNAL_SERVER_ERROR || rc == HTTP_SC_SERVICE_UNAVAILABLE)
       return -EAGAIN; // temporary failure
-    else if (rc != 206)
+    else if (rc != HTTP_SC_PARTIAL_CONTENT)
       return -EIO;
 
     return 0;
@@ -93,9 +93,9 @@ namespace
     req->run(config::get_transfer_timeout_in_s());
     rc = req->get_response_code();
 
-    if (rc == 500 || rc == 503)
+    if (rc == HTTP_SC_INTERNAL_SERVER_ERROR || rc == HTTP_SC_SERVICE_UNAVAILABLE)
       return -EAGAIN; // temporary failure
-    else if (rc != 200)
+    else if (rc != HTTP_SC_OK)
       return -EIO;
 
     if (req->get_response_header("ETag") != part->etag) {
@@ -154,9 +154,9 @@ int file_transfer::download_single(const request::ptr &req, const string &url, i
   req->run(config::get_transfer_timeout_in_s());
   rc = req->get_response_code();
 
-  if (rc == 404)
+  if (rc == HTTP_SC_NOT_FOUND)
     return -ENOENT;
-  else if (rc != 200)
+  else if (rc != HTTP_SC_OK)
     return -EIO;
 
   return 0;
@@ -233,7 +233,7 @@ int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj
 
   req->run(config::get_transfer_timeout_in_s());
 
-  if (req->get_response_code() != 200) {
+  if (req->get_response_code() != HTTP_SC_OK) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_single", "failed to upload for [%s].\n", obj->get_url().c_str());
     return -EIO;
   }
@@ -265,7 +265,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
 
   req->run();
 
-  if (req->get_response_code() != 200)
+  if (req->get_response_code() != HTTP_SC_OK)
     return -EIO;
 
   doc = xml::parse(req->get_response_data());
@@ -351,7 +351,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   // see http://docs.amazonwebservices.com/AmazonS3/latest/API/index.html?mpUploadComplete.html
   req->run(config::get_transfer_timeout_in_s());
 
-  if (req->get_response_code() != 200) {
+  if (req->get_response_code() != HTTP_SC_OK) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to complete multipart upload for [%s] with error %li.\n", url.c_str(), req->get_response_code());
     return -EIO;
   }
