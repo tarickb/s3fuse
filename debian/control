@@ -8,4 +8,4 @@ Standards-Version: 3.8.4
 Package: s3fuse
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: FUSE filesystem driver for Amazon AWS S3 buckets.
+Description: FUSE filesystem driver for Amazon AWS S3 and Google Storage buckets.

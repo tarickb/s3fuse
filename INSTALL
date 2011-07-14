@@ -45,11 +45,4 @@ To install (after building a working copy):
 
   make install
 
-Then edit /etc/s3fuse.conf.  The following keys must be defined:
-
-  - aws_key: This is your AWS Access Key ID.
-  - aws_secret: This is your Secret Access Key.
-  - bucket_name: This is the name of your S3 bucket.
-
-AWS credentials can be obtained using Amazon's AWS console.  The console can 
-also be used to create an S3 bucket.
+See README for notes on configuring s3fuse.
