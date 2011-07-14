@@ -108,7 +108,7 @@ void fs::invalidate_parent(const string &path)
     parent_path = (last_slash == string::npos) ? "" : path.substr(0, last_slash);
 
     S3_LOG(LOG_DEBUG, "fs::__create_object", "invalidating parent directory [%s] for [%s].\n", parent_path.c_str(), path.c_str());
-    _object_cache.remove(parent_path);
+    _object_cache->remove(parent_path);
   }
 }
 
@@ -491,7 +491,7 @@ int fs::__remove_object(const request::ptr &req, const string &path)
     return -ENOTEMPTY;
 
   invalidate_parent(path);
-  _object_cache.remove(path);
+  _object_cache->remove(path);
 
   return remove_object(req, obj->get_url());
 }
