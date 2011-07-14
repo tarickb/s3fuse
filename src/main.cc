@@ -400,16 +400,37 @@ int pre_init(const options &opts)
 
   s_mountpoint_mode = S_IFDIR | mp_stat.st_mode;
 
-  s3::logger::init(opts.verbosity);
-  r = s3::config::init(opts.config);
+  try {
+    s3::logger::init(opts.verbosity);
+    r = s3::config::init(opts.config);
 
-  return r;
+    return r;
+
+  } catch (const std::exception &e) {
+    fprintf(stderr, "caught exception while initializing: %s\n", e.what());
+
+  } catch (...) {
+    fprintf(stderr, "caught unknown exception while initializing.\n");
+  }
+
+  return -EIO;
 }
 
 void * init(fuse_conn_info *info)
 {
-  s_fs = new s3::fs();
+  try {
+    s_fs = new s3::fs();
 
+    return NULL;
+
+  } catch (const std::exception &e) {
+    fprintf(stderr, "caught exception while initializing: %s\n", e.what());
+
+  } catch (...) {
+    fprintf(stderr, "caught unknown exception while initializing.\n");
+  }
+
+  fuse_exit(fuse_get_context()->fuse);
   return NULL;
 }
 

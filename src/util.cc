@@ -137,9 +137,10 @@ string util::url_encode(const string &url)
   for (size_t i = 0; i < url.length(); i++) {
     if (url[i] == '/' || url[i] == '.' || url[i] == '-' || url[i] == '*' || url[i] == '_' || isalnum(url[i]))
       ret += url[i];
-    else if (url[i] == ' ')
-      ret += '+';
     else {
+      // allow spaces to be encoded as "%20" rather than "+" because Google
+      // Storage doesn't decode the same way AWS does
+
       ret += '%';
       ret += hex[static_cast<uint8_t>(url[i]) / 16];
       ret += hex[static_cast<uint8_t>(url[i]) % 16];

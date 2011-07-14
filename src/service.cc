@@ -1,7 +1,7 @@
 /*
- * xml.h
+ * service.cc
  * -------------------------------------------------------------------------
- * Simplified XML parser interface.
+ * Implementation for service static methods.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2011, Tarick Bedeir.
@@ -19,31 +19,27 @@
  * limitations under the License.
  */
 
-#ifndef S3_XML_H
-#define S3_XML_H
+#include <stdexcept>
 
-#include <boost/smart_ptr.hpp>
+#include "service.h"
+#include "aws_service_impl.h"
+#include "config.h"
+#include "gs_service_impl.h"
 
-namespace xmlpp
+using namespace std;
+
+using namespace s3;
+
+service_impl::ptr service::s_impl;
+
+void service::init(const string &service)
 {
-  class DomParser;
+  if (service == "aws")
+    s_impl.reset(new aws_service_impl());
+
+  else if (service == "google-storage")
+    s_impl.reset(new gs_service_impl());
+
+  else
+    throw runtime_error("unrecognized service.");
 }
-
-namespace s3
-{
-  class xml
-  {
-  public:
-    typedef boost::shared_ptr<xmlpp::DomParser> document;
-    typedef std::list<std::string> element_list;
-
-    static void init(const std::string &ns);
-
-    static document parse(const std::string &data);
-
-    static int find(const document &doc, const char *xpath, std::string *element);
-    static int find(const document &doc, const char *xpath, element_list *elements);
-  };
-}
-
-#endif

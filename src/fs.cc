@@ -29,6 +29,7 @@
 #include "fs.h"
 #include "mutexes.h"
 #include "request.h"
+#include "service.h"
 #include "util.h"
 #include "xml.h"
 
@@ -64,12 +65,14 @@ namespace
 }
 
 fs::fs()
-  : _tp_fg(thread_pool::create("fs-fg")),
-    _tp_bg(thread_pool::create("fs-bg")),
-    _mutexes(new mutexes()),
-    _object_cache(_tp_fg, _mutexes, file_transfer::ptr(new file_transfer(_tp_fg, _tp_bg)))
 {
-  xml::init();
+  service::init(config::get_service());
+  xml::init(service::get_xml_namespace());
+
+  _tp_fg = thread_pool::create("fs-fg");
+  _tp_bg = thread_pool::create("fs-bg");
+  _mutexes.reset(new mutexes()),
+  _object_cache.reset(new object_cache(_tp_fg, _mutexes, file_transfer::ptr(new file_transfer(_tp_fg, _tp_bg))));
 }
 
 fs::~fs()
@@ -235,21 +238,9 @@ bool fs::is_directory_empty(const request::ptr &req, const string &path)
   return (keys.size() == 1);
 }
 
-int fs::copy_file(const request::ptr &req, const string &from, const string &to)
-{
-  req->init(HTTP_PUT);
-  req->set_url(object::build_url(to, OT_FILE));
-  req->set_header("x-amz-copy-source", object::build_url(from, OT_FILE));
-  req->set_header("x-amz-metadata-directive", "COPY");
-
-  req->run();
-
-  return (req->get_response_code() == 200) ? 0 : -EIO;
-}
-
 int fs::__prefill_stats(const request::ptr &req, const string &path, int hints)
 {
-  _object_cache.get(req, path, hints);
+  _object_cache->get(req, path, hints);
 
   return 0;
 }
@@ -260,7 +251,7 @@ int fs::__get_stats(const request::ptr &req, const string &path, struct stat *s,
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = _object_cache.get(req, path, hints);
+  obj = _object_cache->get(req, path, hints);
 
   if (!obj)
     return -ENOENT;
@@ -273,18 +264,34 @@ int fs::__get_stats(const request::ptr &req, const string &path, struct stat *s,
 
 int fs::__rename_object(const request::ptr &req, const string &from, const string &to)
 {
-  object::ptr obj;
+  int r;
+  object::ptr obj, target_obj;
 
   ASSERT_NO_TRAILING_SLASH(from);
   ASSERT_NO_TRAILING_SLASH(to);
 
-  obj = _object_cache.get(req, from);
+  obj = _object_cache->get(req, from);
 
   if (!obj)
     return -ENOENT;
 
-  if (_object_cache.get(req, to))
-    return -EEXIST;
+  target_obj = _object_cache->get(req, to);
+
+  if (target_obj) {
+    if (
+      (obj->get_type() == OT_DIRECTORY && target_obj->get_type() != OT_DIRECTORY) ||
+      (obj->get_type() != OT_DIRECTORY && target_obj->get_type() == OT_DIRECTORY)
+    )
+      return -EINVAL;
+
+    // TODO: this doesn't handle the case where "to" points to a directory
+    // that isn't empty.
+
+    r = __remove_object(req, to);
+
+    if (r)
+      return r;
+  }
 
   invalidate_parent(from);
   invalidate_parent(to);
@@ -292,14 +299,26 @@ int fs::__rename_object(const request::ptr &req, const string &from, const strin
   if (obj->get_type() == OT_DIRECTORY)
     return rename_children(req, from, to);
   else {
-    int r = copy_file(req, from, to);
+    r = copy_file(req, from, to);
 
     if (r)
       return r;
 
-    _object_cache.remove(from);
+    _object_cache->remove(from);
     return remove_object(req, obj->get_url());
   }
+}
+
+int fs::copy_file(const request::ptr &req, const string &from, const string &to)
+{
+  req->init(HTTP_PUT);
+  req->set_url(object::build_url(to, OT_FILE));
+  req->set_header(service::get_header_prefix() + "copy-source", object::build_url(from, OT_FILE));
+  req->set_header(service::get_header_prefix() + "metadata-directive", "COPY");
+
+  req->run();
+
+  return (req->get_response_code() == 200) ? 0 : -EIO;
 }
 
 int fs::__change_metadata(const request::ptr &req, const string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime)
@@ -308,7 +327,7 @@ int fs::__change_metadata(const request::ptr &req, const string &path, mode_t mo
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = _object_cache.get(req, path);
+  obj = _object_cache->get(req, path);
 
   if (!obj)
     return -ENOENT;
@@ -343,7 +362,7 @@ int fs::__read_directory(const request::ptr &req, const string &_path, const obj
     path = _path + "/";
 
   if (config::get_cache_directories()) {
-    obj = _object_cache.get(req, _path, HINT_IS_DIR);
+    obj = _object_cache->get(req, _path, HINT_IS_DIR);
 
     if (obj && obj->is_directory_cached()) {
       obj->fill_directory(filler);
@@ -433,7 +452,7 @@ int fs::__create_object(const request::ptr &req, const string &path, object_type
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  if (_object_cache.get(req, path)) {
+  if (_object_cache->get(req, path)) {
     S3_LOG(LOG_DEBUG, "fs::__create_object", "attempt to overwrite object at path %s.\n", path.c_str());
     return -EEXIST;
   }
@@ -463,7 +482,7 @@ int fs::__remove_object(const request::ptr &req, const string &path)
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = _object_cache.get(req, path, HINT_NONE);
+  obj = _object_cache->get(req, path, HINT_NONE);
 
   if (!obj)
     return -ENOENT;
@@ -483,7 +502,7 @@ int fs::__read_symlink(const request::ptr &req, const string &path, string *targ
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = _object_cache.get(req, path);
+  obj = _object_cache->get(req, path);
 
   if (!obj)
     return -ENOENT;
@@ -513,7 +532,7 @@ int fs::__set_attr(const request::ptr &req, const string &path, const string &na
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = _object_cache.get(req, path);
+  obj = _object_cache->get(req, path);
 
   if (!obj)
     return -ENOENT;
@@ -533,7 +552,7 @@ int fs::__remove_attr(const request::ptr &req, const string &path, const string 
 
   ASSERT_NO_TRAILING_SLASH(path);
 
-  obj = _object_cache.get(req, path);
+  obj = _object_cache->get(req, path);
 
   if (!obj)
     return -ENOENT;

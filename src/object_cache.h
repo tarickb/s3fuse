@@ -47,6 +47,8 @@ namespace s3
   class object_cache
   {
   public:
+    typedef boost::shared_ptr<object_cache> ptr;
+
     object_cache(
       const thread_pool::ptr &pool, 
       const boost::shared_ptr<mutexes> &mutexes,

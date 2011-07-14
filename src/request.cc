@@ -26,23 +26,18 @@
 
 #include <stdexcept>
 
-#include "logger.h"
 #include "config.h"
+#include "logger.h"
 #include "object.h"
 #include "openssl_locks.h"
 #include "request.h"
-#include "util.h"
+#include "service.h"
 
 using namespace std;
 
 using namespace s3;
 
 #define TEST_OK(x) do { if ((x) != CURLE_OK) throw runtime_error("call to " #x " failed."); } while (0)
-
-namespace
-{
-  const string AMZ_HEADER_PREFIX = "x-amz-";
-}
 
 request::request()
   : _current_run_time(0.0),
@@ -102,6 +97,7 @@ void request::init(http_method method)
   _last_modified = 0;
   _headers.clear();
   _target_object.reset();
+  _sign = true;
 
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_UPLOAD, false));
@@ -240,7 +236,9 @@ size_t request::process_input(char *data, size_t size, size_t items, void *conte
 
 void request::set_url(const string &url, const string &query_string)
 {
-  string curl_url = config::get_url_prefix() + url;
+  string curl_url;
+
+  curl_url = service::get_url_prefix() + url;
 
   if (!query_string.empty()) {
     curl_url += (curl_url.find('?') == string::npos) ? "?" : "&";
@@ -249,6 +247,12 @@ void request::set_url(const string &url, const string &query_string)
 
   _url = url;
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_URL, curl_url.c_str()));
+}
+
+void request::set_full_url(const string &url)
+{
+  _url = url;
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_URL, url.c_str()));
 }
 
 void request::set_output_fd(int fd, off_t offset)
@@ -311,19 +315,6 @@ void request::build_request_time()
   _headers["Date"] = time_str;
 }
 
-void request::build_signature()
-{
-  string sig = "AWS " + config::get_aws_key() + ":";
-  string to_sign = _method + "\n" + _headers["Content-MD5"] + "\n" + _headers["Content-Type"] + "\n" + _headers["Date"] + "\n";
-
-  for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
-    if (!itor->second.empty() && itor->first.substr(0, AMZ_HEADER_PREFIX.size()) == AMZ_HEADER_PREFIX)
-      to_sign += itor->first + ":" + itor->second + "\n";
-
-  to_sign += _url;
-  _headers["Authorization"] = string("AWS ") + config::get_aws_key() + ":" + util::sign(config::get_aws_secret(), to_sign);
-}
-
 bool request::check_timeout()
 {
   if (_timeout && time(NULL) > _timeout) {
@@ -338,9 +329,6 @@ bool request::check_timeout()
 
 void request::run(int timeout_in_s)
 {
-  int r = CURLE_OK;
-  curl_slist *headers = NULL;
-
   // sanity
   if (_url.empty())
     throw runtime_error("call set_url() first!");
@@ -351,11 +339,31 @@ void request::run(int timeout_in_s)
   if (_canceled)
     throw runtime_error("cannot reuse a canceled request.");
 
+  // run twice. if we fail with a 401 (unauthorized) error, try again but tell
+  // service::sign() that we failed on the last try. this allows GS, in 
+  // particular, to refresh its access token.
+
+  for (int i = 0; i < 2; i++) {
+    build_request_time();
+
+    if (_sign)
+      service::sign(this, (i == 1));
+
+    internal_run(timeout_in_s);
+
+    // TODO: replace with constants
+    if (!_sign || (_response_code != 401 && _response_code != 403))
+      break;
+  }
+}
+
+void request::internal_run(int timeout_in_s)
+{
+  int r = CURLE_OK;
+  curl_slist *headers = NULL;
+
   _output_data.clear();
   _response_headers.clear();
-
-  build_request_time();
-  build_signature();
 
   for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
     headers = curl_slist_append(headers, (itor->first + ": " + itor->second).c_str());
@@ -416,7 +424,7 @@ void request::run(int timeout_in_s)
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
 
   if (_response_code >= 300 && _response_code != 404)
-    S3_LOG(LOG_WARNING, "request::run", "request for [%s] failed with response: %s\n", _url.c_str(), _output_data.c_str());
+    S3_LOG(LOG_WARNING, "request::run", "request for [%s] failed with code %i and response: %s\n", _url.c_str(), _response_code, _output_data.c_str());
 
   if (_target_object)
     _target_object->request_process_response(this);

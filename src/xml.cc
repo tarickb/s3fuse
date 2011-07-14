@@ -35,17 +35,15 @@ using namespace s3;
 
 namespace
 {
-  const char *AWS_S3_NS = "http://s3.amazonaws.com/doc/2006-03-01/";
-
   Node::PrefixNsMap s_ns_map;
 }
 
-void xml::init()
+void xml::init(const string &ns)
 {
   xmlInitParser();
   LIBXML_TEST_VERSION;
 
-  s_ns_map["s3"] = AWS_S3_NS;
+  s_ns_map["s3"] = ns;
 }
 
 xml::document xml::parse(const string &data)

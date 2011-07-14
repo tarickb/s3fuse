@@ -26,6 +26,7 @@
 #include "logger.h"
 #include "object.h"
 #include "request.h"
+#include "service.h"
 
 using namespace boost;
 using namespace std;
@@ -35,12 +36,12 @@ using namespace s3;
 namespace
 {
   const int     BLOCK_SIZE                    = 512;
-  const string  AMZ_META_PREFIX               = "x-amz-meta-";
-  const string  AMZ_META_PREFIX_RESERVED      = "s3fuse-";
-  const char   *AMZ_META_PREFIX_CSTR          = AMZ_META_PREFIX.c_str();
-  const char   *AMZ_META_PREFIX_RESERVED_CSTR = AMZ_META_PREFIX_RESERVED.c_str();
-  const size_t  AMZ_META_PREFIX_LEN           = AMZ_META_PREFIX.size();
-  const size_t  AMZ_META_PREFIX_RESERVED_LEN  = AMZ_META_PREFIX_RESERVED.size();
+  const string  META_PREFIX                   = "meta-";
+  const string  META_PREFIX_RESERVED          = "s3fuse-";
+
+  const char   *META_PREFIX_RESERVED_CSTR     = META_PREFIX_RESERVED.c_str();
+  const size_t  META_PREFIX_RESERVED_LEN      = META_PREFIX_RESERVED.size();
+
   const char   *SYMLINK_CONTENT_TYPE          = "text/symlink";
 
   mode_t get_mode_by_type(object_type type)
@@ -106,7 +107,7 @@ int object::set_metadata(const string &key, const string &value, int flags)
   mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
   meta_map::iterator itor = _metadata.find(key);
 
-  if (strncmp(key.c_str(), AMZ_META_PREFIX_RESERVED_CSTR, AMZ_META_PREFIX_RESERVED_LEN) == 0)
+  if (strncmp(key.c_str(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) == 0)
     return -EINVAL;
 
   if (key == "__md5__" || key == "__etag__" || key == "__content_type__")
@@ -200,6 +201,7 @@ void object::request_process_header(const string &key, const string &value)
   // isn't shareable) until the request has finished processing
 
   long long_value = strtol(value.c_str(), NULL, 0);
+  string meta_prefix = service::get_header_prefix() + META_PREFIX;
 
   if (key == "Content-Type")
     _content_type = value;
@@ -207,25 +209,25 @@ void object::request_process_header(const string &key, const string &value)
     _etag = value;
   else if (key == "Content-Length")
     _stat.st_size = long_value;
-  else if (key == "x-amz-meta-s3fuse-mode")
+  else if (key == (meta_prefix + "s3fuse-mode"))
     _stat.st_mode = long_value & ~S_IFMT;
-  else if (key == "x-amz-meta-s3fuse-uid")
+  else if (key == (meta_prefix + "s3fuse-uid"))
     _stat.st_uid = long_value;
-  else if (key == "x-amz-meta-s3fuse-gid")
+  else if (key == (meta_prefix + "s3fuse-gid"))
     _stat.st_gid = long_value;
-  else if (key == "x-amz-meta-s3fuse-mtime")
+  else if (key == (meta_prefix + "s3fuse-mtime"))
     _stat.st_mtime = long_value;
-  else if (key == "x-amz-meta-s3fuse-mtime-etag")
+  else if (key == (meta_prefix + "s3fuse-mtime-etag"))
     _mtime_etag = value;
-  else if (key == "x-amz-meta-s3fuse-md5")
+  else if (key == (meta_prefix + "s3fuse-md5"))
     _md5 = value;
-  else if (key == "x-amz-meta-s3fuse-md5-etag")
+  else if (key == (meta_prefix + "s3fuse-md5-etag"))
     _md5_etag = value;
   else if (
-    strncmp(key.c_str(), AMZ_META_PREFIX_CSTR, AMZ_META_PREFIX_LEN) == 0 &&
-    strncmp(key.c_str() + AMZ_META_PREFIX_LEN, AMZ_META_PREFIX_RESERVED_CSTR, AMZ_META_PREFIX_RESERVED_LEN) != 0
+    strncmp(key.c_str(), meta_prefix.c_str(), meta_prefix.size()) == 0 &&
+    strncmp(key.c_str() + meta_prefix.size(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) != 0
   )
-    _metadata[key.substr(AMZ_META_PREFIX_LEN)] = value;
+    _metadata[key.substr(meta_prefix.size())] = value;
 }
 
 void object::request_process_response(request *req)
@@ -273,27 +275,28 @@ void object::request_process_response(request *req)
 void object::request_set_meta_headers(request *req)
 {
   mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+  string meta_prefix = service::get_header_prefix() + META_PREFIX;
   char buf[16];
 
-  // do this first so that we overwrite any keys we care about (i.e., those that start with "x-amz-meta-s3fuse-")
+  // do this first so that we overwrite any keys we care about (i.e., those that start with "PREFIX-meta-s3fuse-")
   for (meta_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)
-    req->set_header(AMZ_META_PREFIX + itor->first, itor->second);
+    req->set_header(meta_prefix + itor->first, itor->second);
 
   snprintf(buf, 16, "%#o", _stat.st_mode & ~S_IFMT);
-  req->set_header("x-amz-meta-s3fuse-mode", buf);
+  req->set_header(meta_prefix + "s3fuse-mode", buf);
 
   snprintf(buf, 16, "%i", _stat.st_uid);
-  req->set_header("x-amz-meta-s3fuse-uid", buf);
+  req->set_header(meta_prefix + "s3fuse-uid", buf);
 
   snprintf(buf, 16, "%i", _stat.st_gid);
-  req->set_header("x-amz-meta-s3fuse-gid", buf);
+  req->set_header(meta_prefix + "s3fuse-gid", buf);
 
   snprintf(buf, 16, "%li", _stat.st_mtime);
-  req->set_header("x-amz-meta-s3fuse-mtime", buf);
+  req->set_header(meta_prefix + "s3fuse-mtime", buf);
 
-  req->set_header("x-amz-meta-s3fuse-mtime-etag", _mtime_etag);
-  req->set_header("x-amz-meta-s3fuse-md5", _md5);
-  req->set_header("x-amz-meta-s3fuse-md5-etag", _md5_etag);
+  req->set_header(meta_prefix + "s3fuse-mtime-etag", _mtime_etag);
+  req->set_header(meta_prefix + "s3fuse-md5", _md5);
+  req->set_header(meta_prefix + "s3fuse-md5-etag", _md5_etag);
   req->set_header("Content-Type", _content_type);
 }
 
@@ -301,9 +304,9 @@ int object::commit_metadata(const request::ptr &req)
 {
   req->init(HTTP_PUT);
   req->set_url(_url);
-  req->set_header("x-amz-copy-source", _url);
-  req->set_header("x-amz-copy-source-if-match", get_etag()); // get_etag() locks the metadata mutex
-  req->set_header("x-amz-metadata-directive", "REPLACE");
+  req->set_header(service::get_header_prefix() + "copy-source", _url);
+  req->set_header(service::get_header_prefix() + "copy-source-if-match", get_etag()); // get_etag() locks the metadata mutex
+  req->set_header(service::get_header_prefix() + "metadata-directive", "REPLACE");
   req->set_meta_headers(shared_from_this());
 
   req->run();

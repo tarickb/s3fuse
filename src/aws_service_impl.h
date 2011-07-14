@@ -1,7 +1,7 @@
 /*
- * xml.h
+ * aws_service_impl.h
  * -------------------------------------------------------------------------
- * Simplified XML parser interface.
+ * Service implementation for Amazon Web Services.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2011, Tarick Bedeir.
@@ -19,30 +19,31 @@
  * limitations under the License.
  */
 
-#ifndef S3_XML_H
-#define S3_XML_H
+#ifndef S3_AWS_SERVICE_IMPL_H
+#define S3_AWS_SERVICE_IMPL_H
 
-#include <boost/smart_ptr.hpp>
-
-namespace xmlpp
-{
-  class DomParser;
-}
+#include "service_impl.h"
 
 namespace s3
 {
-  class xml
+  class request;
+
+  class aws_service_impl : public service_impl
   {
   public:
-    typedef boost::shared_ptr<xmlpp::DomParser> document;
-    typedef std::list<std::string> element_list;
+    aws_service_impl();
 
-    static void init(const std::string &ns);
+    virtual const std::string & get_header_prefix();
+    virtual const std::string & get_url_prefix();
+    virtual const std::string & get_xml_namespace();
 
-    static document parse(const std::string &data);
+    virtual bool is_multipart_download_supported();
+    virtual bool is_multipart_upload_supported();
 
-    static int find(const document &doc, const char *xpath, std::string *element);
-    static int find(const document &doc, const char *xpath, element_list *elements);
+    virtual void sign(request *req, bool last_sign_failed);
+
+  private:
+    std::string _key, _secret;
   };
 }
 

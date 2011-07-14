@@ -60,9 +60,13 @@ namespace s3
 
     void init(http_method method);
 
+    inline const std::string & get_method() { return _method; }
+
+    void set_full_url(const std::string &url);
     void set_url(const std::string &url, const std::string &query_string = "");
     inline const std::string & get_url() { return _url; }
 
+    inline const header_map & get_headers() { return _headers; }
     inline void set_header(const std::string &name, const std::string &value) { _headers[name] = value; }
 
     void set_output_fd(int fd = -1, off_t offset = 0);
@@ -83,6 +87,8 @@ namespace s3
     inline void reset_current_run_time() { _current_run_time = 0.0; }
     inline double get_current_run_time() { return _current_run_time; }
 
+    inline void disable_signing() { _sign = false; }
+
     void set_meta_headers(const boost::shared_ptr<object> &object);
 
     bool check_timeout();
@@ -98,7 +104,9 @@ namespace s3
     void build_request_time();
     void build_signature();
 
-    // review reset() when making changes here
+    void internal_run(int timeout_in_s);
+
+    // review init() when making changes here
     CURL *_curl;
     char _curl_error[CURL_ERROR_SIZE];
 
@@ -127,6 +135,8 @@ namespace s3
 
     bool _canceled;
     time_t _timeout;
+
+    bool _sign;
   };
 }
 

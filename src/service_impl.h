@@ -1,7 +1,7 @@
 /*
- * xml.h
+ * service_impl.h
  * -------------------------------------------------------------------------
- * Simplified XML parser interface.
+ * Abstract base class for service-specific implementation classes.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2011, Tarick Bedeir.
@@ -19,30 +19,29 @@
  * limitations under the License.
  */
 
-#ifndef S3_XML_H
-#define S3_XML_H
+#ifndef S3_SERVICE_IMPL_H
+#define S3_SERVICE_IMPL_H
 
+#include <string>
 #include <boost/smart_ptr.hpp>
-
-namespace xmlpp
-{
-  class DomParser;
-}
 
 namespace s3
 {
-  class xml
+  class request;
+
+  class service_impl
   {
   public:
-    typedef boost::shared_ptr<xmlpp::DomParser> document;
-    typedef std::list<std::string> element_list;
+    typedef boost::shared_ptr<service_impl> ptr;
 
-    static void init(const std::string &ns);
+    virtual const std::string & get_header_prefix() = 0;
+    virtual const std::string & get_url_prefix() = 0;
+    virtual const std::string & get_xml_namespace() = 0;
 
-    static document parse(const std::string &data);
+    virtual bool is_multipart_download_supported() = 0;
+    virtual bool is_multipart_upload_supported() = 0;
 
-    static int find(const document &doc, const char *xpath, std::string *element);
-    static int find(const document &doc, const char *xpath, element_list *elements);
+    virtual void sign(request *req, bool last_sign_failed) = 0;
   };
 }
 
