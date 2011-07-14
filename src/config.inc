@@ -22,7 +22,7 @@ CONFIG(int, max_transfer_retries, 5); // maximum number of times a chunk transfe
 CONFIG(int, transfer_timeout_in_s, 5 * 60); // transfer timeout in seconds, should be long enough to transfer download_chunk_size/upload_chunk_size
 
 CONFIG(bool, verbose_requests, false); // set CURLOPT_VERBOSE (enable verbosity in libcurl)
-CONFIG(int, request_timeout_in_s, 10); // request timeout in seconds (for all HTTP requests besides transfers)
+CONFIG(int, request_timeout_in_s, 30); // request timeout in seconds (for all HTTP requests besides transfers)
 
 CONFIG_REQUIRED(std::string, service, ""); // service -- must be "aws" or "google-storage"
 CONFIG_REQUIRED(std::string, auth_data, ""); // service-specific authentication details (see documentation)
