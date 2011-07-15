@@ -1,6 +1,7 @@
 s3fuse (0.11) unstable; urgency=low
 
   * NEW: Added Google Storage support.
+  * NEW: Moved AWS keys out of s3fuse.conf. See README.
   * NEW: Changed required fields in s3fuse.conf. See README.
   * On rename, remove destination rather than failing with -EEXIST.
   * Improved error handling in FUSE init/pre-init.

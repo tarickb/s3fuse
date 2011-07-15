@@ -44,13 +44,19 @@ Edit /etc/s3fuse.conf after installing.  The following keys must be defined:
 
 auth_data for Amazon Web Services:
 
-  For Amazon S3, set auth_data to the AWS Access Key ID followed by a space,
-  followed by the AWS Secret Access Key, i.e.:
+  For Amazon S3, set auth_data to the full path of a file containing your AWS 
+  Access Key ID followed by a space, followed by the AWS Secret Access Key, 
+  i.e.:
 
-    auth_data=<aws-access-key-id> <aws-secret-access-key>
+    auth_data=/home/user/.s3fuse/aws.key
+
+  Where aws.key contains:
+
+    <aws-access-key-id> <aws-secret-access-key>
 
   AWS credentials can be obtained using Amazon's AWS console.  The console 
-  can also be used to create an S3 bucket.
+  can also be used to create an S3 bucket.  s3fuse will fail to start if the 
+  key file is group- or world-readable or -writable.
 
 auth_data for Google Storage:
 

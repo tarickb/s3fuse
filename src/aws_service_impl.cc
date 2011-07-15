@@ -19,7 +19,6 @@
  * limitations under the License.
  */
 
-#include <fstream>
 #include <vector>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
@@ -53,9 +52,14 @@ namespace
 
 aws_service_impl::aws_service_impl()
 {
+  ifstream f;
+  string line;
   vector<string> fields;
 
-  split(fields, config::get_auth_data(), is_any_of(string(" \t")), token_compress_on);
+  open_private_file(config::get_auth_data(), &f);
+  getline(f, line);
+
+  split(fields, line, is_any_of(string(" \t")), token_compress_on);
 
   if (fields.size() != 2) {
     S3_LOG(
