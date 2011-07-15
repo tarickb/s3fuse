@@ -45,7 +45,6 @@ void service_impl::open_private_file(const string &file, ofstream *f)
 void service_impl::open_private_file(const string &file, ifstream *f)
 {
   struct stat s;
-  string token;
 
   f->open(file.c_str(), ios::in);
 
