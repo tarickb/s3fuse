@@ -68,6 +68,9 @@ auth_data for Google Storage:
 
     auth_data=/home/user/.s3fuse/gs.token
 
+  s3fuse will fail to start if the token file is group- or world-readable or 
+  -writable.
+
 Running
 -------
 
