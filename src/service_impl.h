@@ -22,6 +22,7 @@
 #ifndef S3_SERVICE_IMPL_H
 #define S3_SERVICE_IMPL_H
 
+#include <fstream>
 #include <string>
 #include <boost/smart_ptr.hpp>
 
@@ -42,6 +43,10 @@ namespace s3
     virtual bool is_multipart_upload_supported() = 0;
 
     virtual void sign(request *req, bool last_sign_failed) = 0;
+
+  protected:
+    static void open_private_file(const std::string &file, std::ifstream *f);
+    static void open_private_file(const std::string &file, std::ofstream *f);
   };
 }
 

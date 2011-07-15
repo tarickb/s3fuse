@@ -19,10 +19,6 @@
  * limitations under the License.
  */
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -108,37 +104,23 @@ void gs_service_impl::get_tokens(get_tokens_mode mode, const string &key, string
     *refresh_token = tree.get<string>("refresh_token");
 }
 
-void gs_service_impl::write_token(const string &file, const string &token)
-{
-  ofstream f(file.c_str(), ios::out | ios::trunc);
-
-  if (!f.good())
-    throw runtime_error("unable to open/create token file.");
-
-  if (chmod(file.c_str(), S_IRUSR | S_IWUSR))
-    throw runtime_error("failed to set permissions on token file.");
-
-  f << token << endl;
-}
-
 string gs_service_impl::read_token(const string &file)
 {
-  ifstream f(file.c_str(), ios::in);
-  struct stat s;
+  ifstream f;
   string token;
 
-  if (!f.good())
-    throw runtime_error("unable to open token file.");
-
-  if (stat(file.c_str(), &s))
-    throw runtime_error("unable to stat token file.");
-
-  if ((s.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) != (S_IRUSR | S_IWUSR))
-    throw runtime_error("token file must be readable/writeable only by owner.");
-
+  open_private_file(file, &f);
   getline(f, token);
 
   return token;
+}
+
+void gs_service_impl::write_token(const string &file, const string &token)
+{
+  ofstream f;
+
+  open_private_file(file, &f);
+  f << token << endl;
 }
 
 gs_service_impl::gs_service_impl()
