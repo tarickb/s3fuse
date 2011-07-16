@@ -90,7 +90,7 @@ void gs_service_impl::get_tokens(get_tokens_mode mode, const string &key, string
   req.run();
 
   if (req.get_response_code() != HTTP_SC_OK) {
-    S3_LOG(LOG_CRIT, "gs_service_impl::get_tokens", "token endpoint returned %i.\n", req.get_response_code());
+    S3_LOG(LOG_ERR, "gs_service_impl::get_tokens", "token endpoint returned %i.\n", req.get_response_code());
     throw runtime_error("failed to get tokens.");
   }
 

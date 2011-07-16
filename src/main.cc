@@ -407,10 +407,10 @@ int pre_init(const options &opts)
     return r;
 
   } catch (const std::exception &e) {
-    fprintf(stderr, "caught exception while initializing: %s\n", e.what());
+    S3_LOG(LOG_ERR, "pre_init", "caught exception while initializing: %s\n", e.what());
 
   } catch (...) {
-    fprintf(stderr, "caught unknown exception while initializing.\n");
+    S3_LOG(LOG_ERR, "pre_init", "caught unknown exception while initializing.\n");
   }
 
   return -EIO;
@@ -424,10 +424,10 @@ void * init(fuse_conn_info *info)
     return NULL;
 
   } catch (const std::exception &e) {
-    fprintf(stderr, "caught exception while initializing: %s\n", e.what());
+    S3_LOG(LOG_ERR, "init", "caught exception while initializing: %s\n", e.what());
 
   } catch (...) {
-    fprintf(stderr, "caught unknown exception while initializing.\n");
+    S3_LOG(LOG_ERR, "init", "caught unknown exception while initializing.\n");
   }
 
   fuse_exit(fuse_get_context()->fuse);
@@ -470,7 +470,7 @@ int main(int argc, char **argv)
   fuse_args args = FUSE_ARGS_INIT(argc, argv);
   options opts;
 
-  opts.verbosity = LOG_ERR;
+  opts.verbosity = LOG_WARNING;
   opts.arg0 = argv[0];
 
   fuse_opt_parse(&args, &opts, NULL, process_argument);

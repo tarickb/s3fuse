@@ -63,7 +63,7 @@ aws_service_impl::aws_service_impl()
 
   if (fields.size() != 2) {
     S3_LOG(
-      LOG_CRIT, 
+      LOG_ERR, 
       "aws_service_impl::aws_service_impl", 
       "expected 2 fields for auth_data, found %i.\n",
       fields.size());
