@@ -8,8 +8,9 @@ s3fuse (0.11) unstable; urgency=low
   * Invalidate parent in directory cache when child is modified.
   * Fixed request error handling.
   * Increased default request timeout to 30 seconds (from 10).
+  * Changed default logging level to LOG_WARNING instead of LOG_ERR.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Wed, 13 Jul 2011 21:49:48 -0500
+ -- Tarick Bedeir <tarick@bedeir.com>  Fri, 15 Jul 2011 19:45:59 -0500
 
 s3fuse (0.10) unstable; urgency=low
 
