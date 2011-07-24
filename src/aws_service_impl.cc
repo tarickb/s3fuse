@@ -56,7 +56,7 @@ aws_service_impl::aws_service_impl()
   string line;
   vector<string> fields;
 
-  open_private_file(config::get_auth_data(), &f);
+  util::open_private_file(config::get_auth_data(), &f);
   getline(f, line);
 
   split(fields, line, is_any_of(string(" \t")), token_compress_on);

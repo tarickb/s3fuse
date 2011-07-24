@@ -109,7 +109,7 @@ string gs_service_impl::read_token(const string &file)
   ifstream f;
   string token;
 
-  open_private_file(file, &f);
+  util::open_private_file(file, &f);
   getline(f, token);
 
   return token;
@@ -119,7 +119,7 @@ void gs_service_impl::write_token(const string &file, const string &token)
 {
   ofstream f;
 
-  open_private_file(file, &f);
+  util::open_private_file(file, &f);
   f << token << endl;
 }
 

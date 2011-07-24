@@ -20,12 +20,15 @@
  */
 
 #include <string.h>
+#include <unistd.h>
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
 #include <openssl/evp.h>
 #include <openssl/hmac.h>
 #include <openssl/md5.h>
+#include <sys/stat.h>
 #include <sys/time.h>
+#include <sys/types.h>
 
 #include <stdexcept>
 
@@ -163,4 +166,31 @@ bool util::is_valid_md5(const string &md5)
 {
   // yes, it's a rather rudimentary check (32 for the MD5, 2 for the quotes)
   return (md5.size() == 34 && md5[0] == '"' && md5[md5.size() - 1] == '"');
+}
+
+void util::open_private_file(const string &file, ofstream *f, ios_base::openmode mode)
+{
+  f->open(file.c_str(), ios::out | mode);
+
+  if (!f->good())
+    throw runtime_error("unable to open/create private file.");
+
+  if (chmod(file.c_str(), S_IRUSR | S_IWUSR))
+    throw runtime_error("failed to set permissions on private file.");
+}
+
+void util::open_private_file(const string &file, ifstream *f, ios_base::openmode mode)
+{
+  struct stat s;
+
+  f->open(file.c_str(), ios::in | mode);
+
+  if (!f->good())
+    throw runtime_error("unable to open private file.");
+
+  if (stat(file.c_str(), &s))
+    throw runtime_error("unable to stat private file.");
+
+  if ((s.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) != (S_IRUSR | S_IWUSR))
+    throw runtime_error("private file must be readable/writeable only by owner.");
 }

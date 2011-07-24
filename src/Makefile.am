@@ -34,7 +34,6 @@ s3fuse_SOURCES = \
 	request.h \
 	service.cc \
 	service.h \
-	service_impl.cc \
 	service_impl.h \
 	thread_pool.cc \
 	thread_pool.h \
@@ -69,7 +68,6 @@ s3fuse_gs_get_token_SOURCES = \
 	request.h \
 	service.cc \
 	service.h \
-	service_impl.cc \
 	service_impl.h \
 	util.cc \
 	util.h
