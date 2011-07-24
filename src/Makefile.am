@@ -7,8 +7,13 @@ AM_CPPFLAGS  = $(DEPS_CFLAGS) -D_FILE_OFFSET_BITS=64
 s3fuse_LDFLAGS   = -Wl,--as-needed
 s3fuse_LDADD     = $(DEPS_LIBS)
 s3fuse_SOURCES = \
+	aes_256_cbc_cipher.cc \
+	aes_256_cbc_cipher.h \
 	aws_service_impl.cc \
 	aws_service_impl.h \
+	cipher.h \
+	cipher_factory.cc \
+	cipher_factory.h \
 	config.cc \
 	config.inc \
 	config.h \
