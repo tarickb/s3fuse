@@ -37,6 +37,30 @@
 using namespace s3;
 using namespace std;
 
+namespace
+{
+  inline int int_from_hex(char c)
+  {
+    if (c >= '0' && c <= '9')
+      return c - '0';
+
+    if (c >= 'a' && c <= 'f')
+      return c - 'a' + 10;
+
+    if (c >= 'A' && c <= 'F')
+      return c - 'A' + 10;
+
+    throw runtime_error("invalid character in hex string.");
+  }
+
+  inline char hex_from_int(int i)
+  {
+    const char *hex = "0123456789abcdef";
+
+    return hex[i];
+  }
+}
+
 string util::base64_encode(const uint8_t *input, size_t size)
 {
   BIO *bio_b64 = BIO_new(BIO_f_base64());
@@ -117,17 +141,27 @@ string util::compute_md5(int fd, md5_output_type type, ssize_t size, off_t offse
 
 string util::hex_encode(const uint8_t *input, size_t size)
 {
-  const char *hex = "0123456789abcdef";
   string ret;
 
   ret.resize(size * 2);
 
   for (size_t i = 0; i < size; i++) {
-    ret[2 * i + 0] = hex[static_cast<uint8_t>(input[i]) / 16];
-    ret[2 * i + 1] = hex[static_cast<uint8_t>(input[i]) % 16];
+    ret[2 * i + 0] = hex_from_int(static_cast<uint8_t>(input[i]) / 16);
+    ret[2 * i + 1] = hex_from_int(static_cast<uint8_t>(input[i]) % 16);
   }
 
   return ret;
+}
+
+void util::hex_decode(const string &input, vector<uint8_t> *out)
+{
+  if (input.size() % 2)
+    throw runtime_error("input size not even.");
+
+  out->resize(input.size() / 2);
+
+  for (size_t i = 0; i < out->size(); i++)
+    (*out)[i] = int_from_hex(input[2 * i + 0]) * 16 + int_from_hex(input[2 * i + 1]);
 }
 
 string util::url_encode(const string &url)

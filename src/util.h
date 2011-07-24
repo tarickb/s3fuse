@@ -27,6 +27,7 @@
 
 #include <fstream>
 #include <string>
+#include <vector>
 
 namespace s3
 {
@@ -44,6 +45,8 @@ namespace s3
     static std::string url_encode(const std::string &url);
     static std::string hex_encode(const uint8_t *input, size_t size);
     static std::string base64_encode(const uint8_t *input, size_t size);
+
+    static void hex_decode(const std::string &input, std::vector<uint8_t> *out);
 
     static std::string sign(const std::string &key, const std::string &data);
 
