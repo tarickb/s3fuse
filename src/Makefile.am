@@ -35,6 +35,8 @@ s3fuse_SOURCES = \
 	service.cc \
 	service.h \
 	service_impl.h \
+	temp_file.cc \
+	temp_file.h \
 	thread_pool.cc \
 	thread_pool.h \
 	util.cc \
