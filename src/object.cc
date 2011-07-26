@@ -74,6 +74,7 @@ object::object(const mutexes::ptr &mutexes, const string &path, object_type type
     _type(type),
     _path(path),
     _expiry(0),
+    _enc_size(0),
     _open_fd(-1)
 {
   init_stat();
@@ -182,17 +183,23 @@ void object::set_mode(mode_t mode)
 
 void object::request_init()
 {
+  _type = OT_INVALID;
+  _url.clear();
+  _content_type.clear();
+  _mtime_etag.clear();
+  _expiry = 0;
   init_stat();
 
-  _type = OT_INVALID;
-  _content_type.clear();
+  _metadata.clear();
   _etag.clear();
-  _mtime_etag.clear();
   _md5.clear();
   _md5_etag.clear();
-  _expiry = 0;
-  _metadata.clear();
-  _url.clear();
+  _enc_iv.clear();
+  _dir_cache.reset();
+  _enc_size = 0;
+
+  _open_file.reset();
+  _open_fd = -1;
 }
 
 void object::request_process_header(const string &key, const string &value)
@@ -223,6 +230,10 @@ void object::request_process_header(const string &key, const string &value)
     _md5 = value;
   else if (key == (meta_prefix + "s3fuse-md5-etag"))
     _md5_etag = value;
+  else if (key == (meta_prefix + "s3fuse-enc-iv"))
+    _enc_iv = value;
+  else if (key == (meta_prefix + "s3fuse-enc-size"))
+    _enc_size = long_value;
   else if (
     strncmp(key.c_str(), meta_prefix.c_str(), meta_prefix.size()) == 0 &&
     strncmp(key.c_str() + meta_prefix.size(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) != 0
@@ -256,14 +267,32 @@ void object::request_process_response(request *req)
 
   _mtime_etag = _etag;
 
-  // this workaround is for multipart uploads, which don't get a valid md5 etag
   if (!util::is_valid_md5(_md5))
     _md5.clear();
 
-  if ((_md5_etag != _etag || _md5.empty()) && util::is_valid_md5(_etag))
-    _md5 = _etag;
+  if (_enc_iv.empty()) {
+    // this workaround is for multipart uploads, which don't (always?) get a valid md5 etag, but only if 
+    // the file isn't encrypted (if it is, we set _md5 manually)
 
-  _md5_etag = _etag;
+    if ((_md5_etag != _etag || _md5.empty()) && util::is_valid_md5(_etag))
+      _md5 = _etag;
+
+  } else {
+    // if the etag doesn't match _md5_etag, the file was probably modified by someone/something else, so
+    // clear the IV (which means the file gets treated as though it were unencrypted)
+
+    // TODO: this may not be the best way to handle this case
+
+    if (_md5_etag != _etag) {
+      _enc_iv.clear();
+      _enc_size = 0;
+      _md5.clear();
+      _md5_etag.clear();
+    }
+  }
+
+  if (!_md5.empty())
+    _md5_etag = _etag;
 
   if (_type == OT_FILE)
     _stat.st_blocks = (_stat.st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
@@ -297,6 +326,11 @@ void object::request_set_meta_headers(request *req)
   req->set_header(meta_prefix + "s3fuse-mtime-etag", _mtime_etag);
   req->set_header(meta_prefix + "s3fuse-md5", _md5);
   req->set_header(meta_prefix + "s3fuse-md5-etag", _md5_etag);
+  req->set_header(meta_prefix + "s3fuse-enc-iv", _enc_iv);
+
+  snprintf(buf, 16, "%li", _enc_size);
+  req->set_header(meta_prefix + "s3fuse-enc-size", buf);
+
   req->set_header("Content-Type", _content_type);
 }
 

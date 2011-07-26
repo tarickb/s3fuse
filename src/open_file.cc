@@ -66,9 +66,6 @@ open_file::open_file(
 
   if (_fd == -1)
     throw runtime_error("error calling mkstemp()");
-
-  if (ftruncate(_fd, obj->get_size()) != 0)
-    throw runtime_error("failed to truncate temporary file.");
 }
 
 open_file::~open_file()

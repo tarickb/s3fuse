@@ -10,16 +10,21 @@ using namespace std;
 
 using namespace s3;
 
-cipher_factory::ctor_fn cipher_factory::s_cipher_ctor;
-vector<uint8_t> cipher_factory::s_key;
-
 namespace
 {
   cipher::ptr aes_256_cbc_cipher_ctor(const uint8_t *key, const string &iv)
   {
     return cipher::ptr(new aes_256_cbc_cipher(key, iv));
   }
+
+  cipher::ptr null_cipher_ctor(const uint8_t *, const string &)
+  {
+    return cipher::ptr();
+  }
 }
+
+cipher_factory::ctor_fn cipher_factory::s_cipher_ctor = null_cipher_ctor;
+vector<uint8_t> cipher_factory::s_key;
 
 void cipher_factory::init(const string &cipher, const string &key_file)
 {

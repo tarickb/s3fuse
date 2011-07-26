@@ -21,12 +21,15 @@
 
 #include <boost/lexical_cast.hpp>
 
+#include "cipher.h"
+#include "cipher_factory.h"
 #include "config.h"
 #include "file_transfer.h"
 #include "logger.h"
 #include "object.h"
 #include "request.h"
 #include "service.h"
+#include "temp_file.h"
 #include "thread_pool.h"
 #include "util.h"
 #include "xml.h"
@@ -115,19 +118,60 @@ file_transfer::file_transfer(const thread_pool::ptr &tp_fg, const thread_pool::p
 
 int file_transfer::__download(const request::ptr &req, const object::ptr &obj, int fd)
 {
-  int r;
-  size_t size = obj->get_size();
   const string &url = obj->get_url(), &expected_md5 = obj->get_md5();
+  int transfer_fd = fd, r = 0;
+  size_t size = obj->get_size();
+  scoped_ptr<temp_file> dec_file;
+  string iv;
+
+  obj->get_enc_data(&iv, &size);
+
+  if (!iv.empty()) {
+    dec_file.reset(new temp_file());
+    transfer_fd = dec_file->get_fd();
+  }
+    
+  if ((r = ftruncate(transfer_fd, size) != 0))
+    return r;
 
   if (service::is_multipart_download_supported() && size > config::get_download_chunk_size())
-    r = download_multi(url, size, fd);
+    r = download_multi(url, size, transfer_fd);
   else
-    r = download_single(req, url, fd);
+    r = download_single(req, url, transfer_fd);
 
   if (r)
     return r;
 
-  fsync(fd);
+  if (fsync(transfer_fd) == -1) {
+    S3_LOG(LOG_WARNING, "file_transfer::__download", "fsync failed with error %i.\n", errno);
+    return -errno;
+  }
+
+  if (!iv.empty()) {
+    try {
+      cipher::ptr ciph = cipher_factory::create(iv);
+
+      if (!ciph) {
+        S3_LOG(LOG_WARNING, "file_transfer::__download", "trying to open encrypted file but no cipher is available.\n");
+        return -EACCES;
+      }
+
+      ciph->decrypt(transfer_fd, fd);
+
+      if (fsync(fd) == -1) {
+        S3_LOG(LOG_WARNING, "file_transfer::__download", "fsync on decrypted file failed with error %i.\n", errno);
+        return -EACCES;
+      }
+
+    } catch (const std::exception &e) {
+      S3_LOG(LOG_WARNING, "file_transfer::__download", "caught exception while decrypting: %s\n", e.what());
+      return -EACCES;
+
+    } catch (...) {
+      S3_LOG(LOG_WARNING, "file_transfer::__download", "caught unknown exception while decrypting.\n");
+      return -EACCES;
+    }
+  }
 
   // we won't have a valid MD5 digest if the file was a multipart upload
   if (!expected_md5.empty()) {
@@ -135,7 +179,6 @@ int file_transfer::__download(const request::ptr &req, const object::ptr &obj, i
 
     if (computed_md5 != expected_md5) {
       S3_LOG(LOG_WARNING, "file_transfer::__download", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), computed_md5.c_str());
-
       return -EIO;
     }
   }
@@ -205,19 +248,57 @@ int file_transfer::download_multi(const string &url, size_t size, int fd)
 
 int file_transfer::__upload(const request::ptr &req, const object::ptr &obj, int fd)
 {
-  size_t size;
+  int transfer_fd = fd, r = 0;
+  string transfer_md5, etag;
+  cipher::ptr ciph;
+  scoped_ptr<temp_file> enc_file;
+  struct stat s;
 
   if (fsync(fd) == -1) {
     S3_LOG(LOG_WARNING, "file_transfer::__upload", "fsync failed with error %i.\n", errno);
     return -errno;
   }
 
-  size = obj->get_size();
+  try {
+    ciph = cipher_factory::create();
+  } catch (...) { }
+
+  if (ciph) {
+    enc_file.reset(new temp_file());
+    transfer_fd = enc_file->get_fd();
+
+    try {
+      ciph->encrypt(fd, transfer_fd);
+
+      if (fsync(transfer_fd) == -1) {
+        S3_LOG(LOG_WARNING, "file_transfer::__upload", "fsync on encrypted file failed with error %i.\n", errno);
+        return -EACCES;
+      }
+
+    } catch (const std::exception &e) {
+      S3_LOG(LOG_WARNING, "file_transfer::__upload", "caught exception while encrypting: %s\n", e.what());
+      return -EACCES;
+
+    } catch (...) {
+      S3_LOG(LOG_WARNING, "file_transfer::__upload", "caught unknown exception while encrypting.\n");
+      return -EACCES;
+    }
+  }
+
+  if (fstat(transfer_fd, &s) == -1) {
+    S3_LOG(LOG_WARNING, "file_transfer::__upload", "fstat failed with error %i.\n", errno);
+    return -errno;
+  }
 
   if (service::is_multipart_upload_supported() && size > config::get_upload_chunk_size())
-    return upload_multi(req, obj, size, fd);
+    return upload_multi(req, obj, size, transfer_fd, &transfer_md5, &etag);
   else
-    return upload_single(req, obj, size, fd);
+    return upload_single(req, obj, size, transfer_fd, &transfer_md5, &etag);
+
+  if (ciph) {
+    obj->set_enc_data(ciph->get_iv(), 
+  } else {
+  }
 }
 
 int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj, size_t size, int fd)

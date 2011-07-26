@@ -83,6 +83,17 @@ namespace s3
       _etag = etag;
     }
 
+    inline void set_enc_data(const std::string &iv, size_t size, const std::string &md5, const std::string &etag)
+    {
+      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+
+      _enc_iv = iv;
+      _enc_size = size;
+      _md5 = md5;
+      _md5_etag = etag;
+      _etag = etag;
+    }
+
     inline object_type get_type() { return _type; }
     inline const std::string & get_path() { return _path; }
     inline const std::string & get_content_type() { return _content_type; }
@@ -136,6 +147,14 @@ namespace s3
       return _md5; 
     }
 
+    inline void get_enc_data(std::string *iv, size_t *size)
+    {
+      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+
+      *iv = _enc_iv;
+      *size = _enc_size;
+    }
+
     inline const std::string & get_url() { return _url; }
 
     inline size_t get_size()
@@ -183,6 +202,8 @@ namespace s3
     void request_process_response(request *req);
     void request_set_meta_headers(request *req);
 
+    // update request_init() when modifying member variables!
+
     mutexes::ptr _mutexes;
     object_type _type;
     std::string _path, _url, _content_type, _mtime_etag;
@@ -191,8 +212,9 @@ namespace s3
 
     // protected by _mutexes->get_object_metadata_mutex()
     meta_map _metadata;
-    std::string _etag, _md5, _md5_etag;
+    std::string _etag, _md5, _md5_etag, _enc_iv;
     dir_cache_ptr _dir_cache;
+    size_t _enc_size;
 
     // protected by mutex in object_cache
     open_file::ptr _open_file;
