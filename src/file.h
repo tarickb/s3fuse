@@ -1,6 +1,10 @@
 #ifndef S3_FILE_HH
 #define S3_FILE_HH
 
+#include "object.h"
+#include "service.h"
+#include "util.h"
+
 namespace s3
 {
   class file : public object
@@ -8,7 +12,7 @@ namespace s3
   public:
     file(const std::string &path);
 
-    inline static build_url(const std::string &path)
+    inline static std::string build_url(const std::string &path)
     {
       return service::get_bucket_url() + "/" + util::url_encode(path);
     }
@@ -33,15 +37,18 @@ namespace s3
       return _md5;
     }
 
+    /*
     inline size_t get_size()
     {
       boost::mutex::scoped_lock lock(get_mutex());
 
+      
       if (_open_file)
         _stat.st_size = _open_file->get_size();
 
       return _stat.st_size;
     }
+    */
 
     virtual void copy_stat(struct stat *s);
 
@@ -52,12 +59,12 @@ namespace s3
     virtual void set_meta_headers(const boost::shared_ptr<request> &req);
 
   protected:
-    virtual void build_process_header(const std::string &key, const std::string &value);
-    virtual void build_finalize(request *req);
+    virtual void build_process_header(const boost::shared_ptr<request> &req, const std::string &key, const std::string &value);
+    virtual void build_finalize(const boost::shared_ptr<request> &req);
 
   private:
     std::string _md5, _md5_etag;
-    open_file::ptr _open_file;
+    // open_file::ptr _open_file;
   };
 }
 

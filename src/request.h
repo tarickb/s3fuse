@@ -28,6 +28,7 @@
 
 #include <map>
 #include <string>
+#include <boost/function.hpp>
 #include <boost/smart_ptr.hpp>
 #include <boost/utility.hpp>
 

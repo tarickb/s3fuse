@@ -23,10 +23,13 @@
 #include <sys/xattr.h>
 
 #include "config.h"
+#include "directory.h"
+#include "file.h"
 #include "logger.h"
 #include "object.h"
 #include "request.h"
 #include "service.h"
+#include "symlink.h"
 
 using namespace boost;
 using namespace std;
@@ -70,6 +73,10 @@ object::ptr object::create(const string &path, object_type type)
 object::object(const string &path)
   : _path(path),
     _expiry(0)
+{
+}
+
+void object::init()
 {
   memset(&_stat, 0, sizeof(_stat));
 
@@ -152,7 +159,7 @@ int object::get_metadata(const string &key, string *value)
 
 int object::remove_metadata(const string &key)
 {
-  mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+  mutex::scoped_lock lock(_mutex);
   meta_map::iterator itor = _metadata.find(key);
 
   if (itor == _metadata.end())
@@ -172,7 +179,7 @@ void object::set_mode(mode_t mode)
   _stat.st_mode = (_stat.st_mode & S_IFMT) | mode;
 }
 
-void object::build_process_header(request *req, const string &key, const string &value)
+void object::build_process_header(const request::ptr &req, const string &key, const string &value)
 {
   // this doesn't need to lock the metadata mutex because the object won't be in the cache (and thus
   // isn't shareable) until the request has finished processing
@@ -203,7 +210,7 @@ void object::build_process_header(request *req, const string &key, const string 
     _metadata[key.substr(meta_prefix.size())] = value;
 }
 
-void object::build_finalize(request *req)
+void object::build_finalize(const request::ptr &req)
 {
   time_t last_modified = req->get_last_modified();
 

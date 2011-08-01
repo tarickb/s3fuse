@@ -1,10 +1,15 @@
 #include "file.h"
+#include "request.h"
+
+using namespace boost;
+using namespace std;
 
 using namespace s3;
 
 file::file(const string &path)
   : object(path)
 {
+  init();
 }
 
 object_type file::get_type()
@@ -44,7 +49,7 @@ int file::get_metadata(const string &key, string *value)
   return object::get_metadata(key, value);
 }
 
-void file::build_process_header(const string &key, const string &value)
+void file::build_process_header(const request::ptr &req, const string &key, const string &value)
 {
   const string &meta_prefix = service::get_meta_prefix();
 
@@ -53,19 +58,21 @@ void file::build_process_header(const string &key, const string &value)
   else if (key == (meta_prefix + "s3fuse-md5-etag"))
     _md5_etag = value;
   else
-    object::process_header(key, value);
+    object::build_process_header(req, key, value);
 }
 
-void file::build_finalize(request *req)
+void file::build_finalize(const request::ptr &req)
 {
+  const string &etag = get_etag();
+
   // this workaround is for multipart uploads, which don't get a valid md5 etag
   if (!util::is_valid_md5(_md5))
     _md5.clear();
 
-  if ((_md5_etag != _etag || _md5.empty()) && util::is_valid_md5(_etag))
-    _md5 = _etag;
+  if ((_md5_etag != etag || _md5.empty()) && util::is_valid_md5(etag))
+    _md5 = etag;
 
-  _md5_etag = _etag;
+  _md5_etag = etag;
 
   object::build_finalize(req);
 }

@@ -166,8 +166,8 @@ size_t request::process_header(char *data, size_t size, size_t items, void *cont
   if (*pos == ' ')
     pos++;
 
-  if (_process_header_callback)
-    _process_header_callback(data, pos);
+  if (req->_process_header_callback)
+    req->_process_header_callback(data, pos);
   else
     req->_response_headers[data] = pos;
 

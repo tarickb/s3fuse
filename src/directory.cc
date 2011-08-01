@@ -1,3 +1,12 @@
+#include "config.h"
+#include "directory.h"
+#include "logger.h"
+#include "request.h"
+#include "xml.h"
+
+using namespace boost;
+using namespace std;
+
 using namespace s3;
 
 namespace
@@ -25,6 +34,7 @@ namespace
 directory::directory(const string &path)
   : object(path)
 {
+  init();
 }
 
 object_type directory::get_type()
@@ -37,7 +47,7 @@ mode_t directory::get_mode()
   return S_IFDIR;
 }
 
-int fill(const request::ptr &req, const filler_fn &filler)
+int directory::fill(const request::ptr &req, const filler_fn &filler)
 {
   mutex::scoped_lock lock(get_mutex());
   cache_list_ptr cache;

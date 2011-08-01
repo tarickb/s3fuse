@@ -69,7 +69,7 @@ namespace s3
     inline std::string get_content_type() { LOCK; return _content_type; }
     inline void set_content_type(const std::string &content_type) { LOCK; _content_type = content_type; }
 
-    inline std::string get_etag() { LOCK; return _etag; }
+    inline const std::string & get_etag() { return _etag; }
 
     int commit_metadata(const boost::shared_ptr<request> &req);
 
@@ -88,6 +88,8 @@ namespace s3
   protected:
     object(const std::string &path);
 
+    void init();
+
     boost::mutex & get_mutex() { return _mutex; }
 
     virtual void build_process_header(const boost::shared_ptr<request> &req, const std::string &key, const std::string &value);
@@ -102,13 +104,13 @@ namespace s3
     inline bool is_valid() { return (_expiry > 0 && time(NULL) < _expiry); }
 
     boost::mutex _mutex;
-    std::string _path, _url, _mtime_etag;
+    std::string _path, _url, _etag, _mtime_etag;
     time_t _expiry;
     struct stat _stat;
 
     // protected by _mutex
     meta_map _metadata;
-    std::string _content_type, _etag;
+    std::string _content_type;
   };
 }
 
