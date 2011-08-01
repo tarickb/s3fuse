@@ -36,7 +36,7 @@ namespace
   const string META_PREFIX = "meta-";
 }
 
-const string & service_impl::get_meta_prefix()
+const string & service_impl::get_si_meta_prefix()
 {
   return META_PREFIX;
 }

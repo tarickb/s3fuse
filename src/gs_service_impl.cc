@@ -132,7 +132,7 @@ gs_service_impl::gs_service_impl()
   refresh(lock);
 
   _bucket_url = "/" + util::url_encode(config::get_bucket_name());
-  _meta_prefix = GS_HEADER_PREFIX + service_impl::get_meta_prefix();
+  _meta_prefix = GS_HEADER_PREFIX + service_impl::get_si_meta_prefix();
 }
 
 const string & gs_service_impl::get_bucket_url()

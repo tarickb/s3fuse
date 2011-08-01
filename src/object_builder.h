@@ -2,8 +2,8 @@
 #define S3_OBJECT_BUILDER_H
 
 #include <list>
-#include <pair>
 #include <string>
+#include <utility>
 #include <boost/smart_ptr.hpp>
 
 #include "object.h"
@@ -20,7 +20,7 @@ namespace s3
     object::ptr build();
 
   private:
-    typedef std::pair<std::str, std::string> header_element;
+    typedef std::pair<std::string, std::string> header_element;
     typedef std::list<header_element> header_list;
 
     void try_build(object_type type);

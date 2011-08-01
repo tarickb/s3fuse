@@ -134,7 +134,7 @@ namespace s3
     off_t _input_offset;
     std::string _input_data;
 
-    boost::shared_ptr<object_builder> _object_builder;
+    process_header_fn _process_header_callback;
 
     long _response_code;
     time_t _last_modified;

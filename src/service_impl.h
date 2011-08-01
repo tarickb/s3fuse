@@ -47,7 +47,7 @@ namespace s3
     virtual void sign(request *req, bool last_sign_failed) = 0;
 
   protected:
-    static const std::string & get_meta_prefix();
+    static const std::string & get_si_meta_prefix();
 
     static void open_private_file(const std::string &file, std::ifstream *f);
     static void open_private_file(const std::string &file, std::ofstream *f);

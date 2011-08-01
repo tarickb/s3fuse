@@ -28,8 +28,9 @@
 
 #include <map>
 #include <string>
-#include <boost/function.hpp>
+#include <vector>
 #include <boost/smart_ptr.hpp>
+#include <boost/thread.hpp>
 
 #define LOCK boost::mutex::scoped_lock lock(_mutex)
 
@@ -89,8 +90,8 @@ namespace s3
 
     boost::mutex & get_mutex() { return _mutex; }
 
-    virtual void build_process_header(request *req, const std::string &key, const std::string &value);
-    virtual void build_finalize(request *req);
+    virtual void build_process_header(const boost::shared_ptr<request> &req, const std::string &key, const std::string &value);
+    virtual void build_finalize(const boost::shared_ptr<request> &req);
 
   private:
     friend class object_builder; // for build_*

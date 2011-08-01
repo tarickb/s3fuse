@@ -1,4 +1,8 @@
 #include "object_builder.h"
+#include "request.h"
+#include "symlink.h"
+
+using namespace std;
 
 using namespace s3;
 
@@ -30,7 +34,7 @@ void object_builder::try_build(object_type type)
   _obj.reset();
   _headers.clear();
 
-  _req->set_url(object::build_url(path, type));
+  _req->set_url(object::build_url(_path, type));
   _req->run();
 
   if (_req->get_response_code() != HTTP_SC_OK)
@@ -53,7 +57,7 @@ void object_builder::process_header(const string &key, const string &value)
 
     if (_obj) // if we've just created an object, process saved headers
       for (header_list::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
-        _obj->build_process_header(itor->first, itor->second);
+        _obj->build_process_header(_req, itor->first, itor->second);
     else // otherwise, save the header for when we create the object
       _headers.push_back(header_element(key, value));
   }

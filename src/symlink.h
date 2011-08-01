@@ -1,6 +1,12 @@
 #ifndef S3_SYMLINK_HH
 #define S3_SYMLINK_HH
 
+#include <string>
+
+#include "object.h"
+#include "service.h"
+#include "util.h"
+
 namespace s3
 {
   class symlink : public object
@@ -10,7 +16,7 @@ namespace s3
 
     static const std::string & get_content_type();
 
-    inline static build_url(const std::string &path)
+    inline static std::string build_url(const std::string &path)
     {
       return service::get_bucket_url() + "/" + util::url_encode(path);
     }
