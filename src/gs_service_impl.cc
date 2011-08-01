@@ -130,11 +130,24 @@ gs_service_impl::gs_service_impl()
 
   _refresh_token = gs_service_impl::read_token(config::get_auth_data());
   refresh(lock);
+
+  _bucket_url = "/" + util::url_encode(config::get_bucket_name());
+  _meta_prefix = GS_HEADER_PREFIX + service_impl::get_meta_prefix();
+}
+
+const string & gs_service_impl::get_bucket_url()
+{
+  return _bucket_url;
 }
 
 const string & gs_service_impl::get_header_prefix()
 {
   return GS_HEADER_PREFIX;
+}
+
+const string & gs_service_impl::get_meta_prefix()
+{
+  return _meta_prefix;
 }
 
 const string & gs_service_impl::get_url_prefix()

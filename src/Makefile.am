@@ -12,6 +12,10 @@ s3fuse_SOURCES = \
 	config.cc \
 	config.inc \
 	config.h \
+	directory.cc \
+	directory.h \
+	file.cc \
+	file.h \
 	file_transfer.cc \
 	file_transfer.h \
 	fs.cc \
@@ -22,6 +26,8 @@ s3fuse_SOURCES = \
 	logger.h \
 	main.cc \
 	mutexes.h \
+	object_builder.cc \
+	object_builder.h \
 	object_cache.cc \
 	object_cache.h \
 	object.cc \
@@ -36,6 +42,8 @@ s3fuse_SOURCES = \
 	service.h \
 	service_impl.cc \
 	service_impl.h \
+	symlink.cc \
+	symlink.h \
 	thread_pool.cc \
 	thread_pool.h \
 	util.cc \

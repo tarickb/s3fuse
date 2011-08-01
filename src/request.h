@@ -33,7 +33,6 @@
 
 namespace s3
 {
-  class object;
   class worker_thread;
 
   enum http_method
@@ -67,6 +66,7 @@ namespace s3
     static const int DEFAULT_REQUEST_TIMEOUT = -1;
 
     typedef boost::shared_ptr<request> ptr;
+    typedef boost::function2<void, const std::string &, const std::string &> process_header_fn;
 
     request();
     ~request();
@@ -94,15 +94,13 @@ namespace s3
     inline long get_response_code() { return _response_code; }
     inline time_t get_last_modified() { return _last_modified; }
 
-    inline void set_target_object(const boost::shared_ptr<object> &object) { _target_object = object; }
-    inline const boost::shared_ptr<object> & get_target_object() { return _target_object; }
+    inline void set_process_header_callback(const process_header_fn &fn) { _process_header_callback = fn; }
+    inline void clear_process_header_callback() { _process_header_callback = process_header_fn(); }
 
     inline void reset_current_run_time() { _current_run_time = 0.0; }
     inline double get_current_run_time() { return _current_run_time; }
 
     inline void disable_signing() { _sign = false; }
-
-    void set_meta_headers(const boost::shared_ptr<object> &object);
 
     bool check_timeout();
 
@@ -136,7 +134,7 @@ namespace s3
     off_t _input_offset;
     std::string _input_data;
 
-    boost::shared_ptr<object> _target_object;
+    boost::shared_ptr<object_builder> _object_builder;
 
     long _response_code;
     time_t _last_modified;

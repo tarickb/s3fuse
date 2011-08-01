@@ -31,6 +31,16 @@ using namespace std;
 
 using namespace s3;
 
+namespace
+{
+  const string META_PREFIX = "meta-";
+}
+
+const string & service_impl::get_meta_prefix()
+{
+  return META_PREFIX;
+}
+
 void service_impl::open_private_file(const string &file, ofstream *f)
 {
   f->open(file.c_str(), ios::out | ios::trunc);

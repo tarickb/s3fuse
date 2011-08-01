@@ -73,11 +73,24 @@ aws_service_impl::aws_service_impl()
 
   _key = fields[0];
   _secret = fields[1];
+
+  _bucket_url = "/" + util::url_encode(config::get_bucket_name());
+  _meta_prefix = AWS_HEADER_PREFIX + service_impl::get_meta_prefix();
+}
+
+const string & aws_service_impl::get_bucket_url()
+{
+  return _bucket_url;
 }
 
 const string & aws_service_impl::get_header_prefix()
 {
   return AWS_HEADER_PREFIX;
+}
+
+const string & aws_service_impl::get_meta_prefix()
+{
+  return _meta_prefix;
 }
 
 const string & aws_service_impl::get_url_prefix()

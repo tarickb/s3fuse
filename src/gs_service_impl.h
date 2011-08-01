@@ -47,7 +47,9 @@ namespace s3
 
     gs_service_impl();
 
+    virtual const std::string & get_bucket_url();
     virtual const std::string & get_header_prefix();
+    virtual const std::string & get_meta_prefix();
     virtual const std::string & get_url_prefix();
     virtual const std::string & get_xml_namespace();
 
@@ -60,7 +62,7 @@ namespace s3
     void refresh(const boost::mutex::scoped_lock &lock);
 
     boost::mutex _mutex;
-    std::string _access_token, _refresh_token;
+    std::string _access_token, _refresh_token, _bucket_url, _meta_prefix;
     time_t _expiry;
   };
 }

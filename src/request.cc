@@ -28,7 +28,6 @@
 
 #include "config.h"
 #include "logger.h"
-#include "object.h"
 #include "openssl_locks.h"
 #include "request.h"
 #include "service.h"
@@ -96,8 +95,9 @@ void request::init(http_method method)
   _response_code = 0;
   _last_modified = 0;
   _headers.clear();
-  _target_object.reset();
   _sign = true;
+
+  clear_process_header_callback();
 
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_UPLOAD, false));
@@ -166,8 +166,8 @@ size_t request::process_header(char *data, size_t size, size_t items, void *cont
   if (*pos == ' ')
     pos++;
 
-  if (req->_target_object)
-    req->_target_object->request_process_header(data, pos);
+  if (_process_header_callback)
+    _process_header_callback(data, pos);
   else
     req->_response_headers[data] = pos;
 
@@ -297,11 +297,6 @@ void request::set_input_fd(int fd, size_t size, off_t offset)
     throw runtime_error("can't set input fd for non-POST/non-PUT request.");
 }
 
-void request::set_meta_headers(const object::ptr &object)
-{
-  object->request_set_meta_headers(this); 
-}
-
 void request::build_request_time()
 {
   time_t sys_time;
@@ -369,9 +364,6 @@ void request::internal_run(int timeout_in_s)
 
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers));
 
-  if (_target_object)
-    _target_object->request_init();
-
   for (int i = 0; i < config::get_max_transfer_retries(); i++) {
     double elapsed_time;
 
@@ -424,8 +416,5 @@ void request::internal_run(int timeout_in_s)
 
   if (_response_code >= HTTP_SC_MULTIPLE_CHOICES && _response_code != HTTP_SC_NOT_FOUND)
     S3_LOG(LOG_WARNING, "request::run", "request for [%s] failed with code %i and response: %s\n", _url.c_str(), _response_code, _output_data.c_str());
-
-  if (_target_object)
-    _target_object->request_process_response(this);
 }
 

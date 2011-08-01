@@ -64,12 +64,10 @@ object_cache::~object_cache()
 
 int object_cache::__fetch(const request::ptr &req, const string &path, int hints, object::ptr *_obj)
 {
-  object::ptr &obj = *_obj;
-
-  obj.reset(new object(_mutexes, path));
+  object_builder::ptr ob(new object_builder());
 
   req->init(HTTP_HEAD);
-  req->set_target_object(obj);
+  req->set_object_builder(ob);
 
   if (hints == HINT_NONE || hints & HINT_IS_DIR) {
     // see if the path is a directory (trailing /) first

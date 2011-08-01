@@ -35,7 +35,9 @@ namespace s3
   public:
     typedef boost::shared_ptr<service_impl> ptr;
 
+    virtual const std::string & get_bucket_url() = 0;
     virtual const std::string & get_header_prefix() = 0;
+    virtual const std::string & get_meta_prefix() = 0;
     virtual const std::string & get_url_prefix() = 0;
     virtual const std::string & get_xml_namespace() = 0;
 
@@ -45,6 +47,8 @@ namespace s3
     virtual void sign(request *req, bool last_sign_failed) = 0;
 
   protected:
+    static const std::string & get_meta_prefix();
+
     static void open_private_file(const std::string &file, std::ifstream *f);
     static void open_private_file(const std::string &file, std::ofstream *f);
   };

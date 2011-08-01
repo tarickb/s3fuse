@@ -33,7 +33,9 @@ namespace s3
   public:
     aws_service_impl();
 
+    virtual const std::string & get_bucket_url();
     virtual const std::string & get_header_prefix();
+    virtual const std::string & get_meta_prefix();
     virtual const std::string & get_url_prefix();
     virtual const std::string & get_xml_namespace();
 
@@ -43,7 +45,7 @@ namespace s3
     virtual void sign(request *req, bool last_sign_failed);
 
   private:
-    std::string _key, _secret;
+    std::string _key, _secret, _bucket_url, _meta_prefix;
   };
 }
 

@@ -36,7 +36,9 @@ namespace s3
   public:
     static void init(const std::string &service);
 
+    inline static const std::string & get_bucket_url() { return s_impl->get_bucket_url(); }
     inline static const std::string & get_header_prefix() { return s_impl->get_header_prefix(); }
+    inline static const std::string & get_meta_prefix() { return s_impl->get_meta_prefix(); }
     inline static const std::string & get_url_prefix() { return s_impl->get_url_prefix(); }
     inline static const std::string & get_xml_namespace() { return s_impl->get_xml_namespace(); }
 
