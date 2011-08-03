@@ -90,3 +90,8 @@ void file::set_meta_headers(const request::ptr &req)
     req->set_header(meta_prefix + "s3fuse-md5-etag", _md5_etag);
   }
 }
+
+bool file::is_removable()
+{
+  return false;
+}

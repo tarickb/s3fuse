@@ -16,12 +16,15 @@ s3fuse_SOURCES = \
 	directory.h \
 	file.cc \
 	file.h \
+	file_handle_map.cc \
+	file_handle_map.h \
 	file_transfer.cc \
 	file_transfer.h \
 	fs.cc \
 	fs.h \
 	gs_service_impl.cc \
 	gs_service_impl.h \
+	locked_object.h \
 	logger.cc \
 	logger.h \
 	main.cc \

@@ -62,6 +62,8 @@ namespace s3
     virtual void build_process_header(const boost::shared_ptr<request> &req, const std::string &key, const std::string &value);
     virtual void build_finalize(const boost::shared_ptr<request> &req);
 
+    virtual bool is_removable();
+
   private:
     std::string _md5, _md5_etag;
     // open_file::ptr _open_file;

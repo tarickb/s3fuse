@@ -19,6 +19,7 @@
  * limitations under the License.
  */
 
+#include "object_builder.h"
 #include "object_cache.h"
 #include "request.h"
 
@@ -27,21 +28,17 @@ using namespace std;
 
 using namespace s3;
 
-object_cache::object_cache(
-  const thread_pool::ptr &pool, 
-  const boost::shared_ptr<mutexes> &mutexes,
-  const boost::shared_ptr<file_transfer> &file_transfer)
+object_cache::object_cache(const thread_pool::ptr &pool)
   : _pool(pool),
-    _mutexes(mutexes),
-    _file_transfer(file_transfer),
     _hits(0),
     _misses(0),
     _expiries(0),
-    _next_handle(0)
+    _expired_but_unremovable(0)
 { }
 
 object_cache::~object_cache()
 {
+  // don't add expired-but-unremovable since they count as hits too
   uint64_t total = _hits + _misses + _expiries;
 
   if (total == 0)
@@ -50,40 +47,25 @@ object_cache::~object_cache()
   S3_LOG(
     LOG_DEBUG,
     "object_cache::~object_cache", 
-    "hits: %" PRIu64 " (%.02f%%), misses: %" PRIu64 " (%.02f%%), expiries: %" PRIu64 " (%.02f%%)\n", 
+    "hits: %" PRIu64 " (%.02f%%), misses: %" PRIu64 " (%.02f%%), expiries: %" PRIu64 " (%.02f%%), expired but unremovable: %" PRIu64 " (%.02f%%)\n", 
     _hits,
     double(_hits) / double(total) * 100.0,
     _misses,
     double(_misses) / double(total) * 100.0,
     _expiries,
-    double(_expiries) / double(total) * 100.0);
-
-  if (_next_handle)
-    S3_LOG(LOG_DEBUG, "object_cache::~object_cache", "number of opened files: %ju\n", static_cast<uintmax_t>(_next_handle));
+    double(_expiries) / double(total) * 100.0,
+    _expired_but_unremovable,
+    double(_expired_but_unremovable) / double(total) * 100.0);
 }
 
-int object_cache::__fetch(const request::ptr &req, const string &path, int hints, object::ptr *_obj)
+int object_cache::__fetch(const request::ptr &req, const string &path, object_type type_hint, object::ptr *obj_, locked_object::ptr *l_)
 {
-  object_builder::ptr ob(new object_builder());
+  object::ptr obj;
+  object_builder builder(req, path, type_hint);
 
-  req->init(HTTP_HEAD);
-  req->set_object_builder(ob);
+  obj = builder.build();
 
-  if (hints == HINT_NONE || hints & HINT_IS_DIR) {
-    // see if the path is a directory (trailing /) first
-    req->set_url(object::build_url(path, OT_DIRECTORY));
-    req->run();
-  }
-
-  if (hints & HINT_IS_FILE || req->get_response_code() != HTTP_SC_OK) {
-    // it's not a directory
-    req->set_url(object::build_url(path, OT_INVALID));
-    req->run();
-  }
-
-  if (req->get_response_code() != HTTP_SC_OK)
-    obj.reset();
-  else {
+  {
     mutex::scoped_lock lock(_mutex);
     object::ptr &map_obj = _cache_map[path];
 
@@ -94,6 +76,12 @@ int object_cache::__fetch(const request::ptr &req, const string &path, int hints
       // otherwise, save it
       map_obj = obj;
     }
+
+    if (*obj_)
+      *obj_ = obj;
+
+    if (*l_)
+      *l_ = locked_object::ptr(new locked_object(obj));
   }
 
   return 0;

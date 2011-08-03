@@ -31,11 +31,11 @@
 #include <vector>
 #include <boost/smart_ptr.hpp>
 #include <boost/thread.hpp>
-
-#define LOCK boost::mutex::scoped_lock lock(_mutex)
+#include <boost/detail/atomic_count.hpp>
 
 namespace s3
 {
+  class locked_object;
   class object_builder;
   class object_cache;
   class request;
@@ -51,6 +51,8 @@ namespace s3
   class object
   {
   public:
+    #define LOCK boost::mutex::scoped_lock lock(_mutex)
+
     typedef boost::shared_ptr<object> ptr;
 
     static std::string get_bucket_url();
@@ -90,30 +92,38 @@ namespace s3
 
     void init();
 
-    boost::mutex & get_mutex() { return _mutex; }
+    inline boost::mutex & get_mutex() { return _mutex; }
+    inline void invalidate() { _expiry = 0; }
 
     virtual void build_process_header(const boost::shared_ptr<request> &req, const std::string &key, const std::string &value);
     virtual void build_finalize(const boost::shared_ptr<request> &req);
 
   private:
+    friend class locked_object; // for lock, unlock
     friend class object_builder; // for build_*
-    friend class object_cache; // for is_valid
+    friend class object_cache; // for is_valid, is_removable
 
     typedef std::map<std::string, std::string> meta_map;
 
-    inline bool is_valid() { return (_expiry > 0 && time(NULL) < _expiry); }
+    inline bool is_valid() { return _expiry > 0 && time(NULL) < _expiry; }
+    inline bool is_removable() { return (_lock_count == 0); }
+
+    inline void lock() { ++_lock_count; }
+    inline void unlock() { --_lock_count; }
 
     boost::mutex _mutex;
     std::string _path, _url, _etag, _mtime_etag;
     time_t _expiry;
     struct stat _stat;
+    boost::detail::atomic_count _lock_count;
 
     // protected by _mutex
     meta_map _metadata;
     std::string _content_type;
+
+    #undef LOCK
   };
 }
 
-#undef LOCK
 
 #endif
