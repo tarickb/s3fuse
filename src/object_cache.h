@@ -46,7 +46,7 @@ namespace s3
     object_cache(const thread_pool::ptr &pool);
     ~object_cache();
 
-    inline object::ptr get(const boost::shared_ptr<request> &req, const std::string &path, object_type type_hint = OT_INVALID)
+    inline object::ptr get_object(const boost::shared_ptr<request> &req, const std::string &path, object_type type_hint = OT_INVALID)
     {
       object::ptr obj;
 
@@ -55,23 +55,23 @@ namespace s3
       return obj;
     }
 
-    inline object::ptr get(const std::string &path, object_type type_hint = OT_INVALID)
+    inline object::ptr get_object(const std::string &path, object_type type_hint = OT_INVALID)
     {
       return get(boost::shared_ptr<request>(), path, type_hint);
     }
 
-    inline locked_object::ptr lock(const boost::shared_ptr<request> &req, const std::string &path, object_type type_hint = OT_INVALID)
+    inline object_handle get_handle(const boost::shared_ptr<request> &req, const std::string &path, object_type type_hint = OT_INVALID)
     {
-      locked_object::ptr l;
+      object_handle handle;
 
-      find_or_fetch(req, path, NULL, &l, type_hint);
+      find_or_fetch(req, path, NULL, &handle, type_hint);
 
       return l;
     }
 
-    inline locked_object::ptr lock(const std::string &path, object_type type_hint = OT_INVALID)
+    inline object_handle get_handle(const std::string &path, object_type type_hint = OT_INVALID)
     {
-      return lock(boost::shared_ptr<request>(), path, type_hint);
+      return get_handle(boost::shared_ptr<request>(), path, type_hint);
     }
 
     inline void remove(const std::string &path)
@@ -170,39 +170,120 @@ namespace s3
     */
 
   private:
-    typedef std::map<std::string, object::ptr> cache_map;
-    // typedef std::map<uint64_t, object::ptr> handle_map;
+    class cached_object
+    {
+    public:
+      typedef boost::shared_ptr<cached_object> ptr;
+
+      inline cached_object(const object::ptr &obj)
+        : _obj(obj), 
+          _handle(object_handle()), 
+          _ref_count(0),
+          _locked(false)
+      {
+      }
+
+      inline bool is_valid() { return _obj && _obj->is_valid(); }
+      inline bool is_removable() { return _ref_count == 0; }
+
+      inline const object::ptr & get_object() { return _obj; }
+
+      inline int get_handle(object_handle *handle, boost::mutex::scoped_lock *lock, object_handle *next_handle)
+      {
+        int r = 0;
+
+        if (!_obj)
+          return -EINVAL;
+
+        if (_locked)
+          return -EBUSY;
+
+        if (_ref_count == 0) {
+          _locked = true;
+
+          lock->unlock();
+
+          try {
+            DO THIS ON THE THREAD POOL!
+            r = _obj->on_first_handle();
+          } catch (...) { r = -ECANCELED; }
+
+          lock->lock();
+
+          _locked = false;
+
+          if (r)
+            return r;
+
+          _handle = (*next_handle)++;
+        }
+
+        _ref_count++;
+        *handle = _handle;
+
+        return 0;
+      }
+
+      inline void release_handle(boost::mutex::scoped_lock *lock)
+      {
+        _ref_count--;
+
+        if (_ref_count == 0) {
+          _locked = true;
+
+          lock->unlock();
+
+          try {
+            _obj->on_last_handle();
+          } catch (...) { }
+
+          lock->lock();
+
+          _locked = false;
+          _obj.reset();
+        }
+      }
+
+    private:
+      object::ptr _obj;
+      object_handle _handle;
+      uint64_t _ref_count;
+      bool _locked;
+    };
+
+    typedef std::map<std::string, cached_object::ptr> cache_map;
+    typedef std::map<object_handle, cached_object::ptr> handle_map;
 
     inline void find_or_fetch(
       const boost::shared_ptr<request> &req, 
       const std::string &path, 
       object::ptr *obj = NULL, 
-      locked_object::ptr *l = NULL, 
+      object_handle *handle = NULL,
       object_type type_hint = OT_INVALID)
     {
-      if (!find(path, obj, l)) {
+      if (!find(path, obj, handle)) {
         if (req)
-          __fetch(req, path, type_hint, obj, l);
+          __fetch(req, path, type_hint, obj, handle);
         else
-          _pool->call(boost::bind(&object_cache::__fetch, this, _1, path, type_hint, obj, l));
+          _pool->call(boost::bind(&object_cache::__fetch, this, _1, path, type_hint, obj, handle));
       }
     }
 
-    inline bool find(const std::string &path, object::ptr *obj_, locked_object::ptr *l_)
+    inline bool find(const std::string &path, object::ptr *obj_, object_handle *handle_)
     {
       boost::mutex::scoped_lock lock(_mutex);
-      object::ptr &obj = _cache_map[path];
+      cached_object::ptr &co = _cache_map[path];
 
-      if (!obj) {
+      if (!co) {
         _misses++;
 
         return false;
       }
 
-      if (!obj->is_valid()) {
-        if (obj->is_removable()) {
+      if (!co->is_valid()) {
+        if (co->is_removable()) {
           _expiries++;
-          obj.reset();
+          co.reset();
 
           return false;
         }
@@ -213,10 +294,12 @@ namespace s3
       _hits++;
 
       if (obj_)
-        *obj_ = obj;
+        *obj_ = co->get_object();
 
-      if (l_)
-        *l_ = locked_object::ptr(new locked_object(obj));
+      if (handle_) {
+        *handle_ = co->get_handle(&_next_handle);
+        _handle_map[*handle_] = co;
+      }
 
       return true;
     }
