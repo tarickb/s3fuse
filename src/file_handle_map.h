@@ -6,10 +6,12 @@
 #include <map>
 #include <boost/smart_ptr.hpp>
 
+#include "handle_container.h"
 #include "locked_object.h"
 
 namespace s3
 {
+  // todo: rename!
   class file_handle_map
   {
   public:
@@ -18,17 +20,22 @@ namespace s3
     file_handle_map();
     ~file_handle_map();
 
-    int open(const locked_object::ptr &file, uint64_t *handle);
-    int release(uint64_t handle);
+    int open(const locked_object::ptr &file, object_handle *handle);
+    int release(object_handle handle);
 
-    boost::shared_ptr<open_file> get(uint64_t handle);
+    int truncate(object_handle handle, off_t offset);
+    int flush(object_handle handle);
+    int read(object_handle handle, char *buffer, size_t size, off_t offset);
+    int write(object_handle handle, const char *buffer, size_t size, off_t offset);
 
   private:
-    typedef std::map<uint64_t, locked_object::ptr> object_map;
+    typedef std::map<object_handle, handle_container::ptr> handle_map;
+    typedef std::map<const object *, handle_container::ptr> object_map;
 
     boost::mutex _mutex;
-    object_map _map;
-    uint64_t _next_handle;
+    object_map _object_map;
+    handle_map _handle_map;
+    object_handle _next_handle;
   };
 }
 

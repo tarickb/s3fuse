@@ -63,8 +63,6 @@ namespace s3
     inline void set_gid(gid_t gid) { _stat.st_gid = gid; }
     inline void set_mtime(time_t mtime) { _stat.st_mtime = mtime; }
 
-    void set_mode(mode_t mode);
-
     inline const std::string & get_url() { return _url; }
     inline const std::string & get_path() { return _path; }
 
@@ -72,6 +70,11 @@ namespace s3
     inline void set_content_type(const std::string &content_type) { LOCK; _content_type = content_type; }
 
     inline const std::string & get_etag() { return _etag; }
+
+    inline bool is_valid() { return _expiry > 0 && time(NULL) < _expiry; }
+    inline bool is_in_use() { return (_lock_count != 0); }
+
+    void set_mode(mode_t mode);
 
     int commit_metadata(const boost::shared_ptr<request> &req);
 
@@ -101,12 +104,8 @@ namespace s3
   private:
     friend class locked_object; // for lock, unlock
     friend class object_builder; // for build_*
-    friend class object_cache; // for is_valid, is_removable
 
     typedef std::map<std::string, std::string> meta_map;
-
-    inline bool is_valid() { return _expiry > 0 && time(NULL) < _expiry; }
-    inline bool is_removable() { return (_lock_count == 0); }
 
     inline void lock() { ++_lock_count; }
     inline void unlock() { --_lock_count; }

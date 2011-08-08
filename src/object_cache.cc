@@ -33,13 +33,12 @@ object_cache::object_cache(const thread_pool::ptr &pool)
     _hits(0),
     _misses(0),
     _expiries(0),
-    _expired_but_unremovable(0)
+    _expired_but_in_use(0)
 { }
 
 object_cache::~object_cache()
 {
-  // don't add expired-but-unremovable since they count as hits too
-  uint64_t total = _hits + _misses + _expiries;
+  uint64_t total = _hits + _misses + _expiries + _expired_but_in_use;
 
   if (total == 0)
     total = 1; // avoid NaNs below
@@ -47,42 +46,22 @@ object_cache::~object_cache()
   S3_LOG(
     LOG_DEBUG,
     "object_cache::~object_cache", 
-    "hits: %" PRIu64 " (%.02f%%), misses: %" PRIu64 " (%.02f%%), expiries: %" PRIu64 " (%.02f%%), expired but unremovable: %" PRIu64 " (%.02f%%)\n", 
+    "hits: %" PRIu64 " (%.02f%%), misses: %" PRIu64 " (%.02f%%), expiries: %" PRIu64 " (%.02f%%), expired but in use: %" PRIu64 " (%.02f%%)\n", 
     _hits,
     double(_hits) / double(total) * 100.0,
     _misses,
     double(_misses) / double(total) * 100.0,
     _expiries,
     double(_expiries) / double(total) * 100.0,
-    _expired_but_unremovable,
-    double(_expired_but_unremovable) / double(total) * 100.0);
+    _expired_but_in_use,
+    double(_expired_but_in_use) / double(total) * 100.0);
 }
 
-int object_cache::__fetch(const request::ptr &req, const string &path, object_type type_hint, object::ptr *obj_, locked_object::ptr *l_)
+int object_cache::__fetch(const request::ptr &req, const string &path, object_type type_hint, object::ptr *obj)
 {
-  object::ptr obj;
   object_builder builder(req, path, type_hint);
 
-  obj = builder.build();
-
-  {
-    mutex::scoped_lock lock(_mutex);
-    object::ptr &map_obj = _cache_map[path];
-
-    if (map_obj) {
-      // if the object is already in the map, don't overwrite it
-      obj = map_obj;
-    } else {
-      // otherwise, save it
-      map_obj = obj;
-    }
-
-    if (*obj_)
-      *obj_ = obj;
-
-    if (*l_)
-      *l_ = locked_object::ptr(new locked_object(obj));
-  }
+  *obj = builder.build();
 
   return 0;
 }

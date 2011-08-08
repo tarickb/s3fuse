@@ -50,6 +50,9 @@ namespace s3
     }
     */
 
+    int open();
+    int close();
+
     virtual void copy_stat(struct stat *s);
 
     virtual int set_metadata(const std::string &key, const std::string &value, int flags = 0);
