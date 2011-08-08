@@ -24,6 +24,7 @@ s3fuse_SOURCES = \
 	fs.h \
 	gs_service_impl.cc \
 	gs_service_impl.h \
+	handle_container.h \
 	locked_object.h \
 	logger.cc \
 	logger.h \
