@@ -31,7 +31,6 @@
 #include <vector>
 #include <boost/smart_ptr.hpp>
 #include <boost/thread.hpp>
-#include <boost/detail/atomic_count.hpp>
 
 namespace s3
 {
@@ -48,7 +47,9 @@ namespace s3
     OT_SYMLINK
   };
 
-  class object
+  typedef uint64_t object_handle;
+
+  class object : public boost::noncopyable
   {
   public:
     #define LOCK boost::mutex::scoped_lock lock(_mutex)
@@ -72,7 +73,10 @@ namespace s3
     inline const std::string & get_etag() { return _etag; }
 
     inline bool is_valid() { return _expiry > 0 && time(NULL) < _expiry; }
-    inline bool is_in_use() { return (_lock_count != 0); }
+
+    inline bool is_removable() { LOCK; return _lock_count == 0 && _ref_count == 0; }
+    inline bool is_locked() { LOCK; return _lock_count > 0; }
+    inline bool is_in_use() { LOCK; return _ref_count > 0; }
 
     void set_mode(mode_t mode);
 
@@ -103,18 +107,34 @@ namespace s3
 
   private:
     friend class locked_object; // for lock, unlock
+    friend class file_handle_map; // for set_handle, add_ref, release
     friend class object_builder; // for build_*
 
     typedef std::map<std::string, std::string> meta_map;
 
-    inline void lock() { ++_lock_count; }
-    inline void unlock() { --_lock_count; }
+    inline void lock() { LOCK; ++_lock_count; }
+    inline void unlock() { LOCK; --_lock_count; }
+
+    inline void set_handle(object_handle handle) { LOCK; _handle = handle; }
+
+    inline void add_ref(object_handle *handle)
+    {
+      LOCK;
+
+      ++_ref_count;
+
+      if (handle)
+        *handle = _handle;
+    }
+
+    inline void release() { LOCK; --_ref_count; }
 
     boost::mutex _mutex;
     std::string _path, _url, _etag, _mtime_etag;
     time_t _expiry;
     struct stat _stat;
-    boost::detail::atomic_count _lock_count;
+    object_handle _handle;
+    uint64_t _lock_count, _ref_count;
 
     // protected by _mutex
     meta_map _metadata;

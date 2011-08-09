@@ -76,7 +76,7 @@ namespace s3
         if (o->is_valid())
           _hits++;
         else {
-          if (o->is_in_use())
+          if (!o->is_removable())
             _expired_but_in_use++;
           else {
             _expiries++;

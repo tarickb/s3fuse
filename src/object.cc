@@ -73,7 +73,8 @@ object::ptr object::create(const string &path, object_type type)
 object::object(const string &path)
   : _path(path),
     _expiry(0),
-    _lock_count(0)
+    _lock_count(0),
+    _ref_count(0)
 {
 }
 
