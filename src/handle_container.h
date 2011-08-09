@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 
+#include <stdexcept>
 #include <boost/smart_ptr.hpp>
 
 #include "file.h"
@@ -12,11 +13,10 @@ namespace s3
 {
   typedef uint64_t object_handle;
 
-  class handle_container
+  // TODO: merge this with locked_object?
+  class handle_container : public boost::noncopyable
   {
   public:
-    // TODO: merge this with locked_object?
-
     typedef boost::shared_ptr<handle_container> ptr;
 
     inline handle_container(const locked_object::ptr &obj, object_handle handle)
@@ -27,13 +27,15 @@ namespace s3
 
     inline void add_ref(object_handle *handle)
     {
-      _ref_count++;
-      *handle = _handle;
+      ++_ref_count;
+
+      if (handle)
+        *handle = _handle;
     }
 
     inline void release()
     {
-      _ref_count--;
+      --_ref_count;
     }
 
     inline bool is_in_use() { return _ref_count > 0; }
@@ -45,7 +47,7 @@ namespace s3
   private:
     locked_object::ptr _object;
     object_handle _handle;
-    uint64_t _ref_count;
+    boost::detail::atomic_count _ref_count;
   };
 }
 

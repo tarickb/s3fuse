@@ -53,6 +53,11 @@ namespace s3
     int open();
     int close();
 
+    int truncate(off_t offset);
+    int flush();
+    int read(char *buffer, size_t size, off_t offset);
+    int write(const char *buffer, size_t size, off_t offset);
+
     virtual void copy_stat(struct stat *s);
 
     virtual int set_metadata(const std::string &key, const std::string &value, int flags = 0);
@@ -64,8 +69,6 @@ namespace s3
   protected:
     virtual void build_process_header(const boost::shared_ptr<request> &req, const std::string &key, const std::string &value);
     virtual void build_finalize(const boost::shared_ptr<request> &req);
-
-    virtual bool is_removable();
 
   private:
     std::string _md5, _md5_etag;
