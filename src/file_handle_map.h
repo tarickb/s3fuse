@@ -11,7 +11,6 @@
 
 namespace s3
 {
-  // todo: rename!
   class file_handle_map
   {
   public:
@@ -34,15 +33,14 @@ namespace s3
           return -EINVAL; \
         \
         lo = itor->second; \
-        get_object(lo)->add_ref(NULL); \
+        get_object(lo)->add_reference(NULL); \
         lock.unlock(); \
         \
         try { \
           r = get_file(lo)->cmd(__VA_ARGS__); \
         } catch (...) { r = -ECANCELED; } \
         \
-        lock.lock(); \
-        get_object(lo)->release(); \
+        release(handle); \
         \
         return r; \
       } while (0)

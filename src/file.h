@@ -17,9 +17,6 @@ namespace s3
       return service::get_bucket_url() + "/" + util::url_encode(path);
     }
 
-    virtual object_type get_type();
-    virtual mode_t get_mode();
-
     inline void set_md5(const std::string &md5, const std::string &etag)
     {
       boost::mutex::scoped_lock lock(get_mutex());
@@ -37,26 +34,42 @@ namespace s3
       return _md5;
     }
 
-    /*
-    inline size_t get_size()
+    inline int truncate(off_t offset)
     {
-      boost::mutex::scoped_lock lock(get_mutex());
+      int fd = _fd; // local copy in lieu of locking and copying
 
-      
-      if (_open_file)
-        _stat.st_size = _open_file->get_size();
+      if (fd == -1)
+        return -EINVAL;
 
-      return _stat.st_size;
+      return ftruncate(fd, offset);
     }
-    */
+
+    inline int read(char *buffer, size_t size, off_t offset)
+    {
+      int fd = _fd;
+
+      if (fd == -1)
+        return -EINVAL;
+
+      return pread(fd, buffer, size, offset);
+    }
+
+    inline int write(const char *buffer, size_t size, off_t offset)
+    {
+      int fd = _fd;
+
+      if (fd == -1)
+        return -EINVAL;
+
+      return pwrite(fd, buffer, size, offset);
+    }
 
     int open();
     int close();
-
-    int truncate(off_t offset);
     int flush();
-    int read(char *buffer, size_t size, off_t offset);
-    int write(const char *buffer, size_t size, off_t offset);
+
+    virtual object_type get_type();
+    virtual mode_t get_mode();
 
     virtual void copy_stat(struct stat *s);
 
@@ -71,8 +84,18 @@ namespace s3
     virtual void build_finalize(const boost::shared_ptr<request> &req);
 
   private:
+    inline size_t get_size()
+    {
+      struct stat s;
+
+      s.st_size = 0;
+      copy_stat(&s);
+
+      return s.st_size;
+    }
+
     std::string _md5, _md5_etag;
-    // open_file::ptr _open_file;
+    int _fd;
   };
 }
 

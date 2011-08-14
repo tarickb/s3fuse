@@ -1,4 +1,5 @@
 #include "file.h"
+#include "logger.h"
 #include "request.h"
 
 using namespace boost;
@@ -7,7 +8,8 @@ using namespace std;
 using namespace s3;
 
 file::file(const string &path)
-  : object(path)
+  : object(path),
+    _fd(-1)
 {
   init();
 }
@@ -89,4 +91,48 @@ void file::set_meta_headers(const request::ptr &req)
     req->set_header(meta_prefix + "s3fuse-md5", _md5);
     req->set_header(meta_prefix + "s3fuse-md5-etag", _md5_etag);
   }
+}
+
+void file::copy_stat(struct stat *s)
+{
+  int fd = _fd; // local copy
+
+  object::copy_stat(s);
+
+  if (fd != -1) {
+    struct stat temp;
+
+    if (fstat(fd, &temp) == 0)
+      s->st_size = temp.st_size;
+  }
+}
+
+int file::open()
+{
+  char temp_name[] = "/tmp/s3fuse.local-XXXXXX";
+
+  _fd = mkstemp(temp_name);
+  unlink(temp_name);
+
+  S3_LOG(LOG_DEBUG, "file::open", "opening [%s] in [%s].\n", get_path().c_str(), temp_name);
+
+  if (_fd == -1)
+    throw runtime_error("error calling mkstemp()");
+
+  if (ftruncate(_fd, get_size()) != 0) {
+    ::close(_fd);
+    _fd = -1;
+
+    throw runtime_error("failed to truncate temporary file.");
+  }
+}
+
+int file::close()
+{
+  ::close(_fd);
+  _fd = -1;
+}
+
+int file::flush()
+{
 }

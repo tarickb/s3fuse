@@ -107,7 +107,7 @@ namespace s3
 
   private:
     friend class locked_object; // for lock, unlock
-    friend class file_handle_map; // for set_handle, add_ref, release
+    friend class file_handle_map; // for set_handle, add_reference, release
     friend class object_builder; // for build_*
 
     typedef std::map<std::string, std::string> meta_map;
@@ -117,7 +117,7 @@ namespace s3
 
     inline void set_handle(object_handle handle) { LOCK; _handle = handle; }
 
-    inline void add_ref(object_handle *handle)
+    inline void add_reference(object_handle *handle)
     {
       LOCK;
 
