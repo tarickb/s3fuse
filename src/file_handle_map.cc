@@ -57,7 +57,7 @@ int file_handle_map::open(const locked_object::ptr &obj, object_handle *handle)
     _handle_map[new_handle] = lo;
   }
 
-  get_object(lo)->add_ref(handle);
+  get_object(lo)->add_reference(handle);
 
   return 0;
 }

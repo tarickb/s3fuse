@@ -109,7 +109,9 @@ void file::copy_stat(struct stat *s)
 
 int file::open()
 {
+  int err = 0;
   char temp_name[] = "/tmp/s3fuse.local-XXXXXX";
+  size_t size = get_size(); // get before setting _fd because if _fd is set, get_size() returns the size of the open file
 
   _fd = mkstemp(temp_name);
   unlink(temp_name);
@@ -117,14 +119,20 @@ int file::open()
   S3_LOG(LOG_DEBUG, "file::open", "opening [%s] in [%s].\n", get_path().c_str(), temp_name);
 
   if (_fd == -1)
-    throw runtime_error("error calling mkstemp()");
+    err = -errno;
 
-  if (ftruncate(_fd, get_size()) != 0) {
+  if (!err && ftruncate(_fd, size) != 0)
+    err = -errno;
+
+  if (!err)
+    err = get_fs()->get_file_transfer()->download(shared_from_this(), _fd);
+
+  if (err) {
     ::close(_fd);
     _fd = -1;
-
-    throw runtime_error("failed to truncate temporary file.");
   }
+
+  return 0;
 }
 
 int file::close()

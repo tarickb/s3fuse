@@ -36,12 +36,26 @@ namespace s3
 
     inline int truncate(off_t offset)
     {
-      int fd = _fd; // local copy in lieu of locking and copying
+      boost::mutex::scoped_lock lock(get_mutex());
+      int fd = _fd;
+      int r = 0;
 
       if (fd == -1)
         return -EINVAL;
 
-      return ftruncate(fd, offset);
+      if (_no_write)
+        return -EBUSY;
+
+      _dirty = true;
+      _no_flush++;
+
+      lock.unlock();
+      r = ftruncate(fd, offset);
+      lock.lock();
+
+      _no_flush--;
+      
+      return r;
     }
 
     inline int read(char *buffer, size_t size, off_t offset)
@@ -56,12 +70,55 @@ namespace s3
 
     inline int write(const char *buffer, size_t size, off_t offset)
     {
+      boost::mutex::scoped_lock lock(get_mutex());
       int fd = _fd;
+      int r = 0;
 
       if (fd == -1)
         return -EINVAL;
 
-      return pwrite(fd, buffer, size, offset);
+      if (_no_write)
+        return -EBUSY;
+
+      _dirty = true;
+      _no_flush++;
+
+      lock.unlock();
+      r = pwrite(fd, buffer, size, offset);
+      lock.lock();
+
+      _no_flush--;
+
+      return r;
+    }
+
+    inline int flush()
+    {
+      boost::mutex::scoped_lock lock(get_mutex());
+      int fd = _fd;
+      int r = 0;
+
+      if (fd == -1)
+        return -EINVAL;
+
+      if (!_dirty)
+        return 0;
+
+      if (_no_flush || _no_write)
+        return -EBUSY;
+
+      _no_write = true;
+
+      lock.unlock();
+      r = real_flush();
+      lock.lock();
+
+      _no_write = false;
+
+      if (!r)
+        _dirty = false;
+
+      return r;
     }
 
     int open();
@@ -96,6 +153,7 @@ namespace s3
 
     std::string _md5, _md5_etag;
     int _fd;
+    bool _dirty, _writeable;
   };
 }
 
