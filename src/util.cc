@@ -55,8 +55,8 @@ string util::base64_encode(const uint8_t *input, size_t size)
 
 string util::sign(const string &key, const string &data)
 {
-  unsigned int hmac_md5_len;
-  uint8_t hmac_md5[EVP_MAX_MD_SIZE];
+  unsigned int hmac_sha1_len;
+  uint8_t hmac_sha1[EVP_MAX_MD_SIZE];
 
   HMAC(
     EVP_sha1(), 
@@ -64,10 +64,10 @@ string util::sign(const string &key, const string &data)
     key.size(), 
     reinterpret_cast<const uint8_t *>(data.data()), 
     data.size(), 
-    hmac_md5, 
-    &hmac_md5_len);
+    hmac_sha1, 
+    &hmac_sha1_len);
 
-  return base64_encode(hmac_md5, hmac_md5_len);
+  return base64_encode(hmac_sha1, hmac_sha1_len);
 }
 
 string util::compute_md5(int fd, md5_output_type type, ssize_t size, off_t offset)
