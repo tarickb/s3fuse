@@ -29,9 +29,9 @@
 #include "config.h"
 #include "logger.h"
 #include "object.h"
-#include "openssl_locks.h"
 #include "request.h"
 #include "service.h"
+#include "ssl_locks.h"
 
 using namespace std;
 
@@ -51,7 +51,7 @@ request::request()
   if (!_curl)
     throw runtime_error("curl_easy_init() failed.");
 
-  openssl_locks::init();
+  ssl_locks::init();
 
   // stuff that's set in the ctor shouldn't be modified elsewhere, since the call to init() won't reset it
 
@@ -81,7 +81,7 @@ request::~request()
       _run_count,
       (_run_count && _total_run_time > 0.0) ? (_total_run_time / double(_run_count) * 1000.0) : 0.0);
 
-  openssl_locks::release();
+  ssl_locks::release();
 }
 
 void request::init(http_method method)

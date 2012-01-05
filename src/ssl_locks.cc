@@ -1,5 +1,5 @@
 /*
- * openssl_locks.cc
+ * ssl_locks.cc
  * -------------------------------------------------------------------------
  * Provides lock callbacks required to use OpenSSL in a multithreaded
  * application.  See:
@@ -30,7 +30,7 @@
 #include <boost/thread.hpp>
 
 #include "logger.h"
-#include "openssl_locks.h"
+#include "ssl_locks.h"
 
 using namespace boost;
 using namespace std;
@@ -66,7 +66,13 @@ namespace
     if (!ver)
       throw runtime_error("curl_version_info() failed.");
 
-    S3_LOG(LOG_DEBUG, "openssl_locks::init", "ssl version: %s\n", ver->ssl_version);
+    S3_LOG(LOG_DEBUG, "ssl_locks::init", "ssl version: %s\n", ver->ssl_version);
+
+    if (!ver->ssl_version)
+      throw runtime_error("curl does not report an SSL library. cannot continue.");
+
+    if (strstr(ver->ssl_version, "NSS"))
+      return; // NSS doesn't require external locking
 
     if (strstr(ver->ssl_version, "OpenSSL") == NULL)
       throw runtime_error("curl reports unsupported non-OpenSSL SSL library. cannot continue.");
@@ -92,7 +98,7 @@ namespace
   }
 }
 
-void openssl_locks::init()
+void ssl_locks::init()
 {
   mutex::scoped_lock lock(s_mutex);
 
@@ -102,7 +108,7 @@ void openssl_locks::init()
   s_ref_count++;
 }
 
-void openssl_locks::release()
+void ssl_locks::release()
 {
   mutex::scoped_lock lock(s_mutex);
 

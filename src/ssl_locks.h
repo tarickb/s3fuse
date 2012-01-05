@@ -1,7 +1,7 @@
 /*
- * openssl_locks.h
+ * ssl_locks.h
  * -------------------------------------------------------------------------
- * OpenSSL lock interface.
+ * SSL lock interface.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2011, Tarick Bedeir.
@@ -24,7 +24,7 @@
 
 namespace s3
 {
-  class openssl_locks
+  class ssl_locks
   {
   public:
     static void init();

@@ -28,14 +28,14 @@ s3fuse_SOURCES = \
 	object.h \
 	open_file.cc \
 	open_file.h \
-	openssl_locks.cc \
-	openssl_locks.h \
 	request.cc \
 	request.h \
 	service.cc \
 	service.h \
 	service_impl.cc \
 	service_impl.h \
+	ssl_locks.cc \
+	ssl_locks.h \
 	thread_pool.cc \
 	thread_pool.h \
 	util.cc \
@@ -63,14 +63,14 @@ s3fuse_gs_get_token_SOURCES = \
 	object_cache.h \
 	object.cc \
 	object.h \
-	openssl_locks.cc \
-	openssl_locks.h \
 	request.cc \
 	request.h \
 	service.cc \
 	service.h \
 	service_impl.cc \
 	service_impl.h \
+	ssl_locks.cc \
+	ssl_locks.h \
 	util.cc \
 	util.h
 
