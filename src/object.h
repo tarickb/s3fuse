@@ -31,7 +31,6 @@
 #include <boost/function.hpp>
 #include <boost/smart_ptr.hpp>
 
-#include "mutexes.h"
 #include "open_file.h"
 #include "util.h"
 
@@ -61,7 +60,7 @@ namespace s3
     static std::string get_bucket_url();
     static std::string build_url(const std::string &path, object_type type);
 
-    object(const mutexes::ptr &mutexes, const std::string &path, object_type type = OT_INVALID);
+    object(const std::string &path, object_type type = OT_INVALID);
 
     int set_metadata(const std::string &key, const std::string &value, int flags = 0);
     void get_metadata_keys(std::vector<std::string> *keys);
@@ -76,7 +75,7 @@ namespace s3
 
     inline void set_md5(const std::string &md5, const std::string &etag)
     {
-      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+      boost::mutex::scoped_lock lock(_metadata_mutex);
 
       _md5 = md5;
       _md5_etag = etag;
@@ -89,14 +88,14 @@ namespace s3
 
     inline bool is_directory_cached()
     {
-      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+      boost::mutex::scoped_lock lock(_metadata_mutex);
 
       return _dir_cache; 
     }
 
     inline void set_directory_cache(const dir_cache_ptr &dc)
     {
-      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+      boost::mutex::scoped_lock lock(_metadata_mutex);
 
       if (_type != OT_DIRECTORY)
         throw std::runtime_error("cannot set directory cache on an object that isn't a directory!");
@@ -106,7 +105,7 @@ namespace s3
 
     inline void fill_directory(const dir_filler_function &filler)
     {
-      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+      boost::mutex::scoped_lock lock(_metadata_mutex);
       dir_cache_ptr dc;
 
       // make local copy of _dir_cache so we don't hold the metadata mutex
@@ -124,14 +123,14 @@ namespace s3
 
     inline std::string get_etag()
     {
-      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+      boost::mutex::scoped_lock lock(_metadata_mutex);
 
       return _etag; 
     }
 
     inline std::string get_md5()
     {
-      boost::mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+      boost::mutex::scoped_lock lock(_metadata_mutex);
 
       return _md5; 
     }
@@ -140,10 +139,12 @@ namespace s3
 
     inline size_t get_size()
     {
-      if (_open_fd != -1) {
+      boost::mutex::scoped_lock lock(_open_file_mutex);
+
+      if (_open_file) {
         struct stat s;
 
-        if (fstat(_open_fd, &s) == 0)
+        if (fstat(_open_file->get_fd(), &s) == 0)
           _stat.st_size = s.st_size;
       }
 
@@ -166,14 +167,16 @@ namespace s3
 
     inline const open_file::ptr & get_open_file()
     {
+      boost::mutex::scoped_lock lock(_open_file_mutex);
+
       return _open_file;
     }
 
     inline void set_open_file(const open_file::ptr &open_file)
     {
-      // this is a one-way call -- we'll never be called with a null open_file
+      boost::mutex::scoped_lock lock(_open_file_mutex);
+
       _open_file = open_file;
-      _open_fd = open_file->get_fd();
     }
 
     void init_stat();
@@ -183,20 +186,20 @@ namespace s3
     void request_process_response(request *req);
     void request_set_meta_headers(request *req);
 
-    mutexes::ptr _mutexes;
+    boost::mutex _metadata_mutex, _open_file_mutex;
+
     object_type _type;
     std::string _path, _url, _content_type, _mtime_etag;
     time_t _expiry;
     struct stat _stat;
 
-    // protected by _mutexes->get_object_metadata_mutex()
+    // protected by _metadata_mutex
     meta_map _metadata;
     std::string _etag, _md5, _md5_etag;
     dir_cache_ptr _dir_cache;
 
-    // protected by mutex in object_cache
+    // protected by _open_file_mutex
     open_file::ptr _open_file;
-    int _open_fd;
   };
 }
 

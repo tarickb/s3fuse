@@ -29,10 +29,8 @@ using namespace s3;
 
 object_cache::object_cache(
   const thread_pool::ptr &pool, 
-  const boost::shared_ptr<mutexes> &mutexes,
   const boost::shared_ptr<file_transfer> &file_transfer)
   : _pool(pool),
-    _mutexes(mutexes),
     _file_transfer(file_transfer),
     _hits(0),
     _misses(0),
@@ -66,7 +64,7 @@ int object_cache::__fetch(const request::ptr &req, const string &path, int hints
 {
   object::ptr &obj = *_obj;
 
-  obj.reset(new object(_mutexes, path));
+  obj.reset(new object(path));
 
   req->init(HTTP_HEAD);
   req->set_target_object(obj);

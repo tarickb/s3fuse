@@ -33,8 +33,6 @@
 
 namespace s3
 {
-  class mutexes;
-
   class fs
   {
   public:
@@ -224,7 +222,6 @@ namespace s3
     int  __set_attr        (const request_ptr &req, const std::string &path, const std::string &name, const std::string &value, int flags);
 
     thread_pool::ptr _tp_fg, _tp_bg;
-    boost::shared_ptr<mutexes> _mutexes;
     object_cache::ptr _object_cache;
   };
 }

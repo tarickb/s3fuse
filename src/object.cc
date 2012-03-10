@@ -69,12 +69,10 @@ string object::build_url(const string &path, object_type type)
   return get_bucket_url() + "/" + util::url_encode(path) + ((type == OT_DIRECTORY) ? "/" : "");
 }
 
-object::object(const mutexes::ptr &mutexes, const string &path, object_type type)
-  : _mutexes(mutexes),
-    _type(type),
+object::object(const string &path, object_type type)
+  : _type(type),
     _path(path),
-    _expiry(0),
-    _open_fd(-1)
+    _expiry(0)
 {
   init_stat();
 
@@ -104,7 +102,7 @@ void object::init_stat()
 
 int object::set_metadata(const string &key, const string &value, int flags)
 {
-  mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+  mutex::scoped_lock lock(_metadata_mutex);
   meta_map::iterator itor = _metadata.find(key);
 
   if (strncmp(key.c_str(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) == 0)
@@ -125,7 +123,7 @@ int object::set_metadata(const string &key, const string &value, int flags)
 
 void object::get_metadata_keys(vector<string> *keys)
 {
-  mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+  mutex::scoped_lock lock(_metadata_mutex);
 
   keys->push_back("__md5__");
   keys->push_back("__etag__");
@@ -137,7 +135,7 @@ void object::get_metadata_keys(vector<string> *keys)
 
 int object::get_metadata(const string &key, string *value)
 {
-  mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+  mutex::scoped_lock lock(_metadata_mutex);
   meta_map::const_iterator itor;
 
   if (key == "__md5__")
@@ -160,7 +158,7 @@ int object::get_metadata(const string &key, string *value)
 
 int object::remove_metadata(const string &key)
 {
-  mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+  mutex::scoped_lock lock(_metadata_mutex);
   meta_map::iterator itor = _metadata.find(key);
 
   if (itor == _metadata.end())
@@ -274,7 +272,7 @@ void object::request_process_response(request *req)
 
 void object::request_set_meta_headers(request *req)
 {
-  mutex::scoped_lock lock(_mutexes->get_object_metadata_mutex());
+  mutex::scoped_lock lock(_metadata_mutex);
   string meta_prefix = service::get_header_prefix() + META_PREFIX;
   char buf[16];
 

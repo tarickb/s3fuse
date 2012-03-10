@@ -26,11 +26,12 @@
 #include <sys/stat.h>
 
 #include <boost/shared_ptr.hpp>
+#include <boost/thread.hpp>
+#include <boost/thread/condition.hpp>
 
 namespace s3
 {
   class file_transfer;
-  class mutexes;
   class object;
   class object_cache;
 
@@ -56,7 +57,6 @@ namespace s3
     friend class object_cache; // for ctor, add_reference, release
 
     open_file(
-      const boost::shared_ptr<mutexes> &mutexes, 
       const boost::shared_ptr<file_transfer> &file_transfer, 
       const boost::shared_ptr<object> &obj, 
       uint64_t handle);
@@ -64,7 +64,9 @@ namespace s3
     int add_reference(uint64_t *handle);
     bool release();
 
-    boost::shared_ptr<mutexes> _mutexes;
+    boost::mutex _file_status_mutex;
+    boost::condition _file_status_condition;
+
     boost::shared_ptr<file_transfer> _file_transfer;
     boost::shared_ptr<object> _obj;
     uint64_t _handle, _ref_count;

@@ -34,7 +34,6 @@
 namespace s3
 {
   class file_transfer;
-  class mutexes;
   class request;
 
   enum cache_hints
@@ -51,7 +50,6 @@ namespace s3
 
     object_cache(
       const thread_pool::ptr &pool, 
-      const boost::shared_ptr<mutexes> &mutexes,
       const boost::shared_ptr<file_transfer> &file_transfer);
 
     ~object_cache();
@@ -117,7 +115,7 @@ namespace s3
         uint64_t handle = _next_handle++;
         int r;
 
-        file.reset(new open_file(_mutexes, _file_transfer, obj, handle));
+        file.reset(new open_file(_file_transfer, obj, handle));
         obj->set_open_file(file);
 
         // handle needs to be in _handle_map before unlocking because a concurrent call to open_handle() for 
@@ -163,10 +161,7 @@ namespace s3
         // keep in _cache_map until cleanup() returns so that any concurrent attempts to open the file fail
         _cache_map.erase(obj->get_path());
 
-        // _obj's reference to the open file is deliberately not reset.  we do this to handle the case where 
-        // an object pointer has already been returned by get() but has not yet been used.  an attempt to call
-        // open_handle() on this zombie object will fail, but metadata calls will still return more-or-less 
-        // correct information (except the MD5 sum, for instance).
+        obj->set_open_file(open_file::ptr());
       }
 
       return 0;
@@ -201,7 +196,6 @@ namespace s3
     handle_map _handle_map;
     boost::mutex _mutex;
     thread_pool::ptr _pool;
-    boost::shared_ptr<mutexes> _mutexes;
     boost::shared_ptr<file_transfer> _file_transfer;
     uint64_t _hits, _misses, _expiries;
     uint64_t _next_handle;

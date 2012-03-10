@@ -21,7 +21,6 @@ s3fuse_SOURCES = \
 	logger.cc \
 	logger.h \
 	main.cc \
-	mutexes.h \
 	object_cache.cc \
 	object_cache.h \
 	object.cc \
@@ -58,7 +57,6 @@ s3fuse_gs_get_token_SOURCES = \
 	gs_get_token.cc \
 	logger.cc \
 	logger.h \
-	mutexes.h \
 	object_cache.cc \
 	object_cache.h \
 	object.cc \

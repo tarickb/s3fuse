@@ -27,7 +27,6 @@
 #include "logger.h"
 #include "file_transfer.h"
 #include "fs.h"
-#include "mutexes.h"
 #include "request.h"
 #include "service.h"
 #include "util.h"
@@ -71,8 +70,7 @@ fs::fs()
 
   _tp_fg = thread_pool::create("fs-fg");
   _tp_bg = thread_pool::create("fs-bg");
-  _mutexes.reset(new mutexes()),
-  _object_cache.reset(new object_cache(_tp_fg, _mutexes, file_transfer::ptr(new file_transfer(_tp_fg, _tp_bg))));
+  _object_cache.reset(new object_cache(_tp_fg, file_transfer::ptr(new file_transfer(_tp_fg, _tp_bg))));
 }
 
 fs::~fs()
@@ -459,7 +457,7 @@ int fs::__create_object(const request::ptr &req, const string &path, object_type
 
   invalidate_parent(path);
 
-  obj.reset(new object(_mutexes, path, type));
+  obj.reset(new object(path, type));
   obj->set_mode(mode);
   obj->set_uid(uid);
   obj->set_gid(gid);
