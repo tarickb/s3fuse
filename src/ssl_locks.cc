@@ -88,6 +88,9 @@ namespace
 
   void teardown()
   {
+    if (s_openssl_locks == NULL)
+      return;
+
     CRYPTO_set_id_callback(NULL);
     CRYPTO_set_locking_callback(NULL);
 
