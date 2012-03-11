@@ -1,3 +1,10 @@
+s3fuse (0.12) unstable; urgency=low
+
+  * Fixed circular ownership bug that was causing FDs to be leaked.
+  * Made requirements compatible with RHEL6/Amazon Linux.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Sat, 10 Mar 2012 17:49:13 -0600
+
 s3fuse (0.11) unstable; urgency=low
 
   * NEW: Added Google Storage support.
