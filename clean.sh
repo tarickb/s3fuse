@@ -18,6 +18,7 @@ rm -f *.m4
 rm -rf autom4te.cache
 rm -f config.*
 rm -f configure
+rm -f configure.ac
 rm -f depcomp
 rm -f install-sh
 rm -f Makefile Makefile.in

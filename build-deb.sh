@@ -27,6 +27,8 @@ cp -r $SRC_DIR/* . || exit 1
 ./clean.sh || exit 1
 rm -rf *.sh dist/*.in || exit 1
 find . -type d -name .svn | xargs rm -rf || exit 1
+cat configure.ac.in | sed -e "s/__VERSION__/$VERSION/g" > configure.ac
+rm -f configure.ac.in
 cp $SRC_DIR/build-config.sh . || exit 1
 cp ChangeLog debian/changelog || exit 1
 
