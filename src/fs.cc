@@ -477,6 +477,7 @@ int fs::__create_object(const request::ptr &req, const string &path, object_type
 int fs::__remove_object(const request::ptr &req, const string &path)
 {
   object::ptr obj;
+  int r;
 
   ASSERT_NO_TRAILING_SLASH(path);
 
@@ -488,10 +489,12 @@ int fs::__remove_object(const request::ptr &req, const string &path)
   if (obj->get_type() == OT_DIRECTORY && !is_directory_empty(req, obj->get_path()))
     return -ENOTEMPTY;
 
+  r = remove_object(req, obj->get_url());
+
   invalidate_parent(path);
   _object_cache->remove(path);
 
-  return remove_object(req, obj->get_url());
+  return r;
 }
 
 int fs::__read_symlink(const request::ptr &req, const string &path, string *target)
