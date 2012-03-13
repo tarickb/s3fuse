@@ -105,7 +105,7 @@ void fs::invalidate_parent(const string &path)
 
     parent_path = (last_slash == string::npos) ? "" : path.substr(0, last_slash);
 
-    S3_LOG(LOG_DEBUG, "fs::__create_object", "invalidating parent directory [%s] for [%s].\n", parent_path.c_str(), path.c_str());
+    S3_LOG(LOG_DEBUG, "fs::invalidate_parent", "invalidating parent directory [%s] for [%s].\n", parent_path.c_str(), path.c_str());
     _object_cache->remove(parent_path);
   }
 }
