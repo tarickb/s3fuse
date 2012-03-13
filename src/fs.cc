@@ -415,7 +415,9 @@ int fs::__read_directory(const request::ptr &req, const string &_path, const obj
       full_path.assign(full_path_cs, strlen(full_path_cs) - 1);
       relative_path.assign(relative_path_cs, strlen(relative_path_cs) - 1);
 
-      _tp_bg->call_async(bind(&fs::__prefill_stats, this, _1, full_path, HINT_IS_DIR));
+      if (config::get_precache_on_readdir())
+        _tp_bg->call_async(bind(&fs::__prefill_stats, this, _1, full_path, HINT_IS_DIR));
+
       filler(relative_path);
 
       if (dir_cache)
