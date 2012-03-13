@@ -131,6 +131,10 @@ namespace s3
 
           obj->set_open_file(open_file::ptr());
           _handle_map.erase(handle);
+
+          // remove from cache so that we don't keep the object in some unknown state if the open failed
+          _cache_map.erase(obj->get_path());
+
           return r;
         }
       }
