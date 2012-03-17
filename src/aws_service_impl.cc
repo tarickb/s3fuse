@@ -37,7 +37,6 @@ using namespace s3;
 namespace
 {
   const string AWS_HEADER_PREFIX = "x-amz-";
-  const string AWS_URL_PREFIX = "https://s3.amazonaws.com";
   const string AWS_XML_NAMESPACE = "http://s3.amazonaws.com/doc/2006-03-01/";
 
   const string EMPTY = "";
@@ -73,6 +72,8 @@ aws_service_impl::aws_service_impl()
 
   _key = fields[0];
   _secret = fields[1];
+
+  _endpoint = string("https://") + config::get_aws_service_endpoint();
 }
 
 const string & aws_service_impl::get_header_prefix()
@@ -82,7 +83,7 @@ const string & aws_service_impl::get_header_prefix()
 
 const string & aws_service_impl::get_url_prefix()
 {
-  return AWS_URL_PREFIX;
+  return _endpoint;
 }
 
 const string & aws_service_impl::get_xml_namespace()

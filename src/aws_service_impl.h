@@ -43,7 +43,7 @@ namespace s3
     virtual void sign(request *req, bool last_sign_failed);
 
   private:
-    std::string _key, _secret;
+    std::string _key, _secret, _endpoint;
   };
 }
 
