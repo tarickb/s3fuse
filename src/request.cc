@@ -39,6 +39,37 @@ using namespace s3;
 
 #define TEST_OK(x) do { if ((x) != CURLE_OK) throw runtime_error("call to " #x " failed."); } while (0)
 
+namespace
+{
+  class curl_slist_wrapper
+  {
+  public:
+    curl_slist_wrapper()
+      : _list(NULL)
+    {
+    }
+
+    ~curl_slist_wrapper()
+    {
+      if (_list)
+        curl_slist_free_all(_list);
+    }
+
+    inline void append(const char *item)
+    {
+      _list = curl_slist_append(_list, item);
+    }
+
+    inline const curl_slist * get() const
+    {
+      return _list;
+    }
+
+  private:
+    curl_slist *_list;
+  };
+}
+
 request::request()
   : _current_run_time(0.0),
     _total_run_time(0.0),
@@ -359,15 +390,15 @@ void request::run(int timeout_in_s)
 void request::internal_run(int timeout_in_s)
 {
   int r = CURLE_OK;
-  curl_slist *headers = NULL;
+  curl_slist_wrapper headers;
 
   _output_data.clear();
   _response_headers.clear();
 
   for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
-    headers = curl_slist_append(headers, (itor->first + ": " + itor->second).c_str());
+    headers.append((itor->first + ": " + itor->second).c_str());
 
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers.get()));
 
   if (_target_object)
     _target_object->request_init();
