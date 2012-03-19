@@ -488,5 +488,7 @@ int main(int argc, char **argv)
   r = fuse_main(args.argc, args.argv, &ops, NULL);
   delete s_fs;
 
+  fuse_opt_free_args(&args);
+
   return r;
 }
