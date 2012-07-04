@@ -24,7 +24,18 @@
 
 #include <pthread.h>
 #include <curl/curl.h>
-#include <openssl/crypto.h>
+
+#if defined(HAVE_OPENSSL) && defined(__APPLE__)
+  #undef HAVE_OPENSSL // OpenSSL libraries are deprecated on Mac OS
+#endif
+
+#ifdef HAVE_OPENSSL
+  #include <openssl/crypto.h>
+#endif
+
+#ifdef HAVE_GNUTLS 
+  #include <gnutls/gnutls.h>
+#endif
 
 #include <stdexcept>
 #include <boost/thread.hpp>
@@ -41,20 +52,23 @@ namespace
 {
   mutex s_mutex;
   int s_ref_count = 0;
-  pthread_mutex_t *s_openssl_locks = NULL;
 
-  void openssl_locking_callback(int mode, int n, const char *, int)
-  {
-    if (mode & CRYPTO_LOCK)
-      pthread_mutex_lock(s_openssl_locks + n);
-    else
-      pthread_mutex_unlock(s_openssl_locks + n);
-  }
+  #ifdef HAVE_OPENSSL
+    pthread_mutex_t *s_openssl_locks = NULL;
 
-  unsigned long openssl_get_thread_id()
-  {
-    return pthread_self();
-  }
+    void openssl_locking_callback(int mode, int n, const char *, int)
+    {
+      if (mode & CRYPTO_LOCK)
+        pthread_mutex_lock(s_openssl_locks + n);
+      else
+        pthread_mutex_unlock(s_openssl_locks + n);
+    }
+
+    unsigned long openssl_get_thread_id()
+    {
+      return reinterpret_cast<unsigned long>(pthread_self());
+    }
+  #endif
 
   void init()
   {
@@ -74,30 +88,47 @@ namespace
     if (strstr(ver->ssl_version, "NSS"))
       return; // NSS doesn't require external locking
 
-    if (strstr(ver->ssl_version, "OpenSSL") == NULL)
-      throw runtime_error("curl reports unsupported non-OpenSSL SSL library. cannot continue.");
+    #ifdef HAVE_GNUTLS
+      if (strstr(ver->ssl_version, "GnuTLS")) {
+        if (gnutls_global_init() != GNUTLS_E_SUCCESS)
+          throw runtime_error("failed to initialize GnuTLS.");
 
-    s_openssl_locks = static_cast<pthread_mutex_t *>(OPENSSL_malloc(sizeof(*s_openssl_locks) * CRYPTO_num_locks()));
+        return;
+      }
+    #endif
 
-    for (int i = 0; i < CRYPTO_num_locks(); i++)
-      pthread_mutex_init(s_openssl_locks + i, NULL);
+    #ifdef HAVE_OPENSSL
+      if (strstr(ver->ssl_version, "OpenSSL")) {
+        s_openssl_locks = static_cast<pthread_mutex_t *>(OPENSSL_malloc(sizeof(*s_openssl_locks) * CRYPTO_num_locks()));
 
-    CRYPTO_set_id_callback(openssl_get_thread_id);
-    CRYPTO_set_locking_callback(openssl_locking_callback);
+        for (int i = 0; i < CRYPTO_num_locks(); i++)
+          pthread_mutex_init(s_openssl_locks + i, NULL);
+
+        CRYPTO_set_id_callback(openssl_get_thread_id);
+        CRYPTO_set_locking_callback(openssl_locking_callback);
+
+        return;
+      }
+    #endif
+
+    S3_LOG(LOG_ERR, "ssl_locks::init", "unsupported ssl version: %s\n", ver->ssl_version);
+
+    throw runtime_error("curl reports an unsupported ssl library/version.");
   }
 
   void teardown()
   {
-    if (s_openssl_locks == NULL)
-      return;
+    #ifdef HAVE_OPENSSL
+      if (s_openssl_locks) {
+        CRYPTO_set_id_callback(NULL);
+        CRYPTO_set_locking_callback(NULL);
 
-    CRYPTO_set_id_callback(NULL);
-    CRYPTO_set_locking_callback(NULL);
+        for (int i = 0; i < CRYPTO_num_locks(); i++)
+          pthread_mutex_destroy(s_openssl_locks + i);
 
-    for (int i = 0; i < CRYPTO_num_locks(); i++)
-      pthread_mutex_destroy(s_openssl_locks + i);
-
-    OPENSSL_free(s_openssl_locks);
+        OPENSSL_free(s_openssl_locks);
+      }
+    #endif
   }
 }
 

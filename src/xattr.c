@@ -28,17 +28,29 @@
 
 const int MAX_VALUE = 1024;
 
+#ifdef __APPLE__
+  #define wrap_listxattr(path, value, size)               listxattr(path, value, size, 0)
+  #define wrap_getxattr(path, name, value, size)          getxattr(path, name, value, size, 0, 0)
+  #define wrap_setxattr(path, name, value, size, options) setxattr(path, name, value, size, 0, options)
+  #define wrap_removexattr(path, name)                    removexattr(path, name, 0)
+#else
+  #define wrap_listxattr   listxattr
+  #define wrap_getxattr    getxattr
+  #define wrap_setxattr    setxattr
+  #define wrap_removexattr removexattr
+#endif
+
 int list_attributes(const char *path)
 {
   char *buffer = NULL, *b = NULL;
   int r;
 
-  r = listxattr(path, NULL, 0);
+  r = wrap_listxattr(path, NULL, 0);
   
   if (r > 0) {
     b = buffer = (char *)malloc(r);
 
-    r = listxattr(path, buffer, r);
+    r = wrap_listxattr(path, buffer, r);
 
     if (r > 0) {
       while (r > 0) {
@@ -67,7 +79,7 @@ int get_attribute(const char *path, const char *name)
   char buffer[MAX_VALUE];
   int r;
 
-  r = getxattr(path, name, buffer, MAX_VALUE);
+  r = wrap_getxattr(path, name, buffer, MAX_VALUE);
 
   if (r == -1) {
     fprintf(stderr, "failed to get attribute [%s] for [%s]: %s\n", name, path, strerror(errno));
@@ -82,7 +94,7 @@ int set_attribute(const char *path, const char *name, const char *value)
 {
   int r;
 
-  r = setxattr(path, name, value, strlen(value) + 1, 0);
+  r = wrap_setxattr(path, name, value, strlen(value) + 1, 0);
 
   if (r == -1) {
     fprintf(stderr, "failed to set attribute [%s] for [%s]: %s\n", name, path, strerror(errno));
@@ -97,7 +109,7 @@ int remove_attribute(const char *path, const char *name)
 {
   int r;
 
-  r = removexattr(path, name);
+  r = wrap_removexattr(path, name);
 
   if (r == -1) {
     fprintf(stderr, "failed to remove attribute [%s] for [%s]: %s\n", name, path, strerror(errno));

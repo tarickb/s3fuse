@@ -2,10 +2,9 @@ bin_PROGRAMS = s3fuse xattr s3fuse_gs_get_token
 
 AM_CXXFLAGS  = -g -Wall -Werror
 AM_CFLAGS    = -g -Wall -Werror
-AM_CPPFLAGS  = $(DEPS_CFLAGS) -D_FILE_OFFSET_BITS=64
+AM_CPPFLAGS  = $(DEPS_XML_CFLAGS) $(DEPS_CURL_CFLAGS) $(DEPS_FUSE_CFLAGS) $(DEPS_OPENSSL_CFLAGS) $(DEPS_GNUTLS_CFLAGS) -D_FILE_OFFSET_BITS=64
+AM_LDFLAGS   = $(DEPS_XML_LIBS)   $(DEPS_CURL_LIBS)   $(DEPS_FUSE_LIBS)   $(DEPS_OPENSSL_LIBS)   $(DEPS_GNUTLS_LIBS)
 
-s3fuse_LDFLAGS   = -Wl,--as-needed
-s3fuse_LDADD     = $(DEPS_LIBS)
 s3fuse_SOURCES = \
 	aws_service_impl.cc \
 	aws_service_impl.h \

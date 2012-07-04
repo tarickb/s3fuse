@@ -19,98 +19,13 @@
  * limitations under the License.
  */
 
-#include <string.h>
-#include <openssl/bio.h>
-#include <openssl/buffer.h>
-#include <openssl/evp.h>
-#include <openssl/hmac.h>
-#include <openssl/md5.h>
-#include <sys/time.h>
-
-#include <stdexcept>
-
 #include "util.h"
 
-using namespace s3;
-using namespace std;
-
-string util::base64_encode(const uint8_t *input, size_t size)
-{
-  BIO *bio_b64 = BIO_new(BIO_f_base64());
-  BIO *bio_mem = BIO_new(BIO_s_mem());
-  BUF_MEM *mem;
-  string ret;
-
-  bio_b64 = BIO_push(bio_b64, bio_mem);
-  BIO_write(bio_b64, input, size);
-  void(BIO_flush(bio_b64));
-  BIO_get_mem_ptr(bio_b64, &mem);
-
-  ret.resize(mem->length - 1);
-  memcpy(&ret[0], mem->data, mem->length - 1);
-
-  BIO_free_all(bio_b64);
-  return ret;
-}
-
-string util::sign(const string &key, const string &data)
-{
-  unsigned int hmac_sha1_len;
-  uint8_t hmac_sha1[EVP_MAX_MD_SIZE];
-
-  HMAC(
-    EVP_sha1(), 
-    reinterpret_cast<const void *>(key.data()), 
-    key.size(), 
-    reinterpret_cast<const uint8_t *>(data.data()), 
-    data.size(), 
-    hmac_sha1, 
-    &hmac_sha1_len);
-
-  return base64_encode(hmac_sha1, hmac_sha1_len);
-}
-
-string util::compute_md5(int fd, md5_output_type type, ssize_t size, off_t offset)
-{
-  const ssize_t buf_len = 8 * 1024;
-
-  EVP_MD_CTX md5_ctx;
-  char buf[buf_len];
-  uint8_t md5_buf[EVP_MAX_MD_SIZE];
-  unsigned int md5_len = 0;
-
-  if (size == 0 && offset == 0)
-    size = -1;
-
-  EVP_DigestInit(&md5_ctx, EVP_md5());
-
-  while (true) {
-    ssize_t read_bytes, read_count;
-
-    read_bytes = (size < 0 || size > buf_len) ? buf_len : size;
-    read_count = pread(fd, buf, read_bytes, offset);
-
-    if (read_count == -1)
-      throw runtime_error("error while computing md5, in pread().");
-
-    EVP_DigestUpdate(&md5_ctx, buf, read_count);
-
-    offset += read_count;
-    size -= read_count;
-
-    if (read_count < buf_len)
-      break;
-  }
-
-  EVP_DigestFinal(&md5_ctx, md5_buf, &md5_len);
-
-  if (type == MOT_BASE64)
-    return base64_encode(md5_buf, md5_len);
-  else if (type == MOT_HEX)
-    return "\"" + hex_encode(md5_buf, md5_len) + "\"";
-  else
-    throw runtime_error("unknown md5 output type.");
-}
+#ifdef __APPLE__
+  #include <util_macos.inc.cc>
+#else
+  #include <util_gnu.inc.cc>
+#endif
 
 string util::hex_encode(const uint8_t *input, size_t size)
 {

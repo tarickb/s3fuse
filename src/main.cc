@@ -257,7 +257,11 @@ int wrap_readlink(const char *path, char *buffer, size_t max_size)
   return 0;
 }
 
+#ifdef __APPLE__
+int wrap_getxattr(const char *path, const char *name, char *buffer, size_t max_size, uint32_t position)
+#else
 int wrap_getxattr(const char *path, const char *name, char *buffer, size_t max_size)
+#endif
 {
   string attr;
   int r;
@@ -284,7 +288,11 @@ int wrap_getxattr(const char *path, const char *name, char *buffer, size_t max_s
   return max_size + 1; // +1 for \0
 }
 
+#ifdef __APPLE__
+int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags, uint32_t position)
+#else
 int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
+#endif
 {
   S3_LOG(LOG_DEBUG, "setxattr", "path: %s, name: %s, value: %s\n", path, name, value);
   ASSERT_LEADING_SLASH(path);
