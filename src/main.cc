@@ -392,16 +392,17 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
 
 int pre_init(const options &opts)
 {
-  int r;
-  struct stat mp_stat;
-
-  if ((r = stat(opts.mountpoint.c_str(), &mp_stat)))
-    return r;
-
-  s_mountpoint_mode = S_IFDIR | mp_stat.st_mode;
-
   try {
+    int r;
+    struct stat mp_stat;
+
     s3::logger::init(opts.verbosity);
+
+    if (stat(opts.mountpoint.c_str(), &mp_stat))
+      throw runtime_error("failed to stat mount point.");
+
+    s_mountpoint_mode = S_IFDIR | mp_stat.st_mode;
+
     r = s3::config::init(opts.config);
 
     return r;
