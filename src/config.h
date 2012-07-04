@@ -23,13 +23,20 @@
 #ifndef S3_CONFIG_H
 #define S3_CONFIG_H
 
+#include <unistd.h>
+
 #include <string>
 #include <limits>
 
 namespace s3
 {
-  const uid_t UID_MAX = std::numeric_limits<uid_t>::max();
-  const gid_t GID_MAX = std::numeric_limits<gid_t>::max();
+  #if !defined(UID_MAX)
+    const uid_t UID_MAX = std::numeric_limits<uid_t>::max();
+  #endif
+
+  #if !defined(GID_MAX)
+    const gid_t GID_MAX = std::numeric_limits<gid_t>::max();
+  #endif
 
   class config
   {
