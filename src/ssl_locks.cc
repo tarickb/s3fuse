@@ -66,7 +66,7 @@ namespace
 
     unsigned long openssl_get_thread_id()
     {
-      return reinterpret_cast<unsigned long>(pthread_self());
+      return pthread_self();
     }
   #endif
 
