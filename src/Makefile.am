@@ -1,6 +1,6 @@
 SUBDIRS = . tests
 
-bin_PROGRAMS = s3fuse xattr s3fuse_gs_get_token
+bin_PROGRAMS = s3fuse s3fuse_gs_get_token
 
 s3fuse_SOURCES = \
 	aws_service_impl.cc \
@@ -38,9 +38,6 @@ s3fuse_SOURCES = \
 	version.h \
 	xml.cc \
 	xml.h
-
-xattr_SOURCES = \
-	xattr.c
 
 s3fuse_gs_get_token_SOURCES = \
 	aws_service_impl.cc \
