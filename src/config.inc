@@ -12,6 +12,10 @@ CONFIG(int, default_uid, UID_MAX); // UID for files in S3 that don't have a UID 
 CONFIG(int, default_gid, GID_MAX); // GID for files in S3 that don't have a GID set (defaults to process effective GID)
 CONFIG(int, default_mode, 0755); // mode for files in S3 that don't have a mode set
 
+CONFIG(int, override_uid, UID_MAX); // override file UID with this value (disabled by default)
+CONFIG(int, override_gid, GID_MAX); // override file GID with this value (disabled by default)
+CONFIG(int, override_mode, 0); // override file mode with this value (disabled by default)
+
 CONFIG(int, cache_expiry_in_s, 3 * 60); // time in seconds before objects in stats cache expire
 CONFIG(bool, cache_directories, false); // cache directory listings ("true"/"yes" or "false"/"no")
 CONFIG(bool, precache_on_readdir, true); // pre-cache metadata for the contents of a directory when readdir() is called ("true"/"yes" or "false"/"no")
