@@ -5,7 +5,8 @@ if [ ! -d src ] || [ ! -d dist ]; then
   exit 1
 fi
 
-for D in src dist; do
+
+for D in src src/tests dist; do
   pushd $D >& /dev/null
     make clean distclean >& /dev/null
     rm -rf .deps >& /dev/null

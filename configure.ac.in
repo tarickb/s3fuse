@@ -70,7 +70,12 @@ AC_TYPE_UINT8_T
 AC_FUNC_MALLOC
 AC_CHECK_FUNCS([ftruncate gettimeofday memset strchr strerror strstr strtol])
 
-AC_CONFIG_FILES([Makefile src/Makefile])
+AC_CONFIG_FILES([Makefile src/Makefile src/tests/Makefile])
 AM_COND_IF([BUILD_RPM], [AC_CONFIG_FILES([dist/Makefile])])
+
+AC_SUBST([AM_CXXFLAGS], ["-g -Wall -Werror"])
+AC_SUBST([AM_CFLAGS], ["-g -Wall -Werror"])
+AC_SUBST([AM_CPPFLAGS], ["$DEPS_XML_CFLAGS $DEPS_CURL_CFLAGS $DEPS_FUSE_CFLAGS $DEPS_OPENSSL_CFLAGS $DEPS_GNUTLS_CFLAGS"])
+AC_SUBST([AM_LDFLAGS], ["$DEPS_XML_LIBS $DEPS_CURL_LIBS $DEPS_FUSE_LIBS $DEPS_OPENSSL_LIBS $DEPS_GNUTLS_LIBS"])
 
 AC_OUTPUT
