@@ -39,16 +39,50 @@ string util::base64_encode(const uint8_t *input, size_t size)
   BUF_MEM *mem;
   string ret;
 
+  BIO_set_flags(bio_b64, BIO_FLAGS_BASE64_NO_NL);
+
   bio_b64 = BIO_push(bio_b64, bio_mem);
   BIO_write(bio_b64, input, size);
   void(BIO_flush(bio_b64));
   BIO_get_mem_ptr(bio_b64, &mem);
 
-  ret.resize(mem->length - 1);
-  memcpy(&ret[0], mem->data, mem->length - 1);
+  ret.resize(mem->length);
+  memcpy(&ret[0], mem->data, mem->length);
 
   BIO_free_all(bio_b64);
   return ret;
+}
+
+void util::base64_decode(const string &input, vector<uint8_t> *output)
+{
+  const size_t READ_CHUNK = 1024;
+
+  BIO *bio_b64 = BIO_new(BIO_f_base64());
+  BIO *bio_input = BIO_new_mem_buf(const_cast<char *>(input.c_str()), -1);
+  size_t total_bytes = 0;
+
+  BIO_set_flags(bio_b64, BIO_FLAGS_BASE64_NO_NL);
+  bio_b64 = BIO_push(bio_b64, bio_input);
+
+  while (true) {
+    int r;
+
+    output->resize(total_bytes + READ_CHUNK);
+    r = BIO_read(bio_b64, &(*output)[total_bytes], READ_CHUNK);
+
+    if (r < 0) {
+      BIO_free_all(bio_b64);
+      throw runtime_error("failed while decoding base64.");
+    }
+
+    output->resize(total_bytes + r);
+    total_bytes += r;
+
+    if (r == 0)
+      break;
+  }
+
+  BIO_free_all(bio_b64);
 }
 
 string util::sign(const string &key, const string &data)
