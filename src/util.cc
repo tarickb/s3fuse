@@ -79,3 +79,12 @@ bool util::is_valid_md5(const string &md5)
   // yes, it's a rather rudimentary check (32 for the MD5, 2 for the quotes)
   return (md5.size() == 34 && md5[0] == '"' && md5[md5.size() - 1] == '"');
 }
+
+bool util::is_valid_http_string(const string &value)
+{
+  for (size_t i = 0; i < value.length(); i++)
+    if (value[i] != '/' && value[i] != '.' && value[i] != '-' && value[i] != '*' && value[i] != '_' && !isalnum(value[i]))
+      return false;
+
+  return true;
+}

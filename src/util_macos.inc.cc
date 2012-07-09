@@ -95,6 +95,34 @@ string util::base64_encode(const uint8_t *input, size_t size)
   return ret;
 }
 
+void util::base64_decode(const string &input, vector<uint8_t> *output)
+{
+  cf_wrapper<SecTransformRef> dec;
+  cf_wrapper<CFDataRef> in, out;
+  size_t out_len = 0;
+  CFErrorRef err = NULL;
+
+  in.set(CFDataCreate(NULL, reinterpret_cast<const uint8_t *>(input.c_str()), input.size()));
+  dec.set(SecDecodeTransformCreate(kSecBase64Encoding, &err));
+
+  if (err)
+    throw runtime_error("error creating base64 decoder.");
+
+  SecTransformSetAttribute(dec.get(), kSecTransformInputAttributeName, in.get(), &err);
+
+  if (err)
+    throw runtime_error("error setting decoder input.");
+
+  out.set(static_cast<CFDataRef>(SecTransformExecute(dec.get(), &err)));
+
+  if (err)
+    throw runtime_error("error executing base64 decoder.");
+
+  out_len = CFDataGetLength(out.get());
+  output->resize(out_len);
+  memcpy(&(*output)[0], CFDataGetBytePtr(out.get()), out_len);
+}
+
 string util::sign(const string &key, const string &data)
 {
   const size_t SHA1_SIZE = 20; // 160 bits
