@@ -116,4 +116,7 @@ void aws_service_impl::sign(request *req, bool last_sign_failed)
 
   to_sign += req->get_url();
   req->set_header("Authorization", string("AWS ") + _key + ":" + util::sign(_secret, to_sign));
+
+  if (last_sign_failed)
+    S3_LOG(LOG_DEBUG, "aws_service_impl::sign", "last sign failed. string to sign: [%s].\n", to_sign.c_str());
 }
