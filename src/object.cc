@@ -320,11 +320,11 @@ void object::request_process_response(request *req)
   _url = build_url(_path, _type);
 
   // override UID?
-  if (config::get_override_uid() != UID_MAX)
+  if (static_cast<uid_t>(config::get_override_uid()) != UID_MAX)
     _stat.st_uid = config::get_override_uid();
 
   // override GID?
-  if (config::get_override_gid() != GID_MAX)
+  if (static_cast<gid_t>(config::get_override_gid()) != GID_MAX)
     _stat.st_gid = config::get_override_gid();
 
   // override mode?
