@@ -528,7 +528,7 @@ int fs::__read_symlink(const request::ptr &req, const string &path, string *targ
   return 0;
 }
 
-int fs::__set_attr(const request::ptr &req, const string &path, const string &name, const string &value, int flags)
+int fs::__set_attr(const request::ptr &req, const string &path, const string &name, const char *value, size_t size, int flags)
 {
   object::ptr obj;
   int r;
@@ -540,7 +540,7 @@ int fs::__set_attr(const request::ptr &req, const string &path, const string &na
   if (!obj)
     return -ENOENT;
 
-  r = obj->set_metadata(name, value, flags);
+  r = obj->set_metadata(name, value, size, flags);
 
   if (r)
     return r;

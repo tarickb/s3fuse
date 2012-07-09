@@ -263,29 +263,9 @@ int wrap_getxattr(const char *path, const char *name, char *buffer, size_t max_s
 int wrap_getxattr(const char *path, const char *name, char *buffer, size_t max_size)
 #endif
 {
-  string attr;
-  int r;
-
   ASSERT_LEADING_SLASH(path);
 
-  r = try_catch(bind(&s3::fs::get_attr, s_fs, path + 1, name, &attr));
-
-  if (r)
-    return r;
-
-  if (max_size == 0)
-    return attr.size() + 1;
-
-  // leave room for the terminating null
-  max_size--;
-
-  if (attr.size() < max_size)
-    max_size = attr.size();
-
-  memcpy(buffer, attr.c_str(), max_size);
-  buffer[max_size] = '\0';
-
-  return max_size + 1; // +1 for \0
+  return try_catch(bind(&s3::fs::get_attr, s_fs, path + 1, name, buffer, max_size));
 }
 
 #ifdef __APPLE__
@@ -294,13 +274,10 @@ int wrap_setxattr(const char *path, const char *name, const char *value, size_t 
 int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
 #endif
 {
-  S3_LOG(LOG_DEBUG, "setxattr", "path: %s, name: %s, value: %s\n", path, name, value);
+  S3_LOG(LOG_DEBUG, "setxattr", "path: %s, name: %s", path, name);
   ASSERT_LEADING_SLASH(path);
 
-  if (value[size - 1] != '\0')
-    return -EINVAL; // require null-terminated string for "value"
-
-  return try_catch(bind(&s3::fs::set_attr, s_fs, path + 1, name, value, flags));
+  return try_catch(bind(&s3::fs::set_attr, s_fs, path + 1, name, value, size, flags));
 }
 
 int wrap_listxattr(const char *path, char *buffer, size_t size)

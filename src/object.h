@@ -53,7 +53,6 @@ namespace s3
 
     typedef std::list<std::string> dir_cache;
     typedef boost::shared_ptr<dir_cache> dir_cache_ptr;
-    typedef std::map<std::string, std::string> meta_map;
 
     typedef boost::function1<void, const std::string &> dir_filler_function;
 
@@ -62,9 +61,9 @@ namespace s3
 
     object(const std::string &path, object_type type = OT_INVALID);
 
-    int set_metadata(const std::string &key, const std::string &value, int flags = 0);
+    int set_metadata(const std::string &key, const char *value, size_t size, int flags = 0);
     void get_metadata_keys(std::vector<std::string> *keys);
-    int get_metadata(const std::string &key, std::string *value);
+    int get_metadata(const std::string &key, char *buffer, size_t max_size);
     int remove_metadata(const std::string &key);
 
     void set_mode(mode_t mode);
@@ -162,6 +161,11 @@ namespace s3
   private:
     friend class request; // for request_*
     friend class object_cache; // for is_valid, set_open_file, get_open_file
+
+    class meta_value;
+
+    typedef boost::shared_ptr<meta_value> meta_value_ptr;
+    typedef std::map<std::string, meta_value_ptr> meta_map;
 
     inline bool is_valid() { return (_expiry > 0 && time(NULL) < _expiry); }
 

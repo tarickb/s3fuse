@@ -99,9 +99,9 @@ namespace s3
       return _tp_fg->call(boost::bind(&fs::__read_symlink, this, _1, path, target));
     }
 
-    int set_attr(const std::string &path, const std::string &name, const std::string &value, int flags)
+    int set_attr(const std::string &path, const std::string &name, const char *value, size_t size, int flags)
     {
-      return _tp_fg->call(boost::bind(&fs::__set_attr, this, _1, path, name, value, flags));
+      return _tp_fg->call(boost::bind(&fs::__set_attr, this, _1, path, name, value, size, flags));
     }
 
     int remove_attr(const std::string &path, const std::string &name)
@@ -109,14 +109,14 @@ namespace s3
       return _tp_fg->call(boost::bind(&fs::__remove_attr, this, _1, path, name));
     }
 
-    inline int get_attr(const std::string &path, const std::string &name, std::string *value)
+    inline int get_attr(const std::string &path, const std::string &name, char *value, size_t max_size)
     {
       object::ptr obj = _object_cache->get(path);
 
       if (!obj)
         return -ENOENT;
 
-      return obj->get_metadata(name, value);
+      return obj->get_metadata(name, value, max_size);
     }
 
     inline int list_attr(const std::string &path, std::vector<std::string> *attrs)
@@ -219,7 +219,7 @@ namespace s3
     int  __remove_attr     (const request_ptr &req, const std::string &path, const std::string &name);
     int  __remove_object   (const request_ptr &req, const std::string &path);
     int  __rename_object   (const request_ptr &req, const std::string &from, const std::string &to);
-    int  __set_attr        (const request_ptr &req, const std::string &path, const std::string &name, const std::string &value, int flags);
+    int  __set_attr        (const request_ptr &req, const std::string &path, const std::string &name, const char *value, size_t size, int flags);
 
     thread_pool::ptr _tp_fg, _tp_bg;
     object_cache::ptr _object_cache;
