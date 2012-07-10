@@ -47,12 +47,12 @@ namespace s3
     void to_header(std::string *header, std::string *value);
 
   private:
-    xattr(const std::string &key, bool key_needs_encoding);
+    xattr(const std::string &key, bool encode_key);
 
     std::string _key;
     std::vector<uint8_t> _value;
 
-    bool _key_needs_encoding, _value_needs_encoding;
+    bool _encode_key, _encode_value;
     bool _is_serializable;
   };
 }

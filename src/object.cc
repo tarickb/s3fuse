@@ -39,9 +39,13 @@ namespace
   const int     BLOCK_SIZE                    = 512;
   const string  META_PREFIX                   = "meta-";
   const string  META_PREFIX_RESERVED          = "s3fuse-";
+  const string  ATTR_USER_PREFIX              = "user.";
 
   const char   *META_PREFIX_RESERVED_CSTR     = META_PREFIX_RESERVED.c_str();
   const size_t  META_PREFIX_RESERVED_LEN      = META_PREFIX_RESERVED.size();
+
+  const char   *ATTR_USER_PREFIX_CSTR         = ATTR_USER_PREFIX.c_str();
+  const size_t  ATTR_USER_PREFIX_LEN          = ATTR_USER_PREFIX.size();
 
   const char   *SYMLINK_CONTENT_TYPE          = "text/symlink";
 
@@ -104,12 +108,16 @@ void object::init_stat()
 int object::set_metadata(const string &key, const char *value, size_t size, int flags)
 {
   mutex::scoped_lock lock(_metadata_mutex);
-  xattr_map::iterator itor = _metadata.find(key);
+  string user_key = key.substr(ATTR_USER_PREFIX_LEN);
+  xattr_map::iterator itor = _metadata.find(user_key);
 
-  if (strncmp(key.c_str(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) == 0)
+  if (strncmp(key.c_str(), ATTR_USER_PREFIX_CSTR, ATTR_USER_PREFIX_LEN) != 0)
     return -EINVAL;
 
-  if (key == "__md5__" || key == "__etag__" || key == "__content_type__")
+  if (strncmp(user_key.c_str(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) == 0)
+    return -EINVAL;
+
+  if (user_key == "__md5__" || user_key == "__etag__" || user_key == "__content_type__")
     return -EINVAL;
 
   if (flags & XATTR_CREATE && itor != _metadata.end())
@@ -119,7 +127,7 @@ int object::set_metadata(const string &key, const char *value, size_t size, int 
     if (flags & XATTR_REPLACE)
       return -ENODATA;
 
-    itor = _metadata.insert(make_pair(key, xattr::create(key))).first;
+    itor = _metadata.insert(make_pair(user_key, xattr::create(user_key))).first;
   }
 
   itor->second->set_value(value, size);
@@ -131,27 +139,31 @@ void object::get_metadata_keys(vector<string> *keys)
 {
   mutex::scoped_lock lock(_metadata_mutex);
 
-  keys->push_back("__md5__");
-  keys->push_back("__etag__");
-  keys->push_back("__content_type__");
+  keys->push_back(ATTR_USER_PREFIX + "__md5__");
+  keys->push_back(ATTR_USER_PREFIX + "__etag__");
+  keys->push_back(ATTR_USER_PREFIX + "__content_type__");
 
   for (xattr_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)
-    keys->push_back(itor->first);
+    keys->push_back(ATTR_USER_PREFIX + itor->first);
 }
 
 int object::get_metadata(const string &key, char *buffer, size_t max_size)
 {
   mutex::scoped_lock lock(_metadata_mutex);
   xattr::ptr value;
+  string user_key = key.substr(ATTR_USER_PREFIX_LEN);
 
-  if (key == "__md5__")
-    value = xattr::from_string(key, _md5);
-  else if (key == "__etag__")
-    value = xattr::from_string(key, _etag);
-  else if (key == "__content_type__")
-    value = xattr::from_string(key, _content_type);
+  if (strncmp(key.c_str(), ATTR_USER_PREFIX_CSTR, ATTR_USER_PREFIX_LEN) != 0)
+    return -EINVAL;
+
+  if (user_key == "__md5__")
+    value = xattr::from_string(user_key, _md5);
+  else if (user_key == "__etag__")
+    value = xattr::from_string(user_key, _etag);
+  else if (user_key == "__content_type__")
+    value = xattr::from_string(user_key, _content_type);
   else {
-    xattr_map::const_iterator itor = _metadata.find(key);
+    xattr_map::const_iterator itor = _metadata.find(user_key);
 
     if (itor != _metadata.end())
       value = itor->second;
@@ -163,7 +175,7 @@ int object::get_metadata(const string &key, char *buffer, size_t max_size)
 int object::remove_metadata(const string &key)
 {
   mutex::scoped_lock lock(_metadata_mutex);
-  xattr_map::iterator itor = _metadata.find(key);
+  xattr_map::iterator itor = _metadata.find(key.substr(ATTR_USER_PREFIX_LEN));
 
   if (itor == _metadata.end())
     return -ENODATA;
@@ -229,7 +241,7 @@ void object::request_process_header(const string &key, const string &value)
     strncmp(key.c_str(), meta_prefix.c_str(), meta_prefix.size()) == 0 &&
     strncmp(key.c_str() + meta_prefix.size(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) != 0
   ) {
-    xattr::ptr attr = xattr::from_header(key.substr(meta_prefix.size() + 1), value);
+    xattr::ptr attr = xattr::from_header(key.substr(meta_prefix.size()), value);
 
     _metadata[attr->get_key()] = attr;
   }

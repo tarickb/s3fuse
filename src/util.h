@@ -75,7 +75,6 @@ namespace s3
     static double get_current_time();
 
     static bool is_valid_md5(const std::string &md5);
-    static bool is_valid_http_string(const std::string &value);
   };
 }
 
