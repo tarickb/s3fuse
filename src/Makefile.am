@@ -36,6 +36,8 @@ s3fuse_SOURCES = \
 	util.cc \
 	util.h \
 	version.h \
+	xattr.cc \
+	xattr.h \
 	xml.cc \
 	xml.h
 
@@ -62,6 +64,8 @@ s3fuse_gs_get_token_SOURCES = \
 	service_impl.h \
 	ssl_locks.cc \
 	ssl_locks.h \
+	xattr.cc \
+	xattr.h \
 	util.cc \
 	util.h
 

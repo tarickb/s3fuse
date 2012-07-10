@@ -27,6 +27,7 @@
 #include "object.h"
 #include "request.h"
 #include "service.h"
+#include "xattr.h"
 
 using namespace boost;
 using namespace std;
@@ -41,11 +42,6 @@ namespace
 
   const char   *META_PREFIX_RESERVED_CSTR     = META_PREFIX_RESERVED.c_str();
   const size_t  META_PREFIX_RESERVED_LEN      = META_PREFIX_RESERVED.size();
-
-  const string  META_BASE64_PREFIX            = "__s3fuse_base64__ ";
-
-  const char   *META_BASE64_PREFIX_CSTR       = META_BASE64_PREFIX.c_str();
-  const size_t  META_BASE64_PREFIX_LEN        = META_BASE64_PREFIX.size();
 
   const char   *SYMLINK_CONTENT_TYPE          = "text/symlink";
 
@@ -63,71 +59,6 @@ namespace
     return 0;
   }
 }
-
-class object::meta_value
-{
-public:
-  static inline meta_value_ptr from_string(const string &value)
-  {
-    meta_value_ptr ptr(new meta_value());
-
-    if (!util::is_valid_http_string(value))
-      throw runtime_error("cannot set value to string that isn't correctly encoded");
-
-    ptr->_has_string_representation = true;
-    ptr->_value.resize(value.size() + 1);
-    memcpy(&ptr->_value[0], reinterpret_cast<const uint8_t *>(value.c_str()), value.size() + 1);
-
-    return ptr;
-  }
-
-  static inline meta_value_ptr from_header(const string &value)
-  {
-    if (strncmp(value.c_str(), META_BASE64_PREFIX_CSTR, META_BASE64_PREFIX_LEN) == 0) {
-      meta_value_ptr ptr(new meta_value());
-
-      util::base64_decode(value.substr(META_BASE64_PREFIX_LEN), &ptr->_value);
-
-      return ptr;
-    } else 
-      return from_string(value);
-  }
-
-  inline meta_value()
-    : _has_string_representation(false)
-  {
-  }
-
-  inline void set(const char *value, size_t size)
-  {
-    _value.resize(size);
-    memcpy(&_value[0], reinterpret_cast<const uint8_t *>(value), size);
-
-    if (value[size] == '\0' && strlen(value) == size && util::is_valid_http_string(string(value)))
-      _has_string_representation = true;
-  }
-
-  inline int get(char *buffer, size_t max_size)
-  {
-    if (buffer == NULL || _value.size() > max_size)
-      return _value.size();
-
-    memcpy(reinterpret_cast<uint8_t *>(buffer), &_value[0], _value.size());
-    return 0;
-  }
-
-  inline string to_header()
-  {
-    if (_has_string_representation)
-      return string(reinterpret_cast<char *>(&_value[0]));
-    else
-      return META_BASE64_PREFIX + util::base64_encode(&_value[0], _value.size());
-  }
-
-private:
-  bool _has_string_representation;
-  vector<uint8_t> _value;
-};
 
 string object::get_bucket_url()
 {
@@ -173,7 +104,7 @@ void object::init_stat()
 int object::set_metadata(const string &key, const char *value, size_t size, int flags)
 {
   mutex::scoped_lock lock(_metadata_mutex);
-  meta_map::iterator itor = _metadata.find(key);
+  xattr_map::iterator itor = _metadata.find(key);
 
   if (strncmp(key.c_str(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) == 0)
     return -EINVAL;
@@ -188,10 +119,10 @@ int object::set_metadata(const string &key, const char *value, size_t size, int 
     if (flags & XATTR_REPLACE)
       return -ENODATA;
 
-    itor = _metadata.insert(make_pair(key, meta_value_ptr(new meta_value()))).first;
+    itor = _metadata.insert(make_pair(key, xattr::create(key))).first;
   }
 
-  itor->second->set(value, size);
+  itor->second->set_value(value, size);
 
   return 0;
 }
@@ -204,35 +135,35 @@ void object::get_metadata_keys(vector<string> *keys)
   keys->push_back("__etag__");
   keys->push_back("__content_type__");
 
-  for (meta_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)
+  for (xattr_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)
     keys->push_back(itor->first);
 }
 
 int object::get_metadata(const string &key, char *buffer, size_t max_size)
 {
   mutex::scoped_lock lock(_metadata_mutex);
-  meta_value_ptr value;
+  xattr::ptr value;
 
   if (key == "__md5__")
-    value = meta_value::from_string(_md5);
+    value = xattr::from_string(key, _md5);
   else if (key == "__etag__")
-    value = meta_value::from_string(_etag);
+    value = xattr::from_string(key, _etag);
   else if (key == "__content_type__")
-    value = meta_value::from_string(_content_type);
+    value = xattr::from_string(key, _content_type);
   else {
-    meta_map::const_iterator itor = _metadata.find(key);
+    xattr_map::const_iterator itor = _metadata.find(key);
 
     if (itor != _metadata.end())
       value = itor->second;
   }
 
-  return value ? value->get(buffer, max_size) : -ENODATA;
+  return value ? value->get_value(buffer, max_size) : -ENODATA;
 }
 
 int object::remove_metadata(const string &key)
 {
   mutex::scoped_lock lock(_metadata_mutex);
-  meta_map::iterator itor = _metadata.find(key);
+  xattr_map::iterator itor = _metadata.find(key);
 
   if (itor == _metadata.end())
     return -ENODATA;
@@ -297,8 +228,11 @@ void object::request_process_header(const string &key, const string &value)
   else if (
     strncmp(key.c_str(), meta_prefix.c_str(), meta_prefix.size()) == 0 &&
     strncmp(key.c_str() + meta_prefix.size(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) != 0
-  )
-    _metadata[key.substr(meta_prefix.size())] = meta_value::from_header(value);
+  ) {
+    xattr::ptr attr = xattr::from_header(key.substr(meta_prefix.size() + 1), value);
+
+    _metadata[attr->get_key()] = attr;
+  }
 }
 
 void object::request_process_response(request *req)
@@ -362,8 +296,12 @@ void object::request_set_meta_headers(request *req)
   char buf[16];
 
   // do this first so that we overwrite any keys we care about (i.e., those that start with "PREFIX-meta-s3fuse-")
-  for (meta_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)
-    req->set_header(meta_prefix + itor->first, itor->second->to_header());
+  for (xattr_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor) {
+    string key, value;
+
+    itor->second->to_header(&key, &value);
+    req->set_header(meta_prefix + key, value);
+  }
 
   snprintf(buf, 16, "%#o", _stat.st_mode & ~S_IFMT);
   req->set_header(meta_prefix + "s3fuse-mode", buf);

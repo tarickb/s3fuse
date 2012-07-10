@@ -37,6 +37,7 @@
 namespace s3
 {
   class request;
+  class xattr;
 
   enum object_type
   {
@@ -162,10 +163,8 @@ namespace s3
     friend class request; // for request_*
     friend class object_cache; // for is_valid, set_open_file, get_open_file
 
-    class meta_value;
-
-    typedef boost::shared_ptr<meta_value> meta_value_ptr;
-    typedef std::map<std::string, meta_value_ptr> meta_map;
+    typedef boost::shared_ptr<xattr> xattr_ptr;
+    typedef std::map<std::string, xattr_ptr> xattr_map;
 
     inline bool is_valid() { return (_expiry > 0 && time(NULL) < _expiry); }
 
@@ -198,7 +197,7 @@ namespace s3
     struct stat _stat;
 
     // protected by _metadata_mutex
-    meta_map _metadata;
+    xattr_map _metadata;
     std::string _etag, _md5, _md5_etag;
     dir_cache_ptr _dir_cache;
 
