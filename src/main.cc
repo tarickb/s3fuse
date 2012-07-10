@@ -274,7 +274,7 @@ int wrap_setxattr(const char *path, const char *name, const char *value, size_t 
 int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
 #endif
 {
-  S3_LOG(LOG_DEBUG, "setxattr", "path: %s, name: %s", path, name);
+  S3_LOG(LOG_DEBUG, "setxattr", "path: %s, name: %s\n", path, name);
   ASSERT_LEADING_SLASH(path);
 
   return try_catch(bind(&s3::fs::set_attr, s_fs, path + 1, name, value, size, flags));
@@ -286,7 +286,6 @@ int wrap_listxattr(const char *path, char *buffer, size_t size)
   size_t required_size = 0;
   int r;
 
-  S3_LOG(LOG_DEBUG, "listxattr", "path: %s, size: %zu\n", path, size);
   ASSERT_LEADING_SLASH(path);
 
   r = try_catch(bind(&s3::fs::list_attr, s_fs, path + 1, &attrs));
