@@ -140,6 +140,24 @@ string util::compute_md5(int fd, md5_output_type type, ssize_t size, off_t offse
     return base64_encode(md5_buf, md5_len);
   else if (type == MOT_HEX)
     return "\"" + hex_encode(md5_buf, md5_len) + "\"";
+  else if (type == MOT_HEX_NO_QUOTE)
+    return hex_encode(md5_buf, md5_len);
+  else
+    throw runtime_error("unknown md5 output type.");
+}
+
+string util::compute_md5(const uint8_t *input, size_t size, md5_output_type type)
+{
+  uint8_t md5_buf[MD5_DIGEST_LENGTH];
+
+  MD5(input, size, md5_buf);
+
+  if (type == MOT_BASE64)
+    return base64_encode(md5_buf, MD5_DIGEST_LENGTH);
+  else if (type == MOT_HEX)
+    return "\"" + hex_encode(md5_buf, MD5_DIGEST_LENGTH) + "\"";
+  else if (type == MOT_HEX_NO_QUOTE)
+    return hex_encode(md5_buf, MD5_DIGEST_LENGTH);
   else
     throw runtime_error("unknown md5 output type.");
 }

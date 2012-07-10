@@ -41,12 +41,33 @@ namespace s3
   {
   public:
     static std::string base64_encode(const uint8_t *input, size_t size);
+
+    inline static std::string base64_encode(const char *input, size_t size)
+    {
+      return base64_encode(reinterpret_cast<const uint8_t *>(input), size);
+    }
+
+    inline static std::string base64_encode(const std::string &input)
+    {
+      return base64_encode(input.c_str(), input.size() + 1);
+    }
+
     static void base64_decode(const std::string &input, std::vector<uint8_t> *output);
 
     static std::string sign(const std::string &key, const std::string &data);
 
     static std::string compute_md5(int fd, md5_output_type type = MOT_BASE64, ssize_t size = 0, off_t offset = 0);
-    static std::string compute_md5(const std::string &input, md5_output_type type = MOT_BASE64);
+    static std::string compute_md5(const uint8_t *input, size_t size, md5_output_type type = MOT_BASE64);
+
+    inline static std::string compute_md5(const char *input, size_t size, md5_output_type type = MOT_BASE64)
+    {
+      return compute_md5(reinterpret_cast<const uint8_t *>(input), size, type);
+    }
+
+    inline static std::string compute_md5(const std::string &input, md5_output_type type = MOT_BASE64)
+    {
+      return compute_md5(input.c_str(), input.size() + 1, type);
+    }
 
     static std::string url_encode(const std::string &url);
     static std::string hex_encode(const uint8_t *input, size_t size);

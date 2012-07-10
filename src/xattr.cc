@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include <cctype>
 #include <stdexcept>
 
@@ -112,8 +114,8 @@ void xattr::to_header(string *header, string *value)
     throw runtime_error("this extended attribute cannot be serialized.");
 
   if (_key_needs_encoding || _value_needs_encoding) {
-    *header = XATTR_HEADER_PREFIX + util::compute_md5(_key);
-    *value = util::base64_encode(reinterpret_cast<const uint8_t *>(_key.c_str()), _key.size() + 1) + " " + util::base64_encode(&_value[0], _value.size());
+    *header = XATTR_HEADER_PREFIX + util::compute_md5(_key, MOT_HEX_NO_QUOTE);
+    *value = util::base64_encode(_key) + " " + util::base64_encode(&_value[0], _value.size());
   } else {
     *header = _key;
     *value = reinterpret_cast<char *>(&_value[0]);
