@@ -38,4 +38,3 @@ rm -rf $RPM_BUILD_ROOT
 %config /etc/s3fuse.conf
 /usr/bin/s3fuse
 /usr/bin/s3fuse_gs_get_token
-/usr/bin/xattr
