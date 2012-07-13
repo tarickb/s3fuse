@@ -31,6 +31,8 @@ CONFIG(int, request_timeout_in_s, 30); // request timeout in seconds (for all HT
 
 CONFIG(std::string, aws_service_endpoint, "s3.amazonaws.com"); // service endpoint for Amazon AWS (change to "s3-eu-west-1.amazonaws.com" for EU buckets)
 
+CONFIG(std::string, xattr_prefix, ""); // if set, prefixes all extended attributes (may have to be set to "user." for compatibility with getfattr)
+
 CONFIG_REQUIRED(std::string, service, ""); // service -- must be "aws" or "google-storage"
 CONFIG_REQUIRED(std::string, auth_data, ""); // service-specific authentication details (see documentation)
 CONFIG_REQUIRED(std::string, bucket_name, ""); // bucket name
