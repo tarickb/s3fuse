@@ -261,18 +261,6 @@ void object::request_process_response(request *req)
 
   _url = build_url(_path, _type);
 
-  // override UID?
-  if (static_cast<uid_t>(config::get_override_uid()) != UID_MAX)
-    _stat.st_uid = config::get_override_uid();
-
-  // override GID?
-  if (static_cast<gid_t>(config::get_override_gid()) != GID_MAX)
-    _stat.st_gid = config::get_override_gid();
-
-  // override mode?
-  if (config::get_override_mode() != 0)
-    _stat.st_mode = config::get_override_mode();
-
   _stat.st_mode  |= get_mode_by_type(_type);
 
   // this workaround is for cases when the file was updated by someone else and the mtime header wasn't set
