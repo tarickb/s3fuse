@@ -91,7 +91,7 @@ xattr::ptr xattr::from_header(const string &header_key, const string &header_val
 
 xattr::ptr xattr::create(const string &key)
 {
-  ptr ret(new xattr(key, is_key_valid(key)));
+  ptr ret(new xattr(key, !is_key_valid(key)));
 
   return ret;
 }
@@ -109,7 +109,7 @@ void xattr::set_value(const char *value, size_t size)
   _value.resize(size);
   memcpy(&_value[0], reinterpret_cast<const uint8_t *>(value), size);
 
-  _encode_value = is_value_valid(value, size);
+  _encode_value = !is_value_valid(value, size);
 }
 
 int xattr::get_value(char *buffer, size_t max_size)
