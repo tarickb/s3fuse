@@ -48,7 +48,7 @@ namespace s3
         static type s_ ## name; \
       \
       public: \
-        static const type & get_ ## name () { return s_ ## name; }
+        static inline const type & get_ ## name () { return s_ ## name; }
 
     #define CONFIG_REQUIRED(type, name, def) CONFIG(type, name, def)
 
