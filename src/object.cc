@@ -121,7 +121,7 @@ int object::set_metadata(const string &key, const char *value, size_t size, int 
 
   if (itor == _metadata.end()) {
     if (flags & XATTR_REPLACE)
-      return -ENODATA;
+      return -ENOATTR;
 
     itor = _metadata.insert(make_pair(user_key, xattr::create(user_key))).first;
   }
@@ -165,7 +165,7 @@ int object::get_metadata(const string &key, char *buffer, size_t max_size)
       value = itor->second;
   }
 
-  return value ? value->get_value(buffer, max_size) : -ENODATA;
+  return value ? value->get_value(buffer, max_size) : -ENOATTR;
 }
 
 int object::remove_metadata(const string &key)
@@ -174,7 +174,7 @@ int object::remove_metadata(const string &key)
   xattr_map::iterator itor = _metadata.find(key.substr(config::get_xattr_prefix().size()));
 
   if (itor == _metadata.end())
-    return -ENODATA;
+    return -ENOATTR;
 
   _metadata.erase(itor);
   return 0;
