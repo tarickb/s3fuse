@@ -53,6 +53,10 @@ namespace
     string config;
     string mountpoint;
     int verbosity;
+
+    #ifdef __APPLE__
+      bool disable_apple_store_files;
+    #endif
   };
 
   int try_catch(const boost::function0<int> &fn)
@@ -374,6 +378,11 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
     return 0;
   }
 
+  if (strstr(arg, "noappledouble") == arg) {
+    opt->disable_apple_store_files = true;
+    return 1; // continue processing
+  }
+
   if (key == FUSE_OPT_KEY_NONOPT)
     opt->mountpoint = arg; // assume that the mountpoint is the only non-option
 
@@ -470,6 +479,11 @@ int main(int argc, char **argv)
     print_usage(opts.arg0);
     exit(1);
   }
+
+  #ifdef __APPLE__
+    if (!opts.disable_apple_store_files)
+      fprintf(stderr, "You are *strongly* advised to pass \"-o noappledouble\" to disable the creation/checking/etc. of .DS_Store files.\n");
+  #endif
 
   build_ops(&ops);
 
