@@ -90,6 +90,7 @@ void object::init_stat()
   memset(&_stat, 0, sizeof(_stat));
 
   _stat.st_nlink = 1; // laziness (see FUSE FAQ re. find)
+  _stat.st_blksize = BLOCK_SIZE;
   _stat.st_mode  = config::get_default_mode();
   _stat.st_uid   = config::get_default_uid();
   _stat.st_gid   = config::get_default_gid();
