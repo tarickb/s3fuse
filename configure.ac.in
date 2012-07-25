@@ -27,9 +27,7 @@ AC_ARG_ENABLE(
 AM_CONDITIONAL([BUILD_RPM], [test x$build_rpm = xtrue])
 
 if test "x$darwin" = xtrue; then
-  LDFLAGS="$LDFLAGS -framework CoreFoundation -framework Security -L/usr/local/lib -L/opt/local/lib"
-  CPPFLAGS="$CPPFLAGS -I/usr/local/include -I/opt/local/include"
-  export PKG_CONFIG_PATH="$PKG_CONFIG_PATH:/opt/local/lib/pkgconfig:/usr/local/lib/pkgconfig"
+  LDFLAGS="$LDFLAGS -framework CoreFoundation -framework Security -L/opt/local/lib"
 else
   LDFLAGS="$LDFLAGS -Wl,--as-needed"
 fi
