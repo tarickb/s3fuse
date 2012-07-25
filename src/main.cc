@@ -284,7 +284,7 @@ int wrap_setxattr(const char *path, const char *name, const char *value, size_t 
 int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
 #endif
 {
-  S3_LOG(LOG_DEBUG, "setxattr", "path: %s, name: %s\n", path, name);
+  S3_LOG(LOG_DEBUG, "setxattr", "path: [%s], name: [%s], size: %i\n", path, name, size);
   ASSERT_LEADING_SLASH(path);
 
   return try_catch(bind(&s3::fs::set_attr, s_fs, path + 1, name, value, size, flags));
@@ -292,7 +292,9 @@ int wrap_setxattr(const char *path, const char *name, const char *value, size_t 
 
 int wrap_listxattr(const char *path, char *buffer, size_t size)
 {
-  vector<string> attrs;
+  typedef vector<string> str_vec;
+
+  str_vec attrs;
   size_t required_size = 0;
   int r;
 
@@ -303,18 +305,18 @@ int wrap_listxattr(const char *path, char *buffer, size_t size)
   if (r)
     return r;
 
-  for (size_t i = 0; i < attrs.size(); i++)
-    required_size += attrs[i].size() + 1;
+  for (str_vec::const_iterator itor = attrs.begin(); itor != attrs.end(); ++itor)
+    required_size += itor->size() + 1;
 
-  if (size == 0)
+  if (buffer == NULL || size == 0)
     return required_size;
 
   if (required_size > size)
     return -ERANGE;
 
-  for (size_t i = 0; i < attrs.size(); i++) {
-    strcpy(buffer, attrs[i].c_str());
-    buffer += attrs[i].size() + 1;
+  for (str_vec::const_iterator itor = attrs.begin(); itor != attrs.end(); ++itor) {
+    strcpy(buffer, itor->c_str());
+    buffer += itor->size() + 1;
   }
 
   return required_size;
