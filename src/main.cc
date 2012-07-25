@@ -37,7 +37,13 @@
 using namespace boost;
 using namespace std;
 
-#define ASSERT_LEADING_SLASH(str) do { if ((str)[0] != '/') return -EINVAL; } while (0)
+#define ASSERT_LEADING_SLASH(str) \
+  do { \
+    if ((str)[0] != '/') { \
+      S3_LOG(LOG_WARNING, "ASSERT_LEADING_SLASH", "failed on [%s]\n", static_cast<const char *>(str)); \
+      return -EINVAL; \
+    } \
+  } while (0)
 
 namespace
 {
