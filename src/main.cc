@@ -380,10 +380,12 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
     return 0;
   }
 
-  if (strstr(arg, "noappledouble") == arg) {
-    opt->disable_apple_store_files = true;
-    return 1; // continue processing
-  }
+  #ifdef __APPLE__
+    if (strstr(arg, "noappledouble") == arg) {
+      opt->disable_apple_store_files = true;
+      return 1; // continue processing
+    }
+  #endif
 
   if (key == FUSE_OPT_KEY_NONOPT)
     opt->mountpoint = arg; // assume that the mountpoint is the only non-option
