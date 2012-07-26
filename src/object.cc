@@ -29,6 +29,14 @@
 #include "service.h"
 #include "xattr.h"
 
+#ifndef ENOATTR
+  #ifndef ENODATA
+    #error Need either ENOATTR or ENODATA!
+  #endif
+
+  #define ENOATTR ENODATA
+#endif
+
 using namespace boost;
 using namespace std;
 
