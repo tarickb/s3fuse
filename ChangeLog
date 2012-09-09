@@ -1,10 +1,15 @@
 s3fuse (0.12) unstable; urgency=low
 
+  * NEW: MacOS support. See README.
+  * NEW: Made AWS endpoint configurable (to support non-US buckets). 
+    See README.
+  * Fixed extended attribute bugs.
+  * Added support for curl/NSS.
   * Fixed circular ownership bug that was causing FDs to be leaked.
   * Made requirements compatible with RHEL6/Amazon Linux.
   * Fixed memory leak in CURL request code.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Sat, 10 Mar 2012 17:49:13 -0600
+ -- Tarick Bedeir <tarick@bedeir.com>  Sat, 08 Sep 2012 19:36:13 -0600
 
 s3fuse (0.11) unstable; urgency=low
 

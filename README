@@ -77,6 +77,15 @@ auth_data for Google Storage:
   s3fuse will fail to start if the token file is group- or world-readable or 
   -writable.
 
+Non-US AWS Buckets
+------------------
+
+You may need to modify the "aws_service_endpoint" configuration option to 
+support non-US buckets.  For instance, the following line in s3fuse.conf
+enables use of EU buckets:
+ 
+  aws_service_endpoint=s3-eu-west-1.amazonaws.com
+
 Running
 -------
 
@@ -112,3 +121,15 @@ configuration file and a corresponding entry in /etc/fstab:
   s3fuse /media/bucket0 fuse defaults,noauto,user,allow_other,config=/etc/s3fuse.bucket0.conf 0 0
   s3fuse /media/bucket1 fuse defaults,noauto,user,allow_other,config=/etc/s3fuse.bucket1.conf 0 0
 
+MacOS
+-----
+
+Early MacOS support is available as of s3fuse-0.12.  This support is built on
+fuse4x, which can be installed with MacPorts:
+
+  sudo port install fuse4x
+
+Run s3fuse the same way you would on a Linux system.  Passing the 
+"noappledouble" option to FUSE is strongly suggested -- this will prevent
+MacOS (the Finder?) from trying to open or create .DS_Store files in every 
+directory you browse through.
