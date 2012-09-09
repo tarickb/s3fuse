@@ -33,6 +33,7 @@ else
 fi
 
 AC_CHECK_LIB([boost_thread-mt], [main], [], [AC_CHECK_LIB([boost_thread], [main], [], [AC_MSG_FAILURE([cannot find boost thread library])])])
+AC_CHECK_LIB([boost_system-mt], [main], [], [AC_CHECK_LIB([boost_system], [main], [], [AC_MSG_FAILURE([cannot find boost system library])])])
 AC_CHECK_LIB([pthread], [pthread_create], [], [AC_MSG_ERROR([cannot find pthreads])])
 
 PKG_CHECK_MODULES([DEPS_XML], [libxml-2.0 >= 2.7.6 libxml++-2.6 >= 2.28.0])
