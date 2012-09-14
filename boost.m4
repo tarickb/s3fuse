@@ -21,8 +21,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-# Modified to remove -Wl,-R absolute path flags.
-#   -- Tarick Bedeir (tarick@bedeir.com), 13-Sep-2012
+# Modified to remove -Wl,-R absolute path flags and other libtool-specific stuff.
+#   -- Tarick Bedeir (tarick@bedeir.com), 14-Sep-2012
 
 m4_define([_BOOST_SERIAL], [m4_translit([
 # serial 16
@@ -332,10 +332,6 @@ AC_CACHE_CHECK([for the Boost $1 library], [Boost_lib],
   # If the PREFERRED-RT-OPT are not empty, prepend a `-'.
   test -n "$boost_rtopt" && boost_rtopt="-$boost_rtopt"
   $boost_guess_use_mt && boost_mt=-mt
-  # Look for the abs path the static archive.
-  # $libext is computed by Libtool but let's make sure it's non empty.
-  test -z "$libext" &&
-    AC_MSG_ERROR([the libext variable is empty, did you invoke Libtool?])
   boost_save_ac_objext=$ac_objext
   # Generate the test file.
   AC_LANG_CONFTEST([AC_LANG_PROGRAM([#include <$3>
@@ -390,7 +386,7 @@ for boost_rtopt_ in $boost_rtopt '' -d; do
       # Are we looking for a static library?
       case $boost_ldpath:$boost_rtopt_ in #(
         *?*:*s*) # Yes (Non empty boost_ldpath + s in rt opt)
-          Boost_lib_LIBS="$boost_ldpath/lib$boost_lib.$libext"
+          Boost_lib_LIBS="$boost_ldpath/lib$boost_lib.a"
           test -e "$Boost_lib_LIBS" || continue;; #(
         *) # No: use -lboost_foo to find the shared library.
           Boost_lib_LIBS="-l$boost_lib";;
