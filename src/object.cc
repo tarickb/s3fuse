@@ -159,7 +159,7 @@ int object::get_metadata(const string &key, char *buffer, size_t max_size)
   string user_key = key.substr(config::get_xattr_prefix().size());
 
   if (key.substr(0, config::get_xattr_prefix().size()) != config::get_xattr_prefix())
-    return -EINVAL;
+    return -ENOATTR;
 
   if (user_key == "__md5__")
     value = xattr::from_string(user_key, _md5);
