@@ -15,7 +15,7 @@ for D in src src/tests dist; do
   popd >& /dev/null
 done
 
-rm -f *.m4
+find . -maxdepth 1 -type f -name \*.m4 ! -name boost.m4 | xargs rm -f
 rm -rf autom4te.cache
 rm -f config.*
 rm -f configure
@@ -25,3 +25,5 @@ rm -f install-sh
 rm -f Makefile Makefile.in
 rm -f missing
 rm -f *.tar.gz
+rm -f libtool
+rm -f ltmain.sh

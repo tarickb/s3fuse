@@ -1,3 +1,8 @@
+AM_CPPFLAGS += $(BOOST_CPPFLAGS)
+AM_LDFLAGS += $(BOOST_THREAD_LDFLAGS)
+
+LDADD = $(BOOST_THREAD_LIBS)
+
 SUBDIRS = . tests
 
 bin_PROGRAMS = s3fuse s3fuse_gs_get_token
