@@ -90,6 +90,8 @@ int wrap_getattr(const char *path, struct stat *s)
   memset(s, 0, sizeof(*s));
 
   if (strcmp(path, "/") == 0) {
+    s->st_uid = geteuid();
+    s->st_gid = getegid();
     s->st_mode = s_mountpoint_mode;
     s->st_nlink = 1; // because calculating nlink is hard! (see FUSE FAQ)
 
