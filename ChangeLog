@@ -3,6 +3,7 @@ s3fuse (0.12) unstable; urgency=low
   * NEW: MacOS support. See README.
   * NEW: Made AWS endpoint configurable (to support non-US buckets). 
     See README.
+  * Set mount point UID/GID to process effective UID/GID.
   * Fixed extended attribute bugs.
   * Added support for curl/NSS.
   * Fixed circular ownership bug that was causing FDs to be leaked.
