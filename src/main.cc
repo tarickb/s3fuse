@@ -350,6 +350,7 @@ int print_usage(const char *arg0)
     "  -o OPT...            pass OPT (comma-separated) to FUSE, such as:\n"
     "     allow_other         allow other users to access the mounted file system\n"
     "     allow_root          allow root to access the mounted file system\n"
+    "     noappledouble       disable testing for/creating .DS_Store files on Mac OS\n"
     "     config=<file>       use <file> rather than the default configuration file\n"
     "  -v, --verbose        enable logging to stderr (can be repeated for more verbosity)\n"
     "  -V, --version        print version and exit\n",
