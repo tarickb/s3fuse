@@ -122,8 +122,11 @@ int object::set_metadata(const string &key, const char *value, size_t size, int 
   if (strncmp(user_key.c_str(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) == 0)
     return -EINVAL;
 
+  // since we show these keys in get_metadata_keys(), an application might reasonably assume
+  // that it can set them too.  since we don't want it failing for no good reason, we'll
+  // fail silently.
   if (user_key == "__md5__" || user_key == "__etag__" || user_key == "__content_type__")
-    return -EINVAL;
+    return 0;
 
   if (flags & XATTR_CREATE && itor != _metadata.end())
     return -EEXIST;
