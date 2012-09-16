@@ -6,7 +6,7 @@ cat configure.ac.in | sed -e "s/__VERSION__/$VERSION/g" > configure.ac
 autoreconf --force --install || exit 1
 
 if [ "$(uname)" == "Darwin" ]; then
-  ./configure --enable-darwin
+  ./configure --enable-tests --enable-darwin
 else
-  ./configure
+  ./configure --enable-tests
 fi

@@ -16,6 +16,15 @@ AC_ARG_ENABLE(
    esac], [build_rpm=false])
 
 AC_ARG_ENABLE(
+  [tests], 
+  [  --enable-tests          Build test programs],
+  [case "${enableval}" in
+    yes) build_tests=true ;;
+    no)  build_tests=false ;;
+    *) AC_MSG_ERROR([bad value ${enableval} for --enable-tests]) ;;
+   esac], [build_tests=false])
+
+AC_ARG_ENABLE(
   [darwin],
   [  --enable-darwin         Enable support for Darwin (Mac OS X)],
   [case "${enableval}" in
@@ -25,6 +34,7 @@ AC_ARG_ENABLE(
    esac], [darwin=false])
 
 AM_CONDITIONAL([BUILD_RPM], [test x$build_rpm = xtrue])
+AM_CONDITIONAL([BUILD_TESTS], [test x$build_tests = xtrue])
 
 if test "x$darwin" = xtrue; then
   LDFLAGS="$LDFLAGS -framework CoreFoundation -framework Security -L/opt/local/lib"
@@ -35,8 +45,6 @@ fi
 BOOST_REQUIRE([1.42])
 BOOST_THREADS()
 
-#AC_CHECK_LIB([boost_thread-mt], [main], [], [AC_CHECK_LIB([boost_thread], [main], [], [AC_MSG_FAILURE([cannot find boost thread library])])])
-#AC_CHECK_LIB([boost_system-mt], [main], [], [AC_CHECK_LIB([boost_system], [main], [], [AC_MSG_FAILURE([cannot find boost system library])])])
 AC_CHECK_LIB([pthread], [pthread_create], [], [AC_MSG_ERROR([cannot find pthreads])])
 
 PKG_CHECK_MODULES([DEPS_XML], [libxml-2.0 >= 2.7.6 libxml++-2.6 >= 2.28.0])
