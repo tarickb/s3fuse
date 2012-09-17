@@ -36,5 +36,9 @@ rm -rf $RPM_BUILD_ROOT
 %files
 %defattr(-,root,root)
 %config /etc/s3fuse.conf
+%doc ChangeLog
+%doc COPYING
+%doc INSTALL
+%doc README
 /usr/bin/s3fuse
 /usr/bin/s3fuse_gs_get_token
