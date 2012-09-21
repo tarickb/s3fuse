@@ -1,8 +1,3 @@
-AM_CPPFLAGS += $(BOOST_CPPFLAGS)
-AM_LDFLAGS += $(BOOST_THREAD_LDFLAGS)
-
-LDADD = $(BOOST_THREAD_LIBS)
-
 if BUILD_TESTS
 SUBDIRS = . tests
 endif
@@ -77,6 +72,9 @@ s3fuse_gs_get_token_SOURCES = \
 	util.h
 
 dist_sysconf_DATA = \
+	s3fuse.conf
+
+CLEANFILES = \
 	s3fuse.conf
 
 s3fuse.conf: config.inc
