@@ -40,10 +40,12 @@ namespace s3
     virtual bool is_multipart_download_supported();
     virtual bool is_multipart_upload_supported();
 
+    virtual const std::string & get_bucket_url();
+
     virtual void sign(request *req, bool last_sign_failed);
 
   private:
-    std::string _key, _secret, _endpoint;
+    std::string _key, _secret, _endpoint, _bucket_url;
   };
 }
 

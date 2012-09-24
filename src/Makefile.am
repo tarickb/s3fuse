@@ -10,6 +10,8 @@ s3fuse_SOURCES = \
 	config.cc \
 	config.inc \
 	config.h \
+	directory.cc \
+	directory.h \
 	file_transfer.cc \
 	file_transfer.h \
 	fs.cc \
@@ -33,6 +35,8 @@ s3fuse_SOURCES = \
 	service_impl.h \
 	ssl_locks.cc \
 	ssl_locks.h \
+	symlink.cc \
+	symlink.h \
 	thread_pool.cc \
 	thread_pool.h \
 	util.cc \

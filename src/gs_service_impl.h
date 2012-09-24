@@ -54,13 +54,15 @@ namespace s3
     virtual bool is_multipart_download_supported();
     virtual bool is_multipart_upload_supported();
 
+    virtual const std::string & get_bucket_url();
+
     virtual void sign(request *req, bool last_sign_failed);
 
   private:
     void refresh(const boost::mutex::scoped_lock &lock);
 
     boost::mutex _mutex;
-    std::string _access_token, _refresh_token;
+    std::string _access_token, _refresh_token, _bucket_url;
     time_t _expiry;
   };
 }

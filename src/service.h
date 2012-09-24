@@ -43,6 +43,8 @@ namespace s3
     inline static bool is_multipart_download_supported() { return s_impl->is_multipart_download_supported(); }
     inline static bool is_multipart_upload_supported() { return s_impl->is_multipart_upload_supported(); }
 
+    inline static const std::string & get_bucket_url() { return s_impl->get_bucket_url(); }
+
     // set last_sign_failed = true if the last sign() attempt failed.
     inline static void sign(request *req, bool last_sign_failed) { s_impl->sign(req, last_sign_failed); }
 

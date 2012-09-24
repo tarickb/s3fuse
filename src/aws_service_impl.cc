@@ -74,6 +74,7 @@ aws_service_impl::aws_service_impl()
   _secret = fields[1];
 
   _endpoint = string("https://") + config::get_aws_service_endpoint();
+  _bucket_url = string("/") + util::url_encode(config::get_bucket_name());
 }
 
 const string & aws_service_impl::get_header_prefix()
@@ -99,6 +100,11 @@ bool aws_service_impl::is_multipart_download_supported()
 bool aws_service_impl::is_multipart_upload_supported()
 {
   return true;
+}
+
+const string & aws_service_impl::get_bucket_url()
+{
+  return _bucket_url;
 }
 
 void aws_service_impl::sign(request *req, bool last_sign_failed)

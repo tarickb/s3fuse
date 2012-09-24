@@ -59,7 +59,6 @@ namespace s3
   };
 
   typedef std::map<std::string, std::string> header_map;
-  typedef boost::shared_ptr<header_map> header_map_ptr;
 
   class request : boost::noncopyable
   {
@@ -93,9 +92,6 @@ namespace s3
 
     inline long get_response_code() { return _response_code; }
     inline time_t get_last_modified() { return _last_modified; }
-
-    inline void set_target_object(const boost::shared_ptr<object> &object) { _target_object = object; }
-    inline const boost::shared_ptr<object> & get_target_object() { return _target_object; }
 
     inline void reset_current_run_time() { _current_run_time = 0.0; }
     inline double get_current_run_time() { return _current_run_time; }
@@ -135,8 +131,6 @@ namespace s3
     size_t _input_size;
     off_t _input_offset;
     std::string _input_data;
-
-    boost::shared_ptr<object> _target_object;
 
     long _response_code;
     time_t _last_modified;

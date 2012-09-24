@@ -128,6 +128,8 @@ gs_service_impl::gs_service_impl()
 {
   mutex::scoped_lock lock(_mutex);
 
+  _bucket_url = string("/") + util::url_encode(config::get_bucket_name());
+
   _refresh_token = gs_service_impl::read_token(config::get_auth_data());
   refresh(lock);
 }

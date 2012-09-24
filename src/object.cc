@@ -22,11 +22,17 @@
 #include <string.h>
 #include <sys/xattr.h>
 
+#include <boost/lexical_cast.hpp>
+
 #include "config.h"
+#include "directory.h"
+#include "encrypted_file.h"
+#include "file.h"
 #include "logger.h"
 #include "object.h"
 #include "request.h"
 #include "service.h"
+#include "symlink.h"
 #include "xattr.h"
 
 #ifndef ENOATTR
@@ -50,64 +56,59 @@ namespace
 
   const char   *META_PREFIX_RESERVED_CSTR     = META_PREFIX_RESERVED.c_str();
   const size_t  META_PREFIX_RESERVED_LEN      = META_PREFIX_RESERVED.size();
+}
 
-  const char   *SYMLINK_CONTENT_TYPE          = "text/symlink";
+string object::build_url(const string &path)
+{
+  return service::get_bucket_url() + "/" + util::url_encode(path);
+}
 
-  mode_t get_mode_by_type(object_type type)
-  {
-    if (type == OT_FILE)
-      return S_IFREG;
+object::ptr object::create(const string &path, const request::ptr &req)
+{
+  const string &content_type = req->get_response_header("Content-Type");
+  object *o = NULL;
 
-    if (type == OT_DIRECTORY)
-      return S_IFDIR;
+  if (req->get_response_code() == HTTP_SC_OK) {
+    if (directory::is_valid_url(req->get_url()))
+      o = new directory(path);
+    else if (content_type == symlink::get_default_content_type())
+      o = new symlink(path);
+    else if (content_type == encrypted_file::get_default_content_type())
+      o = new encrypted_file(path);
+    else
+      o = new file(path);
 
-    if (type == OT_SYMLINK)
-      return S_IFLNK;
-
-    return 0;
+    o->init(req);
   }
+
+  return object::ptr(o);
 }
 
-string object::get_bucket_url()
-{
-  return "/" + util::url_encode(config::get_bucket_name());
-}
-
-string object::build_url(const string &path, object_type type)
-{
-  return get_bucket_url() + "/" + util::url_encode(path) + ((type == OT_DIRECTORY) ? "/" : "");
-}
-
-object::object(const string &path, object_type type)
-  : _type(type),
-    _path(path),
+object::object(const string &path)
+  : _path(path),
     _expiry(0)
-{
-  init_stat();
-
-  _stat.st_mode |= get_mode_by_type(type);
-  _stat.st_mtime = time(NULL);
-
-  _content_type = ((type == OT_SYMLINK) ? string(SYMLINK_CONTENT_TYPE) : config::get_default_content_type());
-  _expiry = time(NULL) + config::get_cache_expiry_in_s();
-  _url = build_url(_path, _type);
-}
-
-void object::init_stat()
 {
   memset(&_stat, 0, sizeof(_stat));
 
   _stat.st_nlink = 1; // laziness (see FUSE FAQ re. find)
   _stat.st_blksize = BLOCK_SIZE;
-  _stat.st_mode  = config::get_default_mode();
-  _stat.st_uid   = config::get_default_uid();
-  _stat.st_gid   = config::get_default_gid();
+  _stat.st_mode = config::get_default_mode();
+  _stat.st_uid = config::get_default_uid();
+  _stat.st_gid = config::get_default_gid();
+  _stat.st_mtime = time(NULL);
 
   if (_stat.st_uid == UID_MAX)
     _stat.st_uid = geteuid();
 
   if (_stat.st_gid == GID_MAX)
     _stat.st_gid = getegid();
+
+  _content_type = config::get_default_content_type();
+  _url = build_url(_path);
+}
+
+object::~object()
+{
 }
 
 int object::set_metadata(const string &key, const char *value, size_t size, int flags)
@@ -202,78 +203,37 @@ void object::set_mode(mode_t mode)
   _stat.st_mode = (_stat.st_mode & S_IFMT) | mode;
 }
 
-void object::request_init()
-{
-  init_stat();
-
-  _type = OT_INVALID;
-  _content_type.clear();
-  _etag.clear();
-  _mtime_etag.clear();
-  _md5.clear();
-  _md5_etag.clear();
-  _expiry = 0;
-  _metadata.clear();
-  _url.clear();
-}
-
-void object::request_process_header(const string &key, const string &value)
+void object::init(const request::ptr &req)
 {
   // this doesn't need to lock the metadata mutex because the object won't be in the cache (and thus
   // isn't shareable) until the request has finished processing
 
-  long long_value = strtol(value.c_str(), NULL, 0);
   string meta_prefix = service::get_header_prefix() + META_PREFIX;
 
-  if (key == "Content-Type")
-    _content_type = value;
-  else if (key == "ETag")
-    _etag = value;
-  else if (key == "Content-Length")
-    _stat.st_size = long_value;
-  else if (key == (meta_prefix + "s3fuse-mode"))
-    _stat.st_mode = long_value & ~S_IFMT;
-  else if (key == (meta_prefix + "s3fuse-uid"))
-    _stat.st_uid = long_value;
-  else if (key == (meta_prefix + "s3fuse-gid"))
-    _stat.st_gid = long_value;
-  else if (key == (meta_prefix + "s3fuse-mtime"))
-    _stat.st_mtime = long_value;
-  else if (key == (meta_prefix + "s3fuse-mtime-etag"))
-    _mtime_etag = value;
-  else if (key == (meta_prefix + "s3fuse-md5"))
-    _md5 = value;
-  else if (key == (meta_prefix + "s3fuse-md5-etag"))
-    _md5_etag = value;
-  else if (
-    strncmp(key.c_str(), meta_prefix.c_str(), meta_prefix.size()) == 0 &&
-    strncmp(key.c_str() + meta_prefix.size(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) != 0
-  ) {
-    xattr::ptr attr = xattr::from_header(key.substr(meta_prefix.size()), value);
+  _content_type = req->get_response_header("Content-Type");
+  _etag = req->get_response_header("ETag");
+  _stat.st_size = lexical_cast<size_t>(req->get_response_header("Content-Length"));
+  _stat.st_mode = lexical_cast<mode_t>(req->get_response_header(meta_prefix + "s3fuse-mode")) & ~S_IFMT;
+  _stat.st_uid = lexical_cast<uid_t>(req->get_response_header(meta_prefix + "s3fuse-uid"));
+  _stat.st_gid = lexical_cast<gid_t>(req->get_response_header(meta_prefix + "s3fuse-gid"));
+  _stat.st_mtime = lexical_cast<time_t>(req->get_response_header(meta_prefix + "s3fuse-mtime"));
+  _mtime_etag = req->get_response_header(meta_prefix + "s3fuse-mtime-etag");
+  _md5 = req->get_response_header(meta_prefix + "s3fuse-md5");
+  _md5_etag = req->get_response_header(meta_prefix + "s3fuse-md5-etag");
 
-    _metadata[attr->get_key()] = attr;
+  for (header_map::const_iterator itor = req->get_response_headers().begin(); itor != req->get_response_headers().end(); ++itor) {
+    const string &key = itor->first;
+    const string &value = itor->second;
+
+    if (
+      strncmp(key.c_str(), meta_prefix.c_str(), meta_prefix.size()) == 0 &&
+      strncmp(key.c_str() + meta_prefix.size(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) != 0
+    ) {
+      xattr::ptr attr = xattr::from_header(key.substr(meta_prefix.size()), value);
+
+      _metadata[attr->get_key()] = attr;
+    }
   }
-}
-
-void object::request_process_response(request *req)
-{
-  // see note in request_process_header() re. locking
-
-  const string &url = req->get_url();
-
-  if (url.empty() || req->get_response_code() != HTTP_SC_OK)
-    return;
-
-  if (url[url.size() - 1] == '/')
-    _type = OT_DIRECTORY;
-  else if (_content_type == SYMLINK_CONTENT_TYPE)
-    _type = OT_SYMLINK;
-  else
-    _type = OT_FILE;
-
-  _url = build_url(_path, _type);
-
-  _stat.st_mode  |= get_mode_by_type(_type);
 
   // this workaround is for cases when the file was updated by someone else and the mtime header wasn't set
   if (_mtime_etag != _etag && req->get_last_modified() > _stat.st_mtime)
@@ -290,8 +250,7 @@ void object::request_process_response(request *req)
 
   _md5_etag = _etag;
 
-  if (_type == OT_FILE)
-    _stat.st_blocks = (_stat.st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
+  _stat.st_blocks = (_stat.st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
   // setting _expiry > 0 makes this object valid
   _expiry = time(NULL) + config::get_cache_expiry_in_s();
@@ -346,4 +305,8 @@ int object::commit_metadata(const request::ptr &req)
   }
 
   return 0;
+}
+
+void object::adjust_stat(struct stat *s)
+{
 }

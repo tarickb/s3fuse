@@ -127,7 +127,6 @@ void request::init(http_method method)
   _response_code = 0;
   _last_modified = 0;
   _headers.clear();
-  _target_object.reset();
   _sign = true;
 
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL));
@@ -197,10 +196,7 @@ size_t request::process_header(char *data, size_t size, size_t items, void *cont
   if (*pos == ' ')
     pos++;
 
-  if (req->_target_object)
-    req->_target_object->request_process_header(data, pos);
-  else
-    req->_response_headers[data] = pos;
+  req->_response_headers[data] = pos;
 
   return size;
 }
@@ -400,9 +396,6 @@ void request::internal_run(int timeout_in_s)
 
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers.get()));
 
-  if (_target_object)
-    _target_object->request_init();
-
   for (int i = 0; i < config::get_max_transfer_retries(); i++) {
     double elapsed_time;
 
@@ -455,8 +448,5 @@ void request::internal_run(int timeout_in_s)
 
   if (_response_code >= HTTP_SC_MULTIPLE_CHOICES && _response_code != HTTP_SC_NOT_FOUND)
     S3_LOG(LOG_WARNING, "request::run", "request for [%s] failed with code %i and response: %s\n", _url.c_str(), _response_code, _output_data.c_str());
-
-  if (_target_object)
-    _target_object->request_process_response(this);
 }
 

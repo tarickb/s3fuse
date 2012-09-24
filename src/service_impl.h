@@ -42,6 +42,8 @@ namespace s3
     virtual bool is_multipart_download_supported() = 0;
     virtual bool is_multipart_upload_supported() = 0;
 
+    virtual const std::string & get_bucket_url() = 0;
+
     virtual void sign(request *req, bool last_sign_failed) = 0;
 
   protected:
