@@ -11,6 +11,25 @@ namespace s3
     file(const std::string &path);
     ~file();
 
+    inline std::string get_md5()
+    {
+      boost::mutex::scoped_lock lock(_md5_mutex);
+
+      return _md5;
+    }
+
+    inline void set_md5(const std::string &md5, const std::string &etag)
+    {
+      /*
+      boost::mutex::scoped_lock lock(_metadata_mutex);
+
+      _md5 = md5;
+      _md5_etag = etag;
+      _etag = etag;
+      */
+    }
+
+
     /*
     inline size_t file::get_size()
     {
@@ -31,6 +50,34 @@ namespace s3
       s->st_size = get_size();
     }
     */
+
+    virtual void set_request_headers(const boost::shared_ptr<request> &req);
+
+  protected:
+    virtual void init(const boost::shared_ptr<request> &req);
+
+  private:
+    inline const open_file::ptr & get_open_file()
+    {
+      boost::mutex::scoped_lock lock(_open_file_mutex);
+
+      return _open_file;
+    }
+
+    inline void set_open_file(const open_file::ptr &open_file)
+    {
+      boost::mutex::scoped_lock lock(_open_file_mutex);
+
+      _open_file = open_file;
+    }
+
+    boost::mutex _md5_mutex, _open_file_mutex;
+
+    // protected by _md5_mutex
+    std::string _md5, _md5_etag;
+
+    // protected by _open_file_mutex
+    open_file::ptr _open_file;
   };
 }
 

@@ -37,6 +37,7 @@ using namespace s3;
 namespace
 {
   const string GS_HEADER_PREFIX = "x-goog-";
+  const string GS_HEADER_META_PREFIX = "x-goog-meta-";
   const string GS_URL_PREFIX = "https://commondatastorage.googleapis.com";
   const string GS_XML_NAMESPACE = "http://doc.s3.amazonaws.com/2006-03-01"; // "http://doc.commondatastorage.googleapis.com/2010-04-03";
 
@@ -137,6 +138,11 @@ gs_service_impl::gs_service_impl()
 const string & gs_service_impl::get_header_prefix()
 {
   return GS_HEADER_PREFIX;
+}
+
+const string & gs_service_impl::get_header_meta_prefix()
+{
+  return GS_HEADER_META_PREFIX;
 }
 
 const string & gs_service_impl::get_url_prefix()

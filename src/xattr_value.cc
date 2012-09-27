@@ -5,7 +5,7 @@
 #include <stdexcept>
 
 #include "util.h"
-#include "xattr.h"
+#include "xattr_value.h"
 
 using namespace boost;
 using namespace std;
@@ -42,22 +42,10 @@ namespace
   }
 }
 
-xattr::ptr xattr::from_string(const string &key, const string &value)
-{
-  ptr ret(new xattr(key, false));
-
-  // we don't intend for xattr objects constructed by this method to be used as real attributes
-  ret->_is_serializable = false;
-
-  ret->_value.resize(value.size());
-  memcpy(&ret->_value[0], reinterpret_cast<const uint8_t *>(value.c_str()), value.size());
-
-  return ret;
-}
-
-xattr::ptr xattr::from_header(const string &header_key, const string &header_value)
+xattr::ptr xattr_value::from_header(const string &header_key, const string &header_value)
 {
   ptr ret;
+  xattr_value *val = NULL;
 
   if (strncmp(header_key.c_str(), XATTR_HEADER_PREFIX_CSTR, XATTR_HEADER_PREFIX_LEN) == 0) {
     vector<uint8_t> dec_key;
@@ -68,43 +56,37 @@ xattr::ptr xattr::from_header(const string &header_key, const string &header_val
 
     util::base64_decode(header_value.substr(0, separator), &dec_key);
 
-    ret.reset(new xattr(reinterpret_cast<char *>(&dec_key[0]), true));
+    ret.reset(val = new xattr_value(reinterpret_cast<char *>(&dec_key[0]), true));
 
-    util::base64_decode(header_value.substr(separator + 1), &ret->_value);
+    util::base64_decode(header_value.substr(separator + 1), &val->_value);
 
   } else {
-    ret = from_string(header_key, header_value);
-
-    // from_string() sets _is_serializable to false because it doesn't know if the header/value 
-    // combination comes from a valid S3 object.  this method does, and as such can safely set
-    // _is_serializable to true.
-
-    ret->_is_serializable = true;
-
     // we know the value doesn't need encoding because it came to us as a valid HTTP string.
+    ret.reset(val = new xattr_value(header_key, false, false));
 
-    ret->_encode_value = false;
+    val->_value.resize(header_value.size());
+    memcpy(&val->_value[0], reinterpret_cast<const uint8_t *>(header_value.c_str()), header_value.size());
   }
 
   return ret;
 }
 
-xattr::ptr xattr::create(const string &key)
+xattr::ptr xattr_value::create(const string &key)
 {
-  ptr ret(new xattr(key, !is_key_valid(key)));
-
-  return ret;
+  return ptr(new xattr_value(key, !is_key_valid(key)));
 }
 
-xattr::xattr(const string &key, bool encode_key)
-  : _key(key),
-    _encode_key(encode_key),
-    _encode_value(true),
-    _is_serializable(true)
+bool xattr_value::is_read_only()
 {
+  return false;
 }
 
-void xattr::set_value(const char *value, size_t size)
+bool xattr_value::is_serializable()
+{
+  return true;
+}
+
+void xattr_value::set_value(const char *value, size_t size)
 {
   _value.resize(size);
   memcpy(&_value[0], reinterpret_cast<const uint8_t *>(value), size);
@@ -112,7 +94,7 @@ void xattr::set_value(const char *value, size_t size)
   _encode_value = !is_value_valid(value, size);
 }
 
-int xattr::get_value(char *buffer, size_t max_size)
+int xattr_value::get_value(char *buffer, size_t max_size)
 {
   size_t size = (_value.size() > max_size) ? max_size : _value.size();
 
@@ -130,11 +112,8 @@ int xattr::get_value(char *buffer, size_t max_size)
   return (size == _value.size()) ? size : -ERANGE;
 }
 
-void xattr::to_header(string *header, string *value)
+void xattr_value::to_header(string *header, string *value)
 {
-  if (!_is_serializable)
-    throw runtime_error("this extended attribute cannot be serialized.");
-
   if (_encode_key || _encode_value) {
     *header = XATTR_HEADER_PREFIX + util::compute_md5(_key, MOT_HEX_NO_QUOTE);
     *value = util::base64_encode(_key) + " " + util::base64_encode(&_value[0], _value.size());

@@ -15,11 +15,6 @@ namespace s3
 
     static std::string build_url(const std::string &path);
 
-    inline static bool is_valid_url(const std::string &url)
-    {
-      return !url.empty() && url[url.size() - 1] == '/';
-    }
-
     directory(const std::string &path);
     virtual ~directory();
 

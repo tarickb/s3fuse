@@ -33,6 +33,7 @@
 
 #include "open_file.h"
 #include "util.h"
+#include "xattr.h"
 
 namespace s3
 {
@@ -44,6 +45,14 @@ namespace s3
   public:
     typedef boost::shared_ptr<object> ptr;
 
+    class type_checker
+    {
+    public:
+      typedef object * (*fn)(const std::string &path, const boost::shared_ptr<request> &req);
+
+      type_checker(fn checker, int priority);
+    };
+
     static std::string build_url(const std::string &path);
     static ptr create(const std::string &path, const boost::shared_ptr<request> &req);
 
@@ -53,6 +62,7 @@ namespace s3
     inline const std::string & get_content_type() { return _content_type; }
     inline const std::string & get_url() { return _url; }
     inline mode_t get_mode() { return _stat.st_mode; }
+    inline const std::string & get_etag() { return _etag; }
 
     void get_metadata_keys(std::vector<std::string> *keys);
     int get_metadata(const std::string &key, char *buffer, size_t max_size);
@@ -61,87 +71,36 @@ namespace s3
     inline void set_gid(gid_t gid) { _stat.st_gid = gid; }
     inline void set_mtime(time_t mtime) { _stat.st_mtime = mtime; }
 
-    inline void set_md5(const std::string &md5, const std::string &etag)
-    {
-      boost::mutex::scoped_lock lock(_metadata_mutex);
-
-      _md5 = md5;
-      _md5_etag = etag;
-      _etag = etag;
-    }
-
-    inline std::string get_etag()
-    {
-      boost::mutex::scoped_lock lock(_metadata_mutex);
-
-      return _etag; 
-    }
-
-    inline std::string get_md5()
-    {
-      boost::mutex::scoped_lock lock(_metadata_mutex);
-
-      return _md5; 
-    }
-
-    inline void copy_stat(struct stat *s)
-    {
-      memcpy(s, &_stat, sizeof(_stat));
-
-      adjust_stat(s);
-    }
+    virtual void copy_stat(struct stat *s);
 
     void set_mode(mode_t mode);
+
+    virtual void set_request_headers(const boost::shared_ptr<request> &req);
+
     int set_metadata(const std::string &key, const char *value, size_t size, int flags = 0);
     int remove_metadata(const std::string &key);
-
     int commit_metadata(const boost::shared_ptr<request> &req);
 
   protected:
     object(const std::string &path);
 
     virtual void init(const boost::shared_ptr<request> &req);
-    virtual void adjust_stat(struct stat *s);
 
     std::string _content_type;
     std::string _url;
+    std::string _etag;
 
     struct stat _stat;
 
+    // protected by _metadata_mutex
+    boost::mutex _metadata_mutex;
+    xattr_map _metadata;
+
   private:
-    friend class request; // for request_*
-    friend class object_cache; // for is_valid, set_open_file, get_open_file
-
-    typedef boost::shared_ptr<xattr> xattr_ptr;
-    typedef std::map<std::string, xattr_ptr> xattr_map;
-
     inline bool is_valid() { return (_expiry > 0 && time(NULL) < _expiry); }
-
-    inline const open_file::ptr & get_open_file()
-    {
-      boost::mutex::scoped_lock lock(_open_file_mutex);
-
-      return _open_file;
-    }
-
-    inline void set_open_file(const open_file::ptr &open_file)
-    {
-      boost::mutex::scoped_lock lock(_open_file_mutex);
-
-      _open_file = open_file;
-    }
-
-    boost::mutex _metadata_mutex, _open_file_mutex;
 
     std::string _path, _mtime_etag;
     time_t _expiry;
-
-    // protected by _metadata_mutex
-    xattr_map _metadata;
-    std::string _etag, _md5, _md5_etag;
-
-    // protected by _open_file_mutex
-    open_file::ptr _open_file;
   };
 }
 

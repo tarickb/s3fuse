@@ -324,11 +324,6 @@ void request::set_input_fd(int fd, size_t size, off_t offset)
     throw runtime_error("can't set input fd for non-POST/non-PUT request.");
 }
 
-void request::set_meta_headers(const object::ptr &object)
-{
-  object->request_set_meta_headers(this); 
-}
-
 void request::build_request_time()
 {
   time_t sys_time;

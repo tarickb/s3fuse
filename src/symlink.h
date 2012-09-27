@@ -8,8 +8,6 @@ namespace s3
   class symlink : public object
   {
   public:
-    static const std::string & get_default_content_type();
-
     symlink(const std::string &path);
     virtual ~symlink();
   };

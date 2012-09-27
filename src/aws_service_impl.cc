@@ -37,6 +37,7 @@ using namespace s3;
 namespace
 {
   const string AWS_HEADER_PREFIX = "x-amz-";
+  const string AWS_HEADER_META_PREFIX = "x-amz-meta-";
   const string AWS_XML_NAMESPACE = "http://s3.amazonaws.com/doc/2006-03-01/";
 
   const string EMPTY = "";
@@ -80,6 +81,11 @@ aws_service_impl::aws_service_impl()
 const string & aws_service_impl::get_header_prefix()
 {
   return AWS_HEADER_PREFIX;
+}
+
+const string & aws_service_impl::get_header_meta_prefix()
+{
+  return AWS_HEADER_META_PREFIX;
 }
 
 const string & aws_service_impl::get_url_prefix()

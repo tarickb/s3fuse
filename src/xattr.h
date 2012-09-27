@@ -22,10 +22,8 @@
 #ifndef S3_XATTR_H
 #define S3_XATTR_H
 
-#include <stdint.h>
-
+#include <map>
 #include <string>
-#include <vector>
 #include <boost/smart_ptr.hpp>
 
 namespace s3
@@ -35,25 +33,32 @@ namespace s3
   public:
     typedef boost::shared_ptr<xattr> ptr;
 
-    static ptr from_string(const std::string &key, const std::string &value);
-    static ptr from_header(const std::string &header_key, const std::string &header_value);
-    static ptr create(const std::string &key);
-
-    void set_value(const char *value, size_t size);
-    int get_value(char *buffer, size_t max_size);
-
     inline const std::string & get_key() { return _key; }
 
-    void to_header(std::string *header, std::string *value);
+    virtual bool is_serializable() = 0;
+    virtual bool is_read_only() = 0;
 
-  private:
-    xattr(const std::string &key, bool encode_key);
+    virtual void set_value(const char *value, size_t size) = 0;
+    virtual int get_value(char *buffer, size_t max_size) = 0;
+
+    virtual void to_header(std::string *header, std::string *value) = 0;
+
+  protected:
+    inline xattr(const std::string &key)
+      : _key(key)
+    {
+    }
 
     std::string _key;
-    std::vector<uint8_t> _value;
+  };
 
-    bool _encode_key, _encode_value;
-    bool _is_serializable;
+  class xattr_map : public std::map<std::string, xattr::ptr>
+  {
+  public:
+    inline std::pair<iterator, bool> insert(const xattr::ptr &xa)
+    {
+      return std::map<std::string, xattr::ptr>::insert(std::make_pair(xa->get_key(), xa));
+    }
   };
 }
 

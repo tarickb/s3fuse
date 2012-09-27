@@ -42,8 +42,11 @@ s3fuse_SOURCES = \
 	util.cc \
 	util.h \
 	version.h \
-	xattr.cc \
 	xattr.h \
+	xattr_reference.cc \
+	xattr_reference.h \
+	xattr_value.cc \
+	xattr_value.h \
 	xml.cc \
 	xml.h
 

@@ -34,6 +34,7 @@ namespace s3
     aws_service_impl();
 
     virtual const std::string & get_header_prefix();
+    virtual const std::string & get_header_meta_prefix();
     virtual const std::string & get_url_prefix();
     virtual const std::string & get_xml_namespace();
 

@@ -98,8 +98,6 @@ namespace s3
 
     inline void disable_signing() { _sign = false; }
 
-    void set_meta_headers(const boost::shared_ptr<object> &object);
-
     bool check_timeout();
 
     void run(int timeout_in_s = DEFAULT_REQUEST_TIMEOUT);
