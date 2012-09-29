@@ -19,7 +19,12 @@ namespace
   }
 
   object::type_checker::type_checker s_checker_reg(checker, 1000);
+}
 
+file::file(const string &path)
+  : object(path),
+    _ref_count(0)
+{
 }
 
 void file::init(const request::ptr &req)

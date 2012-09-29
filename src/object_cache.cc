@@ -19,6 +19,7 @@
  * limitations under the License.
  */
 
+#include "directory.h"
 #include "object_cache.h"
 #include "request.h"
 
@@ -27,16 +28,13 @@ using namespace std;
 
 using namespace s3;
 
-object_cache::object_cache(
-  const thread_pool::ptr &pool, 
-  const boost::shared_ptr<file_transfer> &file_transfer)
+object_cache::object_cache(const thread_pool::ptr &pool)
   : _pool(pool),
-    _file_transfer(file_transfer),
     _hits(0),
     _misses(0),
-    _expiries(0),
-    _next_handle(0)
-{ }
+    _expiries(0)
+{
+}
 
 object_cache::~object_cache()
 {
@@ -55,9 +53,6 @@ object_cache::~object_cache()
     double(_misses) / double(total) * 100.0,
     _expiries,
     double(_expiries) / double(total) * 100.0);
-
-  if (_next_handle)
-    S3_LOG(LOG_DEBUG, "object_cache::~object_cache", "number of opened files: %ju\n", static_cast<uintmax_t>(_next_handle));
 }
 
 int object_cache::__fetch(const request::ptr &req, const string &path, int hints, object::ptr *obj)
@@ -66,20 +61,20 @@ int object_cache::__fetch(const request::ptr &req, const string &path, int hints
 
   if (hints == HINT_NONE || hints & HINT_IS_DIR) {
     // see if the path is a directory (trailing /) first
-    req->set_url(object::build_url(path, OT_DIRECTORY));
+    req->set_url(directory::build_url(path));
     req->run();
   }
 
   if (hints & HINT_IS_FILE || req->get_response_code() != HTTP_SC_OK) {
     // it's not a directory
-    req->set_url(object::build_url(path, OT_INVALID));
+    req->set_url(object::build_url(path));
     req->run();
   }
 
   if (req->get_response_code() != HTTP_SC_OK)
     return 0;
 
-  *obj = object::create(req);
+  *obj = object::create(path, req);
 
   {
     mutex::scoped_lock lock(_mutex);

@@ -25,7 +25,7 @@ namespace
 }
 
 encrypted_file::encrypted_file(const string &path)
-  : object(path)
+  : file(path)
 {
   _content_type = CONTENT_TYPE;
 }

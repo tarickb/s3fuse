@@ -2,12 +2,15 @@
 #define S3_FILE_H
 
 #include "object.h"
+#include "ref_lock.h"
 
 namespace s3
 {
   class file : public object
   {
   public:
+    typedef ref_lock<file> lock;
+
     file(const std::string &path);
     ~file();
 
@@ -57,6 +60,22 @@ namespace s3
     virtual void init(const boost::shared_ptr<request> &req);
 
   private:
+    friend class ref_lock<file>; // for add_ref(), release_ref()
+
+    inline void add_ref()
+    {
+      boost::mutex::scoped_lock lock(_mutex);
+
+      _ref_count++;
+    }
+
+    inline void release_ref()
+    {
+      boost::mutex::scoped_lock lock(_mutex);
+
+      _ref_count--;
+    }
+
     inline const open_file::ptr & get_open_file()
     {
       boost::mutex::scoped_lock lock(_open_file_mutex);
@@ -78,6 +97,9 @@ namespace s3
 
     // protected by _open_file_mutex
     open_file::ptr _open_file;
+
+    boost::mutex _mutex;
+    uint64_t _ref_count;
   };
 }
 

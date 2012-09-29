@@ -18,6 +18,8 @@ s3fuse_SOURCES = \
 	fs.h \
 	gs_service_impl.cc \
 	gs_service_impl.h \
+	handle_map.cc \
+	handle_map.h \
 	logger.cc \
 	logger.h \
 	main.cc \
@@ -73,7 +75,6 @@ s3fuse_gs_get_token_SOURCES = \
 	service_impl.h \
 	ssl_locks.cc \
 	ssl_locks.h \
-	xattr.cc \
 	xattr.h \
 	util.cc \
 	util.h

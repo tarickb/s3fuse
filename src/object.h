@@ -58,6 +58,8 @@ namespace s3
 
     virtual ~object();
 
+    inline bool is_valid() { return (_expiry > 0 && time(NULL) < _expiry); }
+
     inline const std::string & get_path() { return _path; }
     inline const std::string & get_content_type() { return _content_type; }
     inline const std::string & get_url() { return _url; }
@@ -97,8 +99,6 @@ namespace s3
     xattr_map _metadata;
 
   private:
-    inline bool is_valid() { return (_expiry > 0 && time(NULL) < _expiry); }
-
     std::string _path, _mtime_etag;
     time_t _expiry;
   };
