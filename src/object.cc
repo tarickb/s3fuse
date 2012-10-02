@@ -118,6 +118,12 @@ object::~object()
 {
 }
 
+bool object::is_valid()
+{
+  return (_expiry > 0 && time(NULL) < _expiry); 
+}
+
+
 void object::copy_stat(struct stat *s)
 {
   memcpy(s, &_stat, sizeof(_stat));

@@ -23,8 +23,16 @@ namespace
 
 file::file(const string &path)
   : object(path),
+    _status(0),
     _ref_count(0)
 {
+}
+
+bool file::is_valid()
+{
+  mutex::scoped_lock lock(_mutex);
+
+  return _ref_count > 0 || object::is_valid();
 }
 
 void file::init(const request::ptr &req)
@@ -54,4 +62,38 @@ void file::set_request_headers(const request::ptr &req)
 
   req->set_header(meta_prefix + "s3fuse-md5", _md5);
   req->set_header(meta_prefix + "s3fuse-md5-etag", _md5_etag);
+}
+
+int file::open(uint64_t *handle)
+{
+  mutex::scoped_lock lock(_mutex);
+
+  if (_ref_count == 0) {
+    if (_status != 0) {
+      S3_LOG(LOG_WARNING, "file::open", "attempt to open busy file [%s]\n", _path.c_str());
+      return -EBUSY;
+    }
+
+    _status = FS_DOWNLOADING;
+    // TODO: post download request
+  }
+
+  _ref_count++;
+  *handle = reinterpret_cast<uint64_t>(this);
+
+  return 0;
+}
+
+int file::release()
+{
+  mutex::scoped_lock lock(_mutex);
+
+  if (_ref_count == 0) {
+    S3_LOG(LOG_WARNING, "file::release", "attempt to release file [%s] with zero ref-count\n", _path.c_str());
+    return -EINVAL;
+  }
+
+  _ref_count--;
+
+  return 0;
 }

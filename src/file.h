@@ -9,10 +9,18 @@ namespace s3
   class file : public object
   {
   public:
+    typedef boost::shared_ptr<file> ptr;
     typedef ref_lock<file> lock;
+
+    inline static file * from_handle(uint64_t handle)
+    {
+      return reinterpret_cast<file *>(handle);
+    }
 
     file(const std::string &path);
     ~file();
+
+    virtual bool is_valid();
 
     inline std::string get_md5()
     {
@@ -32,6 +40,7 @@ namespace s3
       */
     }
 
+    int release();
 
     /*
     inline size_t file::get_size()
@@ -60,37 +69,20 @@ namespace s3
     virtual void init(const boost::shared_ptr<request> &req);
 
   private:
-    friend class ref_lock<file>; // for add_ref(), release_ref()
+    friend class object_cache; // for open()
 
-    inline void add_ref()
+    enum status
     {
-      boost::mutex::scoped_lock lock(_mutex);
+      FS_DOWNLOADING  = 0x1,
+      FS_UPLOADING    = 0x2,
+      FS_DIRTY        = 0x4
+    };
 
-      _ref_count++;
-    }
+    int open(uint64_t *handle);
 
-    inline void release_ref()
-    {
-      boost::mutex::scoped_lock lock(_mutex);
-
-      _ref_count--;
-    }
-
-    inline const open_file::ptr & get_open_file()
-    {
-      boost::mutex::scoped_lock lock(_open_file_mutex);
-
-      return _open_file;
-    }
-
-    inline void set_open_file(const open_file::ptr &open_file)
-    {
-      boost::mutex::scoped_lock lock(_open_file_mutex);
-
-      _open_file = open_file;
-    }
-
-    boost::mutex _md5_mutex, _open_file_mutex;
+    boost::mutex _mutex;
+    int _status;
+    uint64_t _ref_count;
 
     // protected by _md5_mutex
     std::string _md5, _md5_etag;
@@ -98,8 +90,6 @@ namespace s3
     // protected by _open_file_mutex
     open_file::ptr _open_file;
 
-    boost::mutex _mutex;
-    uint64_t _ref_count;
   };
 }
 

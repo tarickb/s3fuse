@@ -18,8 +18,6 @@ s3fuse_SOURCES = \
 	fs.h \
 	gs_service_impl.cc \
 	gs_service_impl.h \
-	handle_map.cc \
-	handle_map.h \
 	logger.cc \
 	logger.h \
 	main.cc \
@@ -29,6 +27,8 @@ s3fuse_SOURCES = \
 	object.h \
 	open_file.cc \
 	open_file.h \
+	open_file_map.cc \
+	open_file_map.h \
 	request.cc \
 	request.h \
 	service.cc \

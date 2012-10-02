@@ -58,7 +58,7 @@ namespace s3
 
     virtual ~object();
 
-    inline bool is_valid() { return (_expiry > 0 && time(NULL) < _expiry); }
+    virtual bool is_valid();
 
     inline const std::string & get_path() { return _path; }
     inline const std::string & get_content_type() { return _content_type; }

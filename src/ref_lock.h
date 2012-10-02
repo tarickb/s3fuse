@@ -1,6 +1,13 @@
 #ifndef S3_REF_LOCK_H
 #define S3_REF_LOCK_H
 
+// TODO: remove!
+#include <stdexcept>
+
+#include <assert.h>
+
+#include <boost/smart_ptr.hpp>
+
 namespace s3
 {
   template <class T>
@@ -8,11 +15,10 @@ namespace s3
   {
   public:
     inline ref_lock()
-      : _ptr(NULL)
     {
     }
 
-    inline explicit ref_lock(T *ptr)
+    inline explicit ref_lock(const boost::shared_ptr<T> &ptr)
       : _ptr(ptr)
     {
       assert(_ptr != NULL);
@@ -23,9 +29,21 @@ namespace s3
     inline ref_lock(const ref_lock &l)
       : _ptr(l._ptr)
     {
-      assert(_ptr != NULL);
+      if (_ptr)
+        _ptr->add_ref();
+    }
 
-      _ptr->add_ref();
+    inline ref_lock & operator =(const ref_lock &l)
+    {
+      if (_ptr)
+        _ptr->release_ref();
+
+      _ptr = l._ptr;
+      
+      if (_ptr)
+        _ptr->add_ref();
+
+      return *this;
     }
 
     inline ~ref_lock()
@@ -39,11 +57,11 @@ namespace s3
       return (_ptr != NULL);
     }
 
-    inline T * operator->() { assert(_ptr != NULL); return _ptr; }
+    inline T * operator->() { assert(_ptr != NULL); return _ptr.get(); }
     inline T & operator *() { assert(_ptr != NULL); return *_ptr; }
 
   private:
-    T *_ptr;
+    boost::shared_ptr<T> _ptr;
   };
 }
 
