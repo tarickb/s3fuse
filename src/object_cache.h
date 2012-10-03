@@ -33,7 +33,6 @@
 
 namespace s3
 {
-  class file_transfer;
   class request;
 
   enum cache_hints

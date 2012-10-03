@@ -33,10 +33,19 @@ namespace s3
 {
   struct _async_handle
   {
+    // TODO: move mutex, condition into this class rather than thread_pool?
+    enum
+    {
+      AH_TOKEN,
+      AH_CALLBACK
+    } type;
+
+    thread_pool::callback_function callback;
     int return_code;
     bool done;
 
-    inline _async_handle() : return_code(0), done(false) { }
+    inline _async_handle() : type(AH_TOKEN), return_code(0), done(false) { }
+    inline _async_handle(const thread_pool::callback_function &cb) : type(AH_CALLBACK), callback(cb) { }
   };
 
   struct _queue_item
@@ -236,12 +245,16 @@ _queue_item thread_pool::get_next_queue_item()
 
 void thread_pool::on_done(const async_handle &ah, int return_code)
 {
-  mutex::scoped_lock lock(_ah_mutex);
+  if (ah->type == _async_handle::AH_TOKEN) {
+    mutex::scoped_lock lock(_ah_mutex);
 
-  ah->return_code = return_code;
-  ah->done = true;
+    ah->return_code = return_code;
+    ah->done = true;
 
-  _ah_condition.notify_all();
+    _ah_condition.notify_all();
+  } else {
+    ah->callback(return_code);
+  }
 }
 
 async_handle thread_pool::post(const worker_function &fn, int timeout_in_s)
@@ -253,6 +266,14 @@ async_handle thread_pool::post(const worker_function &fn, int timeout_in_s)
   _list_condition.notify_all();
 
   return ah;
+}
+
+void thread_pool::post(const worker_function &fn, const callback_function &cb, int timeout_in_s)
+{
+  mutex::scoped_lock lock(_list_mutex);
+
+  _queue.push_back(_queue_item(fn, async_handle(new _async_handle(cb))));
+  _list_condition.notify_all();
 }
 
 int thread_pool::wait(const async_handle &handle)

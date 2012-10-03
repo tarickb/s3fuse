@@ -50,6 +50,12 @@ namespace s3
   public:
     typedef boost::shared_ptr<thread_pool> ptr;
     typedef boost::function1<int, boost::shared_ptr<request> > worker_function;
+    typedef boost::function1<void, int> callback_function;
+
+    static void init();
+
+    inline static const ptr & get_fg() { return s_fg; }
+    inline static const ptr & get_bg() { return s_bg; }
 
     static const int DEFAULT_NUM_THREADS = 8;
     static const int DEFAULT_TIMEOUT_IN_S = 3600;
@@ -68,6 +74,7 @@ namespace s3
 
     int wait(const async_handle &handle);
     async_handle post(const worker_function &fn, int timeout_in_s = DEFAULT_TIMEOUT_IN_S);
+    void post(const worker_function &fn, const callback_function &cb, int timeout_in_s = DEFAULT_TIMEOUT_IN_S);
     void terminate();
 
   private:
@@ -75,6 +82,8 @@ namespace s3
 
     typedef boost::shared_ptr<_worker_thread> wt_ptr;
     typedef std::list<wt_ptr> wt_list;
+
+    static ptr s_fg, s_bg;
 
     thread_pool(const std::string &id);
 

@@ -27,8 +27,6 @@ s3fuse_SOURCES = \
 	object.h \
 	open_file.cc \
 	open_file.h \
-	open_file_map.cc \
-	open_file_map.h \
 	request.cc \
 	request.h \
 	service.cc \

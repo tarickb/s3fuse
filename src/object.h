@@ -40,7 +40,7 @@ namespace s3
   class request;
   class xattr;
 
-  class object : public boost::enable_shared_from_this<object>
+  class object
   {
   public:
     typedef boost::shared_ptr<object> ptr;
