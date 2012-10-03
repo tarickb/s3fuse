@@ -28,9 +28,8 @@ using namespace std;
 
 using namespace s3;
 
-object_cache::object_cache(const thread_pool::ptr &pool)
-  : _pool(pool),
-    _hits(0),
+object_cache::object_cache()
+  : _hits(0),
     _misses(0),
     _expiries(0)
 {

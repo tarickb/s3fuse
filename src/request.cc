@@ -394,7 +394,7 @@ void request::internal_run(int timeout_in_s)
   for (int i = 0; i < config::get_max_transfer_retries(); i++) {
     double elapsed_time;
 
-    _timeout = time(NULL) + ((timeout_in_s == -1) ? config::get_request_timeout_in_s() : timeout_in_s);
+    _timeout = time(NULL) + ((timeout_in_s == DEFAULT_REQUEST_TIMEOUT) ? config::get_request_timeout_in_s() : timeout_in_s);
     r = curl_easy_perform(_curl);
     _timeout = 0; // reset this here so that subsequent calls to check_timeout() don't fail
 

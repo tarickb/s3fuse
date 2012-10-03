@@ -77,10 +77,10 @@ namespace s3
 
     enum status
     {
-      FS_DOWNLOADING  = 0x1,
-      FS_UPLOADING    = 0x2,
-      FS_WRITING      = 0x4,
-      FS_DIRTY        = 0x8
+      FS_DOWNLOADING = 0x1,
+      FS_UPLOADING   = 0x2,
+      FS_WRITING     = 0x4,
+      FS_DIRTY       = 0x8
     };
 
     int open(uint64_t *handle);

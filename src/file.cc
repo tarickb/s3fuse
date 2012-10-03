@@ -92,7 +92,6 @@ void file::on_download_complete(int ret)
     S3_LOG(LOG_ERR, "file::download_complete", "inconsistent state for [%s]. don't know what to do.\n", get_path().c_str());
     return;
   }
-
 }
 
 int file::open(uint64_t *handle)

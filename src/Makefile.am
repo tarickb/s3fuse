@@ -5,13 +5,18 @@ endif
 bin_PROGRAMS = s3fuse s3fuse_gs_get_token
 
 s3fuse_SOURCES = \
+	async_handle.h \
 	aws_service_impl.cc \
 	aws_service_impl.h \
 	config.cc \
-	config.inc \
 	config.h \
+	config.inc \
 	directory.cc \
 	directory.h \
+	encrypted_file.cc \
+	encrypted_file.h \
+	file.cc \
+	file.h \
 	file_transfer.cc \
 	file_transfer.h \
 	fs.cc \
@@ -21,12 +26,10 @@ s3fuse_SOURCES = \
 	logger.cc \
 	logger.h \
 	main.cc \
-	object_cache.cc \
-	object_cache.h \
 	object.cc \
 	object.h \
-	open_file.cc \
-	open_file.h \
+	object_cache.cc \
+	object_cache.h \
 	request.cc \
 	request.h \
 	service.cc \
@@ -42,6 +45,10 @@ s3fuse_SOURCES = \
 	util.cc \
 	util.h \
 	version.h \
+	work_item.h \
+	work_item_queue.h \
+	worker_thread.cc \
+	worker_thread.h \
 	xattr.h \
 	xattr_reference.cc \
 	xattr_reference.h \

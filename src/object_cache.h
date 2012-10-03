@@ -47,7 +47,7 @@ namespace s3
   public:
     typedef boost::shared_ptr<object_cache> ptr;
 
-    object_cache(const thread_pool::ptr &pool);
+    object_cache();
     ~object_cache();
 
     inline object::ptr get(const std::string &path, int hints = HINT_NONE)
@@ -55,7 +55,9 @@ namespace s3
       object::ptr obj = find(path);
 
       if (!obj)
-        _pool->call(boost::bind(&object_cache::__fetch, this, _1, path, hints, &obj));
+        thread_pool::call(
+          thread_pool::PR_FG,
+          boost::bind(&object_cache::__fetch, this, _1, path, hints, &obj));
 
       return obj;
     }
@@ -99,11 +101,10 @@ namespace s3
       return obj;
     }
 
-    int __fetch(const request_ptr &req, const std::string &path, int hints, object::ptr *obj);
+    int __fetch(const boost::shared_ptr<request> &req, const std::string &path, int hints, object::ptr *obj);
 
     boost::mutex _mutex;
     cache_map _cache_map;
-    thread_pool::ptr _pool;
     uint64_t _hits, _misses, _expiries;
   };
 }
