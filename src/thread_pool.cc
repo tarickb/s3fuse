@@ -59,10 +59,8 @@ namespace
 
     ~_thread_pool()
     {
-      mutex::scoped_lock lock(_mutex);
-
+      _queue->abort();
       _done = true;
-      lock.unlock();
 
       // shut watchdog down first so it doesn't use _threads
       _watchdog_thread->join();
@@ -104,7 +102,6 @@ namespace
       }
     }
 
-    mutex _mutex;
     work_item_queue::ptr _queue;
     wt_list _threads;
     scoped_ptr<thread> _watchdog_thread;
@@ -124,8 +121,6 @@ void thread_pool::init()
 
 void thread_pool::terminate()
 {
-  _queue->abort();
-
   for (int i = 0; i < POOL_COUNT; i++)
     delete s_pools[i];
 }

@@ -1,6 +1,7 @@
 #ifndef S3_FILE_H
 #define S3_FILE_H
 
+#include "async_handle.h"
 #include "object.h"
 
 namespace s3
@@ -70,10 +71,31 @@ namespace s3
     virtual void set_request_headers(const boost::shared_ptr<request> &req);
 
   protected:
+    typedef std::vector<char> char_vector;
+
     virtual void init(const boost::shared_ptr<request> &req);
+
+    virtual int write_chunk(const char *buffer, size_t size, off_t offset);
+    virtual int read_chunk(size_t size, off_t offset, char_vector *buffer);
+
+    virtual size_t get_transfer_size();
+    virtual int check_download_consistency();
 
   private:
     friend class object_cache; // for open()
+
+    struct transfer_part
+    {
+      int id;
+      off_t offset;
+      size_t size;
+      int retry_count;
+      bool success;
+      std::string etag;
+      wait_async_handle::ptr handle;
+
+      inline transfer_part() : id(0), offset(0), size(0), retry_count(0), success(false) { }
+    };
 
     enum status
     {
@@ -86,7 +108,16 @@ namespace s3
     int open(uint64_t *handle);
 
     int download(const boost::shared_ptr<request> &req);
+
+    int download_single(const boost::shared_ptr<request> &req);
+    int download_multi();
+    int download_part(const boost::shared_ptr<request> &req, const transfer_part *part);
+
     int upload(const boost::shared_ptr<request> &req);
+
+    int upload_single(const boost::shared_ptr<request> &req);
+    int upload_multi(const boost::shared_ptr<request> &req);
+    int upload_part(const boost::shared_ptr<request> &req, const transfer_part *part);
 
     void on_download_complete(int ret);
 

@@ -26,19 +26,16 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 
-#include <map>
 #include <string>
-#include <boost/function.hpp>
+#include <vector>
 #include <boost/smart_ptr.hpp>
+#include <boost/thread.hpp>
 
-#include "open_file.h"
-#include "util.h"
 #include "xattr.h"
 
 namespace s3
 {
   class request;
-  class xattr;
 
   class object
   {
@@ -94,6 +91,7 @@ namespace s3
 
     struct stat _stat;
 
+    // TODO: rename to just _mutex?
     // protected by _metadata_mutex
     boost::mutex _metadata_mutex;
     xattr_map _metadata;

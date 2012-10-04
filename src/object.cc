@@ -27,6 +27,7 @@
 #include "object.h"
 #include "request.h"
 #include "service.h"
+#include "util.h"
 #include "xattr_reference.h"
 #include "xattr_value.h"
 
