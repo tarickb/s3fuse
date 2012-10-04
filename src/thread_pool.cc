@@ -38,7 +38,7 @@ namespace
   BOOST_STATIC_ASSERT(thread_pool::PR_BG == 1);
 
   const int POOL_COUNT = 2; // PR_FG and PR_BG
-  const int NUM_THREADS = 8;
+  const int NUM_THREADS_PER_POOL = 8;
 
   class _thread_pool
   {
@@ -53,7 +53,7 @@ namespace
     {
       _watchdog_thread.reset(new thread(bind(&_thread_pool::watchdog, this)));
 
-      for (int i = 0; i < NUM_THREADS; i++)
+      for (int i = 0; i < NUM_THREADS_PER_POOL; i++)
         _threads.push_back(worker_thread::create(_queue));
     }
 
@@ -124,6 +124,8 @@ void thread_pool::init()
 
 void thread_pool::terminate()
 {
+  _queue->abort();
+
   for (int i = 0; i < POOL_COUNT; i++)
     delete s_pools[i];
 }

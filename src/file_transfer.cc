@@ -1,5 +1,5 @@
 /*
- * file_transfer.cc
+ * transfer_manager.cc
  * -------------------------------------------------------------------------
  * Single- and multi-part upload/download logic.
  * -------------------------------------------------------------------------
@@ -22,7 +22,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include "config.h"
-#include "file_transfer.h"
+#include "transfer_manager.h"
 #include "logger.h"
 #include "object.h"
 #include "request.h"
@@ -53,6 +53,66 @@ namespace
 
     inline transfer_part() : id(0), offset(0), size(0), retry_count(0), success(false) { }
   };
+
+  int download_single(const request::ptr &req, const string &url, const writer &w)
+  {
+    long rc;
+
+    req->init(HTTP_GET);
+    req->set_url(url);
+    req->set_writer(w);
+
+    req->run(config::get_transfer_timeout_in_s());
+    rc = req->get_response_code();
+
+    if (rc == HTTP_SC_NOT_FOUND)
+      return -ENOENT;
+    else if (rc != HTTP_SC_OK)
+      return -EIO;
+
+    return 0;
+  }
+
+  int download_multi(const string &url, size_t size, const writer &w)
+  {
+    vector<transfer_part> parts((size + config::get_download_chunk_size() - 1) / config::get_download_chunk_size());
+    list<transfer_part *> parts_in_progress;
+
+    for (size_t i = 0; i < parts.size(); i++) {
+      transfer_part *part = &parts[i];
+
+      part->id = i;
+      part->offset = i * config::get_download_chunk_size();
+      part->size = (i != parts.size() - 1) ? config::get_download_chunk_size() : (size - config::get_download_chunk_size() * i);
+
+      part->handle = thread_pool::post(thread_pool::PR_BG, bind(&download_part, _1, url, writer, part));
+      parts_in_progress.push_back(part);
+    }
+
+    while (!parts_in_progress.empty()) {
+      transfer_part *part = parts_in_progress.front();
+      int result;
+
+      parts_in_progress.pop_front();
+      result = _tp_bg->wait(part->handle);
+
+      if (result == -EAGAIN || result == -ETIMEDOUT) {
+        S3_LOG(LOG_DEBUG, "transfer_manager::download_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
+        part->retry_count++;
+
+        if (part->retry_count > config::get_max_transfer_retries())
+          return -EIO;
+
+        part->handle = thread_pool::post(thread_pool::PR_BG, bind(&download_part, _1, url, writer, part));
+        parts_in_progress.push_back(part);
+
+      } else if (result != 0) {
+        return result;
+      }
+    }
+
+    return 0;
+  }
 
   int download_part(const request::ptr &req, const string &url, int fd, const transfer_part *part)
   {
@@ -99,7 +159,7 @@ namespace
       return -EIO;
 
     if (req->get_response_header("ETag") != part->etag) {
-      S3_LOG(LOG_WARNING, "file_transfer::upload_part", "md5 mismatch. expected %s, got %s.\n", part->etag.c_str(), req->get_response_header("ETag").c_str());
+      S3_LOG(LOG_WARNING, "transfer_manager::upload_part", "md5 mismatch. expected %s, got %s.\n", part->etag.c_str(), req->get_response_header("ETag").c_str());
       return -EAGAIN; // assume it's a temporary failure
     }
 
@@ -107,26 +167,15 @@ namespace
   }
 }
 
-file_transfer::file_transfer(const thread_pool::ptr &tp_fg, const thread_pool::ptr &tp_bg)
-  : _tp_fg(tp_fg),
-    _tp_bg(tp_bg)
+int transfer_manager::download(const request::ptr &req, const string &url, const size_t size, const writer &w)
 {
-}
-
-int file_transfer::__download(const request::ptr &req, const object::ptr &obj, int fd)
-{
-  int r;
-  size_t size = obj->get_size();
-  const string &url = obj->get_url(), &expected_md5 = obj->get_md5();
-
   if (service::is_multipart_download_supported() && size > config::get_download_chunk_size())
-    r = download_multi(url, size, fd);
+    return download_multi(url, size, w);
   else
-    r = download_single(req, url, fd);
+    return download_single(req, url, w);
 
-  if (r)
-    return r;
-
+  /*
+  TODO: DO THIS IN CALLBACK!
   fsync(fd);
 
   // we won't have a valid MD5 digest if the file was a multipart upload
@@ -134,81 +183,20 @@ int file_transfer::__download(const request::ptr &req, const object::ptr &obj, i
     string computed_md5 = util::compute_md5(fd, MOT_HEX);
 
     if (computed_md5 != expected_md5) {
-      S3_LOG(LOG_WARNING, "file_transfer::__download", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), computed_md5.c_str());
+      S3_LOG(LOG_WARNING, "transfer_manager::__download", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), computed_md5.c_str());
 
       return -EIO;
     }
   }
-  
-  return 0;
+  */
 }
 
-int file_transfer::download_single(const request::ptr &req, const string &url, int fd)
-{
-  long rc;
-
-  req->init(HTTP_GET);
-  req->set_url(url);
-  req->set_output_fd(fd);
-
-  req->run(config::get_transfer_timeout_in_s());
-  rc = req->get_response_code();
-
-  if (rc == HTTP_SC_NOT_FOUND)
-    return -ENOENT;
-  else if (rc != HTTP_SC_OK)
-    return -EIO;
-
-  return 0;
-}
-
-int file_transfer::download_multi(const string &url, size_t size, int fd)
-{
-  vector<transfer_part> parts((size + config::get_download_chunk_size() - 1) / config::get_download_chunk_size());
-  list<transfer_part *> parts_in_progress;
-
-  for (size_t i = 0; i < parts.size(); i++) {
-    transfer_part *part = &parts[i];
-
-    part->id = i;
-    part->offset = i * config::get_download_chunk_size();
-    part->size = (i != parts.size() - 1) ? config::get_download_chunk_size() : (size - config::get_download_chunk_size() * i);
-
-    part->handle = _tp_bg->post(bind(&download_part, _1, url, fd, part));
-    parts_in_progress.push_back(part);
-  }
-
-  while (!parts_in_progress.empty()) {
-    transfer_part *part = parts_in_progress.front();
-    int result;
-
-    parts_in_progress.pop_front();
-    result = _tp_bg->wait(part->handle);
-
-    if (result == -EAGAIN || result == -ETIMEDOUT) {
-      S3_LOG(LOG_DEBUG, "file_transfer::download_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
-      part->retry_count++;
-
-      if (part->retry_count > config::get_max_transfer_retries())
-        return -EIO;
-
-      part->handle = _tp_bg->post(bind(&download_part, _1, url, fd, part));
-      parts_in_progress.push_back(part);
-
-    } else if (result != 0) {
-      return result;
-    }
-  }
-
-  return 0;
-}
-
-int file_transfer::__upload(const request::ptr &req, const object::ptr &obj, int fd)
+int transfer_manager::__upload(const request::ptr &req, const object::ptr &obj, int fd)
 {
   size_t size;
 
   if (fsync(fd) == -1) {
-    S3_LOG(LOG_WARNING, "file_transfer::__upload", "fsync failed with error %i.\n", errno);
+    S3_LOG(LOG_WARNING, "transfer_manager::__upload", "fsync failed with error %i.\n", errno);
     return -errno;
   }
 
@@ -220,7 +208,7 @@ int file_transfer::__upload(const request::ptr &req, const object::ptr &obj, int
     return upload_single(req, obj, size, fd);
 }
 
-int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj, size_t size, int fd)
+int transfer_manager::upload_single(const request::ptr &req, const object::ptr &obj, size_t size, int fd)
 {
   string returned_md5, etag;
   bool valid_md5;
@@ -234,7 +222,7 @@ int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj
   req->run(config::get_transfer_timeout_in_s());
 
   if (req->get_response_code() != HTTP_SC_OK) {
-    S3_LOG(LOG_WARNING, "file_transfer::upload_single", "failed to upload for [%s].\n", obj->get_url().c_str());
+    S3_LOG(LOG_WARNING, "transfer_manager::upload_single", "failed to upload for [%s].\n", obj->get_url().c_str());
     return -EIO;
   }
 
@@ -248,7 +236,7 @@ int file_transfer::upload_single(const request::ptr &req, const object::ptr &obj
   return valid_md5 ? 0 : obj->commit_metadata(req);
 }
 
-int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj, size_t size, int fd)
+int transfer_manager::upload_multi(const request::ptr &req, const object::ptr &obj, size_t size, int fd)
 {
   const string &url = obj->get_url();
   string upload_id, complete_upload;
@@ -271,7 +259,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   doc = xml::parse(req->get_response_data());
 
   if (!doc) {
-    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to parse response.\n");
+    S3_LOG(LOG_WARNING, "transfer_manager::upload_multi", "failed to parse response.\n");
     return -EIO;
   }
 
@@ -300,7 +288,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
     result = _tp_bg->wait(part->handle);
 
     if (result != 0)
-      S3_LOG(LOG_DEBUG, "file_transfer::upload_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
+      S3_LOG(LOG_DEBUG, "transfer_manager::upload_multi", "part %i returned status %i for [%s].\n", part->id, result, url.c_str());
 
     // the default action is to not retry the failed part, and leave it with success = false
 
@@ -332,7 +320,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   complete_upload += "</CompleteMultipartUpload>";
 
   if (!success) {
-    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "one or more parts failed to upload for [%s].\n", url.c_str());
+    S3_LOG(LOG_WARNING, "transfer_manager::upload_multi", "one or more parts failed to upload for [%s].\n", url.c_str());
 
     req->init(HTTP_DELETE);
     req->set_url(url + "?uploadId=" + upload_id);
@@ -352,14 +340,14 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
   req->run(config::get_transfer_timeout_in_s());
 
   if (req->get_response_code() != HTTP_SC_OK) {
-    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to complete multipart upload for [%s] with error %li.\n", url.c_str(), req->get_response_code());
+    S3_LOG(LOG_WARNING, "transfer_manager::upload_multi", "failed to complete multipart upload for [%s] with error %li.\n", url.c_str(), req->get_response_code());
     return -EIO;
   }
 
   doc = xml::parse(req->get_response_data());
 
   if (!doc) {
-    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "failed to parse response.\n");
+    S3_LOG(LOG_WARNING, "transfer_manager::upload_multi", "failed to parse response.\n");
     return -EIO;
   }
 
@@ -367,7 +355,7 @@ int file_transfer::upload_multi(const request::ptr &req, const object::ptr &obj,
     return r;
 
   if (etag.empty()) {
-    S3_LOG(LOG_WARNING, "file_transfer::upload_multi", "no etag on multipart upload of [%s]. response: %s\n", url.c_str(), req->get_response_data().c_str());
+    S3_LOG(LOG_WARNING, "transfer_manager::upload_multi", "no etag on multipart upload of [%s]. response: %s\n", url.c_str(), req->get_response_data().c_str());
     return -EIO;
   }
 
