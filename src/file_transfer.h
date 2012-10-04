@@ -34,6 +34,9 @@ namespace s3
   class transfer_manager
   {
   public:
+    typedef boost::function3<ssize_t, const char *, size_t, off_t> writer;
+    typedef boost::function3<ssize_t, char *, size_t, off_t> reader;
+
     inline static int download(const boost::shared_ptr<file> &file)
     {
       return thread_pool::call(thread_pool::PR_FG, boost::bind(&transfer_manager::download, this, _1, file));

@@ -22,9 +22,6 @@ namespace
   }
 
   object::type_checker::type_checker s_checker_reg(checker, 1000);
-
-  int upload();
-  void async_download();
 }
 
 file::file(const string &path)
@@ -76,12 +73,18 @@ void file::set_request_headers(const request::ptr &req)
 
 int file::download(const request::ptr &req)
 {
-  return 0;
+  if (service::is_multipart_download_supported() && get_transfer_size() > config::get_download_chunk_size())
+    return download_multi();
+  else
+    return download_single(req);
 }
 
 int file::upload(const request::ptr &req)
 {
-  return 0;
+  if (service::is_multipart_upload_supported() && get_transfer_size() > config::get_upload_chunk_size())
+    return upload_multi(req);
+  else
+    return upload_single(req);
 }
 
 void file::on_download_complete(int ret)
@@ -92,6 +95,12 @@ void file::on_download_complete(int ret)
     S3_LOG(LOG_ERR, "file::download_complete", "inconsistent state for [%s]. don't know what to do.\n", get_path().c_str());
     return;
   }
+
+  // TODO: add some sort of expire() method to remove this object from the cache?
+
+  _async_error = ret;
+  _status = 0;
+  _condition.notify_all();
 }
 
 int file::open(uint64_t *handle)
@@ -114,7 +123,8 @@ int file::open(uint64_t *handle)
 
     _status = FS_DOWNLOADING;
 
-    thread_pool::get_fg()->post(
+    thread_pool::post(
+      thread_pool::PR_FG,
       bind(&file::download, shared_from_this(), _1),
       bind(&file::on_download_complete, shared_from_this(), _1));
   }
@@ -163,7 +173,7 @@ int file::flush()
   _status |= FS_UPLOADING;
 
   lock.unlock();
-  _async_error = thread_pool::get_fg()->call(bind(&file::upload, shared_from_this(), _1));
+  _async_error = thread_pool::call(thread_pool::PR_FG, bind(&file::upload, shared_from_this(), _1));
   lock.lock();
 
   _status = 0;
@@ -208,4 +218,60 @@ int file::read(char *buffer, size_t size, off_t offset)
   lock.unlock();
 
   return pread(_fd, buffer, size, offset);
+}
+
+int file::download_part(const request::ptr &req, const transfer_part *part)
+{
+  long rc;
+
+  req->init(HTTP_GET);
+  req->set_url(_url);
+  req->set_output_writer(get_transfer_writer(), part->offset);
+  req->set_header("Range", 
+    string("bytes=") + 
+    lexical_cast<string>(part->offset) + 
+    string("-") + 
+    lexical_cast<string>(part->offset + part->size));
+
+  req->run(config::get_transfer_timeout_in_s());
+  rc = req->get_response_code();
+
+  if (rc == HTTP_SC_INTERNAL_SERVER_ERROR || rc == HTTP_SC_SERVICE_UNAVAILABLE)
+    return -EAGAIN; // temporary failure
+  else if (rc != HTTP_SC_PARTIAL_CONTENT)
+    return -EIO;
+
+  return 0;
+}
+
+int file::upload_part(const request::ptr &req, const string &upload_id, transfer_part *part)
+{
+  long rc;
+
+
+  // TODO: change this so that we have one function:
+  // int prepare_chunk(size_t size, off_t offset, char *target_buffer, string *chunk_md5);
+  // then set input to target_buffer, and etag to chunk_md5
+  part->etag = compute_md5(part->size, part->offset, MOT_HEX);
+
+  req->init(HTTP_PUT);
+
+  // part numbers are 1-based
+  req->set_url(_url + "?partNumber=" + lexical_cast<string>(part->id + 1) + "&uploadId=" + upload_id);
+  req->set_input_reader(get_transfer_reader(), part->size, part->offset);
+
+  req->run(config::get_transfer_timeout_in_s());
+  rc = req->get_response_code();
+
+  if (rc == HTTP_SC_INTERNAL_SERVER_ERROR || rc == HTTP_SC_SERVICE_UNAVAILABLE)
+    return -EAGAIN; // temporary failure
+  else if (rc != HTTP_SC_OK)
+    return -EIO;
+
+  if (req->get_response_header("ETag") != part->etag) {
+    S3_LOG(LOG_WARNING, "transfer_manager::upload_part", "md5 mismatch. expected %s, got %s.\n", part->etag.c_str(), req->get_response_header("ETag").c_str());
+    return -EAGAIN; // assume it's a temporary failure
+  }
+
+  return 0;
 }
