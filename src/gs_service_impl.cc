@@ -85,7 +85,7 @@ void gs_service_impl::get_tokens(get_tokens_mode mode, const string &key, string
 
   req.init(HTTP_POST);
   req.set_full_url(GS_EP_TOKEN);
-  req.set_input_data(data);
+  req.set_input_buffer(data);
   req.disable_signing();
 
   req.run();
@@ -95,7 +95,7 @@ void gs_service_impl::get_tokens(get_tokens_mode mode, const string &key, string
     throw runtime_error("failed to get tokens.");
   }
 
-  ss << req.get_response_data();
+  ss << req.get_output_buffer();
   read_json(ss, tree);
 
   *access_token = tree.get<string>("access_token");

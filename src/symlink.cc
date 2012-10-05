@@ -27,8 +27,8 @@ namespace
 symlink::symlink(const string &path)
   : object(path)
 {
-  _content_type = CONTENT_TYPE;
-  _stat.st_mode |= S_IFLNK;
+  set_content_type(CONTENT_TYPE);
+  set_object_type(S_IFLNK);
 }
 
 symlink::~symlink()

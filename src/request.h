@@ -28,6 +28,7 @@
 
 #include <map>
 #include <string>
+#include <vector>
 #include <boost/smart_ptr.hpp>
 #include <boost/utility.hpp>
 
@@ -81,11 +82,11 @@ namespace s3
     inline const header_map & get_headers() { return _headers; }
     inline void set_header(const std::string &name, const std::string &value) { _headers[name] = value; }
 
-    void set_output_fd(int fd = -1, off_t offset = 0);
-    void set_input_fd(int fd = -1, size_t size = 0, off_t offset = 0);
-    void set_input_data(const std::string &s);
+    void set_input_buffer(const char *buffer, size_t size);
+    inline void set_input_buffer(const std::string &buffer) { set_input_buffer(buffer.c_str(), buffer.size()); }
 
-    inline const std::string & get_response_data() { return _output_data; }
+    inline const char * get_output_buffer() { return &_output_buffer[0]; }
+    inline size_t get_output_buffer_size() { return _output_buffer.size(); }
 
     inline const std::string & get_response_header(const std::string &key) { return _response_headers[key]; }
     inline const header_map & get_response_headers() { return _response_headers; }
@@ -121,14 +122,10 @@ namespace s3
     std::string _url;
     header_map _response_headers;
 
-    int _output_fd;
-    off_t _output_offset;
-    std::string _output_data;
+    std::vector<char> _output_buffer;
 
-    int _input_fd;
+    const char *_input_buffer;
     size_t _input_size;
-    off_t _input_offset;
-    std::string _input_data;
 
     long _response_code;
     time_t _last_modified;

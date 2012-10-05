@@ -1,3 +1,6 @@
+#include <boost/lexical_cast.hpp>
+
+#include "config.h"
 #include "file.h"
 #include "logger.h"
 #include "request.h"
@@ -5,6 +8,7 @@
 #include "thread_pool.h"
 #include "util.h"
 #include "xattr_reference.h"
+#include "xml.h"
 
 using namespace boost;
 using namespace std;
@@ -35,11 +39,12 @@ file::file(const string &path)
     _async_error(0),
     _ref_count(0)
 {
+  set_object_type(S_IFREG);
 }
 
 bool file::is_valid()
 {
-  mutex::scoped_lock lock(_mutex);
+  mutex::scoped_lock lock(_fs_mutex);
 
   return _ref_count > 0 || object::is_valid();
 }
@@ -53,14 +58,13 @@ void file::init(const request::ptr &req)
   _md5 = req->get_response_header(meta_prefix + "s3fuse-md5");
   _md5_etag = req->get_response_header(meta_prefix + "s3fuse-md5-etag");
 
-  // TODO: add lock?
-  _metadata.insert(xattr_reference::from_string("__md5__", &_md5));
+  get_metadata()->insert(xattr_reference::from_string("__md5__", &_md5, &_md5_mutex));
 
   // this workaround is for multipart uploads, which don't get a valid md5 etag
-  if (_md5_etag != _etag || !util::is_valid_md5(_md5))
-    _md5 = util::is_valid_md5(_etag) ? _etag : "";
+  if (_md5_etag != get_etag() || !util::is_valid_md5(_md5))
+    _md5 = util::is_valid_md5(get_etag()) ? get_etag() : "";
 
-  _md5_etag = _etag;
+  _md5_etag = get_etag();
 }
 
 void file::set_request_headers(const request::ptr &req)
@@ -75,14 +79,12 @@ void file::set_request_headers(const request::ptr &req)
 
 void file::on_download_complete(int ret)
 {
-  mutex::scoped_lock lock(_mutex);
+  mutex::scoped_lock lock(_fs_mutex);
 
   if (_status != FS_DOWNLOADING) {
     S3_LOG(LOG_ERR, "file::download_complete", "inconsistent state for [%s]. don't know what to do.\n", get_path().c_str());
     return;
   }
-
-  // TODO: add some sort of expire() method to remove this object from the cache?
 
   _async_error = ret;
   _status = 0;
@@ -91,7 +93,7 @@ void file::on_download_complete(int ret)
 
 int file::open(uint64_t *handle)
 {
-  mutex::scoped_lock lock(_mutex);
+  mutex::scoped_lock lock(_fs_mutex);
 
   if (_ref_count == 0) {
     char temp_name[] = TEMP_NAME_TEMPLATE;
@@ -104,7 +106,7 @@ int file::open(uint64_t *handle)
     if (_fd == -1)
       return -errno;
 
-    if (ftruncate(_fd, _stat.st_size) != 0)
+    if (ftruncate(_fd, get_stat()->st_size) != 0)
       return -errno;
 
     _status = FS_DOWNLOADING;
@@ -123,7 +125,7 @@ int file::open(uint64_t *handle)
 
 int file::release()
 {
-  mutex::scoped_lock lock(_mutex);
+  mutex::scoped_lock lock(_fs_mutex);
 
   if (_ref_count == 0) {
     S3_LOG(LOG_WARNING, "file::release", "attempt to release file [%s] with zero ref-count\n", get_path().c_str());
@@ -139,6 +141,7 @@ int file::release()
     }
 
     close(_fd);
+    expire(); // TODO: is this necessary?
   }
 
   return 0;
@@ -146,7 +149,7 @@ int file::release()
 
 int file::flush()
 {
-  mutex::scoped_lock lock(_mutex);
+  mutex::scoped_lock lock(_fs_mutex);
 
   while (_status & (FS_DOWNLOADING | FS_UPLOADING | FS_WRITING))
     _condition.wait(lock);
@@ -170,7 +173,7 @@ int file::flush()
 
 int file::write(const char *buffer, size_t size, off_t offset)
 {
-  mutex::scoped_lock lock(_mutex);
+  mutex::scoped_lock lock(_fs_mutex);
   int r;
 
   while (_status & (FS_DOWNLOADING | FS_UPLOADING))
@@ -193,7 +196,7 @@ int file::write(const char *buffer, size_t size, off_t offset)
 
 int file::read(char *buffer, size_t size, off_t offset)
 {
-  mutex::scoped_lock lock(_mutex);
+  mutex::scoped_lock lock(_fs_mutex);
 
   while (_status & FS_DOWNLOADING)
     _condition.wait(lock);
@@ -212,17 +215,17 @@ int file::write_chunk(const char *buffer, size_t size, off_t offset)
   
   r = pwrite(_fd, buffer, size, offset);
 
-  return (r == size) ? 0 : -errno;
+  return (r == static_cast<ssize_t>(size)) ? 0 : -errno;
 }
 
-int file::read_chunk(size_t size, off_t offset, char_vector *buffer)
+int file::read_chunk(size_t size, off_t offset, vector<char> *buffer)
 {
   ssize_t r;
 
   buffer->resize(size);
   r = pread(_fd, &(*buffer)[0], size, offset);
 
-  return (r == size) ? 0 : -errno;
+  return (r == static_cast<ssize_t>(size)) ? 0 : -errno;
 
   // TODO: in encrypted_file (with "size" a multiple of the cipher block size, this should:
   //   - read chunk
@@ -243,17 +246,29 @@ size_t file::get_transfer_size()
   return s.st_size;
 }
 
+void file::copy_stat(struct stat *s)
+{
+  object::copy_stat(s);
+
+  if (_fd != -1) {
+    struct stat real_s;
+
+    if (fstat(_fd, &real_s) != -1)
+      s->st_size = real_s.st_size;
+  }
+}
+
 int file::check_download_consistency()
 {
-  mutex::scoped_lock lock(_mutex);
+  mutex::scoped_lock lock(_md5_mutex);
   string expected_md5;
  
   expected_md5 = _md5;
-  lock.unlock;
+  lock.unlock();
 
   // we won't have a valid MD5 digest if the file was a multipart upload
   if (!expected_md5.empty()) {
-    string computed_md5 = util::compute_md5(_fd, MOT_HEX);
+    string computed_md5 = util::compute_md5(_fd, E_HEX_WITH_QUOTES);
 
     if (computed_md5 != expected_md5) {
       S3_LOG(LOG_WARNING, "file::check_download_consistency", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), computed_md5.c_str());
@@ -280,11 +295,9 @@ int file::download(const request::ptr &req)
 int file::download_single(const request::ptr &req)
 {
   long rc = 0;
-  char_vector output;
 
   req->init(HTTP_GET);
-  req->set_url(_url);
-  req->set_output_buffer(&output);
+  req->set_url(get_url());
 
   req->run(config::get_transfer_timeout_in_s());
   rc = req->get_response_code();
@@ -294,7 +307,7 @@ int file::download_single(const request::ptr &req)
   else if (rc != HTTP_SC_OK)
     return -EIO;
 
-  return write_chunk(&output[0], output.size(), 0);
+  return write_chunk(req->get_output_buffer(), req->get_output_buffer_size(), 0);
 }
 
 int file::download_multi()
@@ -312,7 +325,7 @@ int file::download_multi()
 
     part->handle = thread_pool::post(
       thread_pool::PR_BG, 
-      bind(&file::download_part, shared_from_this(), _1, f, part));
+      bind(&file::download_part, shared_from_this(), _1, part));
 
     parts_in_progress.push_back(part);
   }
@@ -325,7 +338,7 @@ int file::download_multi()
     result = part->handle->wait();
 
     if (result == -EAGAIN || result == -ETIMEDOUT) {
-      S3_LOG(LOG_DEBUG, "file::download_multi", "part %i returned status %i for [%s].\n", part->id, result, _url.c_str());
+      S3_LOG(LOG_DEBUG, "file::download_multi", "part %i returned status %i for [%s].\n", part->id, result, get_url().c_str());
       part->retry_count++;
 
       if (part->retry_count > config::get_max_transfer_retries())
@@ -333,7 +346,7 @@ int file::download_multi()
 
       part->handle = thread_pool::post(
         thread_pool::PR_BG, 
-        bind(&file::download_part, shared_from_this(), _1, f, part));
+        bind(&file::download_part, shared_from_this(), _1, part));
 
       parts_in_progress.push_back(part);
 
@@ -348,11 +361,9 @@ int file::download_multi()
 int file::download_part(const request::ptr &req, const transfer_part *part)
 {
   long rc = 0;
-  char_vector output;
 
   req->init(HTTP_GET);
-  req->set_url(_url);
-  req->set_output_buffer(&output);
+  req->set_url(get_url());
   req->set_header("Range", 
     string("bytes=") + 
     lexical_cast<string>(part->offset) + 
@@ -367,7 +378,7 @@ int file::download_part(const request::ptr &req, const transfer_part *part)
   else if (rc != HTTP_SC_PARTIAL_CONTENT)
     return -EIO;
 
-  return write_chunk(&output[0], output.size(), part->offset);
+  return write_chunk(req->get_output_buffer(), req->get_output_buffer_size(), part->offset);
 }
 
 int file::upload(const request::ptr &req)
@@ -381,7 +392,7 @@ int file::upload(const request::ptr &req)
 int file::upload_single(const request::ptr &req)
 {
   int r = 0;
-  char_vector buffer;
+  vector<char> buffer;
   vector<uint8_t> md5;
   string expected_md5_b64, expected_md5_hex, etag;
   bool valid_md5;
@@ -391,23 +402,23 @@ int file::upload_single(const request::ptr &req)
   if (r)
     return r;
 
-  util::compute_md5(&buffer[0], buffer.size(), &md5);
+  util::compute_md5(buffer, &md5);
 
-  expected_md5_b64 = util::encode(&md5[0], md5.size(), MOT_BASE64);
-  expected_md5_hex = util::encode(&md5[0], md5.size(), MOT_HEX);
+  expected_md5_b64 = util::encode(md5, E_BASE64);
+  expected_md5_hex = util::encode(md5, E_HEX_WITH_QUOTES);
 
   req->init(HTTP_PUT);
-  req->set_url(_url);
+  req->set_url(get_url());
 
   set_request_headers(req);
 
-  req->set_header("Content-MD5", expected_md5);
+  req->set_header("Content-MD5", expected_md5_b64);
   req->set_input_buffer(&buffer[0], buffer.size());
 
   req->run(config::get_transfer_timeout_in_s());
 
   if (req->get_response_code() != HTTP_SC_OK) {
-    S3_LOG(LOG_WARNING, "file::upload_single", "failed to upload for [%s].\n", obj->get_url().c_str());
+    S3_LOG(LOG_WARNING, "file::upload_single", "failed to upload for [%s].\n", get_url().c_str());
     return -EIO;
   }
 
@@ -415,12 +426,18 @@ int file::upload_single(const request::ptr &req)
   valid_md5 = util::is_valid_md5(etag);
 
   if (valid_md5 && etag != expected_md5_hex) {
-    S3_LOG(LOG_WARNING, "file::upload_single", "etag [%s] does not match md5 [%s].\n", etag, expected_md5_hex);
+    S3_LOG(LOG_WARNING, "file::upload_single", "etag [%s] does not match md5 [%s].\n", etag.c_str(), expected_md5_hex.c_str());
     return -EIO;
   }
   
   set_etag(etag);
-  set_md5(expected_md5_hex, etag);
+
+  {
+    mutex::scoped_lock lock(_md5_mutex);
+
+    _md5 = expected_md5_hex;
+    _md5_etag = etag;
+  }
 
   // we don't need to commit the metadata if we got a valid etag back (since it'll be consistent)
   return valid_md5 ? 0 : commit_metadata(req);
@@ -438,16 +455,16 @@ int file::upload_multi(const request::ptr &req)
   int r;
 
   req->init(HTTP_POST);
-  req->set_url(_url + "?uploads");
+  req->set_url(get_url() + "?uploads");
 
-  f->set_request_headers(req);
+  set_request_headers(req);
 
   req->run();
 
   if (req->get_response_code() != HTTP_SC_OK)
     return -EIO;
 
-  doc = xml::parse(req->get_response_data());
+  doc = xml::parse(req->get_output_buffer());
 
   if (!doc) {
     S3_LOG(LOG_WARNING, "file::upload_multi", "failed to parse response.\n");
@@ -469,7 +486,7 @@ int file::upload_multi(const request::ptr &req)
 
     part->handle = thread_pool::post(
       thread_pool::PR_BG, 
-      bind(&upload_part, shared_from_this(), _1, upload_id, part));
+      bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
 
     parts_in_progress.push_back(part);
   }
@@ -482,7 +499,7 @@ int file::upload_multi(const request::ptr &req)
     result = part->handle->wait();
 
     if (result != 0)
-      S3_LOG(LOG_DEBUG, "file::upload_multi", "part %i returned status %i for [%s].\n", part->id, result, _url.c_str());
+      S3_LOG(LOG_DEBUG, "file::upload_multi", "part %i returned status %i for [%s].\n", part->id, result, get_url().c_str());
 
     // the default action is to not retry the failed part, and leave it with success = false
 
@@ -495,7 +512,7 @@ int file::upload_multi(const request::ptr &req)
       if (part->retry_count <= config::get_max_transfer_retries()) {
         part->handle = thread_pool::post(
           thread_pool::PR_BG, 
-          bind(&upload_part, shared_from_this(), _1, upload_id, part));
+          bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
 
         parts_in_progress.push_back(part);
       }
@@ -517,10 +534,10 @@ int file::upload_multi(const request::ptr &req)
   complete_upload += "</CompleteMultipartUpload>";
 
   if (!success) {
-    S3_LOG(LOG_WARNING, "file::upload_multi", "one or more parts failed to upload for [%s].\n", _url.c_str());
+    S3_LOG(LOG_WARNING, "file::upload_multi", "one or more parts failed to upload for [%s].\n", get_url().c_str());
 
     req->init(HTTP_DELETE);
-    req->set_url(_url + "?uploadId=" + upload_id);
+    req->set_url(get_url() + "?uploadId=" + upload_id);
 
     req->run();
 
@@ -528,8 +545,8 @@ int file::upload_multi(const request::ptr &req)
   }
 
   req->init(HTTP_POST);
-  req->set_url(_url + "?uploadId=" + upload_id);
-  req->set_input_data(complete_upload);
+  req->set_url(get_url() + "?uploadId=" + upload_id);
+  req->set_input_buffer(complete_upload);
   req->set_header("Content-Type", "");
 
   // use the transfer timeout because completing a multi-part upload can take a long time
@@ -537,11 +554,11 @@ int file::upload_multi(const request::ptr &req)
   req->run(config::get_transfer_timeout_in_s());
 
   if (req->get_response_code() != HTTP_SC_OK) {
-    S3_LOG(LOG_WARNING, "file::upload_multi", "failed to complete multipart upload for [%s] with error %li.\n", _url.c_str(), req->get_response_code());
+    S3_LOG(LOG_WARNING, "file::upload_multi", "failed to complete multipart upload for [%s] with error %li.\n", get_url().c_str(), req->get_response_code());
     return -EIO;
   }
 
-  doc = xml::parse(req->get_response_data());
+  doc = xml::parse(req->get_output_buffer());
 
   if (!doc) {
     S3_LOG(LOG_WARNING, "file::upload_multi", "failed to parse response.\n");
@@ -552,7 +569,7 @@ int file::upload_multi(const request::ptr &req)
     return r;
 
   if (etag.empty()) {
-    S3_LOG(LOG_WARNING, "file::upload_multi", "no etag on multipart upload of [%s]. response: %s\n", _url.c_str(), req->get_response_data().c_str());
+    S3_LOG(LOG_WARNING, "file::upload_multi", "no etag on multipart upload of [%s]. response: %s\n", get_url().c_str(), req->get_output_buffer());
     return -EIO;
   }
 
@@ -573,19 +590,19 @@ int file::upload_part(const request::ptr &req, const string &upload_id, transfer
 {
   int r = 0;
   long rc = 0;
-  char_vector buffer;
+  vector<char> buffer;
 
   r = read_chunk(part->size, part->offset, &buffer);
 
   if (r)
     return r;
 
-  part->etag = util::compute_md5(&buffer[0], buffer.size(), MOT_HEX);
+  part->etag = util::compute_md5(buffer, E_HEX_WITH_QUOTES);
 
   req->init(HTTP_PUT);
 
   // part numbers are 1-based
-  req->set_url(_url + "?partNumber=" + lexical_cast<string>(part->id + 1) + "&uploadId=" + upload_id);
+  req->set_url(get_url() + "?partNumber=" + lexical_cast<string>(part->id + 1) + "&uploadId=" + upload_id);
   req->set_input_buffer(&buffer[0], buffer.size());
 
   req->run(config::get_transfer_timeout_in_s());

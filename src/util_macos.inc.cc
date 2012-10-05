@@ -55,7 +55,7 @@ public:
     _ref = ref;
   }
 
-  inline const T & get()
+  inline const T & get() const
   {
     return _ref;
   }
@@ -140,24 +140,23 @@ string util::sign(const string &key, const string &data)
   return base64_encode(hmac_sha1, SHA1_SIZE);
 }
 
-string util::compute_md5(int fd, md5_output_type type, ssize_t size, off_t offset)
+// TODO: remove this
+void util::compute_md5(int fd, vector<uint8_t> *output)
 {
   const ssize_t BUF_LEN = 8 * 1024;
+  off_t offset = 0;
 
   CC_MD5_CTX md5_ctx;
   char buf[BUF_LEN];
-  uint8_t md5_buf[CC_MD5_DIGEST_LENGTH];
 
-  if (size == 0 && offset == 0)
-    size = -1;
+  output->resize(CC_MD5_DIGEST_LENGTH);
 
   CC_MD5_Init(&md5_ctx);
 
   while (true) {
-    ssize_t read_bytes, read_count;
+    ssize_t read_count;
 
-    read_bytes = (size < 0 || size > BUF_LEN) ? BUF_LEN: size;
-    read_count = pread(fd, buf, read_bytes, offset);
+    read_count = pread(fd, buf, BUF_LEN, offset);
 
     if (read_count == -1)
       throw runtime_error("error while computing md5, in pread().");
@@ -165,36 +164,17 @@ string util::compute_md5(int fd, md5_output_type type, ssize_t size, off_t offse
     CC_MD5_Update(&md5_ctx, buf, read_count);
 
     offset += read_count;
-    size -= read_count;
 
     if (read_count < BUF_LEN)
       break;
   }
 
-  CC_MD5_Final(md5_buf, &md5_ctx);
-
-  if (type == MOT_BASE64)
-    return base64_encode(md5_buf, CC_MD5_DIGEST_LENGTH);
-  else if (type == MOT_HEX)
-    return "\"" + hex_encode(md5_buf, CC_MD5_DIGEST_LENGTH) + "\"";
-  else if (type == MOT_HEX_NO_QUOTE)
-    return hex_encode(md5_buf, CC_MD5_DIGEST_LENGTH);
-  else
-    throw runtime_error("unknown md5 output type.");
+  CC_MD5_Final(&(*output)[0], &md5_ctx);
 }
 
-string util::compute_md5(const uint8_t *input, size_t size, md5_output_type type)
+void util::compute_md5(const uint8_t *input, size_t size, vector<uint8_t> *output)
 {
-  uint8_t md5_buf[CC_MD5_DIGEST_LENGTH];
+  output->resize(CC_MD5_DIGEST_LENGTH);
 
-  CC_MD5(input, size, md5_buf);
-
-  if (type == MOT_BASE64)
-    return base64_encode(md5_buf, CC_MD5_DIGEST_LENGTH);
-  else if (type == MOT_HEX)
-    return "\"" + hex_encode(md5_buf, CC_MD5_DIGEST_LENGTH) + "\"";
-  else if (type == MOT_HEX_NO_QUOTE)
-    return hex_encode(md5_buf, CC_MD5_DIGEST_LENGTH);
-  else
-    throw runtime_error("unknown md5 output type.");
+  CC_MD5(input, size, &(*output)[0]);
 }

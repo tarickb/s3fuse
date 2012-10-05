@@ -2,6 +2,7 @@
 #include "logger.h"
 #include "request.h"
 #include "service.h"
+#include "util.h"
 
 using namespace boost;
 using namespace std;
@@ -33,8 +34,8 @@ string directory::build_url(const string &path)
 directory::directory(const string &path)
   : object(path)
 {
-  _url = build_url(path);
-  _stat.st_mode |= S_IFDIR;
+  set_url(build_url(path));
+  set_object_type(S_IFDIR);
 }
 
 directory::~directory()

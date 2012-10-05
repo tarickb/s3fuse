@@ -33,7 +33,7 @@ namespace s3
   public:
     typedef boost::shared_ptr<xattr> ptr;
 
-    inline const std::string & get_key() { return _key; }
+    inline const std::string & get_key() const { return _key; }
 
     virtual bool is_serializable() = 0;
     virtual bool is_read_only() = 0;

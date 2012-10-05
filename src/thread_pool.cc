@@ -40,6 +40,16 @@ namespace
   const int POOL_COUNT = 2; // PR_FG and PR_BG
   const int NUM_THREADS_PER_POOL = 8;
 
+  void sleep_one_second()
+  {
+    struct timespec ts;
+
+    ts.tv_sec = 1;
+    ts.tv_nsec = 0;
+
+    nanosleep(&ts, NULL);
+  }
+
   class _thread_pool
   {
   public:
@@ -67,7 +77,7 @@ namespace
       _threads.clear();
 
       // give the threads precisely one second to clean up (and print debug info), otherwise skip them and move on
-      usleep(1e6);
+      sleep_one_second();
 
       S3_LOG(LOG_DEBUG, "_thread_pool::~_thread_pool", "[%s] respawn counter: %i.\n", _id.c_str(), _respawn_counter);
     }
@@ -98,7 +108,7 @@ namespace
           _threads.push_back(worker_thread::create(_queue));
 
         _respawn_counter += respawn;
-        usleep(1e6);
+        sleep_one_second();
       }
     }
 

@@ -132,7 +132,7 @@ void object::copy_stat(struct stat *s)
 
 int object::set_metadata(const string &key, const char *value, size_t size, int flags)
 {
-  mutex::scoped_lock lock(_metadata_mutex);
+  mutex::scoped_lock lock(_mutex);
   string user_key = key.substr(config::get_xattr_prefix().size());
   xattr_map::iterator itor = _metadata.find(user_key);
 
@@ -164,7 +164,7 @@ int object::set_metadata(const string &key, const char *value, size_t size, int 
 
 void object::get_metadata_keys(vector<string> *keys)
 {
-  mutex::scoped_lock lock(_metadata_mutex);
+  mutex::scoped_lock lock(_mutex);
 
   for (xattr_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)
     keys->push_back(config::get_xattr_prefix() + itor->first);
@@ -172,7 +172,7 @@ void object::get_metadata_keys(vector<string> *keys)
 
 int object::get_metadata(const string &key, char *buffer, size_t max_size)
 {
-  mutex::scoped_lock lock(_metadata_mutex);
+  mutex::scoped_lock lock(_mutex);
   xattr::ptr value;
   string user_key = key.substr(config::get_xattr_prefix().size());
   xattr_map::const_iterator itor;
@@ -190,7 +190,7 @@ int object::get_metadata(const string &key, char *buffer, size_t max_size)
 
 int object::remove_metadata(const string &key)
 {
-  mutex::scoped_lock lock(_metadata_mutex);
+  mutex::scoped_lock lock(_mutex);
   xattr_map::iterator itor = _metadata.find(key.substr(config::get_xattr_prefix().size()));
 
   if (itor == _metadata.end() || itor->second->is_read_only())
@@ -256,7 +256,7 @@ void object::init(const request::ptr &req)
 
 void object::set_request_headers(const request::ptr &req)
 {
-  mutex::scoped_lock lock(_metadata_mutex);
+  mutex::scoped_lock lock(_mutex);
   const string &meta_prefix = service::get_header_meta_prefix();
   string meta_prefix_reserved = service::get_header_meta_prefix() + META_PREFIX_RESERVED;
   char buf[16];

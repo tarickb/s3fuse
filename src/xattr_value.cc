@@ -54,11 +54,11 @@ xattr::ptr xattr_value::from_header(const string &header_key, const string &head
     if (separator == string::npos)
       throw runtime_error("header string is malformed.");
 
-    util::base64_decode(header_value.substr(0, separator), &dec_key);
+    util::decode(header_value.substr(0, separator), E_BASE64, &dec_key);
 
     ret.reset(val = new xattr_value(reinterpret_cast<char *>(&dec_key[0]), true));
 
-    util::base64_decode(header_value.substr(separator + 1), &val->_value);
+    util::decode(header_value.substr(separator + 1), E_BASE64, &val->_value);
 
   } else {
     // we know the value doesn't need encoding because it came to us as a valid HTTP string.
@@ -115,8 +115,8 @@ int xattr_value::get_value(char *buffer, size_t max_size)
 void xattr_value::to_header(string *header, string *value)
 {
   if (_encode_key || _encode_value) {
-    *header = XATTR_HEADER_PREFIX + util::compute_md5(_key, MOT_HEX_NO_QUOTE);
-    *value = util::base64_encode(_key) + " " + util::base64_encode(&_value[0], _value.size());
+    *header = XATTR_HEADER_PREFIX + util::compute_md5(_key, E_HEX);
+    *value = util::encode(_key, E_BASE64) + " " + util::encode(&_value[0], _value.size(), E_BASE64);
   } else {
     *header = _key;
 

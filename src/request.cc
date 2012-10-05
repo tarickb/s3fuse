@@ -122,7 +122,7 @@ void request::init(http_method method)
 
   _curl_error[0] = '\0';
   _url.clear();
-  _output_data.clear();
+  _output_buffer.clear();
   _response_headers.clear();
   _response_code = 0;
   _last_modified = 0;
@@ -157,9 +157,8 @@ void request::init(http_method method)
   } else
     throw runtime_error("unsupported HTTP method.");
 
-  // set these last because they depend on the value of _method
-  set_input_fd();
-  set_output_fd();
+  // set this last because it depends on the value of _method
+  set_input_buffer(NULL, 0);
 }
 
 size_t request::process_header(char *data, size_t size, size_t items, void *context)
@@ -204,6 +203,7 @@ size_t request::process_header(char *data, size_t size, size_t items, void *cont
 size_t request::process_output(char *data, size_t size, size_t items, void *context)
 {
   request *req = static_cast<request *>(context);
+  size_t old_size;
 
   // why even bother with "items"?
   size *= items;
@@ -211,24 +211,16 @@ size_t request::process_output(char *data, size_t size, size_t items, void *cont
   if (req->_canceled)
     return 0; // abort!
 
-  if (req->_output_fd != -1) {
-    ssize_t rc = pwrite(req->_output_fd, data, size, req->_output_offset);
+  old_size = req->_output_buffer.size();
+  req->_output_buffer.resize(old_size + size);
+  memcpy(&req->_output_buffer[old_size], data, size);
 
-    if (rc == -1)
-      return 0;
-
-    req->_output_offset += rc;
-    return rc;
-
-  } else {
-    req->_output_data.append(data, size);
-
-    return size;
-  }
+  return size;
 }
 
 size_t request::process_input(char *data, size_t size, size_t items, void *context)
 {
+  size_t remaining;
   request *req = static_cast<request *>(context);
 
   size *= items;
@@ -236,29 +228,14 @@ size_t request::process_input(char *data, size_t size, size_t items, void *conte
   if (req->_canceled)
     return 0; // abort!
 
-  if (req->_input_fd != -1) {
-    size_t remaining = (size > req->_input_size) ? req->_input_size : size;
-    ssize_t rc = pread(req->_input_fd, data, remaining, req->_input_offset);
+  remaining = (size > req->_input_size) ? req->_input_size : size;
 
-    if (rc == -1)
-      return 0;
+  memcpy(data, req->_input_buffer, remaining);
+  
+  req->_input_buffer += remaining;
+  req->_input_size -= remaining;
 
-    req->_input_offset += rc;
-    req->_input_size -= rc;
-    return rc;
-
-  } else {
-    size_t remaining = req->_input_data.size() - req->_input_offset;
-
-    if (size > remaining)
-      size = remaining;
-
-    if (remaining)
-      req->_input_data.copy(data, size, req->_input_offset);
-
-    req->_input_offset += size;
-    return size;
-  }
+  return remaining;
 }
 
 void request::set_url(const string &url, const string &query_string)
@@ -268,7 +245,7 @@ void request::set_url(const string &url, const string &query_string)
   curl_url = service::get_url_prefix() + url;
 
   if (!query_string.empty()) {
-    curl_url += (curl_url.find('?') == string::npos) ? "?" : "&";
+    curl_url += ((curl_url.find('?') == string::npos) ? "?" : "&");
     curl_url += query_string;
   }
 
@@ -282,38 +259,9 @@ void request::set_full_url(const string &url)
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_URL, url.c_str()));
 }
 
-void request::set_output_fd(int fd, off_t offset)
+void request::set_input_buffer(const char *buffer, size_t size)
 {
-  if (fd == -1 && offset != 0)
-    throw runtime_error("offset must be zero if an invalid fd is specified.");
-
-  _output_fd = fd;
-  _output_offset = offset;
-}
-
-void request::set_input_data(const string &s)
-{
-  _input_data = s;
-  _input_fd = -1;
-  _input_offset = 0;
-  _input_size = 0;
-
-  if (_method == "PUT")
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(s.size())));
-  else if (_method == "POST")
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(s.size())));
-  else if (!s.empty())
-    throw runtime_error("can't set input data for non-POST/non-PUT request.");
-}
-
-void request::set_input_fd(int fd, size_t size, off_t offset)
-{
-  if (fd == -1 && (size != 0 || offset != 0))
-    throw runtime_error("offset and size must be zero if an invalid fd is specified.");
-
-  _input_data.clear();
-  _input_fd = fd;
-  _input_offset = offset;
+  _input_buffer = buffer;
   _input_size = size;
 
   if (_method == "PUT")
@@ -321,7 +269,7 @@ void request::set_input_fd(int fd, size_t size, off_t offset)
   else if (_method == "POST")
     TEST_OK(curl_easy_setopt(_curl, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(size)));
   else if (size)
-    throw runtime_error("can't set input fd for non-POST/non-PUT request.");
+    throw runtime_error("can't set input data for non-POST/non-PUT request.");
 }
 
 void request::build_request_time()
@@ -383,7 +331,7 @@ void request::internal_run(int timeout_in_s)
   int r = CURLE_OK;
   curl_slist_wrapper headers;
 
-  _output_data.clear();
+  _output_buffer.clear();
   _response_headers.clear();
 
   for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
@@ -442,6 +390,6 @@ void request::internal_run(int timeout_in_s)
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
 
   if (_response_code >= HTTP_SC_MULTIPLE_CHOICES && _response_code != HTTP_SC_NOT_FOUND)
-    S3_LOG(LOG_WARNING, "request::run", "request for [%s] failed with code %i and response: %s\n", _url.c_str(), _response_code, _output_data.c_str());
+    S3_LOG(LOG_WARNING, "request::run", "request for [%s] failed with code %i and response: %s\n", _url.c_str(), _response_code, &_output_buffer[0]);
 }
 

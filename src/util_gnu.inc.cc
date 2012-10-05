@@ -102,25 +102,23 @@ string util::sign(const string &key, const string &data)
   return base64_encode(hmac_sha1, hmac_sha1_len);
 }
 
-string util::compute_md5(int fd, md5_output_type type, ssize_t size, off_t offset)
+// TODO: remove this
+void util::compute_md5(int fd, vector<uint8_t> *output)
 {
   const ssize_t BUF_LEN = 8 * 1024;
+  off_t offset = 0;
 
   EVP_MD_CTX md5_ctx;
   char buf[BUF_LEN];
-  uint8_t md5_buf[EVP_MAX_MD_SIZE];
-  unsigned int md5_len = 0;
 
-  if (size == 0 && offset == 0)
-    size = -1;
+  output->resize(MD5_DIGEST_LENGTH);
 
   EVP_DigestInit(&md5_ctx, EVP_md5());
 
   while (true) {
     ssize_t read_bytes, read_count;
 
-    read_bytes = (size < 0 || size > BUF_LEN) ? BUF_LEN : size;
-    read_count = pread(fd, buf, read_bytes, offset);
+    read_count = pread(fd, buf, BUF_LEN, offset);
 
     if (read_count == -1)
       throw runtime_error("error while computing md5, in pread().");
@@ -128,36 +126,17 @@ string util::compute_md5(int fd, md5_output_type type, ssize_t size, off_t offse
     EVP_DigestUpdate(&md5_ctx, buf, read_count);
 
     offset += read_count;
-    size -= read_count;
 
     if (read_count < BUF_LEN)
       break;
   }
 
-  EVP_DigestFinal(&md5_ctx, md5_buf, &md5_len);
-
-  if (type == MOT_BASE64)
-    return base64_encode(md5_buf, md5_len);
-  else if (type == MOT_HEX)
-    return "\"" + hex_encode(md5_buf, md5_len) + "\"";
-  else if (type == MOT_HEX_NO_QUOTE)
-    return hex_encode(md5_buf, md5_len);
-  else
-    throw runtime_error("unknown md5 output type.");
+  EVP_DigestFinal(&md5_ctx, &(*output)[0], NULL);
 }
 
-string util::compute_md5(const uint8_t *input, size_t size, md5_output_type type)
+void util::compute_md5(const uint8_t *input, size_t size, vector<uint8_t> *output)
 {
-  uint8_t md5_buf[MD5_DIGEST_LENGTH];
+  output->resize(MD5_DIGEST_LENGTH);
 
-  MD5(input, size, md5_buf);
-
-  if (type == MOT_BASE64)
-    return base64_encode(md5_buf, MD5_DIGEST_LENGTH);
-  else if (type == MOT_HEX)
-    return "\"" + hex_encode(md5_buf, MD5_DIGEST_LENGTH) + "\"";
-  else if (type == MOT_HEX_NO_QUOTE)
-    return hex_encode(md5_buf, MD5_DIGEST_LENGTH);
-  else
-    throw runtime_error("unknown md5 output type.");
+  MD5(input, size, &(*output)[0]);
 }

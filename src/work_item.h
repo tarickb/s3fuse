@@ -24,9 +24,9 @@ namespace s3
     {
     }
 
-    inline bool is_valid() { return _ah; }
-    inline const boost::shared_ptr<async_handle> & get_ah() { return _ah; }
-    inline const worker_function & get_function() { return _function; }
+    inline bool is_valid() const { return _ah; }
+    inline const boost::shared_ptr<async_handle> & get_ah() const { return _ah; }
+    inline const worker_function & get_function() const { return _function; }
 
   private:
     worker_function _function;

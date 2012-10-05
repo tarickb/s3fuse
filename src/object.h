@@ -57,11 +57,17 @@ namespace s3
 
     virtual bool is_valid();
 
-    inline const std::string & get_path() { return _path; }
-    inline const std::string & get_content_type() { return _content_type; }
-    inline const std::string & get_url() { return _url; }
-    inline mode_t get_mode() { return _stat.st_mode; }
-    inline const std::string & get_etag() { return _etag; }
+    inline const std::string & get_path() const { return _path; }
+    inline const std::string & get_content_type() const { return _content_type; }
+    inline const std::string & get_url() const { return _url; }
+    inline mode_t get_mode() const { return _stat.st_mode; }
+
+    inline std::string get_etag()
+    {
+      boost::mutex::scoped_lock lock(_mutex);
+      
+      return _etag;
+    }
 
     void get_metadata_keys(std::vector<std::string> *keys);
     int get_metadata(const std::string &key, char *buffer, size_t max_size);
@@ -85,20 +91,38 @@ namespace s3
 
     virtual void init(const boost::shared_ptr<request> &req);
 
-    std::string _content_type;
-    std::string _url;
-    std::string _etag;
+    inline void set_etag(const std::string &etag)
+    {
+      boost::mutex::scoped_lock lock(_mutex);
 
-    struct stat _stat;
+      _etag = etag;
+    }
 
-    // TODO: rename to just _mutex?
-    // protected by _metadata_mutex
-    boost::mutex _metadata_mutex;
-    xattr_map _metadata;
+    inline void set_url(const std::string &url) { _url = url; }
+    inline void set_content_type(const std::string &content_type) { _content_type = content_type; }
+    inline void set_object_type(mode_t mode) { _stat.st_mode |= mode; }
+
+    inline xattr_map * get_metadata() { return &_metadata; }
+    inline const struct stat * get_stat() const { return &_stat; }
+
+    inline void expire() { _expiry = 0; }
 
   private:
-    std::string _path, _mtime_etag;
+    boost::mutex _mutex;
+
+    // should only be modified during init()
+    std::string _path;
+    std::string _mtime_etag;
+    std::string _content_type;
+    std::string _url;
+
+    // unprotected
+    struct stat _stat;
     time_t _expiry;
+
+    // protected by _mutex
+    std::string _etag;
+    xattr_map _metadata;
   };
 }
 
