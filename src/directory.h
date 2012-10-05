@@ -2,57 +2,48 @@
 #define S3_DIRECTORY_H
 
 #include "object.h"
+#include "thread_pool.h"
 
 namespace s3
 {
-  class directory : public object
+  class directory : public object, public boost::enable_shared_from_this<directory>
   {
   public:
-    typedef std::list<std::string> dir_cache;
-    typedef boost::shared_ptr<dir_cache> dir_cache_ptr;
-
-    typedef boost::function1<void, const std::string &> dir_filler_function;
+    typedef boost::function1<void, const std::string &> filler_function;
 
     static std::string build_url(const std::string &path);
 
     directory(const std::string &path);
     virtual ~directory();
 
-    inline bool is_cached()
+    inline int read(const filler_function &filler)
     {
-      boost::mutex::scoped_lock lock(_dir_mutex);
+      boost::mutex::scoped_lock lock(_mutex);
+      cache_list_ptr cache;
 
-      return _dir_cache; 
-    }
-
-    inline void set_cache(const dir_cache_ptr &dc)
-    {
-      boost::mutex::scoped_lock lock(_dir_mutex);
-
-      _dir_cache = dc;
-    }
-
-    inline void fill(const dir_filler_function &filler)
-    {
-      boost::mutex::scoped_lock lock(_dir_mutex);
-      dir_cache_ptr dc;
-
-      // make local copy of _dir_cache so we don't hold the metadata mutex
-      // longer than necessary.
-
-      dc = _dir_cache;
+      cache = _cache;
       lock.unlock();
 
-      if (!dc)
-        throw std::runtime_error("directory cache not set. cannot fill directory.");
+      if (cache) {
+        for (cache_list::const_iterator itor = cache->begin(); itor != cache->end(); ++itor)
+          filler(*itor);
 
-      for (dir_cache::const_iterator itor = dc->begin(); itor != dc->end(); ++itor)
-        filler(*itor);
+        return 0;
+      } else {
+        return thread_pool::call(thread_pool::PR_FG, bind(&directory::read, shared_from_this(), _1, filler));
+      }
     }
 
+    bool is_empty(const boost::shared_ptr<request> &req);
+
   private:
-    boost::mutex _dir_mutex;
-    dir_cache_ptr _dir_cache;
+    typedef std::list<std::string> cache_list;
+    typedef boost::shared_ptr<cache_list> cache_list_ptr;
+
+    int read(const boost::shared_ptr<request> &req, const filler_function &filler);
+
+    boost::mutex _mutex;
+    cache_list_ptr _cache;
   };
 }
 

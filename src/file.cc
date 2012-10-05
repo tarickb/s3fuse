@@ -3,6 +3,7 @@
 #include "config.h"
 #include "file.h"
 #include "logger.h"
+#include "object_cache.h"
 #include "request.h"
 #include "service.h"
 #include "thread_pool.h"
@@ -32,6 +33,30 @@ namespace
   object::type_checker::type_checker s_checker_reg(checker, 1000);
 }
 
+void file::open_locked_object(const object::ptr &obj, uint64_t *handle, int *status)
+{
+  if (!obj) {
+    *status = -ENOENT;
+    return;
+  }
+
+  if (obj->get_type() != S_IFREG) {
+    *status = -EINVAL;
+    return;
+  }
+
+  *status = static_cast<file *>(obj.get())->open(handle);
+}
+
+int file::open(const string &path, const object_cache::ptr &cache, uint64_t *handle)
+{
+  int r = -EINVAL;
+
+  cache->lock_object(path, bind(&file::open_locked_object, _1, handle, &r));
+
+  return r;
+}
+
 file::file(const string &path)
   : object(path),
     _fd(-1),
@@ -42,11 +67,11 @@ file::file(const string &path)
   set_object_type(S_IFREG);
 }
 
-bool file::is_valid()
+bool file::is_expired()
 {
   mutex::scoped_lock lock(_fs_mutex);
 
-  return _ref_count > 0 || object::is_valid();
+  return _ref_count == 0 && object::is_expired();
 }
 
 void file::init(const request::ptr &req)
@@ -431,13 +456,7 @@ int file::upload_single(const request::ptr &req)
   }
   
   set_etag(etag);
-
-  {
-    mutex::scoped_lock lock(_md5_mutex);
-
-    _md5 = expected_md5_hex;
-    _md5_etag = etag;
-  }
+  set_md5(expected_md5_hex, etag);
 
   // we don't need to commit the metadata if we got a valid etag back (since it'll be consistent)
   return valid_md5 ? 0 : commit_metadata(req);
@@ -574,16 +593,13 @@ int file::upload_multi(const request::ptr &req)
   }
 
   // TODO: switch to hash tree to compute message segments in parallel?
-  /*
-  computed_md5 = util::compute_md5(fd, MOT_HEX);
+  computed_md5 = util::compute_md5(_fd, E_HEX_WITH_QUOTES);
 
   // set the MD5 digest manually because the etag we get back is not itself a valid digest
-  obj->set_md5(computed_md5, etag);
+  set_etag(etag);
+  set_md5(computed_md5, etag);
 
-  return obj->commit_metadata(req);
-  */
-
-  return 0;
+  return commit_metadata(req);
 }
 
 int file::upload_part(const request::ptr &req, const string &upload_id, transfer_part *part)

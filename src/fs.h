@@ -27,8 +27,8 @@
 #include <string>
 #include <boost/bind.hpp>
 
+#include "file.h"
 #include "object_cache.h"
-#include "open_file.h"
 #include "thread_pool.h"
 
 namespace s3
@@ -41,27 +41,27 @@ namespace s3
 
     inline int get_stats(const std::string &path, struct stat *s)
     {
-      return _tp_fg->call(boost::bind(&fs::__get_stats, this, _1, path, s, HINT_NONE));
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&fs::__get_stats, this, _1, path, s, HINT_NONE));
     }
 
     inline int read_directory(const std::string &path, const object::dir_filler_function &filler)
     {
-      return _tp_fg->call(boost::bind(&fs::__read_directory, this, _1, path, filler));
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&fs::__read_directory, this, _1, path, filler));
     }
 
     inline int create_file(const std::string &path, mode_t mode, uid_t uid, gid_t gid)
     {
-      return _tp_fg->call(boost::bind(&fs::__create_object, this, _1, path, OT_FILE, mode, uid, gid, ""));
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&fs::__create_object, this, _1, path, OT_FILE, mode, uid, gid, ""));
     }
 
     inline int create_directory(const std::string &path, mode_t mode, uid_t uid, gid_t gid)
     {
-      return _tp_fg->call(boost::bind(&fs::__create_object, this, _1, path, OT_DIRECTORY, mode, uid, gid, ""));
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&fs::__create_object, this, _1, path, OT_DIRECTORY, mode, uid, gid, ""));
     }
 
     inline int create_symlink(const std::string &path, uid_t uid, gid_t gid, const std::string &target)
     {
-      return _tp_fg->call(boost::bind(&fs::__create_object, this, _1, path, OT_SYMLINK, 0, uid, gid, target));
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&fs::__create_object, this, _1, path, OT_SYMLINK, 0, uid, gid, target));
     }
 
     inline int change_owner(const std::string &path, uid_t uid, gid_t gid)
@@ -81,32 +81,32 @@ namespace s3
 
     inline int remove_file(const std::string &path)
     {
-      return _tp_fg->call(boost::bind(&fs::__remove_object, this, _1, path));
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&fs::__remove_object, this, _1, path));
     }
 
     inline int remove_directory(const std::string &path)
     {
-      return _tp_fg->call(boost::bind(&fs::__remove_object, this, _1, path));
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&fs::__remove_object, this, _1, path));
     }
 
     inline int rename_object(const std::string &from, const std::string &to)
     {
-      return _tp_fg->call(boost::bind(&fs::__rename_object, this, _1, from, to));
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&fs::__rename_object, this, _1, from, to));
     }
 
     inline int read_symlink(const std::string &path, std::string *target)
     {
-      return _tp_fg->call(boost::bind(&fs::__read_symlink, this, _1, path, target));
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&fs::__read_symlink, this, _1, path, target));
     }
 
     int set_attr(const std::string &path, const std::string &name, const char *value, size_t size, int flags)
     {
-      return _tp_fg->call(boost::bind(&fs::__set_attr, this, _1, path, name, value, size, flags));
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&fs::__set_attr, this, _1, path, name, value, size, flags));
     }
 
     int remove_attr(const std::string &path, const std::string &name)
     {
-      return _tp_fg->call(boost::bind(&fs::__remove_attr, this, _1, path, name));
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&fs::__remove_attr, this, _1, path, name));
     }
 
     inline int get_attr(const std::string &path, const std::string &name, char *value, size_t max_size)
@@ -133,9 +133,11 @@ namespace s3
 
     inline int open(const std::string &path, uint64_t *handle)
     {
-      return _object_cache->open_handle(path, handle);
+      return file::open(path, _object_cache, handle);
     }
 
+    // TODO: remove
+    /*
     inline int truncate_by_path(const std::string &path, off_t offset) 
     {
       uint64_t handle;
@@ -151,56 +153,12 @@ namespace s3
 
       return r;
     }
-
-    inline int release(uint64_t handle) 
-    {
-      return _object_cache->release_handle(handle);
-    }
-
-    inline int truncate(uint64_t handle, off_t offset)
-    {
-      open_file::ptr file = _object_cache->get_file(handle);
-
-      if (!file)
-        return -EINVAL;
-
-      return file->truncate(offset);
-    }
-
-    inline int flush(uint64_t handle) 
-    {
-      open_file::ptr file = _object_cache->get_file(handle);
-
-      if (!file)
-        return -EINVAL;
-
-      return file->flush();
-    }
-
-    inline int read(uint64_t handle, char *buffer, size_t size, off_t offset) 
-    {
-      open_file::ptr file = _object_cache->get_file(handle);
-
-      if (!file)
-        return -EINVAL;
-
-      return file->read(buffer, size, offset);
-    }
-
-    inline int write(uint64_t handle, const char *buffer, size_t size, off_t offset) 
-    { 
-      open_file::ptr file = _object_cache->get_file(handle);
-
-      if (!file)
-        return -EINVAL;
-
-      return file->write(buffer, size, offset);
-    }
+    */
 
   private:
     inline int change_metadata(const std::string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime)
     {
-      return _tp_fg->call(boost::bind(&fs::__change_metadata, this, _1, path, mode, uid, gid, mtime));
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&fs::__change_metadata, this, _1, path, mode, uid, gid, mtime));
     }
 
     void invalidate_parent(const std::string &path);
@@ -221,7 +179,6 @@ namespace s3
     int  __rename_object   (const request_ptr &req, const std::string &from, const std::string &to);
     int  __set_attr        (const request_ptr &req, const std::string &path, const std::string &name, const char *value, size_t size, int flags);
 
-    thread_pool::ptr _tp_fg, _tp_bg;
     object_cache::ptr _object_cache;
   };
 }

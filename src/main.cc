@@ -59,6 +59,7 @@ namespace
     #endif
   };
 
+  // TODO: replace this with a macro
   int try_catch(const boost::function0<int> &fn)
   {
     try {

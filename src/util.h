@@ -88,6 +88,7 @@ namespace s3
         throw std::runtime_error("unknown encoding type in util::decode()");
     }
 
+    // TODO: remove this?
     /*
     static std::string compute_md5(int fd, md5_output_type type = MOT_BASE64, ssize_t size = 0, off_t offset = 0);
     static std::string compute_md5(const uint8_t *input, size_t size, md5_output_type type = MOT_BASE64);

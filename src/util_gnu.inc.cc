@@ -116,7 +116,7 @@ void util::compute_md5(int fd, vector<uint8_t> *output)
   EVP_DigestInit(&md5_ctx, EVP_md5());
 
   while (true) {
-    ssize_t read_bytes, read_count;
+    ssize_t read_count;
 
     read_count = pread(fd, buf, BUF_LEN, offset);
 

@@ -55,12 +55,13 @@ namespace s3
 
     virtual ~object();
 
-    virtual bool is_valid();
+    virtual bool is_expired();
 
     inline const std::string & get_path() const { return _path; }
     inline const std::string & get_content_type() const { return _content_type; }
     inline const std::string & get_url() const { return _url; }
     inline mode_t get_mode() const { return _stat.st_mode; }
+    inline mode_t get_type() const { return _stat.st_mode & S_IFMT; }
 
     inline std::string get_etag()
     {

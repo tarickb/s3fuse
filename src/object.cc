@@ -119,9 +119,9 @@ object::~object()
 {
 }
 
-bool object::is_valid()
+bool object::is_expired()
 {
-  return (_expiry > 0 && time(NULL) < _expiry); 
+  return (_expiry == 0 || time(NULL) >= _expiry); 
 }
 
 

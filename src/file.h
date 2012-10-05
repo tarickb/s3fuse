@@ -6,6 +6,8 @@
 
 namespace s3
 {
+  class object_cache;
+
   class file : public object, public boost::enable_shared_from_this<file>
   {
   public:
@@ -16,10 +18,12 @@ namespace s3
       return reinterpret_cast<file *>(handle);
     }
 
-    file(const std::string &path);
-    ~file();
+    static int open(const std::string &path, const boost::shared_ptr<object_cache> &cache, uint64_t *handle);
 
-    virtual bool is_valid();
+    file(const std::string &path);
+    virtual ~file();
+
+    virtual bool is_expired();
 
     // TODO: add truncate
     // TODO: handle O_TRUNC in open?
@@ -66,6 +70,8 @@ namespace s3
       FS_DIRTY       = 0x8
     };
 
+    static void open_locked_object(const object::ptr &obj, uint64_t *handle, int *status);
+
     int open(uint64_t *handle);
 
     int download(const boost::shared_ptr<request> &req);
@@ -81,6 +87,14 @@ namespace s3
     int upload_part(const boost::shared_ptr<request> &req, const std::string &upload_id, transfer_part *part);
 
     void on_download_complete(int ret);
+
+    inline void set_md5(const std::string &md5, const std::string &md5_etag)
+    {
+      boost::mutex::scoped_lock lock(_md5_mutex);
+
+      _md5 = md5;
+      _md5_etag = md5_etag;
+    }
 
     boost::mutex _fs_mutex, _md5_mutex;
     boost::condition _condition;
