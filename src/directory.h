@@ -12,6 +12,7 @@ namespace s3
     typedef boost::function1<void, const std::string &> filler_function;
 
     static std::string build_url(const std::string &path);
+    static void invalidate_parent(const std::string &path);
 
     directory(const std::string &path);
     virtual ~directory();
@@ -35,6 +36,9 @@ namespace s3
     }
 
     bool is_empty(const boost::shared_ptr<request> &req);
+
+    virtual int remove(const boost::shared_ptr<request> &req);
+    virtual int rename(const boost::shared_ptr<request> &req, const std::string &to);
 
   private:
     typedef std::list<std::string> cache_list;

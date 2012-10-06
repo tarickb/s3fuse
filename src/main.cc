@@ -30,12 +30,14 @@
 #include <string>
 
 #include "config.h"
-#include "fs.h"
 #include "logger.h"
+#include "object_cache.h"
 #include "version.h"
 
 using namespace boost;
 using namespace std;
+
+using namespace s3;
 
 #define ASSERT_LEADING_SLASH(str) \
   do { \
@@ -44,6 +46,32 @@ using namespace std;
       return -EINVAL; \
     } \
   } while (0)
+
+#define ASSERT_NO_TRAILING_SLASH(str) \
+  do { \
+    if ((str)[strlen(str) - 1] == '/') { \
+      S3_LOG(LOG_WARNING, "ASSERT_NO_TRAILING_SLASH", "failed on [%s]\n", static_cast<const char *>(str)); \
+      return -EINVAL; \
+    } \
+  } while (0)
+
+#define BEGIN_TRY \
+  try {
+
+#define END_TRY \
+  } catch (const std::exception &e) { \
+    S3_LOG(LOG_WARNING, "END_TRY", "caught exception: %s (at line %i)\n", e.what(), __LINE__); \
+    return -ECANCELED; \
+  } catch (...) { \
+    S3_LOG(LOG_WARNING, "END_TRY", "caught unknown exception (at line %i)\n", __LINE__); \
+    return -ECANCELED; \
+  }
+
+#define GET_OBJECT(var, path) \
+  object::ptr (var) = object_cache::get((path) + 1); \
+  \
+  if (!obj) \
+    return -ENOENT;
 
 namespace
 {
@@ -60,6 +88,7 @@ namespace
   };
 
   // TODO: replace this with a macro
+  /*
   int try_catch(const boost::function0<int> &fn)
   {
     try {
@@ -74,19 +103,21 @@ namespace
 
     return -ECANCELED;
   }
+  */
 
   void dir_filler(fuse_fill_dir_t filler, void *buf, const std::string &path)
   {
     filler(buf, path.c_str(), NULL, 0);
   }
 
-  s3::fs *s_fs;
+  // s3::fs *s_fs;
   int s_mountpoint_mode;
 }
 
 int wrap_getattr(const char *path, struct stat *s)
 {
   ASSERT_LEADING_SLASH(path);
+  ASSERT_NO_TRAILING_SLASH(path);
 
   memset(s, 0, sizeof(*s));
 
@@ -99,23 +130,46 @@ int wrap_getattr(const char *path, struct stat *s)
     return 0;
   }
 
-  return try_catch(bind(&s3::fs::get_stats, s_fs, path + 1, s));
+  BEGIN_TRY;
+    GET_OBJECT(obj, path);
+
+    obj->copy_stat(s);
+
+    return 0;
+  END_TRY;
 }
 
 int wrap_chown(const char *path, uid_t uid, gid_t gid)
 {
   S3_LOG(LOG_DEBUG, "chown", "path: %s, user: %i, group: %i\n", path, uid, gid);
-  ASSERT_LEADING_SLASH(path);
 
-  return try_catch(bind(&s3::fs::change_owner, s_fs, path + 1, uid, gid));
+  ASSERT_LEADING_SLASH(path);
+  ASSERT_NO_TRAILING_SLASH(path);
+
+  BEGIN_TRY;
+    GET_OBJECT(obj, path);
+
+    obj->set_uid(uid);
+    obj->set_gid(gid);
+
+    return thread_pool::call(thread_pool::PR_FG, bind(&object::commit_metadata, obj, _1));
+  END_TRY;
 }
 
 int wrap_chmod(const char *path, mode_t mode)
 {
   S3_LOG(LOG_DEBUG, "chmod", "path: %s, mode: %i\n", path, mode);
-  ASSERT_LEADING_SLASH(path);
 
-  return try_catch(bind(&s3::fs::change_mode, s_fs, path + 1, mode));
+  ASSERT_LEADING_SLASH(path);
+  ASSERT_NO_TRAILING_SLASH(path);
+
+  BEGIN_TRY;
+    GET_OBJECT(obj, path);
+
+    obj->set_mode(mode);
+
+    return thread_pool::call(thread_pool::PR_FG, bind(&object::commit_metadata, obj, _1));
+  END_TRY;
 }
 
 int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, fuse_file_info *file_info)
@@ -445,6 +499,9 @@ void * init(fuse_conn_info *info)
 void build_ops(fuse_operations *ops)
 {
   memset(ops, 0, sizeof(*ops));
+
+  // TODO: set flag_nopath
+  // TODO: remove truncate, add ftruncate, set atomic_o_trunc
 
   ops->chmod = wrap_chmod;
   ops->chown = wrap_chown;

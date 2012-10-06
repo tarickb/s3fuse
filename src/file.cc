@@ -33,7 +33,7 @@ namespace
   object::type_checker::type_checker s_checker_reg(checker, 1000);
 }
 
-void file::open_locked_object(const object::ptr &obj, uint64_t *handle, int *status)
+void file::open_locked_object(const object::ptr &obj, bool truncate, uint64_t *handle, int *status)
 {
   if (!obj) {
     *status = -ENOENT;
@@ -45,14 +45,14 @@ void file::open_locked_object(const object::ptr &obj, uint64_t *handle, int *sta
     return;
   }
 
-  *status = static_cast<file *>(obj.get())->open(handle);
+  *status = static_cast<file *>(obj.get())->open(truncate, handle);
 }
 
-int file::open(const string &path, const object_cache::ptr &cache, uint64_t *handle)
+int file::open(const string &path, uint64_t *handle, bool truncate)
 {
   int r = -EINVAL;
 
-  cache->lock_object(path, bind(&file::open_locked_object, _1, handle, &r));
+  object_cache::lock_object(path, bind(&file::open_locked_object, _1, truncate, handle, &r));
 
   return r;
 }
@@ -116,7 +116,7 @@ void file::on_download_complete(int ret)
   _condition.notify_all();
 }
 
-int file::open(uint64_t *handle)
+int file::open(bool truncate, uint64_t *handle)
 {
   mutex::scoped_lock lock(_fs_mutex);
 
@@ -131,15 +131,17 @@ int file::open(uint64_t *handle)
     if (_fd == -1)
       return -errno;
 
-    if (ftruncate(_fd, get_stat()->st_size) != 0)
-      return -errno;
+    if (!truncate) {
+      if (ftruncate(_fd, get_stat()->st_size) != 0)
+        return -errno;
 
-    _status = FS_DOWNLOADING;
+      _status = FS_DOWNLOADING;
 
-    thread_pool::post(
-      thread_pool::PR_FG,
-      bind(&file::download, shared_from_this(), _1),
-      bind(&file::on_download_complete, shared_from_this(), _1));
+      thread_pool::post(
+        thread_pool::PR_FG,
+        bind(&file::download, shared_from_this(), _1),
+        bind(&file::on_download_complete, shared_from_this(), _1));
+    }
   }
 
   *handle = reinterpret_cast<uint64_t>(this);

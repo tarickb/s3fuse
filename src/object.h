@@ -52,6 +52,8 @@ namespace s3
 
     static std::string build_url(const std::string &path);
     static ptr create(const std::string &path, const boost::shared_ptr<request> &req);
+    static int remove_by_url(const boost::shared_ptr<request> &req, const std::string &url);
+    static int copy_by_path(const boost::shared_ptr<request> &req, const std::string &from, const std::string &to);
 
     virtual ~object();
 
@@ -86,6 +88,9 @@ namespace s3
     int set_metadata(const std::string &key, const char *value, size_t size, int flags = 0);
     int remove_metadata(const std::string &key);
     int commit_metadata(const boost::shared_ptr<request> &req);
+
+    virtual int remove(const boost::shared_ptr<request> &req);
+    virtual int rename(const boost::shared_ptr<request> &req, const std::string &to);
 
   protected:
     object(const std::string &path);

@@ -28,33 +28,37 @@ using namespace std;
 
 using namespace s3;
 
-object_cache::object_cache()
-  : _hits(0),
-    _misses(0),
-    _expiries(0)
+boost::mutex object_cache::s_mutex;
+object_cache::cache_map object_cache::s_cache_map;
+uint64_t object_cache::s_hits, object_cache::s_misses, object_cache::s_expiries;
+
+void object_cache::init()
 {
+  s_hits = 0;
+  s_misses = 0;
+  s_expiries = 0;
 }
 
-object_cache::~object_cache()
+void object_cache::print_summary()
 {
-  uint64_t total = _hits + _misses + _expiries;
+  uint64_t total = s_hits + s_misses + s_expiries;
 
   if (total == 0)
     total = 1; // avoid NaNs below
 
   S3_LOG(
     LOG_DEBUG,
-    "object_cache::~object_cache", 
+    "object_cache::print_summary", 
     "hits: %" PRIu64 " (%.02f%%), misses: %" PRIu64 " (%.02f%%), expiries: %" PRIu64 " (%.02f%%)\n", 
-    _hits,
-    double(_hits) / double(total) * 100.0,
-    _misses,
-    double(_misses) / double(total) * 100.0,
-    _expiries,
-    double(_expiries) / double(total) * 100.0);
+    s_hits,
+    double(s_hits) / double(total) * 100.0,
+    s_misses,
+    double(s_misses) / double(total) * 100.0,
+    s_expiries,
+    double(s_expiries) / double(total) * 100.0);
 }
 
-int object_cache::__fetch(const request::ptr &req, const string &path, int hints, object::ptr *obj)
+int object_cache::fetch(const request::ptr &req, const string &path, int hints, object::ptr *obj)
 {
   req->init(HTTP_HEAD);
 
@@ -76,8 +80,8 @@ int object_cache::__fetch(const request::ptr &req, const string &path, int hints
   *obj = object::create(path, req);
 
   {
-    mutex::scoped_lock lock(_mutex);
-    object::ptr &map_obj = _cache_map[path];
+    mutex::scoped_lock lock(s_mutex);
+    object::ptr &map_obj = s_cache_map[path];
 
     if (map_obj) {
       // if the object is already in the map, don't overwrite it

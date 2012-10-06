@@ -6,8 +6,6 @@
 
 namespace s3
 {
-  class object_cache;
-
   class file : public object, public boost::enable_shared_from_this<file>
   {
   public:
@@ -18,7 +16,8 @@ namespace s3
       return reinterpret_cast<file *>(handle);
     }
 
-    static int open(const std::string &path, const boost::shared_ptr<object_cache> &cache, uint64_t *handle);
+    // TODO: find another way of handling "truncate"
+    static int open(const std::string &path, uint64_t *handle, bool truncate = false);
 
     file(const std::string &path);
     virtual ~file();
@@ -47,8 +46,6 @@ namespace s3
     virtual int check_download_consistency();
 
   private:
-    friend class object_cache; // for open()
-
     struct transfer_part
     {
       int id;
@@ -70,9 +67,9 @@ namespace s3
       FS_DIRTY       = 0x8
     };
 
-    static void open_locked_object(const object::ptr &obj, uint64_t *handle, int *status);
+    static void open_locked_object(const object::ptr &obj, bool truncate, uint64_t *handle, int *status);
 
-    int open(uint64_t *handle);
+    int open(bool truncate, uint64_t *handle);
 
     int download(const boost::shared_ptr<request> &req);
 

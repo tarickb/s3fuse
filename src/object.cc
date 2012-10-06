@@ -92,6 +92,28 @@ object::ptr object::create(const string &path, const request::ptr &req)
   return obj;
 }
 
+int object::copy_by_path(const request::ptr &req, const string &from, const string &to)
+{
+  req->init(HTTP_PUT);
+  req->set_url(object::build_url(to));
+  req->set_header(service::get_header_prefix() + "copy-source", object::build_url(from));
+  req->set_header(service::get_header_prefix() + "metadata-directive", "COPY");
+
+  req->run();
+
+  return (req->get_response_code() == HTTP_SC_OK) ? 0 : -EIO;
+}
+
+int object::remove_by_url(const request::ptr &req, const string &url)
+{
+  req->init(HTTP_DELETE);
+  req->set_url(url);
+
+  req->run();
+
+  return (req->get_response_code() == HTTP_SC_NO_CONTENT) ? 0 : -EIO;
+}
+
 object::object(const string &path)
   : _path(path),
     _expiry(0)
@@ -123,7 +145,6 @@ bool object::is_expired()
 {
   return (_expiry == 0 || time(NULL) >= _expiry); 
 }
-
 
 void object::copy_stat(struct stat *s)
 {
@@ -306,4 +327,23 @@ int object::commit_metadata(const request::ptr &req)
   }
 
   return 0;
+}
+
+int object::remove(const request::ptr &req)
+{
+  expire();
+
+  return object::remove_by_url(req, _url);
+}
+
+int object::rename(const request::ptr &req, const string &to)
+{
+  int r = object::copy_by_path(req, _path, to);
+
+  if (r)
+    return r;
+
+  expire();
+
+  return remove(req);
 }

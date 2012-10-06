@@ -1,6 +1,7 @@
 #include "config.h"
 #include "directory.h"
 #include "logger.h"
+#include "object_cache.h"
 #include "request.h"
 #include "service.h"
 #include "thread_pool.h"
@@ -18,6 +19,12 @@ namespace
   const char *         KEY_XPATH = "/s3:ListBucketResult/s3:Contents/s3:Key";
   const char * NEXT_MARKER_XPATH = "/s3:ListBucketResult/s3:NextMarker";
   const char *      PREFIX_XPATH = "/s3:ListBucketResult/s3:CommonPrefixes/s3:Prefix";
+
+  struct rename_operation
+  {
+    shared_ptr<string> old_name;
+    wait_async_handle::ptr handle;
+  };
 
   object * checker(const string &path, const request::ptr &req)
   {
@@ -192,4 +199,116 @@ bool directory::is_empty(const request::ptr &req)
     return false;
 
   return (keys.size() == 1);
+}
+
+int directory::remove(const request::ptr &req)
+{
+  if (!is_empty(req))
+    return -ENOTEMPTY;
+
+  return object::remove(req);
+}
+
+void directory::invalidate_parent(const string &path)
+{
+  if (config::get_cache_directories()) {
+    string parent_path;
+    size_t last_slash = path.rfind('/');
+
+    parent_path = (last_slash == string::npos) ? "" : path.substr(0, last_slash);
+
+    S3_LOG(LOG_DEBUG, "directory::invalidate_parent", "invalidating parent directory [%s] for [%s].\n", parent_path.c_str(), path.c_str());
+    object_cache::remove(parent_path);
+  }
+}
+
+int directory::rename(const request::ptr &req, const string &to_)
+{
+  string from, to;
+  size_t from_len;
+  string marker = "";
+  bool truncated = true;
+  list<rename_operation> pending_renames, pending_deletes;
+
+  // can't do anything with the root directory
+  if (get_path().empty())
+    return -EINVAL;
+
+  from = get_path() + "/";
+  to = to_ + "/";
+  from_len = from.size();
+
+  req->init(HTTP_GET);
+
+  while (truncated) {
+    xml::document doc;
+    xml::element_list keys;
+    int r;
+
+    req->set_url(service::get_bucket_url(), string("prefix=") + util::url_encode(from) + "&marker=" + marker);
+    req->run();
+
+    if (req->get_response_code() != HTTP_SC_OK)
+      return -EIO;
+
+    doc = xml::parse(req->get_output_buffer());
+
+    if (!doc) {
+      S3_LOG(LOG_WARNING, "directory::rename", "failed to parse response.\n");
+      return -EIO;
+    }
+
+    if ((r = check_if_truncated(doc, &truncated)))
+      return r;
+
+    if (truncated && (r = xml::find(doc, NEXT_MARKER_XPATH, &marker)))
+      return r;
+
+    if ((r = xml::find(doc, KEY_XPATH, &keys)))
+      return r;
+
+    for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
+      rename_operation oper;
+      const char *full_path_cs = itor->c_str();
+      const char *relative_path_cs = full_path_cs + from_len;
+      string new_name = to + relative_path_cs;
+
+      oper.old_name.reset(new string(full_path_cs));
+      oper.handle = thread_pool::post(thread_pool::PR_BG, bind(&object::copy_by_path, _1, *oper.old_name, new_name));
+
+      pending_renames.push_back(oper);
+
+      S3_LOG(LOG_DEBUG, "directory::rename", "[%s] -> [%s]\n", full_path_cs, new_name.c_str());
+    }
+  }
+
+  while (!pending_renames.empty()) {
+    int r;
+    rename_operation &oper = pending_renames.front();
+
+    r = oper.handle->wait();
+
+    if (r)
+      return r;
+
+    oper.handle.reset();
+    pending_deletes.push_back(oper);
+    pending_renames.pop_front();
+  }
+
+  for (list<rename_operation>::iterator itor = pending_deletes.begin(); itor != pending_deletes.end(); ++itor)
+    itor->handle = thread_pool::post(thread_pool::PR_BG, bind(&object::remove_by_url, _1, object::build_url(*itor->old_name)));
+
+  while (!pending_deletes.empty()) {
+    int r;
+    const rename_operation &oper = pending_deletes.front();
+
+    r = oper.handle->wait();
+    pending_deletes.pop_front();
+
+    if (r)
+      return r;
+  }
+
+  return 0;
 }

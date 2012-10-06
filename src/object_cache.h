@@ -42,50 +42,48 @@ namespace s3
     HINT_IS_FILE = 0x2
   };
 
-  // TODO: make this static!
   class object_cache
   {
   public:
-    typedef boost::shared_ptr<object_cache> ptr;
-    typedef boost::function1<void, boost::shared_ptr<object> > locked_object_function;
+    typedef boost::function1<void, object::ptr> locked_object_function;
 
-    object_cache();
-    ~object_cache();
+    static void init();
+    static void print_summary();
 
-    inline object::ptr get(const std::string &path, int hints = HINT_NONE)
+    inline static object::ptr get(const std::string &path, int hints = HINT_NONE)
     {
       object::ptr obj = find(path);
 
       if (!obj)
         thread_pool::call(
           thread_pool::PR_FG,
-          boost::bind(&object_cache::__fetch, this, _1, path, hints, &obj));
+          boost::bind(&object_cache::fetch, _1, path, hints, &obj));
 
       return obj;
     }
 
-    inline object::ptr get(const boost::shared_ptr<request> &req, const std::string &path, int hints = HINT_NONE)
+    inline static object::ptr get(const boost::shared_ptr<request> &req, const std::string &path, int hints = HINT_NONE)
     {
       object::ptr obj = find(path);
 
       if (!obj)
-        __fetch(req, path, hints, &obj);
+        fetch(req, path, hints, &obj);
 
       return obj;
     }
 
-    inline void remove(const std::string &path)
+    inline static void remove(const std::string &path)
     {
-      boost::mutex::scoped_lock lock(_mutex);
+      boost::mutex::scoped_lock lock(s_mutex);
 
-      _cache_map.erase(path);
+      s_cache_map.erase(path);
     }
 
     // this method is intended to ensure that fn() is called on the one and
     // only cached object at "path"
-    inline void lock_object(const std::string &path, const locked_object_function &fn)
+    inline static void lock_object(const std::string &path, const locked_object_function &fn)
     {
-      boost::mutex::scoped_lock lock(_mutex, boost::defer_lock);
+      boost::mutex::scoped_lock lock(s_mutex, boost::defer_lock);
       object::ptr obj;
 
       // this puts the object at "path" in the cache if it isn't already there
@@ -106,7 +104,7 @@ namespace s3
       // pointer, which fn() has to check for anyway.
 
       lock.lock();
-      obj = _cache_map[path];
+      obj = s_cache_map[path];
 
       fn(obj);
     }
@@ -114,32 +112,32 @@ namespace s3
   private:
     typedef std::map<std::string, object::ptr> cache_map;
 
-    inline object::ptr find(const std::string &path)
+    inline static object::ptr find(const std::string &path)
     {
-      boost::mutex::scoped_lock lock(_mutex);
-      object::ptr &obj = _cache_map[path];
+      boost::mutex::scoped_lock lock(s_mutex);
+      object::ptr &obj = s_cache_map[path];
 
       if (!obj) {
-        _misses++;
+        s_misses++;
 
       } else if (obj->is_expired()) {
-        _expiries++;
+        s_expiries++;
         obj.reset();
 
       } else {
-        _hits++;
+        s_hits++;
       }
 
       return obj;
     }
 
-    int __fetch(const boost::shared_ptr<request> &req, const std::string &path, int hints, object::ptr *obj);
+    static int fetch(const boost::shared_ptr<request> &req, const std::string &path, int hints, object::ptr *obj);
 
     // TODO: prune periodically?
 
-    boost::mutex _mutex;
-    cache_map _cache_map;
-    uint64_t _hits, _misses, _expiries;
+    static boost::mutex s_mutex;
+    static cache_map s_cache_map;
+    static uint64_t s_hits, s_misses, s_expiries;
   };
 }
 
