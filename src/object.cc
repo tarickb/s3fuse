@@ -25,6 +25,7 @@
 #include "config.h"
 #include "logger.h"
 #include "object.h"
+#include "object_cache.h"
 #include "request.h"
 #include "service.h"
 #include "util.h"
@@ -331,7 +332,7 @@ int object::commit_metadata(const request::ptr &req)
 
 int object::remove(const request::ptr &req)
 {
-  expire();
+  object_cache::remove(get_path());
 
   return object::remove_by_url(req, _url);
 }
@@ -343,7 +344,7 @@ int object::rename(const request::ptr &req, const string &to)
   if (r)
     return r;
 
-  expire();
+  object_cache::remove(get_path());
 
   return remove(req);
 }

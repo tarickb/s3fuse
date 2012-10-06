@@ -42,6 +42,8 @@ namespace s3
   {
   public:
     static std::string sign(const std::string &key, const std::string &data);
+
+    // TODO: remove this?
     static void compute_md5(const uint8_t *input, size_t size, std::vector<uint8_t> *output);
     static void compute_md5(int fd, std::vector<uint8_t> *output);
 
@@ -87,12 +89,6 @@ namespace s3
       } else
         throw std::runtime_error("unknown encoding type in util::decode()");
     }
-
-    // TODO: remove this?
-    /*
-    static std::string compute_md5(int fd, md5_output_type type = MOT_BASE64, ssize_t size = 0, off_t offset = 0);
-    static std::string compute_md5(const uint8_t *input, size_t size, md5_output_type type = MOT_BASE64);
-    */
 
     inline static std::string compute_md5(const uint8_t *input, size_t size, encoding type)
     {

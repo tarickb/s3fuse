@@ -30,27 +30,25 @@
 #include <string>
 
 #include "config.h"
+#include "directory.h"
+#include "file.h"
 #include "logger.h"
 #include "object_cache.h"
+#include "service.h"
+#include "ssl_locks.h"
+#include "symlink.h"
 #include "version.h"
+#include "xml.h"
 
 using namespace boost;
 using namespace std;
 
 using namespace s3;
 
-#define ASSERT_LEADING_SLASH(str) \
+#define ASSERT_VALID_PATH(str) \
   do { \
-    if ((str)[0] != '/') { \
-      S3_LOG(LOG_WARNING, "ASSERT_LEADING_SLASH", "failed on [%s]\n", static_cast<const char *>(str)); \
-      return -EINVAL; \
-    } \
-  } while (0)
-
-#define ASSERT_NO_TRAILING_SLASH(str) \
-  do { \
-    if ((str)[strlen(str) - 1] == '/') { \
-      S3_LOG(LOG_WARNING, "ASSERT_NO_TRAILING_SLASH", "failed on [%s]\n", static_cast<const char *>(str)); \
+    if ((str)[0] != '/' || (str)[strlen(str) - 1] == '/') { \
+      S3_LOG(LOG_WARNING, "ASSERT_VALID_PATH", "failed on [%s]\n", static_cast<const char *>(str)); \
       return -EINVAL; \
     } \
   } while (0)
@@ -68,10 +66,19 @@ using namespace s3;
   }
 
 #define GET_OBJECT(var, path) \
-  object::ptr (var) = object_cache::get((path) + 1); \
+  object::ptr var = object_cache::get((path) + 1); \
   \
-  if (!obj) \
+  if (!var) \
     return -ENOENT;
+
+#define GET_OBJECT_AS(type, mode, var, path) \
+  type::ptr var = static_pointer_cast<type>(object_cache::get((path) + 1)); \
+  \
+  if (!var) \
+    return -ENOENT; \
+  \
+  if (var->get_type() != (mode)) \
+    return -EINVAL;
 
 namespace
 {
@@ -87,37 +94,70 @@ namespace
     #endif
   };
 
-  // TODO: replace this with a macro
-  /*
-  int try_catch(const boost::function0<int> &fn)
-  {
-    try {
-      return fn();
-
-    } catch (const std::exception &e) {
-      S3_LOG(LOG_WARNING, "try_catch", "caught exception: %s\n", e.what());
-
-    } catch (...) {
-      S3_LOG(LOG_WARNING, "try_catch", "caught unknown exception\n");
-    }
-
-    return -ECANCELED;
-  }
-  */
-
   void dir_filler(fuse_fill_dir_t filler, void *buf, const std::string &path)
   {
     filler(buf, path.c_str(), NULL, 0);
   }
 
-  // s3::fs *s_fs;
   int s_mountpoint_mode;
 }
 
-int wrap_getattr(const char *path, struct stat *s)
+int s3fuse_chmod(const char *path, mode_t mode)
 {
-  ASSERT_LEADING_SLASH(path);
-  ASSERT_NO_TRAILING_SLASH(path);
+  S3_LOG(LOG_DEBUG, "chmod", "path: %s, mode: %i\n", path, mode);
+
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    GET_OBJECT(obj, path);
+
+    obj->set_mode(mode);
+
+    return obj->commit_metadata();
+  END_TRY;
+}
+
+int s3fuse_chown(const char *path, uid_t uid, gid_t gid)
+{
+  S3_LOG(LOG_DEBUG, "chown", "path: %s, user: %i, group: %i\n", path, uid, gid);
+
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    GET_OBJECT(obj, path);
+
+    obj->set_uid(uid);
+    obj->set_gid(gid);
+
+    return obj->commit_metadata();
+  END_TRY;
+}
+
+int s3fuse_flush(const char *path, fuse_file_info *file_info)
+{
+  file *f = file::from_handle(file_info->fh);
+
+  S3_LOG(LOG_DEBUG, "flush", "path: %s\n", f->get_path().c_str());
+
+  BEGIN_TRY;
+    return f->flush();
+  END_TRY;
+}
+
+int s3fuse_ftruncate(const char *path, off_t offset, fuse_file_info *file_info)
+{
+  file *f = file::from_handle(file_info->fh);
+
+  S3_LOG(LOG_DEBUG, "ftruncate", "path: %s, offset: %ji\n", f->get_path().c_str(), static_cast<intmax_t>(offset));
+
+  BEGIN_TRY;
+    return f->truncate(offset);
+  END_TRY;
+}
+
+int s3fuse_getattr(const char *path, struct stat *s)
+{
+  ASSERT_VALID_PATH(path);
 
   memset(s, 0, sizeof(*s));
 
@@ -139,68 +179,212 @@ int wrap_getattr(const char *path, struct stat *s)
   END_TRY;
 }
 
-int wrap_chown(const char *path, uid_t uid, gid_t gid)
+#ifdef __APPLE__
+int s3fuse_getxattr(const char *path, const char *name, char *buffer, size_t max_size, uint32_t position)
+#else
+int s3fuse_getxattr(const char *path, const char *name, char *buffer, size_t max_size)
+#endif
 {
-  S3_LOG(LOG_DEBUG, "chown", "path: %s, user: %i, group: %i\n", path, uid, gid);
-
-  ASSERT_LEADING_SLASH(path);
-  ASSERT_NO_TRAILING_SLASH(path);
+  ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
     GET_OBJECT(obj, path);
 
-    obj->set_uid(uid);
-    obj->set_gid(gid);
-
-    return thread_pool::call(thread_pool::PR_FG, bind(&object::commit_metadata, obj, _1));
+    return obj->get_metadata(name, buffer, max_size);
   END_TRY;
 }
 
-int wrap_chmod(const char *path, mode_t mode)
+int s3fuse_listxattr(const char *path, char *buffer, size_t size)
 {
-  S3_LOG(LOG_DEBUG, "chmod", "path: %s, mode: %i\n", path, mode);
+  typedef vector<string> str_vec;
 
-  ASSERT_LEADING_SLASH(path);
-  ASSERT_NO_TRAILING_SLASH(path);
+  ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
     GET_OBJECT(obj, path);
 
-    obj->set_mode(mode);
+    str_vec attrs;
+    size_t required_size = 0;
 
-    return thread_pool::call(thread_pool::PR_FG, bind(&object::commit_metadata, obj, _1));
+    obj->get_metadata_keys(&attrs);
+
+    for (str_vec::const_iterator itor = attrs.begin(); itor != attrs.end(); ++itor)
+      required_size += itor->size() + 1;
+
+    if (buffer == NULL || size == 0)
+      return required_size;
+
+    if (required_size > size)
+      return -ERANGE;
+
+    for (str_vec::const_iterator itor = attrs.begin(); itor != attrs.end(); ++itor) {
+      strcpy(buffer, itor->c_str());
+      buffer += itor->size() + 1;
+    }
+
+    return required_size;
   END_TRY;
 }
 
-int wrap_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, fuse_file_info *file_info)
+int s3fuse_open(const char *path, fuse_file_info *file_info)
+{
+  S3_LOG(LOG_DEBUG, "open", "path: %s\n", path);
+
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    return file::open(static_cast<string>(path), &file_info->fh, (file_info->flags & O_TRUNC));
+  END_TRY;
+}
+
+int s3fuse_read(const char *path, char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
+{
+  BEGIN_TRY;
+    return file::from_handle(file_info->fh)->read(buffer, size, offset);
+  END_TRY;
+}
+
+int s3fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, fuse_file_info *file_info)
 {
   S3_LOG(LOG_DEBUG, "readdir", "path: %s\n", path);
-  ASSERT_LEADING_SLASH(path);
 
-  return try_catch(bind(
-    &s3::fs::read_directory, 
-    s_fs, 
-    path + 1, 
-    s3::object::dir_filler_function(bind(&dir_filler, filler, buf, _1))));
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    GET_OBJECT_AS(directory, S_IFDIR, dir, path);
+
+    return dir->read(bind(&dir_filler, filler, buf, _1));
+  END_TRY;
 }
 
-int wrap_mkdir(const char *path, mode_t mode)
+int s3fuse_readlink(const char *path, char *buffer, size_t max_size)
+{
+  S3_LOG(LOG_DEBUG, "readlink", "path: %s, max_size: %zu\n", path, max_size);
+
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    GET_OBJECT_AS(s3::symlink, S_IFLNK, link, path);
+
+    string target;
+    int r = link->read(&target);
+
+    if (r)
+      return r;
+
+    // leave room for the terminating null
+    max_size--;
+
+    if (target.size() < max_size)
+      max_size = target.size();
+
+    memcpy(buffer, target.c_str(), max_size);
+    buffer[max_size] = '\0';
+
+    return 0;
+  END_TRY;
+}
+
+int s3fuse_release(const char *path, fuse_file_info *file_info)
+{
+  file *f = file::from_handle(file_info->fh);
+
+  S3_LOG(LOG_DEBUG, "release", "path: %s\n", f->get_path().c_str());
+
+  BEGIN_TRY;
+    return f->release();
+  END_TRY;
+}
+
+int s3fuse_removexattr(const char *path, const char *name)
+{
+  S3_LOG(LOG_DEBUG, "removexattr", "path: %s, name: %s\n", path, name);
+
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    GET_OBJECT(obj, path);
+
+    int r = obj->remove_metadata(name);
+
+    return r ? r : obj->commit_metadata();
+  END_TRY;
+}
+
+#ifdef __APPLE__
+int s3fuse_setxattr(const char *path, const char *name, const char *value, size_t size, int flags, uint32_t position)
+#else
+int s3fuse_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
+#endif
+{
+  S3_LOG(LOG_DEBUG, "setxattr", "path: [%s], name: [%s], size: %i\n", path, name, size);
+
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    GET_OBJECT(obj, path);
+
+    int r = obj->set_metadata(name, value, size, flags);
+
+    return r ? r : obj->commit_metadata();
+  END_TRY;
+}
+
+int s3fuse_unlink(const char *path)
+{
+  S3_LOG(LOG_DEBUG, "unlink", "path: %s\n", path);
+
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    GET_OBJECT(obj, path);
+
+    directory::invalidate_parent(path);
+
+    return obj->remove();
+  END_TRY;
+}
+
+int s3fuse_utimens(const char *path, const timespec times[2])
+{
+  S3_LOG(LOG_DEBUG, "utimens", "path: %s, time: %li\n", path, times[1].tv_sec);
+
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    GET_OBJECT(obj, path);
+
+    obj->set_mtime(times[1].tv_sec);
+
+    return obj->commit_metadata();
+  END_TRY;
+}
+
+int s3fuse_write(const char *path, const char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
+{
+  BEGIN_TRY;
+    return file::from_handle(file_info->fh)->write(buffer, size, offset);
+  END_TRY;
+}
+
+/*
+int s3fuse_mkdir(const char *path, mode_t mode)
 {
   const fuse_context *ctx = fuse_get_context();
 
   S3_LOG(LOG_DEBUG, "mkdir", "path: %s, mode: %#o\n", path, mode);
-  ASSERT_LEADING_SLASH(path);
+  ASSERT_VALID_PATH(path);
 
   return try_catch(bind(&s3::fs::create_directory, s_fs, path + 1, mode, ctx->uid, ctx->gid));
 }
 
-int wrap_create(const char *path, mode_t mode, fuse_file_info *file_info)
+int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
 {
   int r;
   const fuse_context *ctx = fuse_get_context();
 
   S3_LOG(LOG_DEBUG, "create", "path: %s, mode: %#o\n", path, mode);
-  ASSERT_LEADING_SLASH(path);
+  ASSERT_VALID_PATH(path);
 
   r = try_catch(bind(&s3::fs::create_file, s_fs, path + 1, mode, ctx->uid, ctx->gid));
 
@@ -210,182 +394,25 @@ int wrap_create(const char *path, mode_t mode, fuse_file_info *file_info)
   return try_catch(bind(&s3::fs::open, s_fs, path + 1, &file_info->fh));
 }
 
-int wrap_open(const char *path, fuse_file_info *file_info)
-{
-  S3_LOG(LOG_DEBUG, "open", "path: %s\n", path);
-  ASSERT_LEADING_SLASH(path);
-
-  return try_catch(bind(&s3::fs::open, s_fs, path + 1, &file_info->fh));
-}
-
-int wrap_read(const char *path, char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
-{
-  ASSERT_LEADING_SLASH(path);
-
-  return try_catch(bind(&s3::fs::read, s_fs, file_info->fh, buffer, size, offset));
-}
-
-int wrap_write(const char *path, const char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
-{
-  ASSERT_LEADING_SLASH(path);
-
-  return try_catch(bind(&s3::fs::write, s_fs, file_info->fh, buffer, size, offset));
-}
-
-int wrap_flush(const char *path, fuse_file_info *file_info)
-{
-  S3_LOG(LOG_DEBUG, "flush", "path: %s\n", path);
-  ASSERT_LEADING_SLASH(path);
-
-  return try_catch(bind(&s3::fs::flush, s_fs, file_info->fh));
-}
-
-int wrap_release(const char *path, fuse_file_info *file_info)
-{
-  S3_LOG(LOG_DEBUG, "release", "path: %s\n", path);
-  ASSERT_LEADING_SLASH(path);
-
-  return try_catch(bind(&s3::fs::release, s_fs, file_info->fh));
-}
-
-int wrap_truncate(const char *path, off_t offset)
-{
-  S3_LOG(LOG_DEBUG, "truncate", "path: %s, offset: %ji\n", path, static_cast<intmax_t>(offset));
-  ASSERT_LEADING_SLASH(path);
-
-  return try_catch(bind(&s3::fs::truncate_by_path, s_fs, path + 1, offset));
-}
-
-int wrap_unlink(const char *path)
-{
-  S3_LOG(LOG_DEBUG, "unlink", "path: %s\n", path);
-  ASSERT_LEADING_SLASH(path);
-
-  return try_catch(bind(&s3::fs::remove_file, s_fs, path + 1));
-}
-
-int wrap_rmdir(const char *path)
-{
-  S3_LOG(LOG_DEBUG, "rmdir", "path: %s\n", path);
-  ASSERT_LEADING_SLASH(path);
-
-  return try_catch(bind(&s3::fs::remove_directory, s_fs, path + 1));
-}
-
-int wrap_rename(const char *from, const char *to)
+int s3fuse_rename(const char *from, const char *to)
 {
   S3_LOG(LOG_DEBUG, "rename", "from: %s, to: %s\n", from, to);
-  ASSERT_LEADING_SLASH(from);
-  ASSERT_LEADING_SLASH(to);
+  ASSERT_VALID_PATH(from);
+  ASSERT_VALID_PATH(to);
 
   return try_catch(bind(&s3::fs::rename_object, s_fs, from + 1, to + 1));
 }
 
-int wrap_utimens(const char *path, const timespec times[2])
-{
-  S3_LOG(LOG_DEBUG, "utimens", "path: %s, time: %li\n", path, times[1].tv_sec);
-  ASSERT_LEADING_SLASH(path);
-
-  return try_catch(bind(&s3::fs::change_mtime, s_fs, path + 1, times[1].tv_sec));
-}
-
-int wrap_symlink(const char *target, const char *path)
+int s3fuse_symlink(const char *target, const char *path)
 {
   const fuse_context *ctx = fuse_get_context();
 
   S3_LOG(LOG_DEBUG, "symlink", "path: %s, target: %s\n", path, target);
-  ASSERT_LEADING_SLASH(path);
+  ASSERT_VALID_PATH(path);
 
   return try_catch(bind(&s3::fs::create_symlink, s_fs, path + 1, ctx->uid, ctx->gid, target));
 }
-
-int wrap_readlink(const char *path, char *buffer, size_t max_size)
-{
-  string target;
-  int r;
-
-  S3_LOG(LOG_DEBUG, "readlink", "path: %s, max_size: %zu\n", path, max_size);
-  ASSERT_LEADING_SLASH(path);
-
-  r = try_catch(bind(&s3::fs::read_symlink, s_fs, path + 1, &target));
-
-  if (r)
-    return r;
-
-  // leave room for the terminating null
-  max_size--;
-
-  if (target.size() < max_size)
-    max_size = target.size();
-
-  memcpy(buffer, target.c_str(), max_size);
-  buffer[max_size] = '\0';
-
-  return 0;
-}
-
-#ifdef __APPLE__
-int wrap_getxattr(const char *path, const char *name, char *buffer, size_t max_size, uint32_t position)
-#else
-int wrap_getxattr(const char *path, const char *name, char *buffer, size_t max_size)
-#endif
-{
-  ASSERT_LEADING_SLASH(path);
-
-  return try_catch(bind(&s3::fs::get_attr, s_fs, path + 1, name, buffer, max_size));
-}
-
-#ifdef __APPLE__
-int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags, uint32_t position)
-#else
-int wrap_setxattr(const char *path, const char *name, const char *value, size_t size, int flags)
-#endif
-{
-  S3_LOG(LOG_DEBUG, "setxattr", "path: [%s], name: [%s], size: %i\n", path, name, size);
-  ASSERT_LEADING_SLASH(path);
-
-  return try_catch(bind(&s3::fs::set_attr, s_fs, path + 1, name, value, size, flags));
-}
-
-int wrap_listxattr(const char *path, char *buffer, size_t size)
-{
-  typedef vector<string> str_vec;
-
-  str_vec attrs;
-  size_t required_size = 0;
-  int r;
-
-  ASSERT_LEADING_SLASH(path);
-
-  r = try_catch(bind(&s3::fs::list_attr, s_fs, path + 1, &attrs));
-
-  if (r)
-    return r;
-
-  for (str_vec::const_iterator itor = attrs.begin(); itor != attrs.end(); ++itor)
-    required_size += itor->size() + 1;
-
-  if (buffer == NULL || size == 0)
-    return required_size;
-
-  if (required_size > size)
-    return -ERANGE;
-
-  for (str_vec::const_iterator itor = attrs.begin(); itor != attrs.end(); ++itor) {
-    strcpy(buffer, itor->c_str());
-    buffer += itor->size() + 1;
-  }
-
-  return required_size;
-}
-
-int wrap_removexattr(const char *path, const char *name)
-{
-  S3_LOG(LOG_DEBUG, "removexattr", "path: %s, name: %s\n", path, name);
-  ASSERT_LEADING_SLASH(path);
-
-  return try_catch(bind(&s3::fs::remove_attr, s_fs, path + 1, name));
-}
+*/
 
 int print_version()
 {
@@ -454,19 +481,16 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
 int pre_init(const options &opts)
 {
   try {
-    int r;
     struct stat mp_stat;
 
-    s3::logger::init(opts.verbosity);
+    logger::init(opts.verbosity);
 
     if (stat(opts.mountpoint.c_str(), &mp_stat))
       throw runtime_error("failed to stat mount point.");
 
     s_mountpoint_mode = S_IFDIR | mp_stat.st_mode;
 
-    r = s3::config::init(opts.config);
-
-    return r;
+    return config::init(opts.config);
 
   } catch (const std::exception &e) {
     S3_LOG(LOG_ERR, "pre_init", "caught exception while initializing: %s\n", e.what());
@@ -481,7 +505,20 @@ int pre_init(const options &opts)
 void * init(fuse_conn_info *info)
 {
   try {
-    s_fs = new s3::fs();
+    ssl_locks::init();
+    thread_pool::init();
+
+    service::init(config::get_service());
+    xml::init(service::get_xml_namespace());
+
+    object_cache::init();
+
+    if (info->capable & FUSE_CAP_ATOMIC_O_TRUNC) {
+      info->want |= FUSE_CAP_ATOMIC_O_TRUNC;
+      S3_LOG(LOG_DEBUG, "init", "enabling FUSE_CAP_ATOMIC_O_TRUNC\n");
+    } else {
+      S3_LOG(LOG_WARNING, "init", "FUSE_CAP_ATOMIC_O_TRUNC not supported, will revert to truncate-then-open\n");
+    }
 
     return NULL;
 
@@ -500,32 +537,33 @@ void build_ops(fuse_operations *ops)
 {
   memset(ops, 0, sizeof(*ops));
 
-  // TODO: set flag_nopath
   // TODO: remove truncate, add ftruncate, set atomic_o_trunc
 
-  ops->chmod = wrap_chmod;
-  ops->chown = wrap_chown;
-  ops->create = wrap_create;
-  ops->getattr = wrap_getattr;
-  ops->getxattr = wrap_getxattr;
-  ops->flush = wrap_flush;
+  ops->flag_nullpath_ok = 1;
+
+  ops->chmod = s3fuse_chmod;
+  ops->chown = s3fuse_chown;
+  ops->create = s3fuse_create;
+  ops->getattr = s3fuse_getattr;
+  ops->getxattr = s3fuse_getxattr;
+  ops->flush = s3fuse_flush;
+  ops->ftruncate = s3fuse_ftruncate;
   ops->init = init;
-  ops->listxattr = wrap_listxattr;
-  ops->mkdir = wrap_mkdir;
-  ops->open = wrap_open;
-  ops->read = wrap_read;
-  ops->readdir = wrap_readdir;
-  ops->readlink = wrap_readlink;
-  ops->release = wrap_release;
-  ops->removexattr = wrap_removexattr;
-  ops->rename = wrap_rename;
-  ops->rmdir = wrap_rmdir;
-  ops->setxattr = wrap_setxattr;
-  ops->symlink = wrap_symlink;
-  ops->truncate = wrap_truncate;
-  ops->unlink = wrap_unlink;
-  ops->utimens = wrap_utimens;
-  ops->write = wrap_write;
+  ops->listxattr = s3fuse_listxattr;
+  ops->mkdir = s3fuse_mkdir;
+  ops->open = s3fuse_open;
+  ops->read = s3fuse_read;
+  ops->readdir = s3fuse_readdir;
+  ops->readlink = s3fuse_readlink;
+  ops->release = s3fuse_release;
+  ops->removexattr = s3fuse_removexattr;
+  ops->rename = s3fuse_rename;
+  ops->rmdir = s3fuse_unlink;
+  ops->setxattr = s3fuse_setxattr;
+  ops->symlink = s3fuse_symlink;
+  ops->unlink = s3fuse_unlink;
+  ops->utimens = s3fuse_utimens;
+  ops->write = s3fuse_write;
 }
 
 int main(int argc, char **argv)
@@ -556,9 +594,12 @@ int main(int argc, char **argv)
     return r;
 
   r = fuse_main(args.argc, args.argv, &ops, NULL);
-  delete s_fs;
 
   fuse_opt_free_args(&args);
+
+  thread_pool::terminate();
+  object_cache::print_summary();
+  ssl_locks::release();
 
   return r;
 }

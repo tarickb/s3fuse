@@ -31,13 +31,14 @@
 #include <boost/smart_ptr.hpp>
 #include <boost/thread.hpp>
 
+#include "thread_pool.h"
 #include "xattr.h"
 
 namespace s3
 {
   class request;
 
-  class object
+  class object : public boost::enable_shared_from_this<object>
   {
   public:
     typedef boost::shared_ptr<object> ptr;
@@ -91,6 +92,16 @@ namespace s3
 
     virtual int remove(const boost::shared_ptr<request> &req);
     virtual int rename(const boost::shared_ptr<request> &req, const std::string &to);
+
+    int commit_metadata()
+    {
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&object::commit_metadata, shared_from_this(), _1));
+    }
+
+    int remove()
+    {
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&object::remove, shared_from_this(), _1));
+    }
 
   protected:
     object(const std::string &path);

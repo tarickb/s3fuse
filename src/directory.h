@@ -6,9 +6,10 @@
 
 namespace s3
 {
-  class directory : public object, public boost::enable_shared_from_this<directory>
+  class directory : public object
   {
   public:
+    typedef boost::shared_ptr<directory> ptr;
     typedef boost::function1<void, const std::string &> filler_function;
 
     static std::string build_url(const std::string &path);
@@ -16,6 +17,11 @@ namespace s3
 
     directory(const std::string &path);
     virtual ~directory();
+
+    inline ptr shared_from_this()
+    {
+      return boost::static_pointer_cast<directory>(object::shared_from_this());
+    }
 
     inline int read(const filler_function &filler)
     {

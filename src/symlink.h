@@ -6,11 +6,18 @@
 
 namespace s3
 {
-  class symlink : public object, public boost::enable_shared_from_this<symlink>
+  class symlink : public object
   {
   public:
+    typedef boost::shared_ptr<symlink> ptr;
+
     symlink(const std::string &path);
     virtual ~symlink();
+
+    inline ptr shared_from_this()
+    {
+      return boost::static_pointer_cast<symlink>(object::shared_from_this());
+    }
 
     inline int read(std::string *target)
     {

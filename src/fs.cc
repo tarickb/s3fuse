@@ -36,46 +36,10 @@ using namespace std;
 
 using namespace s3;
 
-#define ASSERT_NO_TRAILING_SLASH(str) do { if ((str)[(str).size() - 1] == '/') return -EINVAL; } while (0)
-
 namespace
 {
   const string SYMLINK_PREFIX = "SYMLINK:";
 }
-
-fs::fs()
-{
-  service::init(config::get_service());
-  xml::init(service::get_xml_namespace());
-
-  _object_cache.reset(new object_cache());
-}
-
-/*
-int fs::__prefill_stats(const request::ptr &req, const string &path, int hints)
-{
-  _object_cache->get(req, path, hints);
-
-  return 0;
-}
-
-int fs::__get_stats(const request::ptr &req, const string &path, struct stat *s, int hints)
-{
-  object::ptr obj;
-
-  ASSERT_NO_TRAILING_SLASH(path);
-
-  obj = _object_cache->get(req, path, hints);
-
-  if (!obj)
-    return -ENOENT;
-
-  if (s)
-    obj->copy_stat(s);
-
-  return 0;
-}
-*/
 
 int fs::__rename_object(const request::ptr &req, const string &from, const string &to)
 {
@@ -123,34 +87,6 @@ int fs::__rename_object(const request::ptr &req, const string &from, const strin
     return remove_object(req, obj->get_url());
   }
 }
-
-/*
-int fs::__change_metadata(const request::ptr &req, const string &path, mode_t mode, uid_t uid, gid_t gid, time_t mtime)
-{
-  object::ptr obj;
-
-  ASSERT_NO_TRAILING_SLASH(path);
-
-  obj = _object_cache->get(req, path);
-
-  if (!obj)
-    return -ENOENT;
-
-  if (mode != mode_t(-1))
-    obj->set_mode(mode);
-
-  if (uid != uid_t(-1))
-    obj->set_uid(uid);
-
-  if (gid != gid_t(-1))
-    obj->set_gid(gid);
-
-  if (mtime != time_t(-1))
-    obj->set_mtime(mtime);
-
-  return obj->commit_metadata(req);
-}
-*/
 
 int fs::__create_object(const request::ptr &req, const string &path, object_type type, mode_t mode, uid_t uid, gid_t gid, const string &symlink_target)
 {

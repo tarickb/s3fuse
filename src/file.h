@@ -6,7 +6,7 @@
 
 namespace s3
 {
-  class file : public object, public boost::enable_shared_from_this<file>
+  class file : public object
   {
   public:
     typedef boost::shared_ptr<file> ptr;
@@ -22,15 +22,20 @@ namespace s3
     file(const std::string &path);
     virtual ~file();
 
+    inline ptr shared_from_this()
+    {
+      return boost::static_pointer_cast<file>(object::shared_from_this());
+    }
+
     virtual bool is_expired();
 
-    // TODO: add truncate
     // TODO: handle O_TRUNC in open?
 
     int release();
     int flush();
     int write(const char *buffer, size_t size, off_t offset);
     int read(char *buffer, size_t size, off_t offset);
+    int truncate(off_t length);
 
     virtual void copy_stat(struct stat *s);
 

@@ -140,7 +140,6 @@ string util::sign(const string &key, const string &data)
   return base64_encode(hmac_sha1, SHA1_SIZE);
 }
 
-// TODO: remove this
 void util::compute_md5(int fd, vector<uint8_t> *output)
 {
   const ssize_t BUF_LEN = 8 * 1024;

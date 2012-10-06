@@ -168,7 +168,7 @@ int file::release()
     }
 
     close(_fd);
-    expire(); // TODO: is this necessary?
+    object_cache::remove(get_path());
   }
 
   return 0;
@@ -234,6 +234,29 @@ int file::read(char *buffer, size_t size, off_t offset)
   lock.unlock();
 
   return pread(_fd, buffer, size, offset);
+}
+
+int file::truncate(off_t length)
+{
+  mutex::scoped_lock lock(_fs_mutex);
+  int r;
+
+  while (_status & (FS_DOWNLOADING | FS_UPLOADING))
+    _condition.wait(lock);
+
+  if (_async_error)
+    return _async_error;
+
+  _status |= FS_DIRTY | FS_WRITING;
+
+  lock.unlock();
+  r = ftruncate(_fd, length);
+  lock.lock();
+
+  _status &= ~FS_WRITING;
+  _condition.notify_all();
+
+  return r;
 }
 
 int file::write_chunk(const char *buffer, size_t size, off_t offset)

@@ -17,10 +17,6 @@ s3fuse_SOURCES = \
 	encrypted_file.h \
 	file.cc \
 	file.h \
-	file_transfer.cc \
-	file_transfer.h \
-	fs.cc \
-	fs.h \
 	gs_service_impl.cc \
 	gs_service_impl.h \
 	logger.cc \
