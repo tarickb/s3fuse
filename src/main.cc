@@ -140,8 +140,11 @@ int s3fuse_chown(const char *path, uid_t uid, gid_t gid)
   BEGIN_TRY;
     GET_OBJECT(obj, path);
 
-    obj->set_uid(uid);
-    obj->set_gid(gid);
+    if (uid != static_cast<uid_t>(-1))
+      obj->set_uid(uid);
+
+    if (gid != static_cast<gid_t>(-1))
+      obj->set_gid(gid);
 
     return obj->commit();
   END_TRY;
@@ -396,10 +399,10 @@ int s3fuse_rename(const char *from, const char *to)
 
   BEGIN_TRY;
     GET_OBJECT(from_obj, from);
-    GET_OBJECT(to_obj, to);
 
-    if (!from_obj)
-      return -ENOENT;
+    // not using GET_OBJECT() here because we don't want to fail if "to"
+    // doesn't exist
+    object::ptr to_obj = object_cache::get(to);
 
     directory::invalidate_parent(from);
     directory::invalidate_parent(to);
