@@ -376,6 +376,47 @@ int s3fuse_removexattr(const char *path, const char *name)
   END_TRY;
 }
 
+int s3fuse_rename(const char *from, const char *to)
+{
+  S3_LOG(LOG_DEBUG, "rename", "from: %s, to: %s\n", from, to);
+
+  ASSERT_VALID_PATH(from);
+  ASSERT_VALID_PATH(to);
+
+  BEGIN_TRY;
+    GET_OBJECT(from_obj, from);
+    GET_OBJECT(to_obj, to);
+
+    if (!from_obj)
+      return -ENOENT;
+
+    directory::invalidate_parent(from);
+    directory::invalidate_parent(to);
+
+    if (to_obj) {
+      int r;
+
+      if (to_obj->get_type() == S_IFDIR) {
+        if (from_obj->get_type() != S_IFDIR)
+          return -EISDIR;
+
+        if (!static_pointer_cast<directory>(to_obj)->is_empty())
+          return -ENOTEMPTY;
+
+      } else if (from_obj->get_type() == S_IFDIR) {
+        return -ENOTDIR;
+      }
+
+      r = to_obj->remove();
+
+      if (r)
+        return r;
+    }
+
+    return from_obj->rename(to);
+  END_TRY;
+}
+
 #ifdef __APPLE__
 int s3fuse_setxattr(const char *path, const char *name, const char *value, size_t size, int flags, uint32_t position)
 #else
@@ -460,17 +501,6 @@ int s3fuse_write(const char *path, const char *buffer, size_t size, off_t offset
     return file::from_handle(file_info->fh)->write(buffer, size, offset);
   END_TRY;
 }
-
-/*
-int s3fuse_rename(const char *from, const char *to)
-{
-  S3_LOG(LOG_DEBUG, "rename", "from: %s, to: %s\n", from, to);
-  ASSERT_VALID_PATH(from);
-  ASSERT_VALID_PATH(to);
-
-  return try_catch(bind(&s3::fs::rename_object, s_fs, from + 1, to + 1));
-}
-*/
 
 int print_version()
 {
@@ -615,7 +645,7 @@ void build_ops(fuse_operations *ops)
   ops->readlink = s3fuse_readlink;
   ops->release = s3fuse_release;
   ops->removexattr = s3fuse_removexattr;
-  // ops->rename = s3fuse_rename; // TODO: restore this
+  ops->rename = s3fuse_rename;
   ops->rmdir = s3fuse_unlink;
   ops->setxattr = s3fuse_setxattr;
   ops->symlink = s3fuse_symlink;

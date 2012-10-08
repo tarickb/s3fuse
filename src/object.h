@@ -101,6 +101,11 @@ namespace s3
       return thread_pool::call(thread_pool::PR_FG, boost::bind(&object::remove, shared_from_this(), _1));
     }
 
+    int rename(const std::string &to)
+    {
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&object::rename, shared_from_this(), _1, to));
+    }
+
   protected:
     object(const std::string &path);
 

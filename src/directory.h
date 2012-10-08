@@ -43,6 +43,11 @@ namespace s3
 
     bool is_empty(const boost::shared_ptr<request> &req);
 
+    inline bool is_empty()
+    {
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&directory::is_empty, shared_from_this(), _1));
+    }
+
     virtual int remove(const boost::shared_ptr<request> &req);
     virtual int rename(const boost::shared_ptr<request> &req, const std::string &to);
 
