@@ -95,7 +95,7 @@ void gs_service_impl::get_tokens(get_tokens_mode mode, const string &key, string
     throw runtime_error("failed to get tokens.");
   }
 
-  ss << req.get_output_buffer();
+  ss << req.get_output_string();
   read_json(ss, tree);
 
   *access_token = tree.get<string>("access_token");

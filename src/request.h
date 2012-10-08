@@ -94,8 +94,17 @@ namespace s3
       set_input_buffer(_input_string_copy.c_str(), _input_string_copy.size());
     }
 
-    inline const char * get_output_buffer() { return &_output_buffer[0]; }
-    inline size_t get_output_buffer_size() { return _output_buffer.size(); }
+    inline const std::vector<char> & get_output_buffer() { return _output_buffer; }
+
+    inline std::string get_output_string()
+    {
+      std::string s;
+
+      // we do this because _output_buffer has no trailing null
+      s.assign(&_output_buffer[0], _output_buffer.size());
+
+      return s;
+    }
 
     inline const std::string & get_response_header(const std::string &key) { return _response_headers[key]; }
     inline const header_map & get_response_headers() { return _response_headers; }

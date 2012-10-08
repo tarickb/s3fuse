@@ -46,6 +46,8 @@ void symlink::set_request_body(const request::ptr &req)
 
 int symlink::read(const request::ptr &req, string *target)
 {
+  string output;
+
   req->init(HTTP_GET);
   req->set_url(get_url());
 
@@ -54,11 +56,15 @@ int symlink::read(const request::ptr &req, string *target)
   if (req->get_response_code() != HTTP_SC_OK)
     return -EIO;
 
-  if (strncmp(req->get_output_buffer(), CONTENT_PREFIX_CSTR, CONTENT_PREFIX_LEN) != 0) {
-    S3_LOG(LOG_WARNING, "symlink::read", "content prefix does not match: [%s]\n", req->get_output_buffer());
+  output = req->get_output_string();
+
+  if (strncmp(output.c_str(), CONTENT_PREFIX_CSTR, CONTENT_PREFIX_LEN) != 0) {
+    S3_LOG(LOG_WARNING, "symlink::read", "content prefix does not match: [%s]\n", output.c_str());
     return -EINVAL;
   }
 
-  *target = req->get_output_buffer() + CONTENT_PREFIX_LEN;
+  // TODO: cache this for subsequent calls to read?
+
+  *target = output.c_str() + CONTENT_PREFIX_LEN;
   return 0;
 }

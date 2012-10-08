@@ -170,7 +170,7 @@ int file::release()
     }
 
     close(_fd);
-    object_cache::remove(get_path());
+    expire();
   }
 
   return 0;
@@ -359,7 +359,7 @@ int file::download_single(const request::ptr &req)
   else if (rc != HTTP_SC_OK)
     return -EIO;
 
-  return write_chunk(req->get_output_buffer(), req->get_output_buffer_size(), 0);
+  return write_chunk(&req->get_output_buffer()[0], req->get_output_buffer().size(), 0);
 }
 
 int file::download_multi()
@@ -430,7 +430,7 @@ int file::download_part(const request::ptr &req, const transfer_part *part)
   else if (rc != HTTP_SC_PARTIAL_CONTENT)
     return -EIO;
 
-  return write_chunk(req->get_output_buffer(), req->get_output_buffer_size(), part->offset);
+  return write_chunk(&req->get_output_buffer()[0], req->get_output_buffer().size(), part->offset);
 }
 
 int file::upload(const request::ptr &req)
@@ -449,7 +449,7 @@ int file::upload_single(const request::ptr &req)
   string expected_md5_b64, expected_md5_hex, etag;
   bool valid_md5;
 
-  r = read_chunk(0, get_transfer_size(), &buffer);
+  r = read_chunk(get_transfer_size(), 0, &buffer);
 
   if (r)
     return r;
@@ -510,7 +510,7 @@ int file::upload_multi(const request::ptr &req)
   if (req->get_response_code() != HTTP_SC_OK)
     return -EIO;
 
-  doc = xml::parse(req->get_output_buffer());
+  doc = xml::parse(req->get_output_string());
 
   if (!doc) {
     S3_LOG(LOG_WARNING, "file::upload_multi", "failed to parse response.\n");
@@ -604,7 +604,7 @@ int file::upload_multi(const request::ptr &req)
     return -EIO;
   }
 
-  doc = xml::parse(req->get_output_buffer());
+  doc = xml::parse(req->get_output_string());
 
   if (!doc) {
     S3_LOG(LOG_WARNING, "file::upload_multi", "failed to parse response.\n");
@@ -615,7 +615,7 @@ int file::upload_multi(const request::ptr &req)
     return r;
 
   if (etag.empty()) {
-    S3_LOG(LOG_WARNING, "file::upload_multi", "no etag on multipart upload of [%s]. response: %s\n", get_url().c_str(), req->get_output_buffer());
+    S3_LOG(LOG_WARNING, "file::upload_multi", "no etag on multipart upload of [%s]. response: %s\n", get_url().c_str(), req->get_output_string().c_str());
     return -EIO;
   }
 

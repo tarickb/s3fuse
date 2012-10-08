@@ -98,7 +98,7 @@ int directory::read(const request::ptr &req, const filler_function &filler)
     if (req->get_response_code() != HTTP_SC_OK)
       return -EIO;
 
-    doc = xml::parse(req->get_output_buffer());
+    doc = xml::parse(req->get_output_string());
 
     if (!doc) {
       S3_LOG(LOG_WARNING, "directory::read", "failed to parse response.\n");
@@ -186,7 +186,7 @@ bool directory::is_empty(const request::ptr &req)
   if (req->get_response_code() != HTTP_SC_OK)
     return false;
 
-  doc = xml::parse(req->get_output_buffer());
+  doc = xml::parse(req->get_output_string());
 
   if (!doc) {
     S3_LOG(LOG_WARNING, "directory::is_empty", "failed to parse response.\n");
@@ -249,7 +249,7 @@ int directory::rename(const request::ptr &req, const string &to_)
     if (req->get_response_code() != HTTP_SC_OK)
       return -EIO;
 
-    doc = xml::parse(req->get_output_buffer());
+    doc = xml::parse(req->get_output_string());
 
     if (!doc) {
       S3_LOG(LOG_WARNING, "directory::rename", "failed to parse response.\n");
