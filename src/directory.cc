@@ -30,8 +30,6 @@ namespace
   {
     const string &url = req->get_url();
 
-    S3_LOG(LOG_DEBUG, "directory::checker", "testing [%s]\n", path.c_str());
-
     if (!path.empty() && (url.empty() || url[url.size() - 1] != '/'))
       return NULL;
 

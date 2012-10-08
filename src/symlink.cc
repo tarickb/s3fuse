@@ -17,8 +17,6 @@ namespace
 
   object * checker(const string &path, const request::ptr &req)
   {
-    S3_LOG(LOG_DEBUG, "symlink::checker", "testing [%s]\n", path.c_str());
-
     if (req->get_response_header("Content-Type") != CONTENT_TYPE)
       return NULL;
 

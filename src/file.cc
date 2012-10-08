@@ -25,8 +25,6 @@ namespace
 
   object * checker(const string &path, const request::ptr &req)
   {
-    S3_LOG(LOG_DEBUG, "file::checker", "testing [%s]\n", path.c_str());
-
     return new file(path);
   }
 
