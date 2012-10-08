@@ -80,8 +80,19 @@ using namespace s3;
   if (!var) \
     return -ENOENT; \
   \
-  if (var->get_type() != (mode)) \
-    return -EINVAL;
+  if (var->get_type() != (mode)) { \
+    S3_LOG( \
+      LOG_WARNING, \
+      "GET_OBJECT_AS", \
+      "could not get [%s] as type [%s] (requested mode %i, reported mode %i, at line %i)\n", \
+      static_cast<const char *>(path), \
+      #type, \
+      mode, \
+      var->get_type(), \
+      __LINE__); \
+    \
+    return -EINVAL; \
+  }
 
 namespace
 {
