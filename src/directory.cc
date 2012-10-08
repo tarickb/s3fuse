@@ -169,11 +169,14 @@ int directory::read(const request::ptr &req, const filler_function &filler)
   return 0;
 }
 
-// TODO: find some way to make sure that is_empty() fails for the root directory (path == "")
 bool directory::is_empty(const request::ptr &req)
 {
   xml::document doc;
   xml::element_list keys;
+
+  // root directory isn't removable
+  if (get_path().empty())
+    return false;
 
   req->init(HTTP_GET);
 
