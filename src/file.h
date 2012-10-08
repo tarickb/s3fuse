@@ -29,8 +29,6 @@ namespace s3
 
     virtual bool is_expired();
 
-    // TODO: handle O_TRUNC in open?
-
     int release();
     int flush();
     int write(const char *buffer, size_t size, off_t offset);
