@@ -48,7 +48,7 @@ using namespace s3;
 // also adjust path by skipping leading slash
 #define ASSERT_VALID_PATH(str) \
   do { \
-    if ((str)[0] != '/' || (str)[strlen(str) - 1] == '/') { \
+    if ((str)[0] != '/' || ((str)[1] != '\0' && (str)[strlen(str) - 1] == '/')) { \
       S3_LOG(LOG_WARNING, "ASSERT_VALID_PATH", "failed on [%s]\n", static_cast<const char *>(str)); \
       return -EINVAL; \
     } \

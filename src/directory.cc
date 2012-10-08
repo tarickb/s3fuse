@@ -32,7 +32,7 @@ namespace
 
     S3_LOG(LOG_DEBUG, "directory::checker", "testing [%s]\n", path.c_str());
 
-    if (url.empty() || url[url.size() - 1] != '/')
+    if (!path.empty() && (url.empty() || url[url.size() - 1] != '/'))
       return NULL;
 
     return new directory(path);

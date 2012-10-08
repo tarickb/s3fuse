@@ -60,22 +60,24 @@ void object_cache::print_summary()
 
 int object_cache::fetch(const request::ptr &req, const string &path, int hints, object::ptr *obj)
 {
-  req->init(HTTP_HEAD);
+  if (!path.empty()) {
+    req->init(HTTP_HEAD);
 
-  if (hints == HINT_NONE || hints & HINT_IS_DIR) {
-    // see if the path is a directory (trailing /) first
-    req->set_url(directory::build_url(path));
-    req->run();
+    if (hints == HINT_NONE || hints & HINT_IS_DIR) {
+      // see if the path is a directory (trailing /) first
+      req->set_url(directory::build_url(path));
+      req->run();
+    }
+
+    if (hints & HINT_IS_FILE || req->get_response_code() != HTTP_SC_OK) {
+      // it's not a directory
+      req->set_url(object::build_url(path));
+      req->run();
+    }
+
+    if (req->get_response_code() != HTTP_SC_OK)
+      return 0;
   }
-
-  if (hints & HINT_IS_FILE || req->get_response_code() != HTTP_SC_OK) {
-    // it's not a directory
-    req->set_url(object::build_url(path));
-    req->run();
-  }
-
-  if (req->get_response_code() != HTTP_SC_OK)
-    return 0;
 
   *obj = object::create(path, req);
 
