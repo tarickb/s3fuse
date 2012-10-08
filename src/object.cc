@@ -243,7 +243,7 @@ void object::init(const request::ptr &req)
   _content_type = req->get_response_header("Content-Type");
   _etag = req->get_response_header("ETag");
   _stat.st_size = strtol(req->get_response_header("Content-Length").c_str(), NULL, 0);
-  _stat.st_mode |= strtol(req->get_response_header(meta_prefix_reserved + "mode").c_str(), NULL, 0) & ~S_IFMT;
+  _stat.st_mode = (_stat.st_mode & S_IFMT) | (strtol(req->get_response_header(meta_prefix_reserved + "mode").c_str(), NULL, 0) & ~S_IFMT);
   _stat.st_uid = strtol(req->get_response_header(meta_prefix_reserved + "uid").c_str(), NULL, 0);
   _stat.st_gid = strtol(req->get_response_header(meta_prefix_reserved + "gid").c_str(), NULL, 0);
   _stat.st_mtime = strtol(req->get_response_header(meta_prefix_reserved + "mtime").c_str(), NULL, 0);
@@ -331,6 +331,7 @@ int object::commit(const request::ptr &req)
   }
 
   set_request_headers(req);
+  set_request_body(req);
 
   req->run();
 

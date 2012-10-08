@@ -123,10 +123,12 @@ namespace s3
 
     inline void set_url(const std::string &url) { _url = url; }
     inline void set_content_type(const std::string &content_type) { _content_type = content_type; }
-    inline void set_object_type(mode_t mode) { _stat.st_mode |= mode; }
+    inline void set_object_type(mode_t mode) { _stat.st_mode |= mode & S_IFMT; }
 
     inline xattr_map * get_metadata() { return &_metadata; }
     inline const struct stat * get_stat() const { return &_stat; }
+
+    inline void expire() { _expiry = 0; }
 
   private:
     boost::mutex _mutex;
