@@ -45,12 +45,15 @@ using namespace std;
 
 using namespace s3;
 
+// also adjust path by skipping leading slash
 #define ASSERT_VALID_PATH(str) \
   do { \
     if ((str)[0] != '/' || (str)[strlen(str) - 1] == '/') { \
       S3_LOG(LOG_WARNING, "ASSERT_VALID_PATH", "failed on [%s]\n", static_cast<const char *>(str)); \
       return -EINVAL; \
     } \
+    \
+    (str)++; \
   } while (0)
 
 #define BEGIN_TRY \
@@ -66,13 +69,13 @@ using namespace s3;
   }
 
 #define GET_OBJECT(var, path) \
-  object::ptr var = object_cache::get((path) + 1); \
+  object::ptr var = object_cache::get(path); \
   \
   if (!var) \
     return -ENOENT;
 
 #define GET_OBJECT_AS(type, mode, var, path) \
-  type::ptr var = static_pointer_cast<type>(object_cache::get((path) + 1)); \
+  type::ptr var = static_pointer_cast<type>(object_cache::get(path)); \
   \
   if (!var) \
     return -ENOENT; \
@@ -113,7 +116,7 @@ int s3fuse_chmod(const char *path, mode_t mode)
 
     obj->set_mode(mode);
 
-    return obj->commit_metadata();
+    return obj->commit();
   END_TRY;
 }
 
@@ -129,7 +132,41 @@ int s3fuse_chown(const char *path, uid_t uid, gid_t gid)
     obj->set_uid(uid);
     obj->set_gid(gid);
 
-    return obj->commit_metadata();
+    return obj->commit();
+  END_TRY;
+}
+
+int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
+{
+  int r;
+  const fuse_context *ctx = fuse_get_context();
+
+  S3_LOG(LOG_DEBUG, "create", "path: %s, mode: %#o\n", path, mode);
+
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    file::ptr f;
+
+    if (object_cache::get(path)) {
+      S3_LOG(LOG_WARNING, "create", "attempt to overwrite object at [%s]\n", path);
+      return -EEXIST;
+    }
+
+    directory::invalidate_parent(path);
+
+    f.reset(new file(path));
+
+    f->set_mode(mode);
+    f->set_uid(ctx->uid);
+    f->set_gid(ctx->gid);
+
+    r = f->commit();
+
+    if (r)
+      return r;
+
+    return file::open(static_cast<string>(path), &file_info->fh);
   END_TRY;
 }
 
@@ -161,7 +198,7 @@ int s3fuse_getattr(const char *path, struct stat *s)
 
   memset(s, 0, sizeof(*s));
 
-  if (strcmp(path, "/") == 0) {
+  if (path[0] == '\0') { // root path
     s->st_uid = geteuid();
     s->st_gid = getegid();
     s->st_mode = s_mountpoint_mode;
@@ -223,6 +260,34 @@ int s3fuse_listxattr(const char *path, char *buffer, size_t size)
     }
 
     return required_size;
+  END_TRY;
+}
+
+int s3fuse_mkdir(const char *path, mode_t mode)
+{
+  const fuse_context *ctx = fuse_get_context();
+
+  S3_LOG(LOG_DEBUG, "mkdir", "path: %s, mode: %#o\n", path, mode);
+
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    directory::ptr dir;
+
+    if (object_cache::get(path)) {
+      S3_LOG(LOG_WARNING, "mkdir", "attempt to overwrite object at [%s]\n", path);
+      return -EEXIST;
+    }
+
+    directory::invalidate_parent(path);
+
+    dir.reset(new directory(path));
+
+    dir->set_mode(mode);
+    dir->set_uid(ctx->uid);
+    dir->set_gid(ctx->gid);
+
+    return dir->commit();
   END_TRY;
 }
 
@@ -307,7 +372,7 @@ int s3fuse_removexattr(const char *path, const char *name)
 
     int r = obj->remove_metadata(name);
 
-    return r ? r : obj->commit_metadata();
+    return r ? r : obj->commit();
   END_TRY;
 }
 
@@ -326,7 +391,36 @@ int s3fuse_setxattr(const char *path, const char *name, const char *value, size_
 
     int r = obj->set_metadata(name, value, size, flags);
 
-    return r ? r : obj->commit_metadata();
+    return r ? r : obj->commit();
+  END_TRY;
+}
+
+int s3fuse_symlink(const char *target, const char *path)
+{
+  const fuse_context *ctx = fuse_get_context();
+
+  S3_LOG(LOG_DEBUG, "symlink", "path: %s, target: %s\n", path, target);
+
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    symlink::ptr link;
+
+    if (object_cache::get(path)) {
+      S3_LOG(LOG_WARNING, "symlink", "attempt to overwrite object at [%s]\n", path);
+      return -EEXIST;
+    }
+
+    directory::invalidate_parent(path);
+
+    link.reset(new s3::symlink(path));
+
+    link->set_uid(ctx->uid);
+    link->set_gid(ctx->gid);
+
+    link->set_target(target);
+
+    return link->commit();
   END_TRY;
 }
 
@@ -356,7 +450,7 @@ int s3fuse_utimens(const char *path, const timespec times[2])
 
     obj->set_mtime(times[1].tv_sec);
 
-    return obj->commit_metadata();
+    return obj->commit();
   END_TRY;
 }
 
@@ -368,32 +462,6 @@ int s3fuse_write(const char *path, const char *buffer, size_t size, off_t offset
 }
 
 /*
-int s3fuse_mkdir(const char *path, mode_t mode)
-{
-  const fuse_context *ctx = fuse_get_context();
-
-  S3_LOG(LOG_DEBUG, "mkdir", "path: %s, mode: %#o\n", path, mode);
-  ASSERT_VALID_PATH(path);
-
-  return try_catch(bind(&s3::fs::create_directory, s_fs, path + 1, mode, ctx->uid, ctx->gid));
-}
-
-int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
-{
-  int r;
-  const fuse_context *ctx = fuse_get_context();
-
-  S3_LOG(LOG_DEBUG, "create", "path: %s, mode: %#o\n", path, mode);
-  ASSERT_VALID_PATH(path);
-
-  r = try_catch(bind(&s3::fs::create_file, s_fs, path + 1, mode, ctx->uid, ctx->gid));
-
-  if (r)
-    return r;
-
-  return try_catch(bind(&s3::fs::open, s_fs, path + 1, &file_info->fh));
-}
-
 int s3fuse_rename(const char *from, const char *to)
 {
   S3_LOG(LOG_DEBUG, "rename", "from: %s, to: %s\n", from, to);
@@ -401,16 +469,6 @@ int s3fuse_rename(const char *from, const char *to)
   ASSERT_VALID_PATH(to);
 
   return try_catch(bind(&s3::fs::rename_object, s_fs, from + 1, to + 1));
-}
-
-int s3fuse_symlink(const char *target, const char *path)
-{
-  const fuse_context *ctx = fuse_get_context();
-
-  S3_LOG(LOG_DEBUG, "symlink", "path: %s, target: %s\n", path, target);
-  ASSERT_VALID_PATH(path);
-
-  return try_catch(bind(&s3::fs::create_symlink, s_fs, path + 1, ctx->uid, ctx->gid, target));
 }
 */
 
@@ -557,7 +615,7 @@ void build_ops(fuse_operations *ops)
   ops->readlink = s3fuse_readlink;
   ops->release = s3fuse_release;
   ops->removexattr = s3fuse_removexattr;
-  ops->rename = s3fuse_rename;
+  // ops->rename = s3fuse_rename; // TODO: restore this
   ops->rmdir = s3fuse_unlink;
   ops->setxattr = s3fuse_setxattr;
   ops->symlink = s3fuse_symlink;

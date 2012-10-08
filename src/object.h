@@ -75,27 +75,25 @@ namespace s3
 
     void get_metadata_keys(std::vector<std::string> *keys);
     int get_metadata(const std::string &key, char *buffer, size_t max_size);
+    int set_metadata(const std::string &key, const char *value, size_t size, int flags = 0);
+    int remove_metadata(const std::string &key);
 
     inline void set_uid(uid_t uid) { _stat.st_uid = uid; }
     inline void set_gid(gid_t gid) { _stat.st_gid = gid; }
     inline void set_mtime(time_t mtime) { _stat.st_mtime = mtime; }
 
-    virtual void copy_stat(struct stat *s);
-
     void set_mode(mode_t mode);
 
-    virtual void set_request_headers(const boost::shared_ptr<request> &req);
+    virtual void copy_stat(struct stat *s);
 
-    int set_metadata(const std::string &key, const char *value, size_t size, int flags = 0);
-    int remove_metadata(const std::string &key);
-    int commit_metadata(const boost::shared_ptr<request> &req);
+    int commit(const boost::shared_ptr<request> &req);
 
     virtual int remove(const boost::shared_ptr<request> &req);
     virtual int rename(const boost::shared_ptr<request> &req, const std::string &to);
 
-    int commit_metadata()
+    int commit()
     {
-      return thread_pool::call(thread_pool::PR_FG, boost::bind(&object::commit_metadata, shared_from_this(), _1));
+      return thread_pool::call(thread_pool::PR_FG, boost::bind(&object::commit, shared_from_this(), _1));
     }
 
     int remove()
@@ -115,14 +113,15 @@ namespace s3
       _etag = etag;
     }
 
+    virtual void set_request_headers(const boost::shared_ptr<request> &req);
+    virtual void set_request_body(const boost::shared_ptr<request> &req);
+
     inline void set_url(const std::string &url) { _url = url; }
     inline void set_content_type(const std::string &content_type) { _content_type = content_type; }
     inline void set_object_type(mode_t mode) { _stat.st_mode |= mode; }
 
     inline xattr_map * get_metadata() { return &_metadata; }
     inline const struct stat * get_stat() const { return &_stat; }
-
-    inline void expire() { _expiry = 0; }
 
   private:
     boost::mutex _mutex;

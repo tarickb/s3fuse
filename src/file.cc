@@ -67,6 +67,10 @@ file::file(const string &path)
   set_object_type(S_IFREG);
 }
 
+file::~file()
+{
+}
+
 bool file::is_expired()
 {
   mutex::scoped_lock lock(_fs_mutex);
@@ -484,7 +488,7 @@ int file::upload_single(const request::ptr &req)
   set_md5(expected_md5_hex, etag);
 
   // we don't need to commit the metadata if we got a valid etag back (since it'll be consistent)
-  return valid_md5 ? 0 : commit_metadata(req);
+  return valid_md5 ? 0 : commit(req);
 }
 
 int file::upload_multi(const request::ptr &req)
@@ -624,7 +628,7 @@ int file::upload_multi(const request::ptr &req)
   set_etag(etag);
   set_md5(computed_md5, etag);
 
-  return commit_metadata(req);
+  return commit(req);
 }
 
 int file::upload_part(const request::ptr &req, const string &upload_id, transfer_part *part)

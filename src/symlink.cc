@@ -39,6 +39,13 @@ symlink::~symlink()
 {
 }
 
+void symlink::set_request_body(const request::ptr &req)
+{
+  mutex::scoped_lock lock(_mutex);
+
+  req->set_input_buffer(CONTENT_PREFIX + _target);
+}
+
 int symlink::read(const request::ptr &req, string *target)
 {
   req->init(HTTP_GET);

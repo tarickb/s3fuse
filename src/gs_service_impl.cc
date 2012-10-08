@@ -165,6 +165,11 @@ bool gs_service_impl::is_multipart_upload_supported()
   return false;
 }
 
+const string & gs_service_impl::get_bucket_url()
+{
+  return _bucket_url;
+}
+
 void gs_service_impl::sign(request *req, bool last_sign_failed)
 {
   mutex::scoped_lock lock(_mutex);

@@ -310,20 +310,32 @@ void object::set_request_headers(const request::ptr &req)
   req->set_header("Content-Type", _content_type);
 }
 
-int object::commit_metadata(const request::ptr &req)
+void object::set_request_body(const request::ptr &req)
 {
+}
+
+int object::commit(const request::ptr &req)
+{
+  string etag = get_etag();
+
   req->init(HTTP_PUT);
   req->set_url(_url);
-  req->set_header(service::get_header_prefix() + "copy-source", _url);
-  req->set_header(service::get_header_prefix() + "copy-source-if-match", get_etag()); // get_etag() locks the metadata mutex
-  req->set_header(service::get_header_prefix() + "metadata-directive", "REPLACE");
+
+  // if the object already exists (i.e., if we have an etag) then just update
+  // the metadata.
+
+  if (!etag.empty()) {
+    req->set_header(service::get_header_prefix() + "copy-source", _url);
+    req->set_header(service::get_header_prefix() + "copy-source-if-match", get_etag()); // get_etag() locks the metadata mutex
+    req->set_header(service::get_header_prefix() + "metadata-directive", "REPLACE");
+  }
 
   set_request_headers(req);
 
   req->run();
 
   if (req->get_response_code() != HTTP_SC_OK) {
-    S3_LOG(LOG_WARNING, "object::commit_metadata", "failed to commit object metadata for [%s].\n", _url.c_str());
+    S3_LOG(LOG_WARNING, "object::commit", "failed to commit object metadata for [%s].\n", _url.c_str());
     return -EIO;
   }
 

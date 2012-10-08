@@ -25,8 +25,8 @@ int main(int argc, char **argv)
     for (int i = 0; i < TEST_SIZE; i++)
       in[i] = rand() % UINT8_MAX;
 
-    enc = util::base64_encode(&in[0], TEST_SIZE);
-    util::base64_decode(enc, &out);
+    enc = util::encode(&in[0], TEST_SIZE, E_BASE64);
+    util::decode(enc, E_BASE64, &out);
 
     cout << "test " << t << " (" << TEST_SIZE << " bytes, " << enc.size() << " b64 bytes): ";
 

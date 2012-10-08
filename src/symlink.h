@@ -24,8 +24,21 @@ namespace s3
       return thread_pool::call(thread_pool::PR_FG, bind(&symlink::read, shared_from_this(), _1, target));
     }
 
+    inline void set_target(const std::string &target)
+    {
+      boost::mutex::scoped_lock lock(_mutex);
+
+      _target = target;
+    }
+
+  protected:
+    virtual void set_request_body(const boost::shared_ptr<request> &req);
+
   private:
     int read(const boost::shared_ptr<request> &req, std::string *target);
+
+    boost::mutex _mutex;
+    std::string _target;
   };
 }
 

@@ -83,7 +83,16 @@ namespace s3
     inline void set_header(const std::string &name, const std::string &value) { _headers[name] = value; }
 
     void set_input_buffer(const char *buffer, size_t size);
-    inline void set_input_buffer(const std::string &buffer) { set_input_buffer(buffer.c_str(), buffer.size()); }
+
+    inline void set_input_buffer(const std::string &buffer)
+    { 
+      // make a copy so that we're not holding a pointer to a parameter that
+      // was passed to us as a const reference -- that would not be cool
+
+      _input_string_copy = buffer;
+
+      set_input_buffer(_input_string_copy.c_str(), _input_string_copy.size());
+    }
 
     inline const char * get_output_buffer() { return &_output_buffer[0]; }
     inline size_t get_output_buffer_size() { return _output_buffer.size(); }
@@ -126,6 +135,7 @@ namespace s3
 
     const char *_input_buffer;
     size_t _input_size;
+    std::string _input_string_copy;
 
     long _response_code;
     time_t _last_modified;

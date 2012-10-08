@@ -12,7 +12,9 @@ namespace s3
   public:
     typedef boost::shared_ptr<async_handle> ptr;
 
-    virtual ~async_handle() = 0;
+    inline virtual ~async_handle()
+    {
+    }
 
     virtual void complete(int return_code) = 0;
   };
