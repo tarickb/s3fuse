@@ -389,6 +389,9 @@ void request::internal_run(int timeout_in_s)
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code));
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
 
+  if (!_output_buffer.empty())
+    _output_buffer.push_back('\0');
+
   if (_response_code >= HTTP_SC_MULTIPLE_CHOICES && _response_code != HTTP_SC_NOT_FOUND)
     S3_LOG(LOG_WARNING, "request::run", "request for [%s] failed with code %i and response: %s\n", _url.c_str(), _response_code, &_output_buffer[0]);
 }
