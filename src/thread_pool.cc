@@ -23,6 +23,7 @@
 #include <boost/lexical_cast.hpp>
 
 #include "logger.h"
+#include "request_worker_thread.h"
 #include "thread_pool.h"
 #include "work_item_queue.h"
 #include "worker_thread.h"
@@ -34,10 +35,11 @@ using namespace s3;
 
 namespace
 {
-  BOOST_STATIC_ASSERT(PR_FG == 0);
-  BOOST_STATIC_ASSERT(PR_BG == 1);
+  BOOST_STATIC_ASSERT(PR_0 == 0);
+  BOOST_STATIC_ASSERT(PR_REQ_0 == 1);
+  BOOST_STATIC_ASSERT(PR_REQ_1 == 2);
 
-  const int POOL_COUNT = 2; // PR_FG and PR_BG
+  const int POOL_COUNT = 3; // PR_0, PR_REQ_0, PR_REQ_1
   const int NUM_THREADS_PER_POOL = 8;
 
   void sleep_one_second()
@@ -53,62 +55,74 @@ namespace
   class _thread_pool
   {
   public:
-    typedef shared_ptr<_thread_pool> ptr;
+    virtual void post(const work_item::worker_function &fn, const async_handle::ptr &ah) = 0;
+  };
 
-    _thread_pool(const string &id)
+  template <class worker_type, bool use_watchdog>
+  class _thread_pool_impl : public _thread_pool
+  {
+  public:
+    _thread_pool_impl(const string &id)
       : _queue(new work_item_queue()),
         _id(id),
         _respawn_counter(0),
         _done(false)
     {
-      _watchdog_thread.reset(new thread(bind(&_thread_pool::watchdog, this)));
+      if (use_watchdog)
+        _watchdog_thread.reset(new thread(bind(&_thread_pool_impl::watchdog, this)));
 
       for (int i = 0; i < NUM_THREADS_PER_POOL; i++)
-        _threads.push_back(worker_thread::create(_queue));
+        _threads.push_back(worker_type::create(_queue));
     }
 
-    ~_thread_pool()
+    ~_thread_pool_impl()
     {
       _queue->abort();
       _done = true;
 
-      // shut watchdog down first so it doesn't use _threads
-      _watchdog_thread->join();
+      if (use_watchdog) {
+        // shut watchdog down first so it doesn't use _threads
+        _watchdog_thread->join();
+      }
+
       _threads.clear();
 
       // give the threads precisely one second to clean up (and print debug info), otherwise skip them and move on
       sleep_one_second();
 
-      S3_LOG(LOG_DEBUG, "_thread_pool::~_thread_pool", "[%s] respawn counter: %i.\n", _id.c_str(), _respawn_counter);
+      if (use_watchdog)
+        S3_LOG(LOG_DEBUG, "_thread_pool_impl::~_thread_pool_impl", "[%s] respawn counter: %i.\n", _id.c_str(), _respawn_counter);
     }
 
-    inline void post(const work_item::worker_function &fn, const async_handle::ptr &ah)
+    virtual void post(const work_item::worker_function &fn, const async_handle::ptr &ah)
     {
       _queue->post(work_item(fn, ah));
     }
 
   private:
-    typedef std::list<worker_thread::ptr> wt_list;
+    typedef std::list<typename worker_type::ptr> wt_list;
 
     void watchdog()
     {
-      while (!_done) {
-        int respawn = 0;
+      if (use_watchdog) {
+        while (!_done) {
+          int respawn = 0;
 
-        for (wt_list::iterator itor = _threads.begin(); itor != _threads.end(); /* do nothing */) {
-          if (!(*itor)->check_timeout())
-            ++itor;
-          else {
-            respawn++;
-            itor = _threads.erase(itor);
+          for (typename wt_list::iterator itor = _threads.begin(); itor != _threads.end(); /* do nothing */) {
+            if (!(*itor)->check_timeout())
+              ++itor;
+            else {
+              respawn++;
+              itor = _threads.erase(itor);
+            }
           }
+
+          for (int i = 0; i < respawn; i++)
+            _threads.push_back(worker_type::create(_queue));
+
+          _respawn_counter += respawn;
+          sleep_one_second();
         }
-
-        for (int i = 0; i < respawn; i++)
-          _threads.push_back(worker_thread::create(_queue));
-
-        _respawn_counter += respawn;
-        sleep_one_second();
       }
     }
 
@@ -125,8 +139,9 @@ namespace
 
 void thread_pool::init()
 {
-  for (int i = 0; i < POOL_COUNT; i++)
-    s_pools[i] = new _thread_pool(string("priority ") + lexical_cast<string>(i));
+  s_pools[PR_0] = new _thread_pool_impl<worker_thread, false>("PR_0");
+  s_pools[PR_REQ_0] = new _thread_pool_impl<request_worker_thread, true>("PR_REQ_0");
+  s_pools[PR_REQ_1] = new _thread_pool_impl<request_worker_thread, true>("PR_REQ_1");
 }
 
 void thread_pool::terminate()

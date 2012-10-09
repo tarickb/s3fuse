@@ -6,8 +6,6 @@
 
 namespace s3
 {
-  class async_handle;
-  class request;
   class work_item_queue;
 
   class worker_thread
@@ -15,25 +13,29 @@ namespace s3
   public:
     typedef boost::shared_ptr<worker_thread> ptr;
 
-    static ptr create(const boost::shared_ptr<work_item_queue> &queue);
+    static ptr create(const boost::shared_ptr<work_item_queue> &queue)
+    {
+      ptr wt(new worker_thread(queue));
 
-    ~worker_thread();
+      // passing "wt", a shared_ptr, for "this" keeps the object alive so long as worker() hasn't returned
+      wt->_thread.reset(new boost::thread(boost::bind(&worker_thread::worker, wt)));
 
-    bool check_timeout(); // return true if thread has hanged
+      return wt;
+    }
+
+
+    inline bool check_timeout() const { return false; }
 
   private:
-    worker_thread(const boost::shared_ptr<work_item_queue> &queue);
+    inline worker_thread(const boost::shared_ptr<work_item_queue> &queue)
+      : _queue(queue)
+    {
+    }
 
     void worker();
 
-    boost::mutex _mutex;
     boost::shared_ptr<boost::thread> _thread;
-    boost::shared_ptr<request> _request;
-    double _time_in_function, _time_in_request;
-
-    // access controlled by _mutex
-    boost::weak_ptr<work_item_queue> _queue;
-    boost::shared_ptr<async_handle> _current_ah;
+    boost::shared_ptr<work_item_queue> _queue;
   };
 }
 

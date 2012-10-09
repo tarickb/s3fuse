@@ -140,7 +140,7 @@ int file::open(file_open_mode mode, uint64_t *handle)
       _status = FS_DOWNLOADING;
 
       thread_pool::post(
-        PR_FG,
+        PR_0,
         bind(&file::download, shared_from_this(), _1),
         bind(&file::on_download_complete, shared_from_this(), _1));
     }
@@ -191,7 +191,7 @@ int file::flush()
   _status |= FS_UPLOADING;
 
   lock.unlock();
-  _async_error = thread_pool::call(PR_FG, bind(&file::upload, shared_from_this(), _1));
+  _async_error = thread_pool::call(PR_0, bind(&file::upload, shared_from_this(), _1));
   lock.lock();
 
   _status = 0;
@@ -332,7 +332,6 @@ int file::check_download_consistency()
   return 0;
 }
 
-// TODO: post this (and upload) on PR_NO_REQ thread pool (so that they don't time out!)
 int file::download(const request::ptr &req)
 {
   int r = 0;
@@ -340,7 +339,7 @@ int file::download(const request::ptr &req)
   if (service::is_multipart_download_supported() && get_transfer_size() > config::get_download_chunk_size())
     r = download_multi();
   else
-    r = download_single(req);
+    r = thread_pool::call(PR_REQ_1, bind(&file::download_single, shared_from_this(), _1));
 
   return r ? r : check_download_consistency();
 }
@@ -379,7 +378,7 @@ int file::download_multi()
     part->size = (i != parts.size() - 1) ? config::get_download_chunk_size() : (size - config::get_download_chunk_size() * i);
 
     part->handle = thread_pool::post(
-      PR_BG, 
+      PR_REQ_1, 
       bind(&file::download_part, shared_from_this(), _1, part));
 
     parts_in_progress.push_back(part);
@@ -400,7 +399,7 @@ int file::download_multi()
         return -EIO;
 
       part->handle = thread_pool::post(
-        PR_BG, 
+        PR_REQ_1, 
         bind(&file::download_part, shared_from_this(), _1, part));
 
       parts_in_progress.push_back(part);
@@ -439,9 +438,9 @@ int file::download_part(const request::ptr &req, const transfer_part *part)
 int file::upload(const request::ptr &req)
 {
   if (service::is_multipart_upload_supported() && get_transfer_size() > config::get_upload_chunk_size())
-    return upload_multi(req);
+    return thread_pool::call(PR_REQ_0, bind(&file::upload_multi, shared_from_this(), _1));
   else
-    return upload_single(req);
+    return thread_pool::call(PR_REQ_0, bind(&file::upload_single, shared_from_this(), _1));
 }
 
 int file::upload_single(const request::ptr &req)
@@ -534,7 +533,7 @@ int file::upload_multi(const request::ptr &req)
     part->size = (i != parts.size() - 1) ? config::get_upload_chunk_size() : (size - config::get_upload_chunk_size() * i);
 
     part->handle = thread_pool::post(
-      PR_BG, 
+      PR_REQ_1, 
       bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
 
     parts_in_progress.push_back(part);
@@ -560,7 +559,7 @@ int file::upload_multi(const request::ptr &req)
 
       if (part->retry_count <= config::get_max_transfer_retries()) {
         part->handle = thread_pool::post(
-          PR_BG, 
+          PR_REQ_1, 
           bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
 
         parts_in_progress.push_back(part);

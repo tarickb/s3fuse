@@ -28,6 +28,8 @@ s3fuse_SOURCES = \
 	object_cache.h \
 	request.cc \
 	request.h \
+	request_worker_thread.cc \
+	request_worker_thread.h \
 	service.cc \
 	service.h \
 	service_impl.cc \

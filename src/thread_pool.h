@@ -29,9 +29,9 @@ namespace s3
 {
   enum work_item_priority
   {
-    PR_FG,
-    PR_BG,
-    PR_NO_REQ // TODO: implement this
+    PR_0,
+    PR_REQ_0,
+    PR_REQ_1
   };
 
   class thread_pool

@@ -256,7 +256,7 @@ int directory::rename(const request::ptr &req, const string &to_)
       object_cache::remove(*oper.old_name);
 
       oper.old_name.reset(new string(full_path_cs));
-      oper.handle = thread_pool::post(PR_BG, bind(&object::copy_by_path, _1, *oper.old_name, new_name));
+      oper.handle = thread_pool::post(PR_REQ_1, bind(&object::copy_by_path, _1, *oper.old_name, new_name));
 
       pending_renames.push_back(oper);
 
@@ -279,7 +279,7 @@ int directory::rename(const request::ptr &req, const string &to_)
   }
 
   for (list<rename_operation>::iterator itor = pending_deletes.begin(); itor != pending_deletes.end(); ++itor)
-    itor->handle = thread_pool::post(PR_BG, bind(&object::remove_by_url, _1, object::build_url(*itor->old_name)));
+    itor->handle = thread_pool::post(PR_REQ_1, bind(&object::remove_by_url, _1, object::build_url(*itor->old_name)));
 
   while (!pending_deletes.empty()) {
     int r;
