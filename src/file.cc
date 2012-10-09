@@ -20,7 +20,8 @@ using namespace s3;
 
 namespace
 {
-  const char *     ETAG_XPATH = "/s3:CompleteMultipartUploadResult/s3:ETag";
+  const size_t MAX_PARTS_IN_PROGRESS = 4;
+  const char *ETAG_XPATH = "/s3:CompleteMultipartUploadResult/s3:ETag";
   const char *UPLOAD_ID_XPATH = "/s3:InitiateMultipartUploadResult/s3:UploadId";
 
   object * checker(const string &path, const request::ptr &req)
@@ -365,17 +366,22 @@ int file::download_single(const request::ptr &req)
 int file::download_multi()
 {
   size_t size = get_transfer_size();
-  vector<transfer_part> parts((size + config::get_download_chunk_size() - 1) / config::get_download_chunk_size());
+  size_t num_parts = (size + config::get_download_chunk_size() - 1) / config::get_download_chunk_size();
+  size_t last_part = 0;
+  vector<transfer_part> parts(num_parts);
   list<transfer_part *> parts_in_progress;
+  int r = 0;
 
-  // TODO: have at most 8 (?) transfers in progress
-
-  for (size_t i = 0; i < parts.size(); i++) {
+  for (size_t i = 0; i < num_parts; i++) {
     transfer_part *part = &parts[i];
 
     part->id = i;
     part->offset = i * config::get_download_chunk_size();
-    part->size = (i != parts.size() - 1) ? config::get_download_chunk_size() : (size - config::get_download_chunk_size() * i);
+    part->size = (i != num_parts - 1) ? config::get_download_chunk_size() : (size - config::get_download_chunk_size() * i);
+  }
+
+  for (last_part = 0; last_part < std::min(MAX_PARTS_IN_PROGRESS, num_parts); last_part++) {
+    transfer_part *part = &parts[last_part];
 
     part->handle = thread_pool::post(
       PR_REQ_1, 
@@ -386,30 +392,44 @@ int file::download_multi()
 
   while (!parts_in_progress.empty()) {
     transfer_part *part = parts_in_progress.front();
-    int result;
+    int part_r;
 
     parts_in_progress.pop_front();
-    result = part->handle->wait();
+    part_r = part->handle->wait();
 
-    if (result == -EAGAIN || result == -ETIMEDOUT) {
-      S3_LOG(LOG_DEBUG, "file::download_multi", "part %i returned status %i for [%s].\n", part->id, result, get_url().c_str());
+    if (part_r == -EAGAIN || part_r == -ETIMEDOUT) {
+      S3_LOG(LOG_DEBUG, "file::download_multi", "part %i returned status %i for [%s].\n", part->id, part_r, get_url().c_str());
       part->retry_count++;
 
-      if (part->retry_count > config::get_max_transfer_retries())
-        return -EIO;
+      if (part->retry_count > config::get_max_transfer_retries()) {
+        part_r = -EIO;
+      } else {
+        part->handle = thread_pool::post(
+          PR_REQ_1, 
+          bind(&file::download_part, shared_from_this(), _1, part));
+
+        parts_in_progress.push_back(part);
+      }
+    }
+
+    if (r == 0) // only save the first non-successful return code
+      r = part_r;
+
+    // keep collecting parts until we have nothing left pending
+    // if one part fails, keep going but stop posting new parts
+
+    if (r == 0 && last_part < num_parts) {
+      part = &parts[last_part++];
 
       part->handle = thread_pool::post(
         PR_REQ_1, 
         bind(&file::download_part, shared_from_this(), _1, part));
 
       parts_in_progress.push_back(part);
-
-    } else if (result != 0) {
-      return result;
     }
   }
 
-  return 0;
+  return r;
 }
 
 int file::download_part(const request::ptr &req, const transfer_part *part)
@@ -496,7 +516,9 @@ int file::upload_multi(const request::ptr &req)
   string upload_id, complete_upload;
   bool success = true;
   size_t size = get_transfer_size();
-  vector<transfer_part> parts((size + config::get_upload_chunk_size() - 1) / config::get_upload_chunk_size());
+  size_t num_parts = (size + config::get_upload_chunk_size() - 1) / config::get_upload_chunk_size();
+  size_t last_part = 0;
+  vector<transfer_part> parts(num_parts);
   list<transfer_part *> parts_in_progress;
   xml::document doc;
   string etag, computed_md5;
@@ -525,12 +547,16 @@ int file::upload_multi(const request::ptr &req)
   if (upload_id.empty())
     return -EIO;
 
-  for (size_t i = 0; i < parts.size(); i++) {
+  for (size_t i = 0; i < num_parts; i++) {
     transfer_part *part = &parts[i];
 
     part->id = i;
     part->offset = i * config::get_upload_chunk_size();
-    part->size = (i != parts.size() - 1) ? config::get_upload_chunk_size() : (size - config::get_upload_chunk_size() * i);
+    part->size = (i != num_parts - 1) ? config::get_upload_chunk_size() : (size - config::get_upload_chunk_size() * i);
+  }
+
+  for (last_part = 0; last_part < std::min(MAX_PARTS_IN_PROGRESS, num_parts); last_part++) {
+    transfer_part *part = &parts[last_part];
 
     part->handle = thread_pool::post(
       PR_REQ_1, 
@@ -541,20 +567,30 @@ int file::upload_multi(const request::ptr &req)
 
   while (!parts_in_progress.empty()) {
     transfer_part *part = parts_in_progress.front();
-    int result;
+    int part_r;
 
     parts_in_progress.pop_front();
-    result = part->handle->wait();
+    part_r = part->handle->wait();
 
-    if (result != 0)
-      S3_LOG(LOG_DEBUG, "file::upload_multi", "part %i returned status %i for [%s].\n", part->id, result, get_url().c_str());
+    if (part_r != 0)
+      S3_LOG(LOG_DEBUG, "file::upload_multi", "part %i returned status %i for [%s].\n", part->id, part_r, get_url().c_str());
 
     // the default action is to not retry the failed part, and leave it with success = false
 
-    if (result == 0) {
+    if (part_r == 0) {
       part->success = true;
 
-    } else if (result == -EAGAIN || result == -ETIMEDOUT) {
+      if (last_part < num_parts) {
+        part = &parts[last_part++];
+
+        part->handle = thread_pool::post(
+          PR_REQ_1, 
+          bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
+
+        parts_in_progress.push_back(part);
+      }
+
+    } else if (part_r == -EAGAIN || part_r == -ETIMEDOUT) {
       part->retry_count++;
 
       if (part->retry_count <= config::get_max_transfer_retries()) {
