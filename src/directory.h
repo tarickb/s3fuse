@@ -37,7 +37,7 @@ namespace s3
 
         return 0;
       } else {
-        return thread_pool::call(thread_pool::PR_FG, bind(&directory::read, shared_from_this(), _1, filler));
+        return thread_pool::call(PR_FG, bind(&directory::read, shared_from_this(), _1, filler));
       }
     }
 
@@ -45,7 +45,7 @@ namespace s3
 
     inline bool is_empty()
     {
-      return thread_pool::call(thread_pool::PR_FG, boost::bind(&directory::is_empty, shared_from_this(), _1));
+      return thread_pool::call(PR_FG, boost::bind(&directory::is_empty, shared_from_this(), _1));
     }
 
     virtual int remove(const boost::shared_ptr<request> &req);

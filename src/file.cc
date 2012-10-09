@@ -31,7 +31,7 @@ namespace
   object::type_checker::type_checker s_checker_reg(checker, 1000);
 }
 
-void file::open_locked_object(const object::ptr &obj, bool truncate, uint64_t *handle, int *status)
+void file::open_locked_object(const object::ptr &obj, file_open_mode mode, uint64_t *handle, int *status)
 {
   if (!obj) {
     *status = -ENOENT;
@@ -43,14 +43,14 @@ void file::open_locked_object(const object::ptr &obj, bool truncate, uint64_t *h
     return;
   }
 
-  *status = static_cast<file *>(obj.get())->open(truncate, handle);
+  *status = static_cast<file *>(obj.get())->open(mode, handle);
 }
 
-int file::open(const string &path, uint64_t *handle, bool truncate)
+int file::open(const string &path, file_open_mode mode, uint64_t *handle)
 {
   int r = -EINVAL;
 
-  object_cache::lock_object(path, bind(&file::open_locked_object, _1, truncate, handle, &r));
+  object_cache::lock_object(path, bind(&file::open_locked_object, _1, mode, handle, &r));
 
   return r;
 }
@@ -118,7 +118,7 @@ void file::on_download_complete(int ret)
   _condition.notify_all();
 }
 
-int file::open(bool truncate, uint64_t *handle)
+int file::open(file_open_mode mode, uint64_t *handle)
 {
   mutex::scoped_lock lock(_fs_mutex);
 
@@ -133,14 +133,14 @@ int file::open(bool truncate, uint64_t *handle)
     if (_fd == -1)
       return -errno;
 
-    if (!truncate) {
+    if (!(mode & OPEN_TRUNCATE_TO_ZERO)) {
       if (ftruncate(_fd, get_stat()->st_size) != 0)
         return -errno;
 
       _status = FS_DOWNLOADING;
 
       thread_pool::post(
-        thread_pool::PR_FG,
+        PR_FG,
         bind(&file::download, shared_from_this(), _1),
         bind(&file::on_download_complete, shared_from_this(), _1));
     }
@@ -191,7 +191,7 @@ int file::flush()
   _status |= FS_UPLOADING;
 
   lock.unlock();
-  _async_error = thread_pool::call(thread_pool::PR_FG, bind(&file::upload, shared_from_this(), _1));
+  _async_error = thread_pool::call(PR_FG, bind(&file::upload, shared_from_this(), _1));
   lock.lock();
 
   _status = 0;
@@ -376,7 +376,7 @@ int file::download_multi()
     part->size = (i != parts.size() - 1) ? config::get_download_chunk_size() : (size - config::get_download_chunk_size() * i);
 
     part->handle = thread_pool::post(
-      thread_pool::PR_BG, 
+      PR_BG, 
       bind(&file::download_part, shared_from_this(), _1, part));
 
     parts_in_progress.push_back(part);
@@ -397,7 +397,7 @@ int file::download_multi()
         return -EIO;
 
       part->handle = thread_pool::post(
-        thread_pool::PR_BG, 
+        PR_BG, 
         bind(&file::download_part, shared_from_this(), _1, part));
 
       parts_in_progress.push_back(part);
@@ -531,7 +531,7 @@ int file::upload_multi(const request::ptr &req)
     part->size = (i != parts.size() - 1) ? config::get_upload_chunk_size() : (size - config::get_upload_chunk_size() * i);
 
     part->handle = thread_pool::post(
-      thread_pool::PR_BG, 
+      PR_BG, 
       bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
 
     parts_in_progress.push_back(part);
@@ -557,7 +557,7 @@ int file::upload_multi(const request::ptr &req)
 
       if (part->retry_count <= config::get_max_transfer_retries()) {
         part->handle = thread_pool::post(
-          thread_pool::PR_BG, 
+          PR_BG, 
           bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
 
         parts_in_progress.push_back(part);

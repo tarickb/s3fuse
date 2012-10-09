@@ -27,22 +27,22 @@
 
 namespace s3
 {
+  enum work_item_priority
+  {
+    PR_FG,
+    PR_BG
+  };
+
   class thread_pool
   {
   public:
     typedef work_item::worker_function worker_function;
 
-    enum priority
-    {
-      PR_FG,
-      PR_BG
-    };
-
     static void init();
     static void terminate();
 
     inline static wait_async_handle::ptr post(
-      priority p,
+      work_item_priority p,
       const worker_function &fn)
     {
       wait_async_handle::ptr ah(new wait_async_handle());
@@ -53,7 +53,7 @@ namespace s3
     }
 
     inline static void post(
-      priority p,
+      work_item_priority p,
       const worker_function &fn, 
       const callback_async_handle::callback_function &cb)
     {
@@ -63,19 +63,19 @@ namespace s3
         async_handle::ptr(new callback_async_handle(cb)));
     }
 
-    inline static int call(priority p, const worker_function &fn)
+    inline static int call(work_item_priority p, const worker_function &fn)
     {
       return post(p, fn)->wait();
     }
 
-    inline static void call_async(priority p, const worker_function &fn)
+    inline static void call_async(work_item_priority p, const worker_function &fn)
     {
       post(p, fn);
     }
 
   private:
     static void internal_post(
-      priority p, 
+      work_item_priority p, 
       const worker_function &fn, 
       const async_handle::ptr &ah);
   };

@@ -28,7 +28,7 @@ namespace s3
         
         lock.unlock();
 
-        r = thread_pool::call(thread_pool::PR_FG, bind(&symlink::internal_read, shared_from_this(), _1));
+        r = thread_pool::call(PR_FG, bind(&symlink::internal_read, shared_from_this(), _1));
 
         if (r)
           return r;

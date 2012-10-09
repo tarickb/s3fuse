@@ -56,7 +56,7 @@ namespace s3
 
       if (!obj)
         thread_pool::call(
-          thread_pool::PR_FG,
+          PR_FG,
           boost::bind(&object_cache::fetch, _1, path, hints, &obj));
 
       return obj;

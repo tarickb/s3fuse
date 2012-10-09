@@ -118,20 +118,8 @@ int directory::read(const request::ptr &req, const filler_function &filler)
       return r;
 
     for (xml::element_list::const_iterator itor = prefixes.begin(); itor != prefixes.end(); ++itor) {
-      //const char *full_path_cs = itor->c_str();
-      //const char *relative_path_cs = full_path_cs + path_len;
-      string /*full_path,*/ relative_path;
-      const char *relative_path_cs = itor->c_str() + path_len;
-
       // strip trailing slash
-      // full_path.assign(full_path_cs, strlen(full_path_cs) - 1);
-      relative_path.assign(relative_path_cs, strlen(relative_path_cs) - 1);
-
-      // TODO: restore?
-      /*
-      if (config::get_precache_on_readdir())
-        _tp_bg->call_async(bind(&fs::__prefill_stats, this, _1, full_path, HINT_IS_DIR));
-      */
+      string relative_path = itor->substr(path_len, itor->size() - path_len - 1);
 
       filler(relative_path);
 
@@ -140,17 +128,8 @@ int directory::read(const request::ptr &req, const filler_function &filler)
     }
 
     for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
-      const char *full_path_cs = itor->c_str();
-
-      if (strcmp(path.c_str(), full_path_cs) != 0) {
-        string relative_path(full_path_cs + path_len);
-        // string full_path(full_path_cs);
-
-        // TODO: restore?
-        /*
-        if (config::get_precache_on_readdir())
-          _tp_bg->call_async(bind(&fs::__prefill_stats, this, _1, full_path, HINT_IS_FILE));
-        */
+      if (path != *itor) {
+        string relative_path = itor->substr(path_len);
 
         filler(relative_path);
 
@@ -277,7 +256,7 @@ int directory::rename(const request::ptr &req, const string &to_)
       object_cache::remove(*oper.old_name);
 
       oper.old_name.reset(new string(full_path_cs));
-      oper.handle = thread_pool::post(thread_pool::PR_BG, bind(&object::copy_by_path, _1, *oper.old_name, new_name));
+      oper.handle = thread_pool::post(PR_BG, bind(&object::copy_by_path, _1, *oper.old_name, new_name));
 
       pending_renames.push_back(oper);
 
@@ -300,7 +279,7 @@ int directory::rename(const request::ptr &req, const string &to_)
   }
 
   for (list<rename_operation>::iterator itor = pending_deletes.begin(); itor != pending_deletes.end(); ++itor)
-    itor->handle = thread_pool::post(thread_pool::PR_BG, bind(&object::remove_by_url, _1, object::build_url(*itor->old_name)));
+    itor->handle = thread_pool::post(PR_BG, bind(&object::remove_by_url, _1, object::build_url(*itor->old_name)));
 
   while (!pending_deletes.empty()) {
     int r;

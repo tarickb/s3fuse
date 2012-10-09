@@ -180,7 +180,7 @@ int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
     if (r)
       return r;
 
-    return file::open(static_cast<string>(path), &file_info->fh);
+    return file::open(static_cast<string>(path), OPEN_DEFAULT, &file_info->fh);
   END_TRY;
 }
 
@@ -312,7 +312,10 @@ int s3fuse_open(const char *path, fuse_file_info *file_info)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    return file::open(static_cast<string>(path), &file_info->fh, (file_info->flags & O_TRUNC));
+    return file::open(
+      static_cast<string>(path), 
+      (file_info->flags & O_TRUNC) ? OPEN_TRUNCATE_TO_ZERO : OPEN_DEFAULT, 
+      &file_info->fh);
   END_TRY;
 }
 
@@ -639,7 +642,7 @@ void build_ops(fuse_operations *ops)
 {
   memset(ops, 0, sizeof(*ops));
 
-  // TODO: remove truncate, add ftruncate, set atomic_o_trunc
+  // TODO: add truncate()
 
   ops->flag_nullpath_ok = 1;
 

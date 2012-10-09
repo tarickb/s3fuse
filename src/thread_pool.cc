@@ -34,8 +34,8 @@ using namespace s3;
 
 namespace
 {
-  BOOST_STATIC_ASSERT(thread_pool::PR_FG == 0);
-  BOOST_STATIC_ASSERT(thread_pool::PR_BG == 1);
+  BOOST_STATIC_ASSERT(PR_FG == 0);
+  BOOST_STATIC_ASSERT(PR_BG == 1);
 
   const int POOL_COUNT = 2; // PR_FG and PR_BG
   const int NUM_THREADS_PER_POOL = 8;
@@ -136,7 +136,7 @@ void thread_pool::terminate()
 }
 
 void thread_pool::internal_post(
-  priority p,
+  work_item_priority p,
   const work_item::worker_function &fn,
   const async_handle::ptr &ah)
 {

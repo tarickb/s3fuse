@@ -43,7 +43,6 @@ namespace s3
   public:
     static std::string sign(const std::string &key, const std::string &data);
 
-    // TODO: remove this?
     static void compute_md5(const uint8_t *input, size_t size, std::vector<uint8_t> *output);
     static void compute_md5(int fd, std::vector<uint8_t> *output);
 
