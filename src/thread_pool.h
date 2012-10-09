@@ -30,7 +30,8 @@ namespace s3
   enum work_item_priority
   {
     PR_FG,
-    PR_BG
+    PR_BG,
+    PR_NO_REQ // TODO: implement this
   };
 
   class thread_pool

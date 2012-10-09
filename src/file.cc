@@ -332,6 +332,7 @@ int file::check_download_consistency()
   return 0;
 }
 
+// TODO: post this (and upload) on PR_NO_REQ thread pool (so that they don't time out!)
 int file::download(const request::ptr &req)
 {
   int r = 0;
@@ -367,6 +368,8 @@ int file::download_multi()
   size_t size = get_transfer_size();
   vector<transfer_part> parts((size + config::get_download_chunk_size() - 1) / config::get_download_chunk_size());
   list<transfer_part *> parts_in_progress;
+
+  // TODO: have at most 8 (?) transfers in progress
 
   for (size_t i = 0; i < parts.size(); i++) {
     transfer_part *part = &parts[i];
