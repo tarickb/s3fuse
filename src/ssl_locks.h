@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_OPENSSL_LOCKS_H
-#define S3_OPENSSL_LOCKS_H
+#ifndef S3_SSL_LOCKS_H
+#define S3_SSL_LOCKS_H
 
 namespace s3
 {
