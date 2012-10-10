@@ -687,6 +687,11 @@ int main(int argc, char **argv)
 
   opts.verbosity = LOG_WARNING;
   opts.arg0 = argv[0];
+  opts.daemon_timeout_set = false;
+
+  #ifdef __APPLE__
+    opts.noappledouble_set = false;
+  #endif
 
   fuse_opt_parse(&args, &opts, NULL, process_argument);
 
