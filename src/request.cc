@@ -288,7 +288,7 @@ void request::build_request_time()
 bool request::check_timeout()
 {
   if (_timeout && time(NULL) > _timeout) {
-    S3_LOG(LOG_WARNING, "request::check_timeout", "timed out.\n");
+    S3_LOG(LOG_WARNING, "request::check_timeout", "timed out on url [%s].\n", _url.c_str());
 
     _canceled = true;
     return true;
