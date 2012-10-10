@@ -255,14 +255,14 @@ void object::init(const request::ptr &req)
 
     if (
       strncmp(key.c_str(), meta_prefix.c_str(), meta_prefix.size()) == 0 &&
-      strncmp(key.c_str() + meta_prefix.size(), meta_prefix_reserved.c_str(), meta_prefix_reserved.size()) != 0
+      strncmp(key.c_str(), meta_prefix_reserved.c_str(), meta_prefix_reserved.size()) != 0
     ) {
       _metadata.insert(xattr_value::from_header(key.substr(meta_prefix.size()), value));
     }
   }
 
-  _metadata.insert(xattr_reference::from_string("__content_type__", &_content_type));
-  _metadata.insert(xattr_reference::from_string("__etag__", &_etag));
+  _metadata.insert(xattr_reference::from_string("s3fuse_content_type", &_content_type));
+  _metadata.insert(xattr_reference::from_string("s3fuse_etag", &_etag));
 
   // this workaround is for cases when the file was updated by someone else and the mtime header wasn't set
   if (_mtime_etag != _etag && req->get_last_modified() > _stat.st_mtime)
