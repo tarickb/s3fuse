@@ -55,6 +55,10 @@ namespace
   class _thread_pool
   {
   public:
+    virtual ~_thread_pool()
+    {
+    }
+
     virtual void post(const work_item::worker_function &fn, const async_handle::ptr &ah) = 0;
   };
 
@@ -104,25 +108,23 @@ namespace
 
     void watchdog()
     {
-      if (use_watchdog) {
-        while (!_done) {
-          int respawn = 0;
+      while (!_done) {
+        int respawn = 0;
 
-          for (typename wt_list::iterator itor = _threads.begin(); itor != _threads.end(); /* do nothing */) {
-            if (!(*itor)->check_timeout())
-              ++itor;
-            else {
-              respawn++;
-              itor = _threads.erase(itor);
-            }
+        for (typename wt_list::iterator itor = _threads.begin(); itor != _threads.end(); /* do nothing */) {
+          if (!(*itor)->check_timeout())
+            ++itor;
+          else {
+            respawn++;
+            itor = _threads.erase(itor);
           }
-
-          for (int i = 0; i < respawn; i++)
-            _threads.push_back(worker_type::create(_queue));
-
-          _respawn_counter += respawn;
-          sleep_one_second();
         }
+
+        for (int i = 0; i < respawn; i++)
+          _threads.push_back(worker_type::create(_queue));
+
+        _respawn_counter += respawn;
+        sleep_one_second();
       }
     }
 
