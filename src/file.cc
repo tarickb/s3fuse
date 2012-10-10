@@ -86,7 +86,7 @@ void file::init(const request::ptr &req)
   _md5 = req->get_response_header(meta_prefix + "s3fuse-md5");
   _md5_etag = req->get_response_header(meta_prefix + "s3fuse-md5-etag");
 
-  get_metadata()->insert(xattr_reference::from_string("__md5__", &_md5, &_md5_mutex));
+  get_metadata()->insert(xattr_reference::from_string("s3fuse_md5", &_md5, &_md5_mutex));
 
   // this workaround is for multipart uploads, which don't get a valid md5 etag
   if (_md5_etag != get_etag() || !util::is_valid_md5(_md5))
@@ -458,7 +458,7 @@ int file::download_part(const request::ptr &req, const transfer_part *part)
 int file::upload(const request::ptr &req)
 {
   if (service::is_multipart_upload_supported() && get_transfer_size() > config::get_upload_chunk_size())
-    return thread_pool::call(PR_REQ_0, bind(&file::upload_multi, shared_from_this(), _1));
+    return upload_multi();
   else
     return thread_pool::call(PR_REQ_0, bind(&file::upload_single, shared_from_this(), _1));
 }
@@ -511,17 +511,9 @@ int file::upload_single(const request::ptr &req)
   return valid_md5 ? 0 : commit(req);
 }
 
-int file::upload_multi(const request::ptr &req)
+int file::upload_multi_init(const request::ptr &req, string *upload_id)
 {
-  string upload_id, complete_upload;
-  bool success = true;
-  size_t size = get_transfer_size();
-  size_t num_parts = (size + config::get_upload_chunk_size() - 1) / config::get_upload_chunk_size();
-  size_t last_part = 0;
-  vector<transfer_part> parts(num_parts);
-  list<transfer_part *> parts_in_progress;
   xml::document doc;
-  string etag, computed_md5;
   int r;
 
   req->init(HTTP_POST);
@@ -537,15 +529,84 @@ int file::upload_multi(const request::ptr &req)
   doc = xml::parse(req->get_output_string());
 
   if (!doc) {
-    S3_LOG(LOG_WARNING, "file::upload_multi", "failed to parse response.\n");
+    S3_LOG(LOG_WARNING, "file::upload_multi_init", "failed to parse response.\n");
     return -EIO;
   }
 
-  if ((r = xml::find(doc, UPLOAD_ID_XPATH, &upload_id)))
+  if ((r = xml::find(doc, UPLOAD_ID_XPATH, upload_id)))
     return r;
 
-  if (upload_id.empty())
+  if (upload_id->empty())
     return -EIO;
+
+  return r;
+}
+
+int file::upload_multi_cancel(const request::ptr &req, const string &upload_id)
+{
+  S3_LOG(LOG_WARNING, "file::upload_multi_cancel", "one or more parts failed to upload for [%s].\n", get_url().c_str());
+
+  req->init(HTTP_DELETE);
+  req->set_url(get_url() + "?uploadId=" + upload_id);
+
+  req->run();
+
+  return 0;
+}
+
+int file::upload_multi_complete(const request::ptr &req, const string &upload_id, const string &upload_metadata, string *etag)
+{
+  xml::document doc;
+  int r;
+
+  req->init(HTTP_POST);
+  req->set_url(get_url() + "?uploadId=" + upload_id);
+  req->set_input_buffer(upload_metadata);
+  req->set_header("Content-Type", "");
+
+  // use the transfer timeout because completing a multi-part upload can take a long time
+  // see http://docs.amazonwebservices.com/AmazonS3/latest/API/index.html?mpUploadComplete.html
+  req->run(config::get_transfer_timeout_in_s());
+
+  if (req->get_response_code() != HTTP_SC_OK) {
+    S3_LOG(LOG_WARNING, "file::upload_multi_complete", "failed to complete multipart upload for [%s] with error %li.\n", get_url().c_str(), req->get_response_code());
+    return -EIO;
+  }
+
+  doc = xml::parse(req->get_output_string());
+
+  if (!doc) {
+    S3_LOG(LOG_WARNING, "file::upload_multi_complete", "failed to parse response.\n");
+    return -EIO;
+  }
+
+  if ((r = xml::find(doc, ETAG_XPATH, etag)))
+    return r;
+
+  if (etag->empty()) {
+    S3_LOG(LOG_WARNING, "file::upload_multi_complete", "no etag on multipart upload of [%s]. response: %s\n", get_url().c_str(), req->get_output_string().c_str());
+    return -EIO;
+  }
+
+  return 0;
+}
+
+int file::upload_multi()
+{
+  string upload_id, complete_upload;
+  bool success = true;
+  size_t size = get_transfer_size();
+  size_t num_parts = (size + config::get_upload_chunk_size() - 1) / config::get_upload_chunk_size();
+  size_t last_part = 0;
+  vector<transfer_part> parts(num_parts);
+  list<transfer_part *> parts_in_progress;
+  string etag, computed_md5;
+  int r;
+
+  r = thread_pool::call(PR_REQ_0, bind(&file::upload_multi_init, shared_from_this(), _1, &upload_id));
+
+  if (r)
+    return r;
 
   for (size_t i = 0; i < num_parts; i++) {
     transfer_part *part = &parts[i];
@@ -618,44 +679,15 @@ int file::upload_multi(const request::ptr &req)
   complete_upload += "</CompleteMultipartUpload>";
 
   if (!success) {
-    S3_LOG(LOG_WARNING, "file::upload_multi", "one or more parts failed to upload for [%s].\n", get_url().c_str());
-
-    req->init(HTTP_DELETE);
-    req->set_url(get_url() + "?uploadId=" + upload_id);
-
-    req->run();
+    thread_pool::call(PR_REQ_0, bind(&file::upload_multi_cancel, shared_from_this(), _1, upload_id));
 
     return -EIO;
   }
 
-  req->init(HTTP_POST);
-  req->set_url(get_url() + "?uploadId=" + upload_id);
-  req->set_input_buffer(complete_upload);
-  req->set_header("Content-Type", "");
+  r = thread_pool::call(PR_REQ_0, bind(&file::upload_multi_complete, shared_from_this(), _1, upload_id, complete_upload, &etag));
 
-  // use the transfer timeout because completing a multi-part upload can take a long time
-  // see http://docs.amazonwebservices.com/AmazonS3/latest/API/index.html?mpUploadComplete.html
-  req->run(config::get_transfer_timeout_in_s());
-
-  if (req->get_response_code() != HTTP_SC_OK) {
-    S3_LOG(LOG_WARNING, "file::upload_multi", "failed to complete multipart upload for [%s] with error %li.\n", get_url().c_str(), req->get_response_code());
-    return -EIO;
-  }
-
-  doc = xml::parse(req->get_output_string());
-
-  if (!doc) {
-    S3_LOG(LOG_WARNING, "file::upload_multi", "failed to parse response.\n");
-    return -EIO;
-  }
-
-  if ((r = xml::find(doc, ETAG_XPATH, &etag)))
+  if (r)
     return r;
-
-  if (etag.empty()) {
-    S3_LOG(LOG_WARNING, "file::upload_multi", "no etag on multipart upload of [%s]. response: %s\n", get_url().c_str(), req->get_output_string().c_str());
-    return -EIO;
-  }
 
   // TODO: switch to hash tree to compute message segments in parallel?
   computed_md5 = util::compute_md5(_fd, E_HEX_WITH_QUOTES);
@@ -664,7 +696,7 @@ int file::upload_multi(const request::ptr &req)
   set_etag(etag);
   set_md5(computed_md5, etag);
 
-  return commit(req);
+  return commit();
 }
 
 int file::upload_part(const request::ptr &req, const string &upload_id, transfer_part *part)

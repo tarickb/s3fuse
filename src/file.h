@@ -88,7 +88,14 @@ namespace s3
     int upload(const boost::shared_ptr<request> &req);
 
     int upload_single(const boost::shared_ptr<request> &req);
-    int upload_multi(const boost::shared_ptr<request> &req);
+    int upload_multi();
+    int upload_multi_init(const boost::shared_ptr<request> &req, std::string *upload_id);
+    int upload_multi_cancel(const boost::shared_ptr<request> &req, const std::string &upload_id);
+    int upload_multi_complete(
+      const boost::shared_ptr<request> &req, 
+      const std::string &upload_id, 
+      const std::string &upload_metadata, 
+      std::string *etag);
     int upload_part(const boost::shared_ptr<request> &req, const std::string &upload_id, transfer_part *part);
 
     void on_download_complete(int ret);
