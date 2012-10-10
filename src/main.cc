@@ -102,9 +102,10 @@ namespace
     string config;
     string mountpoint;
     int verbosity;
+    bool daemon_timeout_set;
 
     #ifdef __APPLE__
-      bool disable_apple_store_files;
+      bool noappledouble_set;
     #endif
   };
 
@@ -537,8 +538,9 @@ int print_usage(const char *arg0)
     "  -o OPT...            pass OPT (comma-separated) to FUSE, such as:\n"
     "     allow_other         allow other users to access the mounted file system\n"
     "     allow_root          allow root to access the mounted file system\n"
-    "     noappledouble       disable testing for/creating .DS_Store files on Mac OS\n"
     "     config=<file>       use <file> rather than the default configuration file\n"
+    "     daemon_timeout=<n>  set fuse timeout to <n> seconds\n"
+    "     noappledouble       disable testing for/creating .DS_Store files on Mac OS\n"
     "  -v, --verbose        enable logging to stderr (can be repeated for more verbosity)\n"
     "  -V, --version        print version and exit\n",
     arg0);
@@ -570,9 +572,14 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
     return 0;
   }
 
+  if (strstr(arg, "daemon_timeout=") == arg) {
+    opt->daemon_timeout_set = true;
+    return 1; // continue processing
+  }
+
   #ifdef __APPLE__
     if (strstr(arg, "noappledouble") == arg) {
-      opt->disable_apple_store_files = true;
+      opt->noappledouble_set = true;
       return 1; // continue processing
     }
   #endif
@@ -688,8 +695,11 @@ int main(int argc, char **argv)
     exit(1);
   }
 
+  if (!opts.daemon_timeout_set)
+    fprintf(stderr, "Set \"-o daemon_timeout=3600\" or something equally large if transferring large files, otherwise FUSE will time out.\n");
+
   #ifdef __APPLE__
-    if (!opts.disable_apple_store_files)
+    if (!opts.noappledouble_set)
       fprintf(stderr, "You are *strongly* advised to pass \"-o noappledouble\" to disable the creation/checking/etc. of .DS_Store files.\n");
   #endif
 
