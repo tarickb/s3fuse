@@ -1,3 +1,13 @@
+s3fuse (0.13) unstable; urgency=low
+
+  * Removed precache_on_readdir configuration option (and feature).
+  * Renamed built-in extended attributes "__content_type__", "__md5__",
+    and "__etag__" to "s3fuse_content_type", "s3fuse_md5", 
+    "s3fuse_etag", respectively.
+  * Added note about daemon_timeout.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Tue, 09 Oct 2012 19:37:02 -0600
+
 s3fuse (0.12) unstable; urgency=low
 
   * NEW: MacOS support. See README.
