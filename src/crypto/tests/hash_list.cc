@@ -10,7 +10,10 @@ using std::endl;
 using std::string;
 using std::vector;
 
-using namespace s3::crypto;
+using s3::crypto::hash_list;
+using s3::crypto::hex;
+using s3::crypto::md5;
+using s3::crypto::sha256;
 
 int main(int argc, char **argv)
 {
