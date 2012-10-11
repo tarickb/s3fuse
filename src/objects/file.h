@@ -8,10 +8,10 @@ namespace s3
 {
   namespace objects
   {
-    namespace file_open_modes
+    enum file_open_mode
     {
-      const int OPEN_DEFAULT          = 0x0;
-      const int OPEN_TRUNCATE_TO_ZERO = 0x1;
+      OPEN_DEFAULT          = 0x0,
+      OPEN_TRUNCATE_TO_ZERO = 0x1
     };
 
     class file : public object
@@ -24,7 +24,7 @@ namespace s3
         return reinterpret_cast<file *>(handle);
       }
 
-      static int open(const std::string &path, int mode, uint64_t *handle);
+      static int open(const std::string &path, file_open_mode mode, uint64_t *handle);
 
       file(const std::string &path);
       virtual ~file();
@@ -77,9 +77,9 @@ namespace s3
         FS_DIRTY       = 0x8
       };
 
-      static void open_locked_object(const object::ptr &obj, int mode, uint64_t *handle, int *status);
+      static void open_locked_object(const object::ptr &obj, file_open_mode mode, uint64_t *handle, int *status);
 
-      int open(int mode, uint64_t *handle);
+      int open(file_open_mode mode, uint64_t *handle);
 
       int download(const boost::shared_ptr<request> &req);
 

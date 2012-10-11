@@ -29,12 +29,12 @@ namespace s3
 {
   namespace threads
   {
-    namespace pool_ids
+    enum pool_id
     {
-      const int PR_0 = 0;
-      const int PR_REQ_0 = 1;
-      const int PR_REQ_1 = 2;
-    }
+      PR_0 = 0,
+      PR_REQ_0 = 1,
+      PR_REQ_1 = 2
+    };
 
     class pool
     {
@@ -45,7 +45,7 @@ namespace s3
       static void terminate();
 
       inline static wait_async_handle::ptr post(
-        int p,
+        pool_id p,
         const worker_function &fn)
       {
         wait_async_handle::ptr ah(new wait_async_handle());
@@ -56,7 +56,7 @@ namespace s3
       }
 
       inline static void post(
-        int p,
+        pool_id p,
         const worker_function &fn, 
         const callback_async_handle::callback_function &cb)
       {
@@ -66,19 +66,19 @@ namespace s3
           async_handle::ptr(new callback_async_handle(cb)));
       }
 
-      inline static int call(int p, const worker_function &fn)
+      inline static int call(pool_id p, const worker_function &fn)
       {
         return post(p, fn)->wait();
       }
 
-      inline static void call_async(int p, const worker_function &fn)
+      inline static void call_async(pool_id p, const worker_function &fn)
       {
         post(p, fn);
       }
 
     private:
       static void internal_post(
-        int p, 
+        pool_id p, 
         const worker_function &fn, 
         const async_handle::ptr &ah);
     };

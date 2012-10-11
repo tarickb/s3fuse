@@ -57,8 +57,6 @@ using s3::objects::symlink;
 using s3::services::service;
 using s3::threads::pool;
 
-using namespace s3::objects::file_open_modes;
-
 // also adjust path by skipping leading slash
 #define ASSERT_VALID_PATH(str) \
   do { \
@@ -195,7 +193,7 @@ int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
     if (r)
       return r;
 
-    return file::open(static_cast<string>(path), OPEN_DEFAULT, &file_info->fh);
+    return file::open(static_cast<string>(path), s3::objects::OPEN_DEFAULT, &file_info->fh);
   END_TRY;
 }
 
@@ -329,7 +327,7 @@ int s3fuse_open(const char *path, fuse_file_info *file_info)
   BEGIN_TRY;
     return file::open(
       static_cast<string>(path), 
-      (file_info->flags & O_TRUNC) ? OPEN_TRUNCATE_TO_ZERO : OPEN_DEFAULT, 
+      (file_info->flags & O_TRUNC) ? s3::objects::OPEN_TRUNCATE_TO_ZERO : s3::objects::OPEN_DEFAULT, 
       &file_info->fh);
   END_TRY;
 }

@@ -48,10 +48,6 @@ namespace s3
 
       inline static const signing_function & get_signing_function() { return s_impl->get_signing_function(); }
 
-      // TODO: remove
-      // set last_sign_failed = true if the last sign() attempt failed.
-      // inline static void sign(request *req, bool last_sign_failed) { s_impl->sign(req, last_sign_failed); }
-
     private:
       static impl::ptr s_impl;
     };

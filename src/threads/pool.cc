@@ -38,13 +38,11 @@ using s3::threads::pool;
 using s3::threads::work_item;
 using s3::threads::work_item_queue;
 
-using namespace s3::threads::pool_ids;
-
 namespace
 {
-  BOOST_STATIC_ASSERT(PR_0 == 0);
-  BOOST_STATIC_ASSERT(PR_REQ_0 == 1);
-  BOOST_STATIC_ASSERT(PR_REQ_1 == 2);
+  BOOST_STATIC_ASSERT(s3::threads::PR_0 == 0);
+  BOOST_STATIC_ASSERT(s3::threads::PR_REQ_0 == 1);
+  BOOST_STATIC_ASSERT(s3::threads::PR_REQ_1 == 2);
 
   const int POOL_COUNT = 3; // PR_0, PR_REQ_0, PR_REQ_1
   const int NUM_THREADS_PER_POOL = 8;
@@ -160,7 +158,7 @@ void pool::terminate()
 }
 
 void pool::internal_post(
-  int p,
+  pool_id p,
   const work_item::worker_function &fn,
   const async_handle::ptr &ah)
 {

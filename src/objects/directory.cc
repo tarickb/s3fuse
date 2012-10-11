@@ -20,8 +20,6 @@ using s3::services::service;
 using s3::threads::pool;
 using s3::threads::wait_async_handle;
 
-using namespace s3::threads::pool_ids;
-
 namespace
 {
   const char *IS_TRUNCATED_XPATH = "/s3:ListBucketResult/s3:IsTruncated";
@@ -265,7 +263,7 @@ int directory::rename(const request::ptr &req, const string &to_)
       cache::remove(*oper.old_name);
 
       oper.old_name.reset(new string(full_path_cs));
-      oper.handle = pool::post(PR_REQ_1, bind(&object::copy_by_path, _1, *oper.old_name, new_name));
+      oper.handle = pool::post(threads::PR_REQ_1, bind(&object::copy_by_path, _1, *oper.old_name, new_name));
 
       pending_renames.push_back(oper);
 
@@ -288,7 +286,7 @@ int directory::rename(const request::ptr &req, const string &to_)
   }
 
   for (list<rename_operation>::iterator itor = pending_deletes.begin(); itor != pending_deletes.end(); ++itor)
-    itor->handle = pool::post(PR_REQ_1, bind(&object::remove_by_url, _1, object::build_url(*itor->old_name)));
+    itor->handle = pool::post(threads::PR_REQ_1, bind(&object::remove_by_url, _1, object::build_url(*itor->old_name)));
 
   while (!pending_deletes.empty()) {
     int r;

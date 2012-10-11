@@ -5,7 +5,9 @@
 
 #include <iostream>
 
-using namespace std;
+using std::cerr;
+using std::cout;
+using std::endl;
 
 #define STR_(x) #x
 #define STR(x) STR_(x)

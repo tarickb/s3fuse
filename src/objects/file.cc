@@ -32,9 +32,6 @@ using s3::objects::object;
 using s3::services::service;
 using s3::threads::pool;
 
-using namespace s3::objects::file_open_modes;
-using namespace s3::threads::pool_ids;
-
 #define TEMP_NAME_TEMPLATE "/tmp/s3fuse.local-XXXXXX"
 
 namespace
@@ -51,7 +48,7 @@ namespace
   object::type_checker::type_checker s_checker_reg(checker, 1000);
 }
 
-void file::open_locked_object(const object::ptr &obj, int mode, uint64_t *handle, int *status)
+void file::open_locked_object(const object::ptr &obj, file_open_mode mode, uint64_t *handle, int *status)
 {
   if (!obj) {
     *status = -ENOENT;
@@ -66,7 +63,7 @@ void file::open_locked_object(const object::ptr &obj, int mode, uint64_t *handle
   *status = static_cast<file *>(obj.get())->open(mode, handle);
 }
 
-int file::open(const string &path, int mode, uint64_t *handle)
+int file::open(const string &path, file_open_mode mode, uint64_t *handle)
 {
   int r = -EINVAL;
 
@@ -138,7 +135,7 @@ void file::on_download_complete(int ret)
   _condition.notify_all();
 }
 
-int file::open(int mode, uint64_t *handle)
+int file::open(file_open_mode mode, uint64_t *handle)
 {
   mutex::scoped_lock lock(_fs_mutex);
 
@@ -153,14 +150,14 @@ int file::open(int mode, uint64_t *handle)
     if (_fd == -1)
       return -errno;
 
-    if (!(mode & OPEN_TRUNCATE_TO_ZERO)) {
+    if (!(mode & objects::OPEN_TRUNCATE_TO_ZERO)) {
       if (ftruncate(_fd, get_stat()->st_size) != 0)
         return -errno;
 
       _status = FS_DOWNLOADING;
 
       pool::post(
-        PR_0,
+        threads::PR_0,
         bind(&file::download, shared_from_this(), _1),
         bind(&file::on_download_complete, shared_from_this(), _1));
     }
@@ -211,7 +208,7 @@ int file::flush()
   _status |= FS_UPLOADING;
 
   lock.unlock();
-  _async_error = pool::call(PR_0, bind(&file::upload, shared_from_this(), _1));
+  _async_error = pool::call(threads::PR_0, bind(&file::upload, shared_from_this(), _1));
   lock.lock();
 
   _status = 0;
@@ -359,7 +356,7 @@ int file::download(const request::ptr &req)
   if (service::is_multipart_download_supported() && get_transfer_size() > config::get_download_chunk_size())
     r = download_multi();
   else
-    r = pool::call(PR_REQ_1, bind(&file::download_single, shared_from_this(), _1));
+    r = pool::call(threads::PR_REQ_1, bind(&file::download_single, shared_from_this(), _1));
 
   return r ? r : check_download_consistency();
 }
@@ -403,7 +400,7 @@ int file::download_multi()
     transfer_part *part = &parts[last_part];
 
     part->handle = pool::post(
-      PR_REQ_1, 
+      threads::PR_REQ_1, 
       bind(&file::download_part, shared_from_this(), _1, part));
 
     parts_in_progress.push_back(part);
@@ -424,7 +421,7 @@ int file::download_multi()
         part_r = -EIO;
       } else {
         part->handle = pool::post(
-          PR_REQ_1, 
+          threads::PR_REQ_1, 
           bind(&file::download_part, shared_from_this(), _1, part));
 
         parts_in_progress.push_back(part);
@@ -441,7 +438,7 @@ int file::download_multi()
       part = &parts[last_part++];
 
       part->handle = pool::post(
-        PR_REQ_1, 
+        threads::PR_REQ_1, 
         bind(&file::download_part, shared_from_this(), _1, part));
 
       parts_in_progress.push_back(part);
@@ -479,7 +476,7 @@ int file::upload(const request::ptr &req)
   if (service::is_multipart_upload_supported() && get_transfer_size() > config::get_upload_chunk_size())
     return upload_multi();
   else
-    return pool::call(PR_REQ_0, bind(&file::upload_single, shared_from_this(), _1));
+    return pool::call(threads::PR_REQ_0, bind(&file::upload_single, shared_from_this(), _1));
 }
 
 int file::upload_single(const request::ptr &req)
@@ -622,7 +619,7 @@ int file::upload_multi()
   string etag, computed_md5;
   int r;
 
-  r = pool::call(PR_REQ_0, bind(&file::upload_multi_init, shared_from_this(), _1, &upload_id));
+  r = pool::call(threads::PR_REQ_0, bind(&file::upload_multi_init, shared_from_this(), _1, &upload_id));
 
   if (r)
     return r;
@@ -639,7 +636,7 @@ int file::upload_multi()
     transfer_part *part = &parts[last_part];
 
     part->handle = pool::post(
-      PR_REQ_1, 
+      threads::PR_REQ_1, 
       bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
 
     parts_in_progress.push_back(part);
@@ -664,7 +661,7 @@ int file::upload_multi()
         part = &parts[last_part++];
 
         part->handle = pool::post(
-          PR_REQ_1, 
+          threads::PR_REQ_1, 
           bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
 
         parts_in_progress.push_back(part);
@@ -675,7 +672,7 @@ int file::upload_multi()
 
       if (part->retry_count <= config::get_max_transfer_retries()) {
         part->handle = pool::post(
-          PR_REQ_1, 
+          threads::PR_REQ_1, 
           bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
 
         parts_in_progress.push_back(part);
@@ -698,12 +695,16 @@ int file::upload_multi()
   complete_upload += "</CompleteMultipartUpload>";
 
   if (!success) {
-    pool::call(PR_REQ_0, bind(&file::upload_multi_cancel, shared_from_this(), _1, upload_id));
+    pool::call(
+      threads::PR_REQ_0, 
+      bind(&file::upload_multi_cancel, shared_from_this(), _1, upload_id));
 
     return -EIO;
   }
 
-  r = pool::call(PR_REQ_0, bind(&file::upload_multi_complete, shared_from_this(), _1, upload_id, complete_upload, &etag));
+  r = pool::call(
+    threads::PR_REQ_0, 
+    bind(&file::upload_multi_complete, shared_from_this(), _1, upload_id, complete_upload, &etag));
 
   if (r)
     return r;

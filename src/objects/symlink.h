@@ -30,7 +30,9 @@ namespace s3
           
           lock.unlock();
 
-          r = threads::pool::call(threads::pool_ids::PR_REQ_0, bind(&symlink::internal_read, shared_from_this(), _1));
+          r = threads::pool::call(
+            threads::PR_REQ_0, 
+            bind(&symlink::internal_read, shared_from_this(), _1));
 
           if (r)
             return r;
