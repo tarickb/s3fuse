@@ -2,11 +2,11 @@
 #include "request.h"
 #include "objects/encrypted_file.h"
 
-using namespace boost;
-using namespace std;
+using std::string;
 
-using namespace s3;
-using namespace s3::objects;
+using s3::request;
+using s3::objects::encrypted_file;
+using s3::objects::object;
 
 namespace
 {

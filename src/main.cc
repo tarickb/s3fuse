@@ -30,20 +30,34 @@
 #include <string>
 
 #include "config.h"
-#include "directory.h"
-#include "file.h"
 #include "logger.h"
-#include "object_cache.h"
-#include "service.h"
 #include "ssl_locks.h"
-#include "symlink.h"
 #include "version.h"
 #include "xml.h"
+#include "objects/cache.h"
+#include "objects/directory.h"
+#include "objects/file.h"
+#include "objects/symlink.h"
+#include "services/service.h"
 
-using namespace boost;
-using namespace std;
+using boost::static_pointer_cast;
+using std::runtime_error;
+using std::string;
+using std::vector;
 
-using namespace s3;
+using s3::config;
+using s3::logger;
+using s3::ssl_locks;
+using s3::xml;
+using s3::objects::cache;
+using s3::objects::directory;
+using s3::objects::file;
+using s3::objects::object;
+using s3::objects::symlink;
+using s3::services::service;
+using s3::threads::pool;
+
+using namespace s3::objects::file_open_modes;
 
 // also adjust path by skipping leading slash
 #define ASSERT_VALID_PATH(str) \
@@ -69,13 +83,13 @@ using namespace s3;
   }
 
 #define GET_OBJECT(var, path) \
-  object::ptr var = object_cache::get(path); \
+  object::ptr var = cache::get(path); \
   \
   if (!var) \
     return -ENOENT;
 
 #define GET_OBJECT_AS(type, mode, var, path) \
-  type::ptr var = static_pointer_cast<type>(object_cache::get(path)); \
+  type::ptr var = static_pointer_cast<type>(cache::get(path)); \
   \
   if (!var) \
     return -ENOENT; \
@@ -163,7 +177,7 @@ int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
   BEGIN_TRY;
     file::ptr f;
 
-    if (object_cache::get(path)) {
+    if (cache::get(path)) {
       S3_LOG(LOG_WARNING, "create", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }
@@ -289,7 +303,7 @@ int s3fuse_mkdir(const char *path, mode_t mode)
   BEGIN_TRY;
     directory::ptr dir;
 
-    if (object_cache::get(path)) {
+    if (cache::get(path)) {
       S3_LOG(LOG_WARNING, "mkdir", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }
@@ -347,7 +361,7 @@ int s3fuse_readlink(const char *path, char *buffer, size_t max_size)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    GET_OBJECT_AS(s3::symlink, S_IFLNK, link, path);
+    GET_OBJECT_AS(s3::objects::symlink, S_IFLNK, link, path);
 
     string target;
     int r = link->read(&target);
@@ -406,7 +420,7 @@ int s3fuse_rename(const char *from, const char *to)
 
     // not using GET_OBJECT() here because we don't want to fail if "to"
     // doesn't exist
-    object::ptr to_obj = object_cache::get(to);
+    object::ptr to_obj = cache::get(to);
 
     directory::invalidate_parent(from);
     directory::invalidate_parent(to);
@@ -465,14 +479,14 @@ int s3fuse_symlink(const char *target, const char *path)
   BEGIN_TRY;
     symlink::ptr link;
 
-    if (object_cache::get(path)) {
+    if (cache::get(path)) {
       S3_LOG(LOG_WARNING, "symlink", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }
 
     directory::invalidate_parent(path);
 
-    link.reset(new s3::symlink(path));
+    link.reset(new s3::objects::symlink(path));
 
     link->set_uid(ctx->uid);
     link->set_gid(ctx->gid);
@@ -618,12 +632,12 @@ void * init(fuse_conn_info *info)
 {
   try {
     ssl_locks::init();
-    thread_pool::init();
+    pool::init();
 
     service::init(config::get_service());
     xml::init(service::get_xml_namespace());
 
-    object_cache::init();
+    cache::init();
 
     if (info->capable & FUSE_CAP_ATOMIC_O_TRUNC) {
       info->want |= FUSE_CAP_ATOMIC_O_TRUNC;
@@ -717,8 +731,8 @@ int main(int argc, char **argv)
 
   fuse_opt_free_args(&args);
 
-  thread_pool::terminate();
-  object_cache::print_summary();
+  pool::terminate();
+  cache::print_summary();
   ssl_locks::release();
 
   return r;

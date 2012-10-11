@@ -9,9 +9,13 @@ namespace s3
 {
   namespace crypto
   {
+    class encoder;
+
     class hex_with_quotes
     {
-    public:
+    private:
+      friend class encoder;
+
       inline static std::string encode(const uint8_t *input, size_t size)
       {
         return std::string("\"") + hex::encode(input, size) + "\"";
@@ -22,7 +26,7 @@ namespace s3
         if (input[0] != '"' || input[input.size() - 1] != '"')
           throw std::runtime_error("hex input does not have surrounding quotes");
 
-        return hex::decode(input.substr(0, input.size() - 2));
+        return hex::decode(input.substr(1, input.size() - 2), output);
       }
     };
   }

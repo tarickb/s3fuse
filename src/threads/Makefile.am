@@ -1,14 +1,14 @@
-noinst_LIBRARIES = libs3fuse_threads.a
-
 AM_CPPFLAGS += -I../
+
+noinst_LIBRARIES = libs3fuse_threads.a
 
 libs3fuse_threads_a_SOURCES = \
 	async_handle.h \
-	request_worker_thread.cc \
-	request_worker_thread.h \
-	thread_pool.cc \
-	thread_pool.h \
+	pool.cc \
+	pool.h \
+	request_worker.cc \
+	request_worker.h \
 	work_item.h \
 	work_item_queue.h \
-	worker_thread.cc \
-	worker_thread.h
+	worker.cc \
+	worker.h

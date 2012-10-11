@@ -5,6 +5,9 @@
 #include <vector>
 #include <boost/smart_ptr.hpp>
 
+#include "crypto/encoder.h"
+#include "crypto/hash.h"
+
 namespace s3
 {
   namespace crypto
@@ -22,28 +25,20 @@ namespace s3
 
       inline void set_hash_of_part(const size_t part, const uint8_t *data, const size_t size)
       {
-        hash_type::compute(data, size, _hashes[part * hash_type::HASH_LEN]);
+        hash::compute<hash_type>(data, size, &_hashes[part * hash_type::HASH_LEN]);
       }
 
-      inline const std::string & get_root_hash()
+      template <class encoder_type>
+      inline std::string get_root_hash()
       {
-        if (_root_hash.empty())
-          compute_root_hash();
+        uint8_t root_hash[hash_type::HASH_LEN];
 
-        return _root_hash;
+        hash::compute<hash_type>(_hashes, root_hash);
+
+        return encoder::encode<encoder_type>(root_hash, hash_type::HASH_LEN);
       }
 
     private:
-      inline void compute_root_hash()
-      {
-        uint8_t hash[hash_type::HASH_LEN];
-
-        hash_type::compute(&_hashes[0], _hashes.size(), hash);
-
-        _root_hash = util::encode(hash, hash_type::HASH_LEN, E_HEX);
-      }
-
-      std::string _root_hash;
       std::vector<uint8_t> _hashes;
     };
   }

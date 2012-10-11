@@ -26,10 +26,13 @@
 #include "services/aws_impl.h"
 #include "services/gs_impl.h"
 
-using namespace std;
+using std::runtime_error;
+using std::string;
 
-using namespace s3;
-using namespace s3::services;
+using s3::services::aws_impl;
+using s3::services::gs_impl;
+using s3::services::impl;
+using s3::services::service;
 
 impl::ptr service::s_impl;
 

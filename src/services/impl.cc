@@ -27,9 +27,13 @@
 
 #include "services/impl.h"
 
-using namespace std;
+using std::ifstream;
+using std::ios;
+using std::ofstream;
+using std::runtime_error;
+using std::string;
 
-using namespace s3::services;
+using s3::services::impl;
 
 void impl::open_private_file(const string &file, ofstream *f)
 {

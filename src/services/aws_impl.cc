@@ -24,19 +24,27 @@
 #include <boost/algorithm/string/split.hpp>
 
 #include "config.h"
-#include "encoding.h"
 #include "logger.h"
 #include "request.h"
 #include "crypto/base64.h"
+#include "crypto/encoder.h"
 #include "crypto/hmac_sha1.h"
 #include "services/aws_impl.h"
 
-using namespace boost;
-using namespace std;
+using boost::is_any_of;
+using boost::token_compress_on;
+using std::ifstream;
+using std::map;
+using std::runtime_error;
+using std::string;
+using std::vector;
 
-using namespace s3;
-using namespace s3::crypto;
-using namespace s3::services;
+using s3::config;
+using s3::header_map;
+using s3::crypto::base64;
+using s3::crypto::encoder;
+using s3::crypto::hmac_sha1;
+using s3::services::aws_impl;
 
 namespace
 {
@@ -79,7 +87,7 @@ aws_impl::aws_impl()
   _secret = fields[1];
 
   _endpoint = string("https://") + config::get_aws_service_endpoint();
-  _bucket_url = string("/") + encoding::url_encode(config::get_bucket_name());
+  _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
 }
 
 const string & aws_impl::get_header_prefix()
@@ -136,7 +144,7 @@ void aws_impl::sign(request *req, bool last_sign_failed)
   to_sign += req->get_url();
 
   hmac_sha1::sign(_secret, to_sign, mac);
-  req->set_header("Authorization", string("AWS ") + _key + ":" + base64::encode(mac, hmac_sha1::MAC_LEN));
+  req->set_header("Authorization", string("AWS ") + _key + ":" + encoder::encode<base64>(mac, hmac_sha1::MAC_LEN));
 
   if (last_sign_failed)
     S3_LOG(LOG_DEBUG, "aws_impl::sign", "last sign failed. string to sign: [%s].\n", to_sign.c_str());

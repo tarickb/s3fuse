@@ -1,14 +1,13 @@
 #include "logger.h"
 #include "threads/async_handle.h"
 #include "threads/work_item_queue.h"
-#include "threads/worker_thread.h"
+#include "threads/worker.h"
 
-using namespace boost;
-using namespace std;
+using boost::shared_ptr;
 
-using namespace s3::threads;
+using s3::threads::worker;
 
-void worker_thread::worker()
+void worker::work()
 {
   shared_ptr<request> null_req;
 
@@ -25,11 +24,11 @@ void worker_thread::worker()
       r = item.get_function()(null_req);
 
     } catch (const std::exception &e) {
-      S3_LOG(LOG_WARNING, "worker_thread::worker", "caught exception: %s\n", e.what());
+      S3_LOG(LOG_WARNING, "worker::work", "caught exception: %s\n", e.what());
       r = -ECANCELED;
 
     } catch (...) {
-      S3_LOG(LOG_WARNING, "worker_thread::worker", "caught unknown exception.\n");
+      S3_LOG(LOG_WARNING, "worker::work", "caught unknown exception.\n");
       r = -ECANCELED;
     }
 

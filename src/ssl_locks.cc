@@ -43,10 +43,10 @@
 #include "logger.h"
 #include "ssl_locks.h"
 
-using namespace boost;
-using namespace std;
+using boost::mutex;
+using std::runtime_error;
 
-using namespace s3;
+using s3::ssl_locks;
 
 namespace
 {

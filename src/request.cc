@@ -28,14 +28,15 @@
 
 #include "config.h"
 #include "logger.h"
-#include "object.h"
 #include "request.h"
-#include "service.h"
 #include "ssl_locks.h"
+#include "services/service.h"
 
-using namespace std;
+using std::runtime_error;
+using std::string;
 
-using namespace s3;
+using s3::request;
+using s3::services::service;
 
 #define TEST_OK(x) do { if ((x) != CURLE_OK) throw runtime_error("call to " #x " failed."); } while (0)
 

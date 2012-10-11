@@ -2,9 +2,11 @@
 
 #include "crypto/hex.h"
 
-using namespace std;
+using std::string;
+using std::runtime_error;
+using std::vector;
 
-using namespace s3::crypto;
+using s3::crypto::hex;
 
 namespace
 {

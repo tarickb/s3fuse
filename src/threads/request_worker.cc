@@ -2,16 +2,16 @@
 #include "request.h"
 #include "timer.h"
 #include "threads/async_handle.h"
-#include "threads/request_worker_thread.h"
+#include "threads/request_worker.h"
 #include "threads/work_item_queue.h"
 
-using namespace boost;
-using namespace std;
+using boost::mutex;
 
-using namespace s3;
-using namespace s3::threads;
+using s3::threads::request_worker;
+using s3::threads::work_item;
+using s3::threads::work_item_queue;
 
-request_worker_thread::request_worker_thread(const work_item_queue::ptr &queue)
+request_worker::request_worker(const work_item_queue::ptr &queue)
   : _request(new request()),
     _time_in_function(0.),
     _time_in_request(0.),
@@ -19,19 +19,19 @@ request_worker_thread::request_worker_thread(const work_item_queue::ptr &queue)
 {
 }
 
-request_worker_thread::~request_worker_thread()    
+request_worker::~request_worker()    
 {
   if (_time_in_function > 0.0)
     S3_LOG(
       LOG_DEBUG,
-      "request_worker_thread::~request_worker_thread", 
+      "request_worker::~request_worker", 
       "time in request/function: %.2f s/%.2f s (%.2f %%)\n", 
       _time_in_request, 
       _time_in_function, 
       (_time_in_request / _time_in_function) * 100.0);
 }
 
-bool request_worker_thread::check_timeout()
+bool request_worker::check_timeout()
 {
   mutex::scoped_lock lock(_mutex);
 
@@ -48,7 +48,7 @@ bool request_worker_thread::check_timeout()
   return false;
 }
 
-void request_worker_thread::worker()
+void request_worker::work()
 {
   while (true) {
     mutex::scoped_lock lock(_mutex);
@@ -91,11 +91,11 @@ void request_worker_thread::worker()
       _time_in_request += _request->get_current_run_time();
 
     } catch (const std::exception &e) {
-      S3_LOG(LOG_WARNING, "request_worker_thread::worker", "caught exception: %s\n", e.what());
+      S3_LOG(LOG_WARNING, "request_worker::work", "caught exception: %s\n", e.what());
       r = -ECANCELED;
 
     } catch (...) {
-      S3_LOG(LOG_WARNING, "request_worker_thread::worker", "caught unknown exception.\n");
+      S3_LOG(LOG_WARNING, "request_worker::work", "caught unknown exception.\n");
       r = -ECANCELED;
     }
 

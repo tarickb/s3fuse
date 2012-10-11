@@ -29,10 +29,12 @@
 #include "config.h"
 #include "logger.h"
 
-using namespace boost;
-using namespace std;
+using boost::lexical_cast;
+using std::ifstream;
+using std::runtime_error;
+using std::string;
 
-using namespace s3;
+using s3::config;
 
 namespace
 {

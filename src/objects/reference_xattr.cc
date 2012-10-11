@@ -1,9 +1,9 @@
 #include "objects/reference_xattr.h"
 
-using namespace boost;
-using namespace std;
+using std::runtime_error;
+using std::string;
 
-using namespace s3::objects;
+using s3::objects::reference_xattr;
 
 bool reference_xattr::is_serializable()
 {

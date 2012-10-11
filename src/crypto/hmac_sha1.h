@@ -1,6 +1,8 @@
 #ifndef S3_CRYPTO_HMAC_SHA1_H
 #define S3_CRYPTO_HMAC_SHA1_H
 
+#include <stdint.h>
+
 #include <string>
 
 namespace s3

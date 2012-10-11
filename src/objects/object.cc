@@ -24,9 +24,8 @@
 
 #include "config.h"
 #include "logger.h"
-#include "object_cache.h"
 #include "request.h"
-#include "encoding.h"
+#include "objects/cache.h"
 #include "objects/object.h"
 #include "objects/reference_xattr.h"
 #include "objects/value_xattr.h"
@@ -40,16 +39,19 @@
   #define ENOATTR ENODATA
 #endif
 
-using namespace boost;
-using namespace std;
+using boost::mutex;
+using std::multimap;
+using std::runtime_error;
+using std::string;
+using std::vector;
 
-using namespace s3;
-using namespace s3::objects;
-using namespace s3::services;
+using s3::request;
+using s3::objects::object;
+using s3::services::service;
 
 namespace
 {
-  typedef std::multimap<int, object::type_checker::fn> type_checker_map;
+  typedef multimap<int, object::type_checker::fn> type_checker_map;
 
   const int     BLOCK_SIZE                    = 512;
   const string  META_PREFIX_RESERVED          = "s3fuse-";
@@ -70,7 +72,7 @@ object::type_checker::type_checker(object::type_checker::fn checker, int priorit
 
 string object::build_url(const string &path)
 {
-  return service::get_bucket_url() + "/" + encoding::url_encode(path);
+  return service::get_bucket_url() + "/" + request::url_encode(path);
 }
 
 object::ptr object::create(const string &path, const request::ptr &req)
@@ -347,7 +349,7 @@ int object::commit(const request::ptr &req)
 
 int object::remove(const request::ptr &req)
 {
-  object_cache::remove(get_path());
+  cache::remove(get_path());
 
   return object::remove_by_url(req, _url);
 }
@@ -359,7 +361,7 @@ int object::rename(const request::ptr &req, const string &to)
   if (r)
     return r;
 
-  object_cache::remove(get_path());
+  cache::remove(get_path());
 
   return remove(req);
 }

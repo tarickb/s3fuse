@@ -32,7 +32,7 @@
 #include <boost/thread.hpp>
 
 #include "objects/xattr.h"
-#include "threads/thread_pool.h"
+#include "threads/pool.h"
 
 namespace s3
 {
@@ -95,17 +95,17 @@ namespace s3
 
       int commit()
       {
-        return threads::thread_pool::call(threads::PR_REQ_0, boost::bind(&object::commit, shared_from_this(), _1));
+        return threads::pool::call(threads::pool_ids::PR_REQ_0, boost::bind(&object::commit, shared_from_this(), _1));
       }
 
       int remove()
       {
-        return threads::thread_pool::call(threads::PR_REQ_0, boost::bind(&object::remove, shared_from_this(), _1));
+        return threads::pool::call(threads::pool_ids::PR_REQ_0, boost::bind(&object::remove, shared_from_this(), _1));
       }
 
       int rename(const std::string &to)
       {
-        return threads::thread_pool::call(threads::PR_REQ_0, boost::bind(&object::rename, shared_from_this(), _1, to));
+        return threads::pool::call(threads::pool_ids::PR_REQ_0, boost::bind(&object::rename, shared_from_this(), _1, to));
       }
 
     protected:

@@ -23,18 +23,20 @@
 #include <boost/property_tree/ptree.hpp>
 
 #include "config.h"
-#include "encoding.h"
 #include "logger.h"
 #include "request.h"
 #include "services/gs_impl.h"
 
-using namespace boost;
-using namespace boost::property_tree;
-using namespace std;
+using boost::mutex;
+using boost::property_tree::ptree;
+using std::endl;
+using std::ifstream;
+using std::ofstream;
+using std::runtime_error;
+using std::string;
+using std::stringstream;
 
-using namespace s3;
-using namespace s3::crypto;
-using namespace s3::services;
+using s3::services::gs_impl;
 
 namespace
 {
@@ -131,7 +133,7 @@ gs_impl::gs_impl()
 {
   mutex::scoped_lock lock(_mutex);
 
-  _bucket_url = string("/") + encoding::url_encode(config::get_bucket_name());
+  _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
 
   _refresh_token = gs_impl::read_token(config::get_auth_data());
   refresh(lock);

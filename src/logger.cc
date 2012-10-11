@@ -21,7 +21,7 @@
 
 #include "logger.h"
 
-using namespace s3;
+using s3::logger;
 
 int logger::s_max_level = 0;
 

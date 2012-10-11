@@ -3,14 +3,15 @@
 #ifdef __APPLE__
   #include <CommonCrypto/CommonDigest.h>
 #else
+  #include <openssl/evp.h>
   #include <openssl/md5.h>
 #endif
 
 #include "crypto/md5.h"
 
-using namespace std;
+using std::runtime_error;
 
-using namespace s3::crypto;
+using s3::crypto::md5;
 
 void md5::compute(const uint8_t *input, size_t size, uint8_t *hash)
 {

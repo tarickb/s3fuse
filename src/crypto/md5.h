@@ -1,12 +1,16 @@
 #ifndef S3_CRYPTO_MD5_H
 #define S3_CRYPTO_MD5_H
 
+#include <stdint.h>
+
 #include <string>
 
 namespace s3
 {
   namespace crypto
   {
+    class hash;
+
     class md5
     {
     public:
@@ -26,6 +30,9 @@ namespace s3
 
         return true;
       }
+
+    private:
+      friend class hash;
 
       static void compute(const uint8_t *input, size_t size, uint8_t *hash);
       static void compute(int fd, uint8_t *hash);

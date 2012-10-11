@@ -1,20 +1,26 @@
 #include "config.h"
-#include "encoding.h"
 #include "logger.h"
-#include "object_cache.h"
 #include "request.h"
 #include "xml.h"
+#include "objects/cache.h"
 #include "objects/directory.h"
 #include "services/service.h"
-#include "threads/thread_pool.h"
+#include "threads/pool.h"
 
-using namespace boost;
-using namespace std;
+using boost::mutex;
+using boost::shared_ptr;
+using std::list;
+using std::string;
 
-using namespace s3;
-using namespace s3::objects;
-using namespace s3::services;
-using namespace s3::threads;
+using s3::request;
+using s3::xml;
+using s3::objects::directory;
+using s3::objects::object;
+using s3::services::service;
+using s3::threads::pool;
+using s3::threads::wait_async_handle;
+
+using namespace s3::threads::pool_ids;
 
 namespace
 {
@@ -58,7 +64,7 @@ namespace
 
 string directory::build_url(const string &path)
 {
-  return service::get_bucket_url() + "/" + encoding::url_encode(path) + "/";
+  return service::get_bucket_url() + "/" + request::url_encode(path) + "/";
 }
 
 directory::directory(const string &path)
@@ -95,7 +101,7 @@ int directory::read(const request::ptr &req, const filler_function &filler)
     xml::document doc;
     xml::element_list prefixes, keys;
 
-    req->set_url(service::get_bucket_url(), string("delimiter=/&prefix=") + encoding::url_encode(path) + "&marker=" + marker);
+    req->set_url(service::get_bucket_url(), string("delimiter=/&prefix=") + request::url_encode(path) + "&marker=" + marker);
     req->run();
 
     if (req->get_response_code() != HTTP_SC_OK)
@@ -164,7 +170,7 @@ bool directory::is_empty(const request::ptr &req)
 
   // set max-keys to two because GET will always return the path we request
   // note the trailing slash on path
-  req->set_url(service::get_bucket_url(), string("prefix=") + encoding::url_encode(get_path()) + "/&max-keys=2");
+  req->set_url(service::get_bucket_url(), string("prefix=") + request::url_encode(get_path()) + "/&max-keys=2");
   req->run();
 
   // if the request fails, assume the directory's not empty
@@ -201,7 +207,7 @@ void directory::invalidate_parent(const string &path)
     parent_path = (last_slash == string::npos) ? "" : path.substr(0, last_slash);
 
     S3_LOG(LOG_DEBUG, "directory::invalidate_parent", "invalidating parent directory [%s] for [%s].\n", parent_path.c_str(), path.c_str());
-    object_cache::remove(parent_path);
+    cache::remove(parent_path);
   }
 }
 
@@ -228,7 +234,7 @@ int directory::rename(const request::ptr &req, const string &to_)
     xml::element_list keys;
     int r;
 
-    req->set_url(service::get_bucket_url(), string("prefix=") + encoding::url_encode(from) + "&marker=" + marker);
+    req->set_url(service::get_bucket_url(), string("prefix=") + request::url_encode(from) + "&marker=" + marker);
     req->run();
 
     if (req->get_response_code() != HTTP_SC_OK)
@@ -256,10 +262,10 @@ int directory::rename(const request::ptr &req, const string &to_)
       const char *relative_path_cs = full_path_cs + from_len;
       string new_name = to + relative_path_cs;
 
-      object_cache::remove(*oper.old_name);
+      cache::remove(*oper.old_name);
 
       oper.old_name.reset(new string(full_path_cs));
-      oper.handle = thread_pool::post(PR_REQ_1, bind(&object::copy_by_path, _1, *oper.old_name, new_name));
+      oper.handle = pool::post(PR_REQ_1, bind(&object::copy_by_path, _1, *oper.old_name, new_name));
 
       pending_renames.push_back(oper);
 
@@ -282,7 +288,7 @@ int directory::rename(const request::ptr &req, const string &to_)
   }
 
   for (list<rename_operation>::iterator itor = pending_deletes.begin(); itor != pending_deletes.end(); ++itor)
-    itor->handle = thread_pool::post(PR_REQ_1, bind(&object::remove_by_url, _1, object::build_url(*itor->old_name)));
+    itor->handle = pool::post(PR_REQ_1, bind(&object::remove_by_url, _1, object::build_url(*itor->old_name)));
 
   while (!pending_deletes.empty()) {
     int r;

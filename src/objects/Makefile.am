@@ -1,8 +1,10 @@
-noinst_LIBRARIES = libs3fuse_objects.a
-
 AM_CPPFLAGS += -I../
 
+noinst_LIBRARIES = libs3fuse_objects.a
+
 libs3fuse_objects_a_SOURCES = \
+	cache.cc \
+	cache.h \
 	directory.cc \
 	directory.h \
 	encrypted_file.cc \

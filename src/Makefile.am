@@ -3,88 +3,45 @@ SUBDIRS = crypto objects services threads . tests
 endif
 
 bin_PROGRAMS = s3fuse s3fuse_gs_get_token
+noinst_LIBRARIES = libs3fuse_base.a libs3fuse_request.a
 
-s3fuse_SOURCES = \
-	async_handle.h \
-	aws_service_impl.cc \
-	aws_service_impl.h \
-	base64.cc \
-	base64.h \
+libs3fuse_request_a_SOURCES = \
+	request.cc \
+	request.h
+
+libs3fuse_base_a_SOURCES = \
 	config.cc \
 	config.h \
 	config.inc \
-	directory.cc \
-	directory.h \
-	encrypted_file.cc \
-	encrypted_file.h \
-	file.cc \
-	file.h \
-	gs_service_impl.cc \
-	gs_service_impl.h \
-	hmac_sha1.cc \
-	hmac_sha1.h \
 	logger.cc \
 	logger.h \
-	main.cc \
-	md5.cc \
-	md5.h \
-	object.cc \
-	object.h \
-	object_cache.cc \
-	object_cache.h \
-	request.cc \
-	request.h \
-	request_worker_thread.cc \
-	request_worker_thread.h \
-	service.cc \
-	service.h \
-	service_impl.cc \
-	service_impl.h \
-	sha256.cc \
-	sha256.h \
-	sha256_hash_list.h \
 	ssl_locks.cc \
 	ssl_locks.h \
-	symlink.cc \
-	symlink.h \
-	thread_pool.cc \
-	thread_pool.h \
-	util.cc \
-	util.h \
 	version.h \
-	work_item.h \
-	work_item_queue.h \
-	worker_thread.cc \
-	worker_thread.h \
-	xattr.h \
-	xattr_reference.cc \
-	xattr_reference.h \
-	xattr_value.cc \
-	xattr_value.h \
 	xml.cc \
 	xml.h
 
-s3fuse_gs_get_token_SOURCES = \
-	aws_service_impl.cc \
-	aws_service_impl.h \
-	config.cc \
-	config.inc \
-	config.h \
-	gs_service_impl.cc \
-	gs_service_impl.h \
-	gs_get_token.cc \
-	logger.cc \
-	logger.h \
-	request.cc \
-	request.h \
-	service.cc \
-	service.h \
-	service_impl.cc \
-	service_impl.h \
-	ssl_locks.cc \
-	ssl_locks.h \
-	util.cc \
-	util.h
+# the order of archives in LDADD matters -- they must be listed such that if A
+# requires symbols provided by B, then A must appear before B
+
+s3fuse_SOURCES = main.cc
+s3fuse_LDADD = \
+	objects/libs3fuse_objects.a \
+	libs3fuse_request.a \
+	services/libs3fuse_services.a \
+	crypto/libs3fuse_crypto.a \
+	threads/libs3fuse_threads.a \
+	libs3fuse_base.a \
+	$(LDADD)
+
+s3fuse_gs_get_token_SOURCES = gs_get_token.cc
+s3fuse_gs_get_token_LDADD = \
+	libs3fuse_request.a \
+	services/libs3fuse_services.a \
+	libs3fuse_request.a \
+	crypto/libs3fuse_crypto.a \
+	libs3fuse_base.a \
+	$(LDADD)
 
 dist_sysconf_DATA = \
 	s3fuse.conf

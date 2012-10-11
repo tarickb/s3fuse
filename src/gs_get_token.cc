@@ -25,9 +25,13 @@
 #include "logger.h"
 #include "services/gs_impl.h"
 
-using namespace std;
+using std::cerr;
+using std::cin;
+using std::cout;
+using std::endl;
+using std::string;
 
-using namespace s3::services;
+using s3::services::gs_impl;
 
 int main(int argc, char **argv)
 {

@@ -1,5 +1,5 @@
 /*
- * thread_pool.h
+ * pool.h
  * -------------------------------------------------------------------------
  * Interface for asynchronous operations (post, wait) on a thread pool.
  * -------------------------------------------------------------------------
@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_THREADS_THREAD_POOL_H
-#define S3_THREADS_THREAD_POOL_H
+#ifndef S3_THREADS_POOL_H
+#define S3_THREADS_POOL_H
 
 #include "threads/async_handle.h"
 #include "threads/work_item.h"
@@ -29,14 +29,14 @@ namespace s3
 {
   namespace threads
   {
-    enum work_item_priority
+    namespace pool_ids
     {
-      PR_0,
-      PR_REQ_0,
-      PR_REQ_1
-    };
+      const int PR_0 = 0;
+      const int PR_REQ_0 = 1;
+      const int PR_REQ_1 = 2;
+    }
 
-    class thread_pool
+    class pool
     {
     public:
       typedef work_item::worker_function worker_function;
@@ -45,7 +45,7 @@ namespace s3
       static void terminate();
 
       inline static wait_async_handle::ptr post(
-        work_item_priority p,
+        int p,
         const worker_function &fn)
       {
         wait_async_handle::ptr ah(new wait_async_handle());
@@ -56,7 +56,7 @@ namespace s3
       }
 
       inline static void post(
-        work_item_priority p,
+        int p,
         const worker_function &fn, 
         const callback_async_handle::callback_function &cb)
       {
@@ -66,19 +66,19 @@ namespace s3
           async_handle::ptr(new callback_async_handle(cb)));
       }
 
-      inline static int call(work_item_priority p, const worker_function &fn)
+      inline static int call(int p, const worker_function &fn)
       {
         return post(p, fn)->wait();
       }
 
-      inline static void call_async(work_item_priority p, const worker_function &fn)
+      inline static void call_async(int p, const worker_function &fn)
       {
         post(p, fn);
       }
 
     private:
       static void internal_post(
-        work_item_priority p, 
+        int p, 
         const worker_function &fn, 
         const async_handle::ptr &ah);
     };

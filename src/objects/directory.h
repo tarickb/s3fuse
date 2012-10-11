@@ -2,7 +2,7 @@
 #define S3_OBJECTS_DIRECTORY_H
 
 #include "objects/object.h"
-#include "threads/thread_pool.h"
+#include "threads/pool.h"
 
 namespace s3
 {
@@ -39,7 +39,7 @@ namespace s3
 
           return 0;
         } else {
-          return threads::thread_pool::call(threads::PR_REQ_0, bind(&directory::read, shared_from_this(), _1, filler));
+          return threads::pool::call(threads::pool_ids::PR_REQ_0, bind(&directory::read, shared_from_this(), _1, filler));
         }
       }
 
@@ -47,7 +47,7 @@ namespace s3
 
       inline bool is_empty()
       {
-        return threads::thread_pool::call(threads::PR_REQ_0, boost::bind(&directory::is_empty, shared_from_this(), _1));
+        return threads::pool::call(threads::pool_ids::PR_REQ_0, boost::bind(&directory::is_empty, shared_from_this(), _1));
       }
 
       virtual int remove(const boost::shared_ptr<request> &req);

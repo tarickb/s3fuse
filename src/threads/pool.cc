@@ -1,5 +1,5 @@
 /*
- * thread_pool.cc
+ * pool.cc
  * -------------------------------------------------------------------------
  * Implements a pool of worker threads which are monitored for timeouts.
  * -------------------------------------------------------------------------
@@ -23,15 +23,22 @@
 #include <boost/lexical_cast.hpp>
 
 #include "logger.h"
-#include "threads/request_worker_thread.h"
-#include "threads/thread_pool.h"
+#include "threads/request_worker.h"
+#include "threads/pool.h"
 #include "threads/work_item_queue.h"
-#include "threads/worker_thread.h"
+#include "threads/worker.h"
 
-using namespace boost;
-using namespace std;
+using boost::bind;
+using boost::scoped_ptr;
+using boost::thread;
+using std::string;
 
-using namespace s3::threads;
+using s3::threads::async_handle;
+using s3::threads::pool;
+using s3::threads::work_item;
+using s3::threads::work_item_queue;
+
+using namespace s3::threads::pool_ids;
 
 namespace
 {
@@ -52,10 +59,10 @@ namespace
     nanosleep(&ts, NULL);
   }
 
-  class _thread_pool
+  class _pool
   {
   public:
-    virtual ~_thread_pool()
+    virtual ~_pool()
     {
     }
 
@@ -63,23 +70,23 @@ namespace
   };
 
   template <class worker_type, bool use_watchdog>
-  class _thread_pool_impl : public _thread_pool
+  class _pool_impl : public _pool
   {
   public:
-    _thread_pool_impl(const string &id)
+    _pool_impl(const string &id)
       : _queue(new work_item_queue()),
         _id(id),
         _respawn_counter(0),
         _done(false)
     {
       if (use_watchdog)
-        _watchdog_thread.reset(new thread(bind(&_thread_pool_impl::watchdog, this)));
+        _watchdog_thread.reset(new thread(bind(&_pool_impl::watchdog, this)));
 
       for (int i = 0; i < NUM_THREADS_PER_POOL; i++)
         _threads.push_back(worker_type::create(_queue));
     }
 
-    ~_thread_pool_impl()
+    ~_pool_impl()
     {
       _queue->abort();
       _done = true;
@@ -95,7 +102,7 @@ namespace
       sleep_one_second();
 
       if (use_watchdog)
-        S3_LOG(LOG_DEBUG, "_thread_pool_impl::~_thread_pool_impl", "[%s] respawn counter: %i.\n", _id.c_str(), _respawn_counter);
+        S3_LOG(LOG_DEBUG, "_pool_impl::~_pool_impl", "[%s] respawn counter: %i.\n", _id.c_str(), _respawn_counter);
     }
 
     virtual void post(const work_item::worker_function &fn, const async_handle::ptr &ah)
@@ -136,24 +143,24 @@ namespace
     bool _done;
   };
 
-  _thread_pool *s_pools[POOL_COUNT];
+  _pool *s_pools[POOL_COUNT];
 }
 
-void thread_pool::init()
+void pool::init()
 {
-  s_pools[PR_0] = new _thread_pool_impl<worker_thread, false>("PR_0");
-  s_pools[PR_REQ_0] = new _thread_pool_impl<request_worker_thread, true>("PR_REQ_0");
-  s_pools[PR_REQ_1] = new _thread_pool_impl<request_worker_thread, true>("PR_REQ_1");
+  s_pools[PR_0] = new _pool_impl<worker, false>("PR_0");
+  s_pools[PR_REQ_0] = new _pool_impl<request_worker, true>("PR_REQ_0");
+  s_pools[PR_REQ_1] = new _pool_impl<request_worker, true>("PR_REQ_1");
 }
 
-void thread_pool::terminate()
+void pool::terminate()
 {
   for (int i = 0; i < POOL_COUNT; i++)
     delete s_pools[i];
 }
 
-void thread_pool::internal_post(
-  work_item_priority p,
+void pool::internal_post(
+  int p,
   const work_item::worker_function &fn,
   const async_handle::ptr &ah)
 {

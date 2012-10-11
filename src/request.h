@@ -65,6 +65,29 @@ namespace s3
 
     typedef boost::shared_ptr<request> ptr;
 
+    inline static std::string url_encode(const std::string &url)
+    {
+      const char *HEX = "0123456789ABCDEF";
+      std::string ret;
+
+      ret.reserve(url.length());
+
+      for (size_t i = 0; i < url.length(); i++) {
+        if (url[i] == '/' || url[i] == '.' || url[i] == '-' || url[i] == '*' || url[i] == '_' || isalnum(url[i]))
+          ret += url[i];
+        else {
+          // allow spaces to be encoded as "%20" rather than "+" because Google
+          // Storage doesn't decode the same way AWS does
+
+          ret += '%';
+          ret += HEX[static_cast<uint8_t>(url[i]) / 16];
+          ret += HEX[static_cast<uint8_t>(url[i]) % 16];
+        }
+      }
+
+      return ret;
+    }
+
     request();
     ~request();
 

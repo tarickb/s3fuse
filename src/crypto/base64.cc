@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include <stdexcept>
 
 #ifdef __APPLE__
@@ -6,13 +8,16 @@
 #else
   #include <openssl/bio.h>
   #include <openssl/buffer.h>
+  #include <openssl/evp.h>
 #endif
 
 #include "crypto/base64.h"
 
-using namespace std;
+using std::string;
+using std::runtime_error;
+using std::vector;
 
-using namespace s3::crypto;
+using s3::crypto::base64;
 
 namespace
 {

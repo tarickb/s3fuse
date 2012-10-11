@@ -22,6 +22,8 @@
 #ifndef S3_XML_H
 #define S3_XML_H
 
+#include <list>
+#include <string>
 #include <boost/smart_ptr.hpp>
 
 namespace xmlpp

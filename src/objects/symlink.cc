@@ -2,10 +2,13 @@
 #include "request.h"
 #include "symlink.h"
 
-using namespace boost;
-using namespace std;
+using boost::defer_lock;
+using boost::mutex;
+using std::string;
 
-using namespace s3;
+using s3::request;
+using s3::objects::object;
+using s3::objects::symlink;
 
 namespace
 {
@@ -20,7 +23,7 @@ namespace
     if (req->get_response_header("Content-Type") != CONTENT_TYPE)
       return NULL;
 
-    return new s3::symlink(path);
+    return new s3::objects::symlink(path);
   }
 
   object::type_checker::type_checker s_checker_reg(checker, 100);

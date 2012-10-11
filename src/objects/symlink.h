@@ -2,7 +2,7 @@
 #define S3_OBJECTS_SYMLINK_H
 
 #include "objects/object.h"
-#include "threads/thread_pool.h"
+#include "threads/pool.h"
 
 namespace s3
 {
@@ -30,7 +30,7 @@ namespace s3
           
           lock.unlock();
 
-          r = thread_pool::call(PR_REQ_0, bind(&symlink::internal_read, shared_from_this(), _1));
+          r = threads::pool::call(threads::pool_ids::PR_REQ_0, bind(&symlink::internal_read, shared_from_this(), _1));
 
           if (r)
             return r;

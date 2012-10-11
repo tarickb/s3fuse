@@ -15,8 +15,13 @@ using std::string;
 using std::runtime_error;
 using std::vector;
 
-using namespace s3::crypto;
-using namespace s3::objects;
+using s3::crypto::base64;
+using s3::crypto::encoder;
+using s3::crypto::hash;
+using s3::crypto::hex;
+using s3::crypto::md5;
+using s3::objects::xattr;
+using s3::objects::value_xattr;
 
 namespace
 {
@@ -60,11 +65,11 @@ xattr::ptr value_xattr::from_header(const string &header_key, const string &head
     if (separator == string::npos)
       throw runtime_error("header string is malformed.");
 
-    base64::decode(header_value.substr(0, separator), &dec_key);
+    encoder::decode<base64>(header_value.substr(0, separator), &dec_key);
 
     ret.reset(val = new value_xattr(reinterpret_cast<char *>(&dec_key[0]), true));
 
-    base64::decode(header_value.substr(separator + 1), &val->_value);
+    encoder::decode<base64>(header_value.substr(separator + 1), &val->_value);
 
   } else {
     // we know the value doesn't need encoding because it came to us as a valid HTTP string.

@@ -28,10 +28,15 @@
 #include "logger.h"
 #include "xml.h"
 
-using namespace std;
-using namespace xmlpp;
+using std::runtime_error;
+using std::string;
+using xmlpp::DomParser;
+using xmlpp::Element;
+using xmlpp::Node;
+using xmlpp::NodeSet;
+using xmlpp::TextNode;
 
-using namespace s3;
+using s3::xml;
 
 namespace
 {

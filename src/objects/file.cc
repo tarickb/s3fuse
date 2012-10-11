@@ -2,24 +2,38 @@
 
 #include "config.h"
 #include "logger.h"
-#include "object_cache.h"
 #include "request.h"
-#include "encoding.h"
 #include "xml.h"
+#include "crypto/base64.h"
+#include "crypto/encoder.h"
+#include "crypto/hash.h"
+#include "crypto/hex_with_quotes.h"
 #include "crypto/md5.h"
+#include "objects/cache.h"
 #include "objects/file.h"
 #include "objects/reference_xattr.h"
 #include "services/service.h"
-#include "threads/thread_pool.h"
+#include "threads/pool.h"
 
-using namespace boost;
-using namespace std;
+using boost::lexical_cast;
+using boost::mutex;
+using std::list;
+using std::string;
+using std::vector;
 
-using namespace s3;
-using namespace s3::crypto;
-using namespace s3::objects;
-using namespace s3::services;
-using namespace s3::threads;
+using s3::request;
+using s3::crypto::base64;
+using s3::crypto::encoder;
+using s3::crypto::hash;
+using s3::crypto::hex_with_quotes;
+using s3::crypto::md5;
+using s3::objects::file;
+using s3::objects::object;
+using s3::services::service;
+using s3::threads::pool;
+
+using namespace s3::objects::file_open_modes;
+using namespace s3::threads::pool_ids;
 
 #define TEMP_NAME_TEMPLATE "/tmp/s3fuse.local-XXXXXX"
 
@@ -37,7 +51,7 @@ namespace
   object::type_checker::type_checker s_checker_reg(checker, 1000);
 }
 
-void file::open_locked_object(const object::ptr &obj, file_open_mode mode, uint64_t *handle, int *status)
+void file::open_locked_object(const object::ptr &obj, int mode, uint64_t *handle, int *status)
 {
   if (!obj) {
     *status = -ENOENT;
@@ -52,11 +66,11 @@ void file::open_locked_object(const object::ptr &obj, file_open_mode mode, uint6
   *status = static_cast<file *>(obj.get())->open(mode, handle);
 }
 
-int file::open(const string &path, file_open_mode mode, uint64_t *handle)
+int file::open(const string &path, int mode, uint64_t *handle)
 {
   int r = -EINVAL;
 
-  object_cache::lock_object(path, bind(&file::open_locked_object, _1, mode, handle, &r));
+  cache::lock_object(path, bind(&file::open_locked_object, _1, mode, handle, &r));
 
   return r;
 }
@@ -124,7 +138,7 @@ void file::on_download_complete(int ret)
   _condition.notify_all();
 }
 
-int file::open(file_open_mode mode, uint64_t *handle)
+int file::open(int mode, uint64_t *handle)
 {
   mutex::scoped_lock lock(_fs_mutex);
 
@@ -145,7 +159,7 @@ int file::open(file_open_mode mode, uint64_t *handle)
 
       _status = FS_DOWNLOADING;
 
-      thread_pool::post(
+      pool::post(
         PR_0,
         bind(&file::download, shared_from_this(), _1),
         bind(&file::on_download_complete, shared_from_this(), _1));
@@ -197,7 +211,7 @@ int file::flush()
   _status |= FS_UPLOADING;
 
   lock.unlock();
-  _async_error = thread_pool::call(PR_0, bind(&file::upload, shared_from_this(), _1));
+  _async_error = pool::call(PR_0, bind(&file::upload, shared_from_this(), _1));
   lock.lock();
 
   _status = 0;
@@ -326,7 +340,7 @@ int file::check_download_consistency()
 
   // we won't have a valid MD5 digest if the file was a multipart upload
   if (!expected_md5.empty()) {
-    string computed_md5 = encoding::encode_hash<md5>(_fd, E_HEX_WITH_QUOTES);
+    string computed_md5 = hash::compute<md5, hex_with_quotes>(_fd);
 
     if (computed_md5 != expected_md5) {
       S3_LOG(LOG_WARNING, "file::check_download_consistency", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), computed_md5.c_str());
@@ -345,7 +359,7 @@ int file::download(const request::ptr &req)
   if (service::is_multipart_download_supported() && get_transfer_size() > config::get_download_chunk_size())
     r = download_multi();
   else
-    r = thread_pool::call(PR_REQ_1, bind(&file::download_single, shared_from_this(), _1));
+    r = pool::call(PR_REQ_1, bind(&file::download_single, shared_from_this(), _1));
 
   return r ? r : check_download_consistency();
 }
@@ -388,7 +402,7 @@ int file::download_multi()
   for (last_part = 0; last_part < std::min(MAX_PARTS_IN_PROGRESS, num_parts); last_part++) {
     transfer_part *part = &parts[last_part];
 
-    part->handle = thread_pool::post(
+    part->handle = pool::post(
       PR_REQ_1, 
       bind(&file::download_part, shared_from_this(), _1, part));
 
@@ -409,7 +423,7 @@ int file::download_multi()
       if (part->retry_count > config::get_max_transfer_retries()) {
         part_r = -EIO;
       } else {
-        part->handle = thread_pool::post(
+        part->handle = pool::post(
           PR_REQ_1, 
           bind(&file::download_part, shared_from_this(), _1, part));
 
@@ -426,7 +440,7 @@ int file::download_multi()
     if (r == 0 && last_part < num_parts) {
       part = &parts[last_part++];
 
-      part->handle = thread_pool::post(
+      part->handle = pool::post(
         PR_REQ_1, 
         bind(&file::download_part, shared_from_this(), _1, part));
 
@@ -465,7 +479,7 @@ int file::upload(const request::ptr &req)
   if (service::is_multipart_upload_supported() && get_transfer_size() > config::get_upload_chunk_size())
     return upload_multi();
   else
-    return thread_pool::call(PR_REQ_0, bind(&file::upload_single, shared_from_this(), _1));
+    return pool::call(PR_REQ_0, bind(&file::upload_single, shared_from_this(), _1));
 }
 
 int file::upload_single(const request::ptr &req)
@@ -474,17 +488,17 @@ int file::upload_single(const request::ptr &req)
   vector<char> buffer;
   string expected_md5_b64, expected_md5_hex, etag;
   bool valid_md5;
-  uint8_t hash[md5::HASH_LEN];
+  uint8_t read_hash[md5::HASH_LEN];
 
   r = read_chunk(get_transfer_size(), 0, &buffer);
 
   if (r)
     return r;
 
-  md5::compute(reinterpret_cast<uint8_t *>(&buffer[0]), buffer.size(), hash);
+  hash::compute<md5>(buffer, read_hash);
 
-  expected_md5_b64 = encoding::encode(hash, md5::HASH_LEN, E_BASE64);
-  expected_md5_hex = encoding::encode(hash, md5::HASH_LEN, E_HEX_WITH_QUOTES);
+  expected_md5_b64 = encoder::encode<base64>(read_hash, md5::HASH_LEN);
+  expected_md5_hex = encoder::encode<hex_with_quotes>(read_hash, md5::HASH_LEN);
 
   req->init(HTTP_PUT);
   req->set_url(get_url());
@@ -608,7 +622,7 @@ int file::upload_multi()
   string etag, computed_md5;
   int r;
 
-  r = thread_pool::call(PR_REQ_0, bind(&file::upload_multi_init, shared_from_this(), _1, &upload_id));
+  r = pool::call(PR_REQ_0, bind(&file::upload_multi_init, shared_from_this(), _1, &upload_id));
 
   if (r)
     return r;
@@ -624,7 +638,7 @@ int file::upload_multi()
   for (last_part = 0; last_part < std::min(MAX_PARTS_IN_PROGRESS, num_parts); last_part++) {
     transfer_part *part = &parts[last_part];
 
-    part->handle = thread_pool::post(
+    part->handle = pool::post(
       PR_REQ_1, 
       bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
 
@@ -649,7 +663,7 @@ int file::upload_multi()
       if (last_part < num_parts) {
         part = &parts[last_part++];
 
-        part->handle = thread_pool::post(
+        part->handle = pool::post(
           PR_REQ_1, 
           bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
 
@@ -660,7 +674,7 @@ int file::upload_multi()
       part->retry_count++;
 
       if (part->retry_count <= config::get_max_transfer_retries()) {
-        part->handle = thread_pool::post(
+        part->handle = pool::post(
           PR_REQ_1, 
           bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
 
@@ -684,18 +698,18 @@ int file::upload_multi()
   complete_upload += "</CompleteMultipartUpload>";
 
   if (!success) {
-    thread_pool::call(PR_REQ_0, bind(&file::upload_multi_cancel, shared_from_this(), _1, upload_id));
+    pool::call(PR_REQ_0, bind(&file::upload_multi_cancel, shared_from_this(), _1, upload_id));
 
     return -EIO;
   }
 
-  r = thread_pool::call(PR_REQ_0, bind(&file::upload_multi_complete, shared_from_this(), _1, upload_id, complete_upload, &etag));
+  r = pool::call(PR_REQ_0, bind(&file::upload_multi_complete, shared_from_this(), _1, upload_id, complete_upload, &etag));
 
   if (r)
     return r;
 
   // TODO: switch to hash tree to compute message segments in parallel?
-  computed_md5 = encoding::encode_hash<md5>(_fd, E_HEX_WITH_QUOTES);
+  computed_md5 = hash::compute<md5, hex_with_quotes>(_fd);
 
   // set the MD5 digest manually because the etag we get back is not itself a valid digest
   set_etag(etag);
@@ -715,7 +729,7 @@ int file::upload_part(const request::ptr &req, const string &upload_id, transfer
   if (r)
     return r;
 
-  part->etag = encoding::encode_hash<md5>(reinterpret_cast<uint8_t *>(&buffer[0]), buffer.size(), E_HEX_WITH_QUOTES);
+  part->etag = hash::compute<md5, hex_with_quotes>(buffer);
 
   req->init(HTTP_PUT);
 

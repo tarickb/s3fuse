@@ -1,12 +1,12 @@
 #ifdef __APPLE__
   #include <CommonCrypto/CommonDigest.h>
 #else
-  #include <openssl/sha256.h>
+  #include <openssl/sha.h>
 #endif
 
 #include "crypto/sha256.h"
 
-using namespace s3::crypto;
+using s3::crypto::sha256;
 
 void sha256::compute(const uint8_t *input, size_t size, uint8_t *hash)
 {

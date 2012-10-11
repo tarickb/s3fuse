@@ -1,6 +1,8 @@
-noinst_LIBRARIES = libs3fuse_crypto.a
-
 AM_CPPFLAGS += -I../
+
+SUBDIRS = . tests
+
+noinst_LIBRARIES = libs3fuse_crypto.a
 
 libs3fuse_crypto_a_SOURCES = \
 	base64.cc \

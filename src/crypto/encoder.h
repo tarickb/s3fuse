@@ -1,6 +1,8 @@
 #ifndef S3_CRYPTO_ENCODER_H
 #define S3_CRYPTO_ENCODER_H
 
+#include <stdint.h>
+
 #include <string>
 #include <vector>
 
@@ -33,6 +35,12 @@ namespace s3
       inline static std::string encode(const std::vector<uint8_t> &input)
       {
         return encoder_type::encode(&input[0], input.size());
+      }
+
+      template <class encoder_type>
+      inline static void decode(const std::string &input, std::vector<uint8_t> *output)
+      {
+        encoder_type::decode(input, output);
       }
     };
   }

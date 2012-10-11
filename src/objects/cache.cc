@@ -1,5 +1,5 @@
 /*
- * object_cache.cc
+ * cache.cc
  * -------------------------------------------------------------------------
  * Object fetching (metadata only).
  * -------------------------------------------------------------------------
@@ -19,27 +19,28 @@
  * limitations under the License.
  */
 
-#include "directory.h"
-#include "object_cache.h"
+#include "logger.h"
 #include "request.h"
+#include "objects/cache.h"
+#include "objects/directory.h"
 
-using namespace boost;
-using namespace std;
+using boost::mutex;
+using std::string;
 
-using namespace s3;
+using s3::objects::cache;
 
-boost::mutex object_cache::s_mutex;
-object_cache::cache_map object_cache::s_cache_map;
-uint64_t object_cache::s_hits, object_cache::s_misses, object_cache::s_expiries;
+boost::mutex cache::s_mutex;
+cache::cache_map cache::s_cache_map;
+uint64_t cache::s_hits, cache::s_misses, cache::s_expiries;
 
-void object_cache::init()
+void cache::init()
 {
   s_hits = 0;
   s_misses = 0;
   s_expiries = 0;
 }
 
-void object_cache::print_summary()
+void cache::print_summary()
 {
   uint64_t total = s_hits + s_misses + s_expiries;
 
@@ -48,7 +49,7 @@ void object_cache::print_summary()
 
   S3_LOG(
     LOG_DEBUG,
-    "object_cache::print_summary", 
+    "cache::print_summary", 
     "hits: %" PRIu64 " (%.02f%%), misses: %" PRIu64 " (%.02f%%), expiries: %" PRIu64 " (%.02f%%)\n", 
     s_hits,
     double(s_hits) / double(total) * 100.0,
@@ -58,7 +59,7 @@ void object_cache::print_summary()
     double(s_expiries) / double(total) * 100.0);
 }
 
-int object_cache::fetch(const request::ptr &req, const string &path, int hints, object::ptr *obj)
+int cache::fetch(const request::ptr &req, const string &path, int hints, object::ptr *obj)
 {
   if (!path.empty()) {
     req->init(HTTP_HEAD);
