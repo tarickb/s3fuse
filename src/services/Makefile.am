@@ -5,7 +5,7 @@ libs3fuse_services_a_SOURCES = \
 	aws_impl.h \
 	gs_impl.cc \
 	gs_impl.h \
-	service.cc \
-	service.h \
 	impl.cc \
-	impl.h
+	impl.h \
+	service.cc \
+	service.h

@@ -7,6 +7,7 @@ noinst_LIBRARIES = libs3fuse_crypto.a
 libs3fuse_crypto_a_SOURCES = \
 	base64.cc \
 	base64.h \
+	encoder.h \
 	hash.h \
 	hash_list.h \
 	hex.cc \
