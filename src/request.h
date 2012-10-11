@@ -34,9 +34,6 @@
 
 namespace s3
 {
-  class object;
-  class worker_thread;
-
   enum http_method
   {
     HTTP_DELETE,

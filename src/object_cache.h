@@ -28,8 +28,10 @@
 #include <boost/thread.hpp>
 
 #include "logger.h"
-#include "object.h"
-#include "thread_pool.h"
+#include "objects/object.h"
+#include "threads/thread_pool.h"
+
+// TODO: move this into objects/ ?
 
 namespace s3
 {
@@ -45,26 +47,26 @@ namespace s3
   class object_cache
   {
   public:
-    typedef boost::function1<void, object::ptr> locked_object_function;
+    typedef boost::function1<void, objects::object::ptr> locked_object_function;
 
     static void init();
     static void print_summary();
 
-    inline static object::ptr get(const std::string &path, int hints = HINT_NONE)
+    inline static objects::object::ptr get(const std::string &path, int hints = HINT_NONE)
     {
-      object::ptr obj = find(path);
+      objects::object::ptr obj = find(path);
 
       if (!obj)
-        thread_pool::call(
-          PR_REQ_0,
+        threads::thread_pool::call(
+          threads::PR_REQ_0,
           boost::bind(&object_cache::fetch, _1, path, hints, &obj));
 
       return obj;
     }
 
-    inline static object::ptr get(const boost::shared_ptr<request> &req, const std::string &path, int hints = HINT_NONE)
+    inline static objects::object::ptr get(const boost::shared_ptr<request> &req, const std::string &path, int hints = HINT_NONE)
     {
-      object::ptr obj = find(path);
+      objects::object::ptr obj = find(path);
 
       if (!obj)
         fetch(req, path, hints, &obj);
@@ -84,7 +86,7 @@ namespace s3
     inline static void lock_object(const std::string &path, const locked_object_function &fn)
     {
       boost::mutex::scoped_lock lock(s_mutex, boost::defer_lock);
-      object::ptr obj;
+      objects::object::ptr obj;
 
       // this puts the object at "path" in the cache if it isn't already there
       get(path);
@@ -110,12 +112,12 @@ namespace s3
     }
 
   private:
-    typedef std::map<std::string, object::ptr> cache_map;
+    typedef std::map<std::string, objects::object::ptr> cache_map;
 
-    inline static object::ptr find(const std::string &path)
+    inline static objects::object::ptr find(const std::string &path)
     {
       boost::mutex::scoped_lock lock(s_mutex);
-      object::ptr &obj = s_cache_map[path];
+      objects::object::ptr &obj = s_cache_map[path];
 
       if (!obj) {
         s_misses++;
@@ -131,7 +133,7 @@ namespace s3
       return obj;
     }
 
-    static int fetch(const boost::shared_ptr<request> &req, const std::string &path, int hints, object::ptr *obj);
+    static int fetch(const boost::shared_ptr<request> &req, const std::string &path, int hints, objects::object::ptr *obj);
 
     // TODO: prune periodically?
 
