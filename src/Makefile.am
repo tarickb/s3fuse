@@ -1,7 +1,7 @@
 SUBDIRS = base crypto objects services threads .
 
 if BUILD_TESTS
-	SUBDIRS += tests
+SUBDIRS += tests
 endif
 
 bin_PROGRAMS = s3fuse s3fuse_gs_get_token

@@ -1,5 +1,5 @@
 if BUILD_TESTS
-	SUBDIRS = . tests
+SUBDIRS = . tests
 endif
 
 noinst_LIBRARIES = libs3fuse_crypto.a
