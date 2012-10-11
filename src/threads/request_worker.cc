@@ -1,6 +1,6 @@
-#include "logger.h"
-#include "request.h"
-#include "timer.h"
+#include "base/logger.h"
+#include "base/request.h"
+#include "base/timer.h"
 #include "services/service.h"
 #include "threads/async_handle.h"
 #include "threads/request_worker.h"
@@ -8,6 +8,8 @@
 
 using boost::mutex;
 
+using s3::base::request;
+using s3::base::timer;
 using s3::services::service;
 using s3::threads::request_worker;
 using s3::threads::work_item;

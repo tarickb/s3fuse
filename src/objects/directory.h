@@ -45,7 +45,7 @@ namespace s3
         }
       }
 
-      bool is_empty(const boost::shared_ptr<request> &req);
+      bool is_empty(const boost::shared_ptr<base::request> &req);
 
       inline bool is_empty()
       {
@@ -54,14 +54,14 @@ namespace s3
           boost::bind(&directory::is_empty, shared_from_this(), _1));
       }
 
-      virtual int remove(const boost::shared_ptr<request> &req);
-      virtual int rename(const boost::shared_ptr<request> &req, const std::string &to);
+      virtual int remove(const boost::shared_ptr<base::request> &req);
+      virtual int rename(const boost::shared_ptr<base::request> &req, const std::string &to);
 
     private:
       typedef std::list<std::string> cache_list;
       typedef boost::shared_ptr<cache_list> cache_list_ptr;
 
-      int read(const boost::shared_ptr<request> &req, const filler_function &filler);
+      int read(const boost::shared_ptr<base::request> &req, const filler_function &filler);
 
       boost::mutex _mutex;
       cache_list_ptr _cache;

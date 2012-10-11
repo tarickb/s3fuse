@@ -22,7 +22,7 @@
 #include <list>
 #include <boost/lexical_cast.hpp>
 
-#include "logger.h"
+#include "base/logger.h"
 #include "threads/request_worker.h"
 #include "threads/pool.h"
 #include "threads/work_item_queue.h"

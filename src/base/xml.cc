@@ -36,7 +36,7 @@ using xmlpp::Node;
 using xmlpp::NodeSet;
 using xmlpp::TextNode;
 
-using s3::xml;
+using s3::base::xml;
 
 namespace
 {

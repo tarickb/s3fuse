@@ -29,11 +29,14 @@
 
 namespace s3
 {
-  class request;
+  namespace base
+  {
+    class request;
+  }
 
   namespace services
   {
-    typedef boost::function2<void, request *, bool> signing_function;
+    typedef boost::function2<void, base::request *, bool> signing_function;
 
     class impl
     {

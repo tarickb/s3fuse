@@ -1,7 +1,7 @@
 /*
- * xml.h
+ * ssl_locks.h
  * -------------------------------------------------------------------------
- * Simplified XML parser interface.
+ * SSL lock interface.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2011, Tarick Bedeir.
@@ -19,33 +19,20 @@
  * limitations under the License.
  */
 
-#ifndef S3_XML_H
-#define S3_XML_H
-
-#include <list>
-#include <string>
-#include <boost/smart_ptr.hpp>
-
-namespace xmlpp
-{
-  class DomParser;
-}
+#ifndef S3_SSL_LOCKS_H
+#define S3_SSL_LOCKS_H
 
 namespace s3
 {
-  class xml
+  namespace base
   {
-  public:
-    typedef boost::shared_ptr<xmlpp::DomParser> document;
-    typedef std::list<std::string> element_list;
-
-    static void init(const std::string &ns);
-
-    static document parse(const std::string &data);
-
-    static int find(const document &doc, const char *xpath, std::string *element);
-    static int find(const document &doc, const char *xpath, element_list *elements);
-  };
+    class ssl_locks
+    {
+    public:
+      static void init();
+      static void release();
+    };
+  }
 }
 
 #endif

@@ -1,7 +1,7 @@
 /*
- * ssl_locks.h
+ * logger.cc
  * -------------------------------------------------------------------------
- * SSL lock interface.
+ * Definitions for s3::logger static members and init() method.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2011, Tarick Bedeir.
@@ -19,17 +19,15 @@
  * limitations under the License.
  */
 
-#ifndef S3_SSL_LOCKS_H
-#define S3_SSL_LOCKS_H
+#include "logger.h"
 
-namespace s3
+using s3::base::logger;
+
+int logger::s_max_level = 0;
+
+void logger::init(int max_level)
 {
-  class ssl_locks
-  {
-  public:
-    static void init();
-    static void release();
-  };
-}
+  s_max_level = max_level;
 
-#endif
+  openlog("s3fuse", 0, 0);
+}

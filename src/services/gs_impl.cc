@@ -23,9 +23,9 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-#include "config.h"
-#include "logger.h"
-#include "request.h"
+#include "base/config.h"
+#include "base/logger.h"
+#include "base/request.h"
 #include "services/gs_impl.h"
 
 using boost::bind;
@@ -38,6 +38,8 @@ using std::runtime_error;
 using std::string;
 using std::stringstream;
 
+using s3::base::config;
+using s3::base::request;
 using s3::services::gs_impl;
 using s3::services::signing_function;
 
@@ -90,13 +92,13 @@ void gs_impl::get_tokens(get_tokens_mode mode, const string &key, string *access
   else
     throw runtime_error("unrecognized get_tokens mode.");
 
-  req.init(HTTP_POST);
+  req.init(base::HTTP_POST);
   req.set_url(GS_EP_TOKEN);
   req.set_input_buffer(data);
 
   req.run();
 
-  if (req.get_response_code() != HTTP_SC_OK) {
+  if (req.get_response_code() != base::HTTP_SC_OK) {
     S3_LOG(LOG_ERR, "gs_impl::get_tokens", "token endpoint returned %i.\n", req.get_response_code());
     throw runtime_error("failed to get tokens.");
   }

@@ -19,14 +19,15 @@
  * limitations under the License.
  */
 
-#include "logger.h"
-#include "request.h"
+#include "base/logger.h"
+#include "base/request.h"
 #include "objects/cache.h"
 #include "objects/directory.h"
 
 using boost::mutex;
 using std::string;
 
+using s3::base::request;
 using s3::objects::cache;
 
 boost::mutex cache::s_mutex;
@@ -62,7 +63,7 @@ void cache::print_summary()
 int cache::fetch(const request::ptr &req, const string &path, int hints, object::ptr *obj)
 {
   if (!path.empty()) {
-    req->init(HTTP_HEAD);
+    req->init(base::HTTP_HEAD);
 
     if (hints == HINT_NONE || hints & HINT_IS_DIR) {
       // see if the path is a directory (trailing /) first
@@ -70,13 +71,13 @@ int cache::fetch(const request::ptr &req, const string &path, int hints, object:
       req->run();
     }
 
-    if (hints & HINT_IS_FILE || req->get_response_code() != HTTP_SC_OK) {
+    if (hints & HINT_IS_FILE || req->get_response_code() != base::HTTP_SC_OK) {
       // it's not a directory
       req->set_url(object::build_url(path));
       req->run();
     }
 
-    if (req->get_response_code() != HTTP_SC_OK)
+    if (req->get_response_code() != base::HTTP_SC_OK)
       return 0;
   }
 

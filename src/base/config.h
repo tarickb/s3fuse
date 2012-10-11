@@ -28,35 +28,38 @@
 #include <string>
 #include <limits>
 
+#if !defined(UID_MAX)
+  const uid_t UID_MAX = std::numeric_limits<uid_t>::max();
+#endif
+
+#if !defined(GID_MAX)
+  const gid_t GID_MAX = std::numeric_limits<gid_t>::max();
+#endif
+
 namespace s3
 {
-  #if !defined(UID_MAX)
-    const uid_t UID_MAX = std::numeric_limits<uid_t>::max();
-  #endif
-
-  #if !defined(GID_MAX)
-    const gid_t GID_MAX = std::numeric_limits<gid_t>::max();
-  #endif
-
-  class config
+  namespace base
   {
-  public:
-    static int init(const std::string &file = "");
+    class config
+    {
+    public:
+      static int init(const std::string &file = "");
 
-    #define CONFIG(type, name, def) \
-      private: \
-        static type s_ ## name; \
-      \
-      public: \
-        inline static const type & get_ ## name () { return s_ ## name; }
+      #define CONFIG(type, name, def) \
+        private: \
+          static type s_ ## name; \
+        \
+        public: \
+          inline static const type & get_ ## name () { return s_ ## name; }
 
-    #define CONFIG_REQUIRED(type, name, def) CONFIG(type, name, def)
+      #define CONFIG_REQUIRED(type, name, def) CONFIG(type, name, def)
 
-    #include "config.inc"
+      #include "base/config.inc"
 
-    #undef CONFIG
-    #undef CONFIG_REQUIRED
-  };
+      #undef CONFIG
+      #undef CONFIG_REQUIRED
+    };
+  }
 }
 
 #endif

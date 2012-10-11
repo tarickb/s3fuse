@@ -26,7 +26,10 @@
 
 namespace s3
 {
-  class request;
+  namespace base
+  {
+    class request;
+  }
 
   namespace services
   {
@@ -48,7 +51,7 @@ namespace s3
       virtual const signing_function & get_signing_function();
 
     private:
-      void sign(request *req, bool last_sign_failed);
+      void sign(base::request *req, bool last_sign_failed);
 
       std::string _key, _secret, _endpoint, _bucket_url;
       signing_function _signing_function;

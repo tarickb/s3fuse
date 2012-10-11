@@ -24,9 +24,9 @@
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 
-#include "config.h"
-#include "logger.h"
-#include "request.h"
+#include "base/config.h"
+#include "base/logger.h"
+#include "base/request.h"
 #include "crypto/base64.h"
 #include "crypto/encoder.h"
 #include "crypto/hmac_sha1.h"
@@ -41,8 +41,9 @@ using std::runtime_error;
 using std::string;
 using std::vector;
 
-using s3::config;
-using s3::header_map;
+using s3::base::config;
+using s3::base::header_map;
+using s3::base::request;
 using s3::crypto::base64;
 using s3::crypto::encoder;
 using s3::crypto::hmac_sha1;

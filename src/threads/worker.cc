@@ -1,10 +1,11 @@
-#include "logger.h"
+#include "base/logger.h"
 #include "threads/async_handle.h"
 #include "threads/work_item_queue.h"
 #include "threads/worker.h"
 
 using boost::shared_ptr;
 
+using s3::base::request;
 using s3::threads::worker;
 
 void worker::work()

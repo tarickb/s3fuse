@@ -1,7 +1,7 @@
-#include "config.h"
-#include "logger.h"
-#include "request.h"
-#include "xml.h"
+#include "base/config.h"
+#include "base/logger.h"
+#include "base/request.h"
+#include "base/xml.h"
 #include "objects/cache.h"
 #include "objects/directory.h"
 #include "services/service.h"
@@ -12,8 +12,9 @@ using boost::shared_ptr;
 using std::list;
 using std::string;
 
-using s3::request;
-using s3::xml;
+using s3::base::config;
+using s3::base::request;
+using s3::base::xml;
 using s3::objects::directory;
 using s3::objects::object;
 using s3::services::service;
@@ -92,7 +93,7 @@ int directory::read(const request::ptr &req, const filler_function &filler)
   if (config::get_cache_directories())
     cache.reset(new cache_list());
 
-  req->init(HTTP_GET);
+  req->init(base::HTTP_GET);
 
   while (truncated) {
     int r;
@@ -102,7 +103,7 @@ int directory::read(const request::ptr &req, const filler_function &filler)
     req->set_url(service::get_bucket_url(), string("delimiter=/&prefix=") + request::url_encode(path) + "&marker=" + marker);
     req->run();
 
-    if (req->get_response_code() != HTTP_SC_OK)
+    if (req->get_response_code() != base::HTTP_SC_OK)
       return -EIO;
 
     doc = xml::parse(req->get_output_string());
@@ -164,7 +165,7 @@ bool directory::is_empty(const request::ptr &req)
   if (get_path().empty())
     return false;
 
-  req->init(HTTP_GET);
+  req->init(base::HTTP_GET);
 
   // set max-keys to two because GET will always return the path we request
   // note the trailing slash on path
@@ -172,7 +173,7 @@ bool directory::is_empty(const request::ptr &req)
   req->run();
 
   // if the request fails, assume the directory's not empty
-  if (req->get_response_code() != HTTP_SC_OK)
+  if (req->get_response_code() != base::HTTP_SC_OK)
     return false;
 
   doc = xml::parse(req->get_output_string());
@@ -225,7 +226,7 @@ int directory::rename(const request::ptr &req, const string &to_)
   to = to_ + "/";
   from_len = from.size();
 
-  req->init(HTTP_GET);
+  req->init(base::HTTP_GET);
 
   while (truncated) {
     xml::document doc;
@@ -235,7 +236,7 @@ int directory::rename(const request::ptr &req, const string &to_)
     req->set_url(service::get_bucket_url(), string("prefix=") + request::url_encode(from) + "&marker=" + marker);
     req->run();
 
-    if (req->get_response_code() != HTTP_SC_OK)
+    if (req->get_response_code() != base::HTTP_SC_OK)
       return -EIO;
 
     doc = xml::parse(req->get_output_string());

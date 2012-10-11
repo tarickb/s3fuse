@@ -1,9 +1,9 @@
 #include <boost/lexical_cast.hpp>
 
-#include "config.h"
-#include "logger.h"
-#include "request.h"
-#include "xml.h"
+#include "base/config.h"
+#include "base/logger.h"
+#include "base/request.h"
+#include "base/xml.h"
 #include "crypto/base64.h"
 #include "crypto/encoder.h"
 #include "crypto/hash.h"
@@ -21,7 +21,9 @@ using std::list;
 using std::string;
 using std::vector;
 
-using s3::request;
+using s3::base::config;
+using s3::base::request;
+using s3::base::xml;
 using s3::crypto::base64;
 using s3::crypto::encoder;
 using s3::crypto::hash;
@@ -365,15 +367,15 @@ int file::download_single(const request::ptr &req)
 {
   long rc = 0;
 
-  req->init(HTTP_GET);
+  req->init(base::HTTP_GET);
   req->set_url(get_url());
 
   req->run(config::get_transfer_timeout_in_s());
   rc = req->get_response_code();
 
-  if (rc == HTTP_SC_NOT_FOUND)
+  if (rc == base::HTTP_SC_NOT_FOUND)
     return -ENOENT;
-  else if (rc != HTTP_SC_OK)
+  else if (rc != base::HTTP_SC_OK)
     return -EIO;
 
   return write_chunk(&req->get_output_buffer()[0], req->get_output_buffer().size(), 0);
@@ -452,7 +454,7 @@ int file::download_part(const request::ptr &req, const transfer_part *part)
 {
   long rc = 0;
 
-  req->init(HTTP_GET);
+  req->init(base::HTTP_GET);
   req->set_url(get_url());
   req->set_header("Range", 
     string("bytes=") + 
@@ -463,9 +465,9 @@ int file::download_part(const request::ptr &req, const transfer_part *part)
   req->run(config::get_transfer_timeout_in_s());
   rc = req->get_response_code();
 
-  if (rc == HTTP_SC_INTERNAL_SERVER_ERROR || rc == HTTP_SC_SERVICE_UNAVAILABLE)
+  if (rc == base::HTTP_SC_INTERNAL_SERVER_ERROR || rc == base::HTTP_SC_SERVICE_UNAVAILABLE)
     return -EAGAIN; // temporary failure
-  else if (rc != HTTP_SC_PARTIAL_CONTENT)
+  else if (rc != base::HTTP_SC_PARTIAL_CONTENT)
     return -EIO;
 
   return write_chunk(&req->get_output_buffer()[0], req->get_output_buffer().size(), part->offset);
@@ -497,7 +499,7 @@ int file::upload_single(const request::ptr &req)
   expected_md5_b64 = encoder::encode<base64>(read_hash, md5::HASH_LEN);
   expected_md5_hex = encoder::encode<hex_with_quotes>(read_hash, md5::HASH_LEN);
 
-  req->init(HTTP_PUT);
+  req->init(base::HTTP_PUT);
   req->set_url(get_url());
 
   set_request_headers(req);
@@ -507,7 +509,7 @@ int file::upload_single(const request::ptr &req)
 
   req->run(config::get_transfer_timeout_in_s());
 
-  if (req->get_response_code() != HTTP_SC_OK) {
+  if (req->get_response_code() != base::HTTP_SC_OK) {
     S3_LOG(LOG_WARNING, "file::upload_single", "failed to upload for [%s].\n", get_url().c_str());
     return -EIO;
   }
@@ -532,14 +534,14 @@ int file::upload_multi_init(const request::ptr &req, string *upload_id)
   xml::document doc;
   int r;
 
-  req->init(HTTP_POST);
+  req->init(base::HTTP_POST);
   req->set_url(get_url() + "?uploads");
 
   set_request_headers(req);
 
   req->run();
 
-  if (req->get_response_code() != HTTP_SC_OK)
+  if (req->get_response_code() != base::HTTP_SC_OK)
     return -EIO;
 
   doc = xml::parse(req->get_output_string());
@@ -562,7 +564,7 @@ int file::upload_multi_cancel(const request::ptr &req, const string &upload_id)
 {
   S3_LOG(LOG_WARNING, "file::upload_multi_cancel", "one or more parts failed to upload for [%s].\n", get_url().c_str());
 
-  req->init(HTTP_DELETE);
+  req->init(base::HTTP_DELETE);
   req->set_url(get_url() + "?uploadId=" + upload_id);
 
   req->run();
@@ -575,7 +577,7 @@ int file::upload_multi_complete(const request::ptr &req, const string &upload_id
   xml::document doc;
   int r;
 
-  req->init(HTTP_POST);
+  req->init(base::HTTP_POST);
   req->set_url(get_url() + "?uploadId=" + upload_id);
   req->set_input_buffer(upload_metadata);
   req->set_header("Content-Type", "");
@@ -584,7 +586,7 @@ int file::upload_multi_complete(const request::ptr &req, const string &upload_id
   // see http://docs.amazonwebservices.com/AmazonS3/latest/API/index.html?mpUploadComplete.html
   req->run(config::get_transfer_timeout_in_s());
 
-  if (req->get_response_code() != HTTP_SC_OK) {
+  if (req->get_response_code() != base::HTTP_SC_OK) {
     S3_LOG(LOG_WARNING, "file::upload_multi_complete", "failed to complete multipart upload for [%s] with error %li.\n", get_url().c_str(), req->get_response_code());
     return -EIO;
   }
@@ -732,7 +734,7 @@ int file::upload_part(const request::ptr &req, const string &upload_id, transfer
 
   part->etag = hash::compute<md5, hex_with_quotes>(buffer);
 
-  req->init(HTTP_PUT);
+  req->init(base::HTTP_PUT);
 
   // part numbers are 1-based
   req->set_url(get_url() + "?partNumber=" + lexical_cast<string>(part->id + 1) + "&uploadId=" + upload_id);
@@ -741,9 +743,9 @@ int file::upload_part(const request::ptr &req, const string &upload_id, transfer
   req->run(config::get_transfer_timeout_in_s());
   rc = req->get_response_code();
 
-  if (rc == HTTP_SC_INTERNAL_SERVER_ERROR || rc == HTTP_SC_SERVICE_UNAVAILABLE)
+  if (rc == base::HTTP_SC_INTERNAL_SERVER_ERROR || rc == base::HTTP_SC_SERVICE_UNAVAILABLE)
     return -EAGAIN; // temporary failure
-  else if (rc != HTTP_SC_OK)
+  else if (rc != base::HTTP_SC_OK)
     return -EIO;
 
   if (req->get_response_header("ETag") != part->etag) {

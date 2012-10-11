@@ -1,12 +1,12 @@
-#include "logger.h"
-#include "request.h"
-#include "symlink.h"
+#include "base/logger.h"
+#include "base/request.h"
+#include "objects/symlink.h"
 
 using boost::defer_lock;
 using boost::mutex;
 using std::string;
 
-using s3::request;
+using s3::base::request;
 using s3::objects::object;
 using s3::objects::symlink;
 
@@ -52,12 +52,12 @@ int symlink::internal_read(const request::ptr &req)
   mutex::scoped_lock lock(_mutex, defer_lock);
   string output;
 
-  req->init(HTTP_GET);
+  req->init(base::HTTP_GET);
   req->set_url(get_url());
 
   req->run();
   
-  if (req->get_response_code() != HTTP_SC_OK)
+  if (req->get_response_code() != base::HTTP_SC_OK)
     return -EIO;
 
   output = req->get_output_string();

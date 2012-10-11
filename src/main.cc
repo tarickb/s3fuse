@@ -29,11 +29,11 @@
 
 #include <string>
 
-#include "config.h"
-#include "logger.h"
-#include "ssl_locks.h"
-#include "version.h"
-#include "xml.h"
+#include "base/config.h"
+#include "base/logger.h"
+#include "base/ssl_locks.h"
+#include "base/version.h"
+#include "base/xml.h"
 #include "objects/cache.h"
 #include "objects/directory.h"
 #include "objects/file.h"
@@ -45,10 +45,10 @@ using std::runtime_error;
 using std::string;
 using std::vector;
 
-using s3::config;
-using s3::logger;
-using s3::ssl_locks;
-using s3::xml;
+using s3::base::config;
+using s3::base::logger;
+using s3::base::ssl_locks;
+using s3::base::xml;
 using s3::objects::cache;
 using s3::objects::directory;
 using s3::objects::file;
@@ -534,7 +534,11 @@ int s3fuse_write(const char *path, const char *buffer, size_t size, off_t offset
 
 int print_version()
 {
-  printf("%s, %s, version %s\n", s3::APP_FULL_NAME, s3::APP_NAME, s3::APP_VERSION);
+  printf(
+    "%s, %s, version %s\n", 
+    s3::base::APP_FULL_NAME, 
+    s3::base::APP_NAME, 
+    s3::base::APP_VERSION);
 
   return 0;
 }

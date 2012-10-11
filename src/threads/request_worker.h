@@ -6,7 +6,10 @@
 
 namespace s3
 {
-  class request;
+  namespace base
+  {
+    class request;
+  }
 
   namespace threads
   {
@@ -39,7 +42,7 @@ namespace s3
 
       boost::mutex _mutex;
       boost::shared_ptr<boost::thread> _thread;
-      boost::shared_ptr<request> _request;
+      boost::shared_ptr<base::request> _request;
       double _time_in_function, _time_in_request;
 
       // access controlled by _mutex

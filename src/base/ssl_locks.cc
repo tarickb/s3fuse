@@ -46,7 +46,7 @@
 using boost::mutex;
 using std::runtime_error;
 
-using s3::ssl_locks;
+using s3::base::ssl_locks;
 
 namespace
 {

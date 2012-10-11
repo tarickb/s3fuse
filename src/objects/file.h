@@ -44,10 +44,10 @@ namespace s3
 
       virtual void copy_stat(struct stat *s);
 
-      virtual void set_request_headers(const boost::shared_ptr<request> &req);
+      virtual void set_request_headers(const boost::shared_ptr<base::request> &req);
 
     protected:
-      virtual void init(const boost::shared_ptr<request> &req);
+      virtual void init(const boost::shared_ptr<base::request> &req);
 
       virtual int write_chunk(const char *buffer, size_t size, off_t offset);
       virtual int read_chunk(size_t size, off_t offset, std::vector<char> *buffer);
@@ -81,24 +81,24 @@ namespace s3
 
       int open(file_open_mode mode, uint64_t *handle);
 
-      int download(const boost::shared_ptr<request> &req);
+      int download(const boost::shared_ptr<base::request> &req);
 
-      int download_single(const boost::shared_ptr<request> &req);
+      int download_single(const boost::shared_ptr<base::request> &req);
       int download_multi();
-      int download_part(const boost::shared_ptr<request> &req, const transfer_part *part);
+      int download_part(const boost::shared_ptr<base::request> &req, const transfer_part *part);
 
-      int upload(const boost::shared_ptr<request> &req);
+      int upload(const boost::shared_ptr<base::request> &req);
 
-      int upload_single(const boost::shared_ptr<request> &req);
+      int upload_single(const boost::shared_ptr<base::request> &req);
       int upload_multi();
-      int upload_multi_init(const boost::shared_ptr<request> &req, std::string *upload_id);
-      int upload_multi_cancel(const boost::shared_ptr<request> &req, const std::string &upload_id);
+      int upload_multi_init(const boost::shared_ptr<base::request> &req, std::string *upload_id);
+      int upload_multi_cancel(const boost::shared_ptr<base::request> &req, const std::string &upload_id);
       int upload_multi_complete(
-        const boost::shared_ptr<request> &req, 
+        const boost::shared_ptr<base::request> &req, 
         const std::string &upload_id, 
         const std::string &upload_metadata, 
         std::string *etag);
-      int upload_part(const boost::shared_ptr<request> &req, const std::string &upload_id, transfer_part *part);
+      int upload_part(const boost::shared_ptr<base::request> &req, const std::string &upload_id, transfer_part *part);
 
       void on_download_complete(int ret);
 

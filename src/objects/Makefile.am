@@ -1,5 +1,3 @@
-AM_CPPFLAGS += -I../
-
 noinst_LIBRARIES = libs3fuse_objects.a
 
 libs3fuse_objects_a_SOURCES = \

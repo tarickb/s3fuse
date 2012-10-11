@@ -52,10 +52,10 @@ namespace s3
       }
 
     protected:
-      virtual void set_request_body(const boost::shared_ptr<request> &req);
+      virtual void set_request_body(const boost::shared_ptr<base::request> &req);
 
     private:
-      int internal_read(const boost::shared_ptr<request> &req);
+      int internal_read(const boost::shared_ptr<base::request> &req);
 
       boost::mutex _mutex;
       std::string _target;

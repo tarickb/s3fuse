@@ -21,7 +21,6 @@
 
 #include <stdexcept>
 
-#include "config.h"
 #include "services/service.h"
 #include "services/aws_impl.h"
 #include "services/gs_impl.h"

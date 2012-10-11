@@ -6,7 +6,10 @@
 
 namespace s3
 {
-  class request;
+  namespace base
+  {
+    class request;
+  }
 
   namespace threads
   {
@@ -15,7 +18,7 @@ namespace s3
     class work_item
     {
     public:
-      typedef boost::function1<int, boost::shared_ptr<request> > worker_function;
+      typedef boost::function1<int, boost::shared_ptr<base::request> > worker_function;
 
       inline work_item()
       {

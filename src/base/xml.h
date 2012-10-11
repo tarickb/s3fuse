@@ -1,7 +1,7 @@
 /*
- * version.h
+ * xml.h
  * -------------------------------------------------------------------------
- * Version information (set by the various configure scripts).
+ * Simplified XML parser interface.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2011, Tarick Bedeir.
@@ -19,14 +19,36 @@
  * limitations under the License.
  */
 
-#ifndef S3_VERSION_H
-#define S3_VERSION_H
+#ifndef S3_XML_H
+#define S3_XML_H
+
+#include <list>
+#include <string>
+#include <boost/smart_ptr.hpp>
+
+namespace xmlpp
+{
+  class DomParser;
+}
 
 namespace s3
 {
-  const char *APP_FULL_NAME = PACKAGE_NAME;
-  const char *APP_NAME = PACKAGE_TARNAME;
-  const char *APP_VERSION = PACKAGE_VERSION;
+  namespace base
+  {
+    class xml
+    {
+    public:
+      typedef boost::shared_ptr<xmlpp::DomParser> document;
+      typedef std::list<std::string> element_list;
+
+      static void init(const std::string &ns);
+
+      static document parse(const std::string &data);
+
+      static int find(const document &doc, const char *xpath, std::string *element);
+      static int find(const document &doc, const char *xpath, element_list *elements);
+    };
+  }
 }
 
 #endif

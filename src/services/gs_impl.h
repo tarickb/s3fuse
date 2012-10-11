@@ -28,7 +28,10 @@
 
 namespace s3
 {
-  class request;
+  namespace base
+  {
+    class request;
+  }
 
   namespace services
   {
@@ -62,7 +65,7 @@ namespace s3
       virtual const signing_function & get_signing_function();
 
     private:
-      void sign(request *req, bool last_sign_failed);
+      void sign(base::request *req, bool last_sign_failed);
       void refresh(const boost::mutex::scoped_lock &lock);
 
       boost::mutex _mutex;

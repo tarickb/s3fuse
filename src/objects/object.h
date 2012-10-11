@@ -36,7 +36,10 @@
 
 namespace s3
 {
-  class request;
+  namespace base
+  {
+    class request;
+  }
 
   namespace objects
   {
@@ -48,15 +51,15 @@ namespace s3
       class type_checker
       {
       public:
-        typedef object * (*fn)(const std::string &path, const boost::shared_ptr<request> &req);
+        typedef object * (*fn)(const std::string &path, const boost::shared_ptr<base::request> &req);
 
         type_checker(fn checker, int priority);
       };
 
       static std::string build_url(const std::string &path);
-      static ptr create(const std::string &path, const boost::shared_ptr<request> &req);
-      static int remove_by_url(const boost::shared_ptr<request> &req, const std::string &url);
-      static int copy_by_path(const boost::shared_ptr<request> &req, const std::string &from, const std::string &to);
+      static ptr create(const std::string &path, const boost::shared_ptr<base::request> &req);
+      static int remove_by_url(const boost::shared_ptr<base::request> &req, const std::string &url);
+      static int copy_by_path(const boost::shared_ptr<base::request> &req, const std::string &from, const std::string &to);
 
       virtual ~object();
 
@@ -88,10 +91,10 @@ namespace s3
 
       virtual void copy_stat(struct stat *s);
 
-      int commit(const boost::shared_ptr<request> &req);
+      int commit(const boost::shared_ptr<base::request> &req);
 
-      virtual int remove(const boost::shared_ptr<request> &req);
-      virtual int rename(const boost::shared_ptr<request> &req, const std::string &to);
+      virtual int remove(const boost::shared_ptr<base::request> &req);
+      virtual int rename(const boost::shared_ptr<base::request> &req, const std::string &to);
 
       int commit()
       {
@@ -117,7 +120,7 @@ namespace s3
     protected:
       object(const std::string &path);
 
-      virtual void init(const boost::shared_ptr<request> &req);
+      virtual void init(const boost::shared_ptr<base::request> &req);
 
       inline void set_etag(const std::string &etag)
       {
@@ -126,8 +129,8 @@ namespace s3
         _etag = etag;
       }
 
-      virtual void set_request_headers(const boost::shared_ptr<request> &req);
-      virtual void set_request_body(const boost::shared_ptr<request> &req);
+      virtual void set_request_headers(const boost::shared_ptr<base::request> &req);
+      virtual void set_request_body(const boost::shared_ptr<base::request> &req);
 
       inline void set_url(const std::string &url) { _url = url; }
       inline void set_content_type(const std::string &content_type) { _content_type = content_type; }

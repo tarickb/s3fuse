@@ -1,10 +1,10 @@
-#include "logger.h"
-#include "request.h"
+#include "base/logger.h"
+#include "base/request.h"
 #include "objects/encrypted_file.h"
 
 using std::string;
 
-using s3::request;
+using s3::base::request;
 using s3::objects::encrypted_file;
 using s3::objects::object;
 

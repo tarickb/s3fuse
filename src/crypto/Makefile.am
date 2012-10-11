@@ -1,6 +1,6 @@
-AM_CPPFLAGS += -I../
-
-SUBDIRS = . tests
+if BUILD_TESTS
+	SUBDIRS = . tests
+endif
 
 noinst_LIBRARIES = libs3fuse_crypto.a
 

@@ -22,9 +22,9 @@
 #include <string.h>
 #include <sys/xattr.h>
 
-#include "config.h"
-#include "logger.h"
-#include "request.h"
+#include "base/config.h"
+#include "base/logger.h"
+#include "base/request.h"
 #include "objects/cache.h"
 #include "objects/object.h"
 #include "objects/reference_xattr.h"
@@ -45,7 +45,9 @@ using std::runtime_error;
 using std::string;
 using std::vector;
 
-using s3::request;
+using s3::base::config;
+using s3::base::header_map;
+using s3::base::request;
 using s3::objects::object;
 using s3::services::service;
 
@@ -79,7 +81,7 @@ object::ptr object::create(const string &path, const request::ptr &req)
 {
   ptr obj;
 
-  if (!path.empty() && req->get_response_code() != HTTP_SC_OK)
+  if (!path.empty() && req->get_response_code() != base::HTTP_SC_OK)
     return obj;
 
   for (type_checker_map::const_iterator itor = s_type_checkers->begin(); itor != s_type_checkers->end(); ++itor) {
@@ -99,24 +101,24 @@ object::ptr object::create(const string &path, const request::ptr &req)
 
 int object::copy_by_path(const request::ptr &req, const string &from, const string &to)
 {
-  req->init(HTTP_PUT);
+  req->init(base::HTTP_PUT);
   req->set_url(object::build_url(to));
   req->set_header(service::get_header_prefix() + "copy-source", object::build_url(from));
   req->set_header(service::get_header_prefix() + "metadata-directive", "COPY");
 
   req->run();
 
-  return (req->get_response_code() == HTTP_SC_OK) ? 0 : -EIO;
+  return (req->get_response_code() == base::HTTP_SC_OK) ? 0 : -EIO;
 }
 
 int object::remove_by_url(const request::ptr &req, const string &url)
 {
-  req->init(HTTP_DELETE);
+  req->init(base::HTTP_DELETE);
   req->set_url(url);
 
   req->run();
 
-  return (req->get_response_code() == HTTP_SC_NO_CONTENT) ? 0 : -EIO;
+  return (req->get_response_code() == base::HTTP_SC_NO_CONTENT) ? 0 : -EIO;
 }
 
 object::object(const string &path)
@@ -322,7 +324,7 @@ int object::commit(const request::ptr &req)
 {
   string etag = get_etag();
 
-  req->init(HTTP_PUT);
+  req->init(base::HTTP_PUT);
   req->set_url(_url);
 
   // if the object already exists (i.e., if we have an etag) then just update
@@ -339,7 +341,7 @@ int object::commit(const request::ptr &req)
 
   req->run();
 
-  if (req->get_response_code() != HTTP_SC_OK) {
+  if (req->get_response_code() != base::HTTP_SC_OK) {
     S3_LOG(LOG_WARNING, "object::commit", "failed to commit object metadata for [%s].\n", _url.c_str());
     return -EIO;
   }

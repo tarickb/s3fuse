@@ -26,15 +26,15 @@
 #include <stdexcept>
 #include <boost/lexical_cast.hpp>
 
-#include "config.h"
-#include "logger.h"
+#include "base/config.h"
+#include "base/logger.h"
 
 using boost::lexical_cast;
 using std::ifstream;
 using std::runtime_error;
 using std::string;
 
-using s3::config;
+using s3::base::config;
 
 namespace
 {
@@ -101,7 +101,7 @@ namespace
 #define CONFIG(type, name, def) type config::s_ ## name = (def);
 #define CONFIG_REQUIRED(type, name, def) CONFIG(type, name, def)
 
-#include "config.inc"
+#include "base/config.inc"
 
 #undef CONFIG
 #undef CONFIG_REQUIRED
@@ -155,7 +155,7 @@ int config::init(const string &file)
 
     #define CONFIG_REQUIRED(type, name, def) CONFIG(type, name, def)
 
-    #include "config.inc"
+    #include "base/config.inc"
 
     #undef CONFIG
     #undef CONFIG_REQUIRED
@@ -172,7 +172,7 @@ int config::init(const string &file)
       return -EIO; \
     }
 
-  #include "config.inc"
+  #include "base/config.inc"
 
   #undef CONFIG
   #undef CONFIG_REQUIRED

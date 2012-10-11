@@ -1,7 +1,7 @@
 /*
- * logger.cc
+ * version.h
  * -------------------------------------------------------------------------
- * Definitions for s3::logger static members and init() method.
+ * Version information (set by the various configure scripts).
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2011, Tarick Bedeir.
@@ -19,15 +19,17 @@
  * limitations under the License.
  */
 
-#include "logger.h"
+#ifndef S3_VERSION_H
+#define S3_VERSION_H
 
-using s3::logger;
-
-int logger::s_max_level = 0;
-
-void logger::init(int max_level)
+namespace s3
 {
-  s_max_level = max_level;
-
-  openlog("s3fuse", 0, 0);
+  namespace base
+  {
+    const char *APP_FULL_NAME = PACKAGE_NAME;
+    const char *APP_NAME = PACKAGE_TARNAME;
+    const char *APP_VERSION = PACKAGE_VERSION;
+  }
 }
+
+#endif

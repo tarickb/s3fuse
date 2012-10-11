@@ -34,7 +34,7 @@
 using std::runtime_error;
 using std::string;
 
-using s3::request;
+using s3::base::request;
 
 #define TEST_OK(x) do { if ((x) != CURLE_OK) throw runtime_error("call to " #x " failed."); } while (0)
 

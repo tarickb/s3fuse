@@ -1,5 +1,3 @@
-AM_CPPFLAGS += -I../../
-
 noinst_PROGRAMS = encoders encoders_varying hashes hash_list
 
 encoders_SOURCES = encoders.cc

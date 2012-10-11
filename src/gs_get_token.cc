@@ -22,7 +22,7 @@
 #include <fstream>
 #include <iostream>
 
-#include "logger.h"
+#include "base/logger.h"
 #include "services/gs_impl.h"
 
 using std::cerr;

@@ -27,13 +27,16 @@
 #include <boost/smart_ptr.hpp>
 #include <boost/thread.hpp>
 
-#include "logger.h"
+#include "base/logger.h"
 #include "objects/object.h"
 #include "threads/pool.h"
 
 namespace s3
 {
-  class request;
+  namespace base
+  {
+    class request;
+  }
 
   namespace objects
   {
@@ -64,7 +67,7 @@ namespace s3
         return obj;
       }
 
-      inline static object::ptr get(const boost::shared_ptr<request> &req, const std::string &path, int hints = HINT_NONE)
+      inline static object::ptr get(const boost::shared_ptr<base::request> &req, const std::string &path, int hints = HINT_NONE)
       {
         object::ptr obj = find(path);
 
@@ -133,7 +136,7 @@ namespace s3
         return obj;
       }
 
-      static int fetch(const boost::shared_ptr<request> &req, const std::string &path, int hints, object::ptr *obj);
+      static int fetch(const boost::shared_ptr<base::request> &req, const std::string &path, int hints, object::ptr *obj);
 
       // TODO: prune periodically?
 

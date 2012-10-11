@@ -1,12 +1,12 @@
 #include <iostream>
 
-#include "request.h"
+#include "base/request.h"
 
 using std::cerr;
 using std::cout;
 using std::endl;
 
-using s3::request;
+using s3::base::request;
 
 void bogus_signer(request *r, bool ignore)
 {
@@ -24,11 +24,11 @@ int main(int argc, char **argv)
 
   // r.set_signing_function(bogus_signer);
 
-  r.init(s3::HTTP_GET);
+  r.init(s3::base::HTTP_GET);
   r.set_url(argv[1]);
   r.run();
 
-  if (r.get_response_code() != s3::HTTP_SC_OK) {
+  if (r.get_response_code() != s3::base::HTTP_SC_OK) {
     cerr << "request failed with code: " << r.get_response_code() << endl;
     return 1;
   }
