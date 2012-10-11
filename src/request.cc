@@ -30,13 +30,11 @@
 #include "logger.h"
 #include "request.h"
 #include "ssl_locks.h"
-#include "services/service.h"
 
 using std::runtime_error;
 using std::string;
 
 using s3::request;
-using s3::services::service;
 
 #define TEST_OK(x) do { if ((x) != CURLE_OK) throw runtime_error("call to " #x " failed."); } while (0)
 
@@ -128,7 +126,6 @@ void request::init(http_method method)
   _response_code = 0;
   _last_modified = 0;
   _headers.clear();
-  _sign = true;
 
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_UPLOAD, false));
@@ -243,7 +240,7 @@ void request::set_url(const string &url, const string &query_string)
 {
   string curl_url;
 
-  curl_url = service::get_url_prefix() + url;
+  curl_url = _url_prefix + url;
 
   if (!query_string.empty()) {
     curl_url += ((curl_url.find('?') == string::npos) ? "?" : "&");
@@ -311,18 +308,18 @@ void request::run(int timeout_in_s)
     throw runtime_error("cannot reuse a canceled request.");
 
   // run twice. if we fail with a 401 (unauthorized) error, try again but tell
-  // service::sign() that we failed on the last try. this allows GS, in 
+  // the signing function that we failed on the last try. this allows GS, in 
   // particular, to refresh its access token.
 
   for (int i = 0; i < 2; i++) {
     build_request_time();
 
-    if (_sign)
-      service::sign(this, (i == 1));
+    if (_signing_function)
+      _signing_function(this, (i == 1));
 
     internal_run(timeout_in_s);
 
-    if (!_sign || (_response_code != HTTP_SC_UNAUTHORIZED && _response_code != HTTP_SC_FORBIDDEN))
+    if (!_signing_function || (_response_code != HTTP_SC_UNAUTHORIZED && _response_code != HTTP_SC_FORBIDDEN))
       break;
   }
 }

@@ -19,6 +19,7 @@
  * limitations under the License.
  */
 
+#include <boost/bind.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
@@ -27,6 +28,7 @@
 #include "request.h"
 #include "services/gs_impl.h"
 
+using boost::bind;
 using boost::mutex;
 using boost::property_tree::ptree;
 using std::endl;
@@ -37,6 +39,7 @@ using std::string;
 using std::stringstream;
 
 using s3::services::gs_impl;
+using s3::services::signing_function;
 
 namespace
 {
@@ -88,9 +91,8 @@ void gs_impl::get_tokens(get_tokens_mode mode, const string &key, string *access
     throw runtime_error("unrecognized get_tokens mode.");
 
   req.init(HTTP_POST);
-  req.set_full_url(GS_EP_TOKEN);
+  req.set_url(GS_EP_TOKEN);
   req.set_input_buffer(data);
-  req.disable_signing();
 
   req.run();
 
@@ -137,6 +139,8 @@ gs_impl::gs_impl()
 
   _refresh_token = gs_impl::read_token(config::get_auth_data());
   refresh(lock);
+
+  _signing_function = bind(&gs_impl::sign, this, _1, _2);
 }
 
 const string & gs_impl::get_header_prefix()
@@ -172,6 +176,11 @@ bool gs_impl::is_multipart_upload_supported()
 const string & gs_impl::get_bucket_url()
 {
   return _bucket_url;
+}
+
+const signing_function & gs_impl::get_signing_function()
+{
+  return _signing_function;
 }
 
 void gs_impl::sign(request *req, bool last_sign_failed)

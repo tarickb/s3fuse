@@ -24,6 +24,7 @@
 
 #include <fstream>
 #include <string>
+#include <boost/function.hpp>
 #include <boost/smart_ptr.hpp>
 
 namespace s3
@@ -32,6 +33,8 @@ namespace s3
 
   namespace services
   {
+    typedef boost::function2<void, request *, bool> signing_function;
+
     class impl
     {
     public:
@@ -47,7 +50,9 @@ namespace s3
 
       virtual const std::string & get_bucket_url() = 0;
 
-      virtual void sign(request *req, bool last_sign_failed) = 0;
+      virtual const signing_function & get_signing_function() = 0;
+      // TODO: remove
+      // virtual void sign(request *req, bool last_sign_failed) = 0;
 
     protected:
       static void open_private_file(const std::string &file, std::ifstream *f);

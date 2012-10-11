@@ -59,14 +59,16 @@ namespace s3
 
       virtual const std::string & get_bucket_url();
 
-      virtual void sign(request *req, bool last_sign_failed);
+      virtual const signing_function & get_signing_function();
 
     private:
+      void sign(request *req, bool last_sign_failed);
       void refresh(const boost::mutex::scoped_lock &lock);
 
       boost::mutex _mutex;
       std::string _access_token, _refresh_token, _bucket_url;
       time_t _expiry;
+      signing_function _signing_function;
     };
   }
 }

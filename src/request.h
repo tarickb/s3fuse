@@ -29,6 +29,7 @@
 #include <map>
 #include <string>
 #include <vector>
+#include <boost/function.hpp>
 #include <boost/smart_ptr.hpp>
 #include <boost/utility.hpp>
 
@@ -64,6 +65,7 @@ namespace s3
     static const int DEFAULT_REQUEST_TIMEOUT = -1;
 
     typedef boost::shared_ptr<request> ptr;
+    typedef boost::function2<void, request *, bool> signing_function;
 
     inline static std::string url_encode(const std::string &url)
     {
@@ -94,6 +96,9 @@ namespace s3
     void init(http_method method);
 
     inline const std::string & get_method() { return _method; }
+
+    inline void set_url_prefix(const std::string &prefix) { _url_prefix = prefix; }
+    inline void set_signing_function(const signing_function &fn) { _signing_function = fn; }
 
     void set_full_url(const std::string &url);
     void set_url(const std::string &url, const std::string &query_string = "");
@@ -135,8 +140,6 @@ namespace s3
     inline void reset_current_run_time() { _current_run_time = 0.0; }
     inline double get_current_run_time() { return _current_run_time; }
 
-    inline void disable_signing() { _sign = false; }
-
     bool check_timeout();
 
     void run(int timeout_in_s = DEFAULT_REQUEST_TIMEOUT);
@@ -177,7 +180,9 @@ namespace s3
     bool _canceled;
     time_t _timeout;
 
-    bool _sign;
+    // not reset by init()
+    std::string _url_prefix;
+    signing_function _signing_function;
   };
 }
 

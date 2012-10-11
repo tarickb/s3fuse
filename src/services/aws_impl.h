@@ -45,10 +45,13 @@ namespace s3
 
       virtual const std::string & get_bucket_url();
 
-      virtual void sign(request *req, bool last_sign_failed);
+      virtual const signing_function & get_signing_function();
 
     private:
+      void sign(request *req, bool last_sign_failed);
+
       std::string _key, _secret, _endpoint, _bucket_url;
+      signing_function _signing_function;
     };
   }
 }

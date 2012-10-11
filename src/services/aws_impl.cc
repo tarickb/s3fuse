@@ -20,6 +20,7 @@
  */
 
 #include <vector>
+#include <boost/bind.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 
@@ -31,6 +32,7 @@
 #include "crypto/hmac_sha1.h"
 #include "services/aws_impl.h"
 
+using boost::bind;
 using boost::is_any_of;
 using boost::token_compress_on;
 using std::ifstream;
@@ -45,6 +47,7 @@ using s3::crypto::base64;
 using s3::crypto::encoder;
 using s3::crypto::hmac_sha1;
 using s3::services::aws_impl;
+using s3::services::signing_function;
 
 namespace
 {
@@ -88,6 +91,8 @@ aws_impl::aws_impl()
 
   _endpoint = string("https://") + config::get_aws_service_endpoint();
   _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
+
+  _signing_function = bind(&aws_impl::sign, this, _1, _2);
 }
 
 const string & aws_impl::get_header_prefix()
@@ -123,6 +128,11 @@ bool aws_impl::is_multipart_upload_supported()
 const string & aws_impl::get_bucket_url()
 {
   return _bucket_url;
+}
+
+const signing_function & aws_impl::get_signing_function()
+{
+  return _signing_function;
 }
 
 void aws_impl::sign(request *req, bool last_sign_failed)

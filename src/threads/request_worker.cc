@@ -1,12 +1,14 @@
 #include "logger.h"
 #include "request.h"
 #include "timer.h"
+#include "services/service.h"
 #include "threads/async_handle.h"
 #include "threads/request_worker.h"
 #include "threads/work_item_queue.h"
 
 using boost::mutex;
 
+using s3::services::service;
 using s3::threads::request_worker;
 using s3::threads::work_item;
 using s3::threads::work_item_queue;
@@ -17,6 +19,8 @@ request_worker::request_worker(const work_item_queue::ptr &queue)
     _time_in_request(0.),
     _queue(queue)
 {
+  _request->set_url_prefix(service::get_url_prefix());
+  _request->set_signing_function(service::get_signing_function());
 }
 
 request_worker::~request_worker()    
