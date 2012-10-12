@@ -634,11 +634,9 @@ void * init(fuse_conn_info *info)
 {
   try {
     ssl_locks::init();
-    pool::init();
-
     service::init(config::get_service());
     xml::init(service::get_xml_namespace());
-
+    pool::init();
     cache::init();
 
     if (info->capable & FUSE_CAP_ATOMIC_O_TRUNC) {
