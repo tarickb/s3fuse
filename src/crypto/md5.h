@@ -18,7 +18,7 @@ namespace s3
 
       inline static bool is_valid_quoted_hex_hash(const std::string &hash)
       {
-        if (hash.size() != HASH_LEN + 2) // +2 for quotes
+        if (hash.size() != 2 * HASH_LEN + 2) // *2 for hex encoding, +2 for quotes
           return false;
 
         if (hash[0] != '"' || hash[hash.size() - 1] != '"')
