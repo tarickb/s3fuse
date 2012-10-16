@@ -1,0 +1,71 @@
+#include <string.h>
+
+#include "crypto/aes_ctr_128_cipher.h"
+#include "crypto/cipher_state.h"
+
+using std::runtime_error;
+
+using s3::crypto::aes_ctr_128_cipher;
+using s3::crypto::cipher_state;
+
+namespace
+{
+  // TODO: find another way to do this?
+  inline void le_to_be(const uint8_t *in, size_t size, uint8_t *out)
+  {
+    for (size_t i = 0; i < size; i++)
+      out[size - i - 1] = in[i];
+  }
+}
+
+aes_ctr_128_cipher::aes_ctr_128_cipher(const cipher_state::ptr &state, uint64_t starting_block)
+{
+  if (state->get_key_len() != KEY_LEN)
+    throw runtime_error("key length is not valid for this cipher");
+
+  if (state->get_iv_len() != IV_LEN)
+    throw runtime_error("iv length is not valid for this cipher");
+
+  #ifdef __APPLE__
+    CCCryptorStatus r;
+    uint8_t iv[BLOCK_LEN];
+
+    memcpy(iv, state->get_iv(), IV_LEN);
+
+    // TODO: if little-endian...
+    le_to_be(reinterpret_cast<uint8_t *>(&starting_block), sizeof(starting_block), iv + IV_LEN);
+
+    r = CCCryptorCreateWithMode(
+      kCCEncrypt, // use for both encryption and decryption because ctr is symmetric
+      kCCModeCTR,
+      kCCAlgorithmAES128,
+      ccNoPadding,
+      iv,
+      state->get_key(),
+      kCCBlockSizeAES128,
+      NULL,
+      0,
+      0,
+      kCCModeOptionCTR_BE,
+      &_cryptor);
+
+    // TODO: log!
+    if (r != kCCSuccess)
+      throw runtime_error("call to CCCryptorCreateWithMode() failed");
+  #else
+    memset(_ecount_buf, 0, sizeof(_ecount_buf));
+
+    memcpy(_iv, state->get_iv(), IV_LEN);
+    le_to_be(reinterpret_cast<uint8_t *>(&starting_block), sizeof(starting_block), _iv + IV_LEN);
+
+    AES_set_encrypt_key(state->get_key(), KEY_LEN * 8 /* in bits */, &_key);
+  #endif
+}
+
+aes_ctr_128_cipher::~aes_ctr_128_cipher()
+{
+  #ifdef __APPLE__
+    CCCryptorRelease(_cryptor);
+  #else
+  #endif
+}
