@@ -32,7 +32,6 @@ aes_ctr_128_cipher::aes_ctr_128_cipher(const cipher_state::ptr &state, uint64_t 
 
     memcpy(iv, state->get_iv(), IV_LEN);
 
-    // TODO: if little-endian...
     le_to_be(reinterpret_cast<uint8_t *>(&starting_block), sizeof(starting_block), iv + IV_LEN);
 
     r = CCCryptorCreateWithMode(
@@ -49,7 +48,6 @@ aes_ctr_128_cipher::aes_ctr_128_cipher(const cipher_state::ptr &state, uint64_t 
       kCCModeOptionCTR_BE,
       &_cryptor);
 
-    // TODO: log!
     if (r != kCCSuccess)
       throw runtime_error("call to CCCryptorCreateWithMode() failed");
   #else
@@ -66,6 +64,5 @@ aes_ctr_128_cipher::~aes_ctr_128_cipher()
 {
   #ifdef __APPLE__
     CCCryptorRelease(_cryptor);
-  #else
   #endif
 }
