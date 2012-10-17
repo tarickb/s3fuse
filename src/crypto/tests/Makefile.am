@@ -1,4 +1,7 @@
-noinst_PROGRAMS = encoders encoders_varying hashes hash_list
+noinst_PROGRAMS = ciphers encoders encoders_varying hashes hash_list
+
+ciphers_SOURCES = ciphers.cc
+ciphers_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 encoders_SOURCES = encoders.cc
 encoders_LDADD = ../libs3fuse_crypto.a $(LDADD)
