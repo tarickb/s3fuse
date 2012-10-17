@@ -38,7 +38,7 @@ aes_ctr_256_cipher::aes_ctr_256_cipher(const cipher_state::ptr &state, uint64_t 
       ccNoPadding,
       iv,
       state->get_key(),
-      kCCBlockSizeAES128,
+      state->get_key_len(),
       NULL,
       0,
       0,

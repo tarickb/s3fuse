@@ -67,7 +67,7 @@ int run_aes(const cipher_state::ptr &cs, const string &file_in, const string &fi
 
   fstat(fd_in, &st);
 
-  if (st.st_size < THREADS * CHUNK_SIZE) {
+  if (st.st_size < static_cast<ssize_t>(THREADS * CHUNK_SIZE)) {
     run_aes_thread(cs, fd_in, fd_out, 0, st.st_size);
   } else {
     thread_group threads;
