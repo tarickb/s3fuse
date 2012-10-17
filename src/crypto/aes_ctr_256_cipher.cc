@@ -1,11 +1,11 @@
 #include <string.h>
 
-#include "crypto/aes_ctr_128_cipher.h"
+#include "crypto/aes_ctr_256_cipher.h"
 #include "crypto/cipher_state.h"
 
 using std::runtime_error;
 
-using s3::crypto::aes_ctr_128_cipher;
+using s3::crypto::aes_ctr_256_cipher;
 using s3::crypto::cipher_state;
 
 namespace
@@ -18,11 +18,8 @@ namespace
   }
 }
 
-aes_ctr_128_cipher::aes_ctr_128_cipher(const cipher_state::ptr &state, uint64_t starting_block)
+aes_ctr_256_cipher::aes_ctr_256_cipher(const cipher_state::ptr &state, uint64_t starting_block)
 {
-  if (state->get_key_len() != KEY_LEN)
-    throw runtime_error("key length is not valid for this cipher");
-
   if (state->get_iv_len() != IV_LEN)
     throw runtime_error("iv length is not valid for this cipher");
 
@@ -56,11 +53,12 @@ aes_ctr_128_cipher::aes_ctr_128_cipher(const cipher_state::ptr &state, uint64_t 
     memcpy(_iv, state->get_iv(), IV_LEN);
     le_to_be(reinterpret_cast<uint8_t *>(&starting_block), sizeof(starting_block), _iv + IV_LEN);
 
-    AES_set_encrypt_key(state->get_key(), KEY_LEN * 8 /* in bits */, &_key);
+    if (AES_set_encrypt_key(state->get_key(), state->get_key_len() * 8 /* in bits */, &_key) != 0)
+      throw runtime_error("failed to set AES encryption key");
   #endif
 }
 
-aes_ctr_128_cipher::~aes_ctr_128_cipher()
+aes_ctr_256_cipher::~aes_ctr_256_cipher()
 {
   #ifdef __APPLE__
     CCCryptorRelease(_cryptor);

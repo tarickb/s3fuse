@@ -21,7 +21,17 @@ namespace s3
       {
         ptr cs(new cipher_state());
 
-        cs->generate(cipher_type::KEY_LEN, cipher_type::IV_LEN);
+        cs->generate(cipher_type::DEFAULT_KEY_LEN, cipher_type::IV_LEN);
+
+        return cs;
+      }
+
+      template <class cipher_type>
+      inline static ptr generate(size_t key_len)
+      {
+        ptr cs(new cipher_state());
+
+        cs->generate(key_len, cipher_type::IV_LEN);
 
         return cs;
       }

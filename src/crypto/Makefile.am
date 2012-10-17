@@ -5,8 +5,8 @@ endif
 noinst_LIBRARIES = libs3fuse_crypto.a
 
 libs3fuse_crypto_a_SOURCES = \
-	aes_ctr_128_cipher.cc \
-	aes_ctr_128_cipher.h \
+	aes_ctr_256_cipher.cc \
+	aes_ctr_256_cipher.h \
 	base64.cc \
 	base64.h \
 	cipher_state.cc \
