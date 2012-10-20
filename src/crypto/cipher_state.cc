@@ -62,7 +62,10 @@ void cipher_state::generate(size_t key_len, size_t iv_len)
     if (r != 2) // r counts items, not bytes
       throw runtime_error("failed to read from /dev/random");
   #else
-    RAND_bytes(&_key[0], _key.size());
-    RAND_bytes(&_iv[0], _iv.size());
+    if (RAND_bytes(&_key[0], _key.size()) == 0)
+      throw runtime_error("failed to generate random key");
+
+    if (RAND_bytes(&_iv[0], _iv.size()) == 0)
+      throw runtime_error("failed to generate random IV");
   #endif
 }
