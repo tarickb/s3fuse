@@ -18,6 +18,7 @@ namespace
   }
 }
 
+// TODO: change starting_block to starting_byte (and force % BLOCK_LEN == 0)
 aes_ctr_256_cipher::aes_ctr_256_cipher(const cipher_state::ptr &state, uint64_t starting_block)
 {
   if (state->get_iv_len() != IV_LEN)
