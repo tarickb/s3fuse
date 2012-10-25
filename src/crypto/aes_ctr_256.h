@@ -1,5 +1,5 @@
-#ifndef S3_CRYPTO_AES_CTR_256_CIPHER_H
-#define S3_CRYPTO_AES_CTR_256_CIPHER_H
+#ifndef S3_CRYPTO_AES_CTR_256_H
+#define S3_CRYPTO_AES_CTR_256_H
 
 #include <stdint.h>
 
@@ -16,12 +16,12 @@ namespace s3
 {
   namespace crypto
   {
-    class cipher_state;
+    class symmetric_key;
 
-    class aes_ctr_256_cipher
+    class aes_ctr_256
     {
     public:
-      typedef boost::shared_ptr<aes_ctr_256_cipher> ptr;
+      typedef boost::shared_ptr<aes_ctr_256> ptr;
 
       #ifdef __APPLE__
         enum { BLOCK_LEN = kCCBlockSizeAES128 };
@@ -32,8 +32,8 @@ namespace s3
       enum { IV_LEN = BLOCK_LEN / 2 };
       enum { DEFAULT_KEY_LEN = 32 }; // 256 bits
 
-      aes_ctr_256_cipher(const boost::shared_ptr<cipher_state> &state, uint64_t starting_block);
-      ~aes_ctr_256_cipher();
+      aes_ctr_256(const boost::shared_ptr<symmetric_key> &key, uint64_t starting_block);
+      ~aes_ctr_256();
 
       // TODO: modify this to use an interface similar to encoder/hash/etc.
       inline void encrypt(const uint8_t *in, size_t size, uint8_t *out)

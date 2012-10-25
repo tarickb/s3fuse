@@ -6,26 +6,26 @@
 
 #include <stdexcept>
 
-#include "crypto/cipher_state.h"
 #include "crypto/encoder.h"
 #include "crypto/hex.h"
+#include "crypto/symmetric_key.h"
 
 using std::runtime_error;
 using std::string;
 
-using s3::crypto::cipher_state;
 using s3::crypto::encoder;
 using s3::crypto::hex;
+using s3::crypto::symmetric_key;
 
-cipher_state::ptr cipher_state::deserialize(const string &state)
+symmetric_key::ptr symmetric_key::deserialize(const string &state)
 {
-  ptr cs(new cipher_state());
+  ptr cs(new symmetric_key());
   size_t pos;
 
   pos = state.find(':');
 
   if (pos == string::npos)
-    throw runtime_error("malformed cipher state string");
+    throw runtime_error("malformed symmetric key string");
 
   encoder::decode<hex>(state.substr(0, pos), &cs->_key);
   encoder::decode<hex>(state.substr(pos + 1), &cs->_iv);
@@ -33,14 +33,14 @@ cipher_state::ptr cipher_state::deserialize(const string &state)
   return cs;
 }
 
-string cipher_state::serialize()
+string symmetric_key::serialize()
 {
   return 
     encoder::encode<hex>(&_key[0], _key.size()) + ":" +
     encoder::encode<hex>(&_iv[0], _iv.size());
 }
 
-void cipher_state::generate(size_t key_len, size_t iv_len)
+void symmetric_key::generate(size_t key_len, size_t iv_len)
 {
   _key.resize(key_len);
   _iv.resize(iv_len);

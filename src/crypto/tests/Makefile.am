@@ -1,7 +1,4 @@
-noinst_PROGRAMS = cipher_state ciphers_file_par ciphers_file_seq ciphers_kat encoders encoders_varying hashes hash_list
-
-cipher_state_SOURCES = cipher_state.cc
-cipher_state_LDADD = ../libs3fuse_crypto.a $(LDADD)
+noinst_PROGRAMS = symmetric_key ciphers_file_par ciphers_file_seq ciphers_kat encoders encoders_varying hashes hash_list
 
 ciphers_file_par_SOURCES = ciphers_file_par.cc
 ciphers_file_par_LDADD = ../libs3fuse_crypto.a $(LDADD)
@@ -23,3 +20,6 @@ hashes_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 hash_list_SOURCES = hash_list.cc
 hash_list_LDADD = ../libs3fuse_crypto.a $(LDADD)
+
+symmetric_key_SOURCES = symmetric_key.cc
+symmetric_key_LDADD = ../libs3fuse_crypto.a $(LDADD)

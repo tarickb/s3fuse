@@ -3,25 +3,25 @@
 
 #include <iostream>
 
-#include "crypto/aes_ctr_256_cipher.h"
-#include "crypto/cipher_state.h"
+#include "crypto/aes_ctr_256.h"
+#include "crypto/symmetric_key.h"
 
 using std::cout;
 using std::endl;
 using std::runtime_error;
 using std::string;
 
-using s3::crypto::aes_ctr_256_cipher;
-using s3::crypto::cipher_state;
+using s3::crypto::aes_ctr_256;
+using s3::crypto::symmetric_key;
 
 namespace
 {
   const size_t CHUNK_SIZE = 8 * 1024;
 }
 
-int run_aes(const cipher_state::ptr &cs, const string &file_in, const string &file_out)
+int run_aes(const symmetric_key::ptr &cs, const string &file_in, const string &file_out)
 {
-  aes_ctr_256_cipher::ptr aes(new aes_ctr_256_cipher(cs, 0));
+  aes_ctr_256::ptr aes(new aes_ctr_256(cs, 0));
   int fd_in, fd_out;
   off_t offset = 0;
 
@@ -66,9 +66,9 @@ int main(int argc, char **argv)
 {
   try {
     if (argc == 3)
-      return run_aes(cipher_state::generate<aes_ctr_256_cipher>(), argv[1], argv[2]);
+      return run_aes(symmetric_key::generate<aes_ctr_256>(), argv[1], argv[2]);
     else if (argc == 4)
-      return run_aes(cipher_state::deserialize(argv[1]), argv[2], argv[3]);
+      return run_aes(symmetric_key::deserialize(argv[1]), argv[2], argv[3]);
 
   } catch (const std::exception &e) {
     cout << "caught exception: " << e.what() << endl;

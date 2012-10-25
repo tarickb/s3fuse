@@ -1,5 +1,5 @@
-#ifndef S3_CRYPTO_CIPHER_STATE_H
-#define S3_CRYPTO_CIPHER_STATE_H
+#ifndef S3_CRYPTO_SYMMETRIC_KEY_H
+#define S3_CRYPTO_SYMMETRIC_KEY_H
 
 #include <stdint.h>
 
@@ -11,15 +11,15 @@ namespace s3
 {
   namespace crypto
   {
-    class cipher_state
+    class symmetric_key
     {
     public:
-      typedef boost::shared_ptr<cipher_state> ptr;
+      typedef boost::shared_ptr<symmetric_key> ptr;
 
       template <class cipher_type>
       inline static ptr generate()
       {
-        ptr cs(new cipher_state());
+        ptr cs(new symmetric_key());
 
         cs->generate(cipher_type::DEFAULT_KEY_LEN, cipher_type::IV_LEN);
 
@@ -29,7 +29,7 @@ namespace s3
       template <class cipher_type>
       inline static ptr generate(size_t key_len)
       {
-        ptr cs(new cipher_state());
+        ptr cs(new symmetric_key());
 
         cs->generate(key_len, cipher_type::IV_LEN);
 
@@ -47,7 +47,7 @@ namespace s3
       std::string serialize();
 
     private:
-      inline cipher_state()
+      inline symmetric_key()
       {
       }
 

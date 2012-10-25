@@ -1,12 +1,12 @@
 #include <string.h>
 
-#include "crypto/aes_ctr_256_cipher.h"
-#include "crypto/cipher_state.h"
+#include "crypto/aes_ctr_256.h"
+#include "crypto/symmetric_key.h"
 
 using std::runtime_error;
 
-using s3::crypto::aes_ctr_256_cipher;
-using s3::crypto::cipher_state;
+using s3::crypto::aes_ctr_256;
+using s3::crypto::symmetric_key;
 
 namespace
 {
@@ -19,16 +19,16 @@ namespace
 }
 
 // TODO: change starting_block to starting_byte (and force % BLOCK_LEN == 0)
-aes_ctr_256_cipher::aes_ctr_256_cipher(const cipher_state::ptr &state, uint64_t starting_block)
+aes_ctr_256::aes_ctr_256(const symmetric_key::ptr &key, uint64_t starting_block)
 {
-  if (state->get_iv_len() != IV_LEN)
+  if (key->get_iv_len() != IV_LEN)
     throw runtime_error("iv length is not valid for this cipher");
 
   #ifdef __APPLE__
     CCCryptorStatus r;
     uint8_t iv[BLOCK_LEN];
 
-    memcpy(iv, state->get_iv(), IV_LEN);
+    memcpy(iv, key->get_iv(), IV_LEN);
 
     le_to_be(reinterpret_cast<uint8_t *>(&starting_block), sizeof(starting_block), iv + IV_LEN);
 
@@ -38,8 +38,8 @@ aes_ctr_256_cipher::aes_ctr_256_cipher(const cipher_state::ptr &state, uint64_t 
       kCCAlgorithmAES128,
       ccNoPadding,
       iv,
-      state->get_key(),
-      state->get_key_len(),
+      key->get_key(),
+      key->get_key_len(),
       NULL,
       0,
       0,
@@ -51,15 +51,15 @@ aes_ctr_256_cipher::aes_ctr_256_cipher(const cipher_state::ptr &state, uint64_t 
   #else
     memset(_ecount_buf, 0, sizeof(_ecount_buf));
 
-    memcpy(_iv, state->get_iv(), IV_LEN);
+    memcpy(_iv, key->get_iv(), IV_LEN);
     le_to_be(reinterpret_cast<uint8_t *>(&starting_block), sizeof(starting_block), _iv + IV_LEN);
 
-    if (AES_set_encrypt_key(state->get_key(), state->get_key_len() * 8 /* in bits */, &_key) != 0)
+    if (AES_set_encrypt_key(key->get_key(), key->get_key_len() * 8 /* in bits */, &_key) != 0)
       throw runtime_error("failed to set AES encryption key");
   #endif
 }
 
-aes_ctr_256_cipher::~aes_ctr_256_cipher()
+aes_ctr_256::~aes_ctr_256()
 {
   #ifdef __APPLE__
     CCCryptorRelease(_cryptor);
