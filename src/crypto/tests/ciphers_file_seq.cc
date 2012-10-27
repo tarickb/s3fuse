@@ -21,7 +21,7 @@ namespace
 
 int run_aes(const symmetric_key::ptr &cs, const string &file_in, const string &file_out)
 {
-  aes_ctr_256::ptr aes(new aes_ctr_256(cs, 0));
+  aes_ctr_256::ptr aes = aes_ctr_256::create(cs);
   int fd_in, fd_out;
   off_t offset = 0;
 

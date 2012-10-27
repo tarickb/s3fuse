@@ -32,10 +32,26 @@ namespace s3
       enum { IV_LEN = BLOCK_LEN / 2 };
       enum { DEFAULT_KEY_LEN = 32 }; // 256 bits
 
-      aes_ctr_256(const boost::shared_ptr<symmetric_key> &key, uint64_t starting_block);
+      inline static ptr create(const boost::shared_ptr<symmetric_key> &key)
+      {
+        return create_with_starting_block(key, 0);
+      }
+
+      inline static ptr create_with_byte_offset(const boost::shared_ptr<symmetric_key> &key, uint64_t offset)
+      {
+        if (offset % BLOCK_LEN)
+          throw std::runtime_error("offset must be a multiple of BLOCK_LEN");
+
+        return create_with_starting_block(key, offset / BLOCK_LEN);
+      }
+
+      inline static ptr create_with_starting_block(const boost::shared_ptr<symmetric_key> &key, uint64_t starting_block)
+      {
+        return ptr(new aes_ctr_256(key, starting_block));
+      }
+
       ~aes_ctr_256();
 
-      // TODO: modify this to use an interface similar to encoder/hash/etc.
       inline void encrypt(const uint8_t *in, size_t size, uint8_t *out)
       {
         #ifdef __APPLE__
@@ -68,6 +84,8 @@ namespace s3
       }
 
     private:
+      aes_ctr_256(const boost::shared_ptr<symmetric_key> &key, uint64_t starting_block);
+
       #ifdef __APPLE__
         CCCryptorRef _cryptor;
       #else

@@ -18,7 +18,6 @@ namespace
   }
 }
 
-// TODO: change starting_block to starting_byte (and force % BLOCK_LEN == 0)
 aes_ctr_256::aes_ctr_256(const symmetric_key::ptr &key, uint64_t starting_block)
 {
   if (key->get_iv_len() != IV_LEN)

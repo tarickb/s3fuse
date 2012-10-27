@@ -73,8 +73,8 @@ int main(int argc, char **argv)
         encoder::decode<hex>(plaintext, &in_buf);
         out_buf.resize(in_buf.size());
 
-        aes_enc.reset(new aes_ctr_256(cs, sb));
-        aes_dec.reset(new aes_ctr_256(cs, sb));
+        aes_enc = aes_ctr_256::create_with_starting_block(cs, sb);
+        aes_dec = aes_ctr_256::create_with_starting_block(cs, sb);
         
         aes_enc->encrypt(&in_buf[0], in_buf.size(), &out_buf[0]);
         out_enc = encoder::encode<hex>(out_buf);
