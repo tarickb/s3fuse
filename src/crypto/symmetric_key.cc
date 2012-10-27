@@ -1,5 +1,5 @@
 #ifdef __APPLE__
-  #include <stdio.h>
+  #include <Security/SecRandom.h>
 #else
   #include <openssl/rand.h>
 #endif
@@ -48,19 +48,11 @@ void symmetric_key::generate(size_t key_len, size_t iv_len)
   // TODO: explicitly fail on big-endian machines!
 
   #ifdef __APPLE__
-    FILE *fp = fopen("/dev/random", "r");
-    size_t r = 0;
+    if (SecRandomCopyBytes(kSecRandomDefault, _key.size(), &_key[0]) != 0)
+      throw runtime_error("failed to generate random key");
 
-    if (!fp)
-      throw runtime_error("cannot open /dev/random");
-
-    r += fread(&_key[0], _key.size(), 1, fp);
-    r += fread(&_iv[0], _iv.size(), 1, fp);
-
-    fclose(fp);
-
-    if (r != 2) // r counts items, not bytes
-      throw runtime_error("failed to read from /dev/random");
+    if (SecRandomCopyBytes(kSecRandomDefault, _iv.size(), &_iv[0]) != 0)
+      throw runtime_error("failed to generate random IV");
   #else
     if (RAND_bytes(&_key[0], _key.size()) == 0)
       throw runtime_error("failed to generate random key");
