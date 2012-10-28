@@ -30,8 +30,6 @@ namespace s3
 
         b->_buf.resize(len);
 
-        // TODO: check endianness
-
         #ifdef __APPLE__
           if (SecRandomCopyBytes(kSecRandomDefault, len, &b->_buf[0]) != 0)
             throw std::runtime_error("failed to generate random key");
