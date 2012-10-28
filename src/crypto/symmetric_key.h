@@ -18,39 +18,23 @@ namespace s3
       template <class cipher_type>
       inline static ptr generate()
       {
-        ptr sk(new symmetric_key());
-
-        sk->_key = buffer::generate(cipher_type::DEFAULT_KEY_LEN);
-        sk->_iv = buffer::generate(cipher_type::IV_LEN);
-
-        return sk;
+        return create(buffer::generate(cipher_type::DEFAULT_KEY_LEN), buffer::generate(cipher_type::IV_LEN));
       }
 
       template <class cipher_type>
       inline static ptr generate(size_t key_len)
       {
-        ptr sk(new symmetric_key());
-
-        sk->_key = buffer::generate(key_len);
-        sk->_iv = buffer::generate(cipher_type::IV_LEN);
-
-        return sk;
+        return create(buffer::generate(key_len), buffer::generate(cipher_type::IV_LEN));
       }
 
       template <class cipher_type>
       inline static ptr generate(const buffer::ptr &key)
       {
-        ptr sk(new symmetric_key());
-
-        sk->_key = key;
-        sk->_iv = buffer::generate(cipher_type::IV_LEN);
-
-        return sk;
+        return create(key, buffer::generate(cipher_type::IV_LEN));
       }
 
       inline static ptr from_string(const std::string &str)
       {
-        ptr sk(new symmetric_key());
         size_t pos;
 
         pos = str.find(':');
@@ -58,8 +42,15 @@ namespace s3
         if (pos == std::string::npos)
           throw std::runtime_error("malformed symmetric key string");
 
-        sk->_key = buffer::from_string(str.substr(0, pos));
-        sk->_iv = buffer::from_string(str.substr(pos + 1));
+        return create(buffer::from_string(str.substr(0, pos)), buffer::from_string(str.substr(pos + 1)));
+      }
+
+      inline static ptr create(const buffer::ptr &key, const buffer::ptr &iv)
+      {
+        ptr sk(new symmetric_key());
+
+        sk->_key = key;
+        sk->_iv = iv;
 
         return sk;
       }
