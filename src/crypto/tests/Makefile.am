@@ -1,4 +1,17 @@
-noinst_PROGRAMS = aes_ctr_256_file_par aes_ctr_256_file_seq aes_ctr_256_kat encoders encoders_varying hashes hash_list symmetric_key
+noinst_PROGRAMS = \
+	aes_cbc_256_file \
+	aes_ctr_256_file_par \
+	aes_ctr_256_file_seq \
+	aes_ctr_256_kat \
+	encoders \
+	encoders_varying \
+	encrypt_file \
+	hashes \
+	hash_list \
+	symmetric_key
+
+aes_cbc_256_file_SOURCES = aes_cbc_256_file.cc
+aes_cbc_256_file_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 aes_ctr_256_file_par_SOURCES = aes_ctr_256_file_par.cc
 aes_ctr_256_file_par_LDADD = ../libs3fuse_crypto.a $(LDADD)
@@ -14,6 +27,9 @@ encoders_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 encoders_varying_SOURCES = encoders_varying.cc
 encoders_varying_LDADD = ../libs3fuse_crypto.a $(LDADD)
+
+encrypt_file_SOURCES = encrypt_file.cc
+encrypt_file_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 hashes_SOURCES = hashes.cc
 hashes_LDADD = ../libs3fuse_crypto.a $(LDADD)

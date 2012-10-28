@@ -20,14 +20,14 @@ namespace
 
 aes_ctr_256::aes_ctr_256(const symmetric_key::ptr &key, uint64_t starting_block)
 {
-  if (key->get_iv_len() != IV_LEN)
-    throw runtime_error("iv length is not valid for this cipher");
+  if (key->get_iv()->size() != IV_LEN)
+    throw runtime_error("iv length is not valid for aes_ctr_256");
 
   #ifdef __APPLE__
     CCCryptorStatus r;
     uint8_t iv[BLOCK_LEN];
 
-    memcpy(iv, key->get_iv(), IV_LEN);
+    memcpy(iv, key->get_iv()->get(), IV_LEN);
 
     le_to_be(reinterpret_cast<uint8_t *>(&starting_block), sizeof(starting_block), iv + IV_LEN);
 
@@ -37,8 +37,8 @@ aes_ctr_256::aes_ctr_256(const symmetric_key::ptr &key, uint64_t starting_block)
       kCCAlgorithmAES128,
       ccNoPadding,
       iv,
-      key->get_key(),
-      key->get_key_len(),
+      key->get_key()->get(),
+      key->get_key()->size(),
       NULL,
       0,
       0,
@@ -46,15 +46,15 @@ aes_ctr_256::aes_ctr_256(const symmetric_key::ptr &key, uint64_t starting_block)
       &_cryptor);
 
     if (r != kCCSuccess)
-      throw runtime_error("call to CCCryptorCreateWithMode() failed");
+      throw runtime_error("call to CCCryptorCreateWithMode() failed in aes_ctr_256");
   #else
     memset(_ecount_buf, 0, sizeof(_ecount_buf));
 
-    memcpy(_iv, key->get_iv(), IV_LEN);
+    memcpy(_iv, key->get_iv()->get(), IV_LEN);
     le_to_be(reinterpret_cast<uint8_t *>(&starting_block), sizeof(starting_block), _iv + IV_LEN);
 
-    if (AES_set_encrypt_key(key->get_key(), key->get_key_len() * 8 /* in bits */, &_key) != 0)
-      throw runtime_error("failed to set AES encryption key");
+    if (AES_set_encrypt_key(key->get_key()->get(), key->get_key()->size() * 8 /* in bits */, &_key) != 0)
+      throw runtime_error("failed to set encryption key for aes_ctr_256");
   #endif
 }
 

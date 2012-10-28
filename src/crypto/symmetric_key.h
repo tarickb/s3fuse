@@ -1,11 +1,10 @@
 #ifndef S3_CRYPTO_SYMMETRIC_KEY_H
 #define S3_CRYPTO_SYMMETRIC_KEY_H
 
-#include <stdint.h>
-
 #include <string>
-#include <vector>
 #include <boost/smart_ptr.hpp>
+
+#include "crypto/buffer.h"
 
 namespace s3
 {
@@ -19,41 +18,66 @@ namespace s3
       template <class cipher_type>
       inline static ptr generate()
       {
-        ptr cs(new symmetric_key());
+        ptr sk(new symmetric_key());
 
-        cs->generate(cipher_type::DEFAULT_KEY_LEN, cipher_type::IV_LEN);
+        sk->_key = buffer::generate(cipher_type::DEFAULT_KEY_LEN);
+        sk->_iv = buffer::generate(cipher_type::IV_LEN);
 
-        return cs;
+        return sk;
       }
 
       template <class cipher_type>
       inline static ptr generate(size_t key_len)
       {
-        ptr cs(new symmetric_key());
+        ptr sk(new symmetric_key());
 
-        cs->generate(key_len, cipher_type::IV_LEN);
+        sk->_key = buffer::generate(key_len);
+        sk->_iv = buffer::generate(cipher_type::IV_LEN);
 
-        return cs;
+        return sk;
       }
 
-      static ptr deserialize(const std::string &state);
+      template <class cipher_type>
+      inline static ptr generate(const buffer::ptr &key)
+      {
+        ptr sk(new symmetric_key());
 
-      inline const uint8_t * get_key() const { return &_key[0]; }
-      inline const uint8_t * get_iv() const { return &_iv[0]; }
+        sk->_key = key;
+        sk->_iv = buffer::generate(cipher_type::IV_LEN);
 
-      inline const size_t get_key_len() const { return _key.size(); }
-      inline const size_t get_iv_len() const { return _iv.size(); }
+        return sk;
+      }
 
-      std::string serialize();
+      inline static ptr from_string(const std::string &str)
+      {
+        ptr sk(new symmetric_key());
+        size_t pos;
+
+        pos = str.find(':');
+
+        if (pos == std::string::npos)
+          throw std::runtime_error("malformed symmetric key string");
+
+        sk->_key = buffer::from_string(str.substr(0, pos));
+        sk->_iv = buffer::from_string(str.substr(pos + 1));
+
+        return sk;
+      }
+
+      inline const buffer::ptr & get_key() { return _key; }
+      inline const buffer::ptr & get_iv() { return _iv; }
+
+      inline std::string to_string()
+      {
+        return _key->to_string() + ":" + _iv->to_string();
+      }
 
     private:
       inline symmetric_key()
       {
       }
 
-      void generate(size_t key_len, size_t iv_len);
-
-      std::vector<uint8_t> _key, _iv;
+      buffer::ptr _key, _iv;
     };
   }
 }

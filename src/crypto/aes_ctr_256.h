@@ -68,7 +68,7 @@ namespace s3
             NULL);
 
           if (r != kCCSuccess)
-            throw std::runtime_error("CCCryptorUpdate() failed");
+            throw std::runtime_error("CCCryptorUpdate() failed in aes_ctr_256");
         #else
           // by always setting _num = 0 before encrypting we enforce our 
           // requirement that all encryption be started on block boundaries

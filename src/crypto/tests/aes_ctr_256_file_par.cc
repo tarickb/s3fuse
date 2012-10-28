@@ -57,7 +57,7 @@ int run_aes(const symmetric_key::ptr &cs, const string &file_in, const string &f
   int fd_in, fd_out;
   struct stat st;
 
-  cout << "using " << cs->serialize() << endl;
+  cout << "using " << cs->to_string() << endl;
 
   fd_in = open(file_in.c_str(), O_RDONLY);
   fd_out = open(file_out.c_str(), O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
@@ -99,7 +99,7 @@ int main(int argc, char **argv)
     if (argc == 3)
       return run_aes(symmetric_key::generate<aes_ctr_256>(), argv[1], argv[2]);
     else if (argc == 4)
-      return run_aes(symmetric_key::deserialize(argv[1]), argv[2], argv[3]);
+      return run_aes(symmetric_key::from_string(argv[1]), argv[2], argv[3]);
 
   } catch (const std::exception &e) {
     cout << "caught exception: " << e.what() << endl;

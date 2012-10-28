@@ -56,7 +56,7 @@ int main(int argc, char **argv)
       uint64_t sb = 0;
 
       try {
-        cs = symmetric_key::deserialize(key + ":" + iv);
+        cs = symmetric_key::from_string(key + ":" + iv);
 
         encoder::decode<hex>(starting_block, &in_buf);
         out_buf.resize(in_buf.size());
@@ -88,7 +88,7 @@ int main(int argc, char **argv)
         if (in_enc != plaintext)
           throw runtime_error("failed decryption");
 
-        cout << "PASSED: key len: " << cs->get_key_len() * 8 << " bits, plain text len: " << in_buf.size() << " bytes" << endl;
+        cout << "PASSED: key len: " << cs->get_key()->size() * 8 << " bits, plain text len: " << in_buf.size() << " bytes" << endl;
 
       } catch (const std::exception &e) {
         cout 
@@ -98,7 +98,7 @@ int main(int argc, char **argv)
           << "  starting block: " << starting_block << endl
           << "  plain text: " << plaintext << endl
           << "  cipher text: " << ciphertext << endl
-          << "  state: " << (cs ? cs->serialize() : string("n/a")) << endl
+          << "  state: " << (cs ? cs->to_string() : string("n/a")) << endl
           << "  aes out: " << out_enc << endl;
 
         return 1;

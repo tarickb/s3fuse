@@ -14,16 +14,16 @@ int main(int argc, char **argv)
   symmetric_key::ptr sk;
 
   sk = symmetric_key::generate<aes_ctr_256>();
-  cout << "default sk: " << sk->serialize() << endl;
+  cout << "default sk: " << sk->to_string() << endl;
 
   sk = symmetric_key::generate<aes_ctr_256>(16);
-  cout << "128-bit sk: " << sk->serialize() << endl;
+  cout << "128-bit sk: " << sk->to_string() << endl;
 
   sk = symmetric_key::generate<aes_ctr_256>(24);
-  cout << "192-bit sk: " << sk->serialize() << endl;
+  cout << "192-bit sk: " << sk->to_string() << endl;
 
   sk = symmetric_key::generate<aes_ctr_256>(32);
-  cout << "256-bit sk: " << sk->serialize() << endl;
+  cout << "256-bit sk: " << sk->to_string() << endl;
 
   return 0;
 }
