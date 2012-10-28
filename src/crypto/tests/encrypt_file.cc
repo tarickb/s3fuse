@@ -42,7 +42,7 @@ int main(int argc, char **argv)
   string root_hash, meta;
 
   if (argc != 4) {
-    cerr << "usage: " << argv[0] << " <v-key> <file> <output-prefix>" << endl;
+    cerr << "usage: " << argv[0] << " <v-key> <in-file> <output-prefix>" << endl;
     return 1;
   }
 

@@ -3,6 +3,7 @@ noinst_PROGRAMS = \
 	aes_ctr_256_file_par \
 	aes_ctr_256_file_seq \
 	aes_ctr_256_kat \
+	decrypt_file \
 	encoders \
 	encoders_varying \
 	encrypt_file \
@@ -21,6 +22,9 @@ aes_ctr_256_file_seq_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 aes_ctr_256_kat_SOURCES = aes_ctr_256_kat.cc
 aes_ctr_256_kat_LDADD = ../libs3fuse_crypto.a $(LDADD)
+
+decrypt_file_SOURCES = decrypt_file.cc
+decrypt_file_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 encoders_SOURCES = encoders.cc
 encoders_LDADD = ../libs3fuse_crypto.a $(LDADD)
