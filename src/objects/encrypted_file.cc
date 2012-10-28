@@ -10,7 +10,7 @@ using s3::objects::object;
 
 namespace
 {
-  const string CONTENT_TYPE = "binary/encrypted-s3fuse-file";
+  const string CONTENT_TYPE = "binary/encrypted-s3fuse-file_0100"; // version 1.0
 
   object * checker(const string &path, const request::ptr &req)
   {
