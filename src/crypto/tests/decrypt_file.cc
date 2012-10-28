@@ -1,5 +1,6 @@
 #include <inttypes.h>
 #include <stdio.h>
+#include <string.h>
 #include <sys/stat.h>
 
 #include <iostream>
@@ -43,7 +44,7 @@ int main(int argc, char **argv)
     aes_ctr_256::ptr ctr_dec;
     size_t part_num = 0;
     string root_hash, meta;
-    size_t file_size;
+    size_t file_size = 0;
     string ref_meta;
 
     if (argc != 3) {
