@@ -685,11 +685,13 @@ int main(int argc, char **argv)
 
   if (s_opts.mountpoint.empty()) {
     print_usage(s_opts.arg0);
-    exit(1);
+    return 1;
   }
 
-  if (stat(s_opts.mountpoint.c_str(), &mp_stat))
-    throw runtime_error("failed to stat mount point.");
+  if (stat(s_opts.mountpoint.c_str(), &mp_stat)) {
+    fprintf(stderr, "Failed to stat mount point.\n");
+    return 1;
+  }
 
   s_opts.mountpoint_mode = S_IFDIR | mp_stat.st_mode;
 
