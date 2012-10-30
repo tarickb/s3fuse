@@ -31,7 +31,6 @@
 
 #include "base/config.h"
 #include "base/logger.h"
-#include "base/ssl_locks.h"
 #include "base/version.h"
 #include "base/xml.h"
 #include "objects/cache.h"
@@ -47,7 +46,6 @@ using std::vector;
 
 using s3::base::config;
 using s3::base::logger;
-using s3::base::ssl_locks;
 using s3::base::xml;
 using s3::objects::cache;
 using s3::objects::directory;
@@ -115,6 +113,7 @@ namespace
     string mountpoint;
     int verbosity;
     bool daemon_timeout_set;
+    int mountpoint_mode;
 
     #ifdef __APPLE__
       bool noappledouble_set;
@@ -126,7 +125,7 @@ namespace
     filler(buf, path.c_str(), NULL, 0);
   }
 
-  int s_mountpoint_mode;
+  options s_opts;
 }
 
 int s3fuse_chmod(const char *path, mode_t mode)
@@ -228,7 +227,7 @@ int s3fuse_getattr(const char *path, struct stat *s)
   if (path[0] == '\0') { // root path
     s->st_uid = geteuid();
     s->st_gid = getegid();
-    s->st_mode = s_mountpoint_mode;
+    s->st_mode = s_opts.mountpoint_mode;
     s->st_nlink = 1; // because calculating nlink is hard! (see FUSE FAQ)
 
     return 0;
@@ -566,74 +565,49 @@ int print_usage(const char *arg0)
 
 int process_argument(void *data, const char *arg, int key, struct fuse_args *out_args)
 {
-  options *opt = static_cast<options *>(data);
-
   if (strcmp(arg, "-V") == 0 || strcmp(arg, "--version") == 0) {
     print_version();
     exit(0);
   }
 
   if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) {
-    print_usage(opt->arg0);
+    print_usage(s_opts.arg0);
     exit(1);
   }
 
   if (strcmp(arg, "-v") == 0 || strcmp(arg, "--verbose") == 0) {
-    opt->verbosity++;
+    s_opts.verbosity++;
     return 0;
   }
 
   if (strstr(arg, "config=") == arg) {
-    opt->config = arg + 7;
+    s_opts.config = arg + 7;
     return 0;
   }
 
   if (strstr(arg, "daemon_timeout=") == arg) {
-    opt->daemon_timeout_set = true;
+    s_opts.daemon_timeout_set = true;
     return 1; // continue processing
   }
 
   #ifdef __APPLE__
     if (strstr(arg, "noappledouble") == arg) {
-      opt->noappledouble_set = true;
+      s_opts.noappledouble_set = true;
       return 1; // continue processing
     }
   #endif
 
   if (key == FUSE_OPT_KEY_NONOPT)
-    opt->mountpoint = arg; // assume that the mountpoint is the only non-option
+    s_opts.mountpoint = arg; // assume that the mountpoint is the only non-option
 
   return 1;
-}
-
-int pre_init(const options &opts)
-{
-  try {
-    struct stat mp_stat;
-
-    logger::init(opts.verbosity);
-
-    if (stat(opts.mountpoint.c_str(), &mp_stat))
-      throw runtime_error("failed to stat mount point.");
-
-    s_mountpoint_mode = S_IFDIR | mp_stat.st_mode;
-
-    return config::init(opts.config);
-
-  } catch (const std::exception &e) {
-    S3_LOG(LOG_ERR, "pre_init", "caught exception while initializing: %s\n", e.what());
-
-  } catch (...) {
-    S3_LOG(LOG_ERR, "pre_init", "caught unknown exception while initializing.\n");
-  }
-
-  return -EIO;
 }
 
 void * init(fuse_conn_info *info)
 {
   try {
-    ssl_locks::init();
+    logger::init(s_opts.verbosity);
+    config::init(s_opts.config);
     service::init(config::get_service());
     xml::init(service::get_xml_namespace());
     pool::init();
@@ -697,35 +671,38 @@ int main(int argc, char **argv)
   int r;
   fuse_operations ops;
   fuse_args args = FUSE_ARGS_INIT(argc, argv);
-  options opts;
+  struct stat mp_stat;
 
-  opts.verbosity = LOG_WARNING;
-  opts.arg0 = argv[0];
-  opts.daemon_timeout_set = false;
+  s_opts.verbosity = LOG_WARNING;
+  s_opts.arg0 = argv[0];
+  s_opts.daemon_timeout_set = false;
 
   #ifdef __APPLE__
-    opts.noappledouble_set = false;
+    s_opts.noappledouble_set = false;
   #endif
 
-  fuse_opt_parse(&args, &opts, NULL, process_argument);
+  fuse_opt_parse(&args, NULL, NULL, process_argument);
 
-  if (opts.mountpoint.empty()) {
-    print_usage(opts.arg0);
+  if (s_opts.mountpoint.empty()) {
+    print_usage(s_opts.arg0);
     exit(1);
   }
 
-  if (!opts.daemon_timeout_set)
+  if (stat(s_opts.mountpoint.c_str(), &mp_stat))
+    throw runtime_error("failed to stat mount point.");
+
+  s_opts.mountpoint_mode = S_IFDIR | mp_stat.st_mode;
+
+  // TODO: maybe make this and -o noappledouble the default?
+  if (!s_opts.daemon_timeout_set)
     fprintf(stderr, "Set \"-o daemon_timeout=3600\" or something equally large if transferring large files, otherwise FUSE will time out.\n");
 
   #ifdef __APPLE__
-    if (!opts.noappledouble_set)
+    if (!s_opts.noappledouble_set)
       fprintf(stderr, "You are *strongly* advised to pass \"-o noappledouble\" to disable the creation/checking/etc. of .DS_Store files.\n");
   #endif
 
   build_ops(&ops);
-
-  if ((r = pre_init(opts)))
-    return r;
 
   r = fuse_main(args.argc, args.argv, &ops, NULL);
 
@@ -733,7 +710,6 @@ int main(int argc, char **argv)
 
   pool::terminate();
   cache::print_summary();
-  ssl_locks::release();
 
   return r;
 }

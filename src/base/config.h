@@ -43,7 +43,7 @@ namespace s3
     class config
     {
     public:
-      static int init(const std::string &file = "");
+      static void init(const std::string &file = "");
 
       #define CONFIG(type, name, def) \
         private: \

@@ -19,11 +19,14 @@
  * limitations under the License.
  */
 
+#include <limits.h>
+
 #include "logger.h"
 
 using s3::base::logger;
 
-int logger::s_max_level = 0;
+// log all messages unless instructed otherwise
+int logger::s_max_level = INT_MAX;
 
 void logger::init(int max_level)
 {

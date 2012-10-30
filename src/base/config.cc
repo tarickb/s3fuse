@@ -76,12 +76,10 @@ namespace
   class option_parser
   {
   public:
-    static int parse(int line_number, const char *key, const char *type, const string &str, T *out)
+    static void parse(int line_number, const char *key, const char *type, const string &str, T *out)
     {
       try {
         option_parser_worker<T>::parse(str, out);
-
-        return 0;
 
       } catch (...) {
         S3_LOG(
@@ -92,7 +90,7 @@ namespace
           key,
           type);
 
-        return -EIO;
+        throw;
       }
     }
   };
@@ -106,15 +104,13 @@ namespace
 #undef CONFIG
 #undef CONFIG_REQUIRED
 
-int config::init(const string &file)
+void config::init(const string &file)
 {
   ifstream ifs((file.empty() ? DEFAULT_CONFIG_FILE : file).c_str());
   int line_number = 0;
 
-  if (ifs.fail()) {
-    S3_LOG(LOG_ERR, "config::init", "cannot open config file.\n");
-    return -EIO;
-  }
+  if (ifs.fail())
+    throw runtime_error("cannot open config file");
 
   while (ifs.good()) {
     string line, key, value;
@@ -134,7 +130,7 @@ int config::init(const string &file)
 
     if (pos == string::npos) {
       S3_LOG(LOG_ERR, "config::init", "error at line %i: missing '='.\n", line_number);
-      return -EIO;
+      throw runtime_error("malformed config file");
     }
 
     key = line.substr(0, pos);
@@ -142,13 +138,12 @@ int config::init(const string &file)
 
     #define CONFIG(type, name, def) \
       if (key == #name) { \
-        if (option_parser<type>::parse( \
+        option_parser<type>::parse( \
           line_number, \
           #name, \
           #type, \
           value, \
-          &s_ ## name)) \
-          return -EIO; \
+          &s_ ## name); \
         \
         continue; \
       }
@@ -161,7 +156,7 @@ int config::init(const string &file)
     #undef CONFIG_REQUIRED
 
     S3_LOG(LOG_ERR, "config::init", "error at line %i: unknown directive '%s'\n", line_number, key.c_str());
-    return -EIO;
+    throw runtime_error("malformed config file");
   }
 
   #define CONFIG(type, name, def)
@@ -169,13 +164,11 @@ int config::init(const string &file)
   #define CONFIG_REQUIRED(type, name, def) \
     if (s_ ## name == (def)) { \
       S3_LOG(LOG_ERR, "config::init", "required key '%s' not defined.\n", #name); \
-      return -EIO; \
+      throw runtime_error("malformed config file"); \
     }
 
   #include "base/config.inc"
 
   #undef CONFIG
   #undef CONFIG_REQUIRED
-
-  return 0;
 }
