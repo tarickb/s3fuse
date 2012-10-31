@@ -96,21 +96,21 @@ namespace s3
       virtual int remove(const boost::shared_ptr<base::request> &req);
       virtual int rename(const boost::shared_ptr<base::request> &req, const std::string &to);
 
-      int commit()
+      inline int commit()
       {
         return threads::pool::call(
           threads::PR_REQ_0, 
           boost::bind(&object::commit, shared_from_this(), _1));
       }
 
-      int remove()
+      inline int remove()
       {
         return threads::pool::call(
           threads::PR_REQ_0, 
           boost::bind(&object::remove, shared_from_this(), _1));
       }
 
-      int rename(const std::string &to)
+      inline int rename(const std::string &to)
       {
         return threads::pool::call(
           threads::PR_REQ_0, 
