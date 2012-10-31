@@ -440,6 +440,12 @@ int file::finalize_download()
 
       return -EIO;
     }
+  } else {
+    S3_LOG(
+      LOG_WARNING,
+      "file::finalize_download",
+      "no hash check performed for %s\n",
+      get_path().c_str());
   }
 
   return 0;
