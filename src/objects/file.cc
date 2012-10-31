@@ -122,6 +122,9 @@ void file::init(const request::ptr &req)
 
   object::init(req);
 
+  // TODO: set _last_mod_by_us member variable or something so that
+  // encrypted_file can check if the file is still the same
+
   if (last_mod_etag == get_etag()) {
     // we were the last people to modify this object, so everything should be
     // as we left it

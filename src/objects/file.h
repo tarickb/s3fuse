@@ -63,6 +63,13 @@ namespace s3
 
       void set_sha256_hash(const std::string &hash);
 
+      inline std::string get_sha256_hash()
+      {
+        boost::mutex::scoped_lock lock(_hash_mutex);
+
+        return _sha256_hash;
+      }
+
     private:
       struct transfer_part
       {
