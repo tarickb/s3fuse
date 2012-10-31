@@ -8,6 +8,7 @@ noinst_PROGRAMS = \
 	encoders_varying \
 	encrypt_file \
 	hashes \
+	hash_file \
 	hash_list \
 	symmetric_key
 
@@ -37,6 +38,9 @@ encrypt_file_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 hashes_SOURCES = hashes.cc
 hashes_LDADD = ../libs3fuse_crypto.a $(LDADD)
+
+hash_file_SOURCES = hash_file.cc
+hash_file_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 hash_list_SOURCES = hash_list.cc
 hash_list_LDADD = ../libs3fuse_crypto.a $(LDADD)

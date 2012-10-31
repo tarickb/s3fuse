@@ -48,7 +48,7 @@ namespace s3
       template <class hash_type>
       inline static void compute(int fd, uint8_t *hash)
       {
-        compute<hash_type>(fd, hash);
+        hash_type::compute(fd, hash);
       }
 
       template <class hash_type, class encoder_type>
