@@ -7,6 +7,7 @@
 #include "crypto/base64.h"
 #include "crypto/encoder.h"
 #include "crypto/hash.h"
+#include "crypto/hex.h"
 #include "crypto/hex_with_quotes.h"
 #include "crypto/md5.h"
 #include "objects/cache.h"
@@ -18,6 +19,7 @@
 using boost::lexical_cast;
 using boost::mutex;
 using std::list;
+using std::runtime_error;
 using std::string;
 using std::vector;
 
@@ -27,8 +29,11 @@ using s3::base::xml;
 using s3::crypto::base64;
 using s3::crypto::encoder;
 using s3::crypto::hash;
+using s3::crypto::hash_list;
+using s3::crypto::hex;
 using s3::crypto::hex_with_quotes;
 using s3::crypto::md5;
+using s3::crypto::sha256;
 using s3::objects::file;
 using s3::objects::object;
 using s3::services::service;
@@ -48,6 +53,21 @@ namespace
   }
 
   object::type_checker::type_checker s_checker_reg(checker, 1000);
+}
+
+void file::test_transfer_chunk_sizes()
+{
+  size_t chunk_size = hash_list<sha256>::CHUNK_SIZE;
+
+  if (config::get_download_chunk_size() % chunk_size) {
+    S3_LOG(LOG_ERR, "file::test_transfer_chunk_size", "download chunk size must be a multiple of %zu.\n", chunk_size);
+    throw runtime_error("invalid download chunk size");
+  }
+
+  if (config::get_upload_chunk_size() % chunk_size) {
+    S3_LOG(LOG_ERR, "file::test_transfer_chunk_size", "upload chunk size must be a multiple of %zu.\n", chunk_size);
+    throw runtime_error("invalid upload chunk size");
+  }
 }
 
 void file::open_locked_object(const object::ptr &obj, file_open_mode mode, uint64_t *handle, int *status)
@@ -98,19 +118,38 @@ bool file::is_expired()
 void file::init(const request::ptr &req)
 {
   const string &meta_prefix = service::get_header_meta_prefix();
+  string last_mod_etag = req->get_response_header(meta_prefix + "s3fuse-lm-etag");
 
   object::init(req);
 
-  _md5 = req->get_response_header(meta_prefix + "s3fuse-md5");
-  _md5_etag = req->get_response_header(meta_prefix + "s3fuse-md5-etag");
+  if (last_mod_etag == get_etag()) {
+    // we were the last people to modify this object, so everything should be
+    // as we left it
 
-  get_metadata()->insert(reference_xattr::from_string("s3fuse_md5", &_md5, &_md5_mutex));
+    set_sha256_hash(req->get_response_header(meta_prefix + "s3fuse-sha256"));
+  } else {
+    S3_LOG(
+      LOG_DEBUG,
+      "file::init",
+      "etag does not match for %s: expected %s, got %s\n",
+      get_path().c_str(),
+      last_mod_etag.c_str(),
+      get_etag().c_str());
+  }
+}
 
-  // this workaround is for multipart uploads, which don't get a valid md5 etag
-  if (_md5_etag != get_etag() || !md5::is_valid_quoted_hex_hash(_md5))
-    _md5 = md5::is_valid_quoted_hex_hash(get_etag()) ? get_etag() : "";
+void file::set_sha256_hash(const string &hash)
+{
+  mutex::scoped_lock lock(_hash_mutex);
 
-  _md5_etag = get_etag();
+  if (hash.empty())
+    return;
+
+  if (_sha256_hash.empty())
+    get_metadata()->insert(reference_xattr::from_string("s3fuse_sha256", &_sha256_hash, &_hash_mutex));
+
+  _sha256_hash = hash;
+  _last_mod_etag = get_etag();
 }
 
 void file::set_request_headers(const request::ptr &req)
@@ -119,8 +158,12 @@ void file::set_request_headers(const request::ptr &req)
 
   object::set_request_headers(req);
 
-  req->set_header(meta_prefix + "s3fuse-md5", _md5);
-  req->set_header(meta_prefix + "s3fuse-md5-etag", _md5_etag);
+  {
+    mutex::scoped_lock lock(_hash_mutex);
+
+    req->set_header(meta_prefix + "s3fuse-sha256", _sha256_hash);
+    req->set_header(meta_prefix + "s3fuse-lm-etag", _last_mod_etag);
+  }
 }
 
 void file::on_download_complete(int ret)
@@ -286,7 +329,13 @@ int file::write_chunk(const char *buffer, size_t size, off_t offset)
   
   r = pwrite(_fd, buffer, size, offset);
 
-  return (r == static_cast<ssize_t>(size)) ? 0 : -errno;
+  if (r != static_cast<ssize_t>(size))
+    return -errno;
+
+  if (_hash_list)
+    _hash_list->compute_hash(offset, reinterpret_cast<const uint8_t *>(buffer), size);
+
+  return 0;
 }
 
 int file::read_chunk(size_t size, off_t offset, vector<char> *buffer)
@@ -296,15 +345,13 @@ int file::read_chunk(size_t size, off_t offset, vector<char> *buffer)
   buffer->resize(size);
   r = pread(_fd, &(*buffer)[0], size, offset);
 
-  return (r == static_cast<ssize_t>(size)) ? 0 : -errno;
+  if (r != static_cast<ssize_t>(size))
+    return -errno;
 
-  // TODO: in encrypted_file (with "size" a multiple of the cipher block size, this should:
-  //   - read chunk
-  //   - compute md5
-  //   - store md5 in vector at index (offset / size)
-  //   - encrypt chunk
-  //
-  // to compute final md5, combine md5s in vector in sequential order -- this will be the plaintext md5
+  if (_hash_list)
+    _hash_list->compute_hash(offset, reinterpret_cast<const uint8_t *>(&(*buffer)[0]), size);
+
+  return 0;
 }
 
 size_t file::get_transfer_size()
@@ -329,38 +376,73 @@ void file::copy_stat(struct stat *s)
   }
 }
 
-int file::check_download_consistency()
-{
-  mutex::scoped_lock lock(_md5_mutex);
-  string expected_md5;
- 
-  expected_md5 = _md5;
-  lock.unlock();
-
-  // we won't have a valid MD5 digest if the file was a multipart upload
-  if (!expected_md5.empty()) {
-    string computed_md5 = hash::compute<md5, hex_with_quotes>(_fd);
-
-    if (computed_md5 != expected_md5) {
-      S3_LOG(LOG_WARNING, "file::check_download_consistency", "md5 mismatch. expected %s, got %s.\n", expected_md5.c_str(), computed_md5.c_str());
-
-      return -EIO;
-    }
-  }
-
-  return 0;
-}
-
-int file::download(const request::ptr &req)
+int file::download(const request::ptr & /* ignored */)
 {
   int r = 0;
+
+  r = prepare_download();
+
+  if (r)
+    return r;
 
   if (service::is_multipart_download_supported() && get_transfer_size() > config::get_download_chunk_size())
     r = download_multi();
   else
     r = pool::call(threads::PR_REQ_1, bind(&file::download_single, shared_from_this(), _1));
 
-  return r ? r : check_download_consistency();
+  return r ? r : finalize_download();
+}
+
+int file::prepare_download()
+{
+  mutex::scoped_lock lock(_hash_mutex);
+
+  if (!_sha256_hash.empty())
+    _hash_list.reset(new hash_list<sha256>(get_transfer_size()));
+
+  return 0;
+}
+
+int file::finalize_download()
+{
+  mutex::scoped_lock lock(_hash_mutex);
+  string expected_hash;
+
+  expected_hash = _sha256_hash;
+  lock.unlock();
+
+  if (!expected_hash.empty()) {
+    string computed_hash = _hash_list->get_root_hash<hex>();
+
+    if (computed_hash != expected_hash) {
+      S3_LOG(
+        LOG_WARNING, 
+        "file::finalize_download", 
+        "sha256 mismatch for %s. expected %s, got %s.\n",
+        get_path().c_str(),
+        expected_hash.c_str(),
+        computed_hash.c_str());
+
+      return -EIO;
+    }
+  } else if (md5::is_valid_quoted_hex_hash(get_etag())) {
+    // as a fallback, use the etag as an md5 hash of the file
+    string computed_hash = hash::compute<md5, hex_with_quotes>(_fd);
+
+    if (computed_hash != get_etag()) {
+      S3_LOG(
+        LOG_WARNING,
+        "file::finalize_download",
+        "md5 mismatch for %s. expected %s, got %s.\n",
+        get_path().c_str(),
+        computed_hash.c_str(),
+        get_etag().c_str());
+
+      return -EIO;
+    }
+  }
+
+  return 0;
 }
 
 int file::download_single(const request::ptr &req)
@@ -473,20 +555,49 @@ int file::download_part(const request::ptr &req, const transfer_part *part)
   return write_chunk(&req->get_output_buffer()[0], req->get_output_buffer().size(), part->offset);
 }
 
-int file::upload(const request::ptr &req)
+int file::upload(const request::ptr & /* ignored */)
 {
+  int r;
+  string returned_etag;
+
+  r = prepare_upload();
+
+  if (r)
+    return r;
+
   if (service::is_multipart_upload_supported() && get_transfer_size() > config::get_upload_chunk_size())
-    return upload_multi();
+    r = upload_multi(&returned_etag);
   else
-    return pool::call(threads::PR_REQ_0, bind(&file::upload_single, shared_from_this(), _1));
+    r = pool::call(threads::PR_REQ_0, bind(&file::upload_single, shared_from_this(), _1, &returned_etag));
+
+  if (r)
+    return r;
+
+  r = finalize_upload(returned_etag);
+
+  return r ? r : commit();
 }
 
-int file::upload_single(const request::ptr &req)
+int file::prepare_upload()
+{
+  _hash_list.reset(new hash_list<sha256>(get_transfer_size()));
+
+  return 0;
+}
+
+int file::finalize_upload(const string &returned_etag)
+{
+  set_etag(returned_etag);
+  set_sha256_hash(_hash_list->get_root_hash<hex>());
+
+  return 0;
+}
+
+int file::upload_single(const request::ptr &req, string *returned_etag)
 {
   int r = 0;
   vector<char> buffer;
   string expected_md5_b64, expected_md5_hex, etag;
-  bool valid_md5;
   uint8_t read_hash[md5::HASH_LEN];
 
   r = read_chunk(get_transfer_size(), 0, &buffer);
@@ -515,18 +626,15 @@ int file::upload_single(const request::ptr &req)
   }
 
   etag = req->get_response_header("ETag");
-  valid_md5 = md5::is_valid_quoted_hex_hash(etag);
 
-  if (valid_md5 && etag != expected_md5_hex) {
+  if (md5::is_valid_quoted_hex_hash(etag) && etag != expected_md5_hex) {
     S3_LOG(LOG_WARNING, "file::upload_single", "etag [%s] does not match md5 [%s].\n", etag.c_str(), expected_md5_hex.c_str());
     return -EIO;
   }
   
-  set_etag(etag);
-  set_md5(expected_md5_hex, etag);
+  *returned_etag = etag;
 
-  // we don't need to commit the metadata if we got a valid etag back (since it'll be consistent)
-  return valid_md5 ? 0 : commit(req);
+  return 0;
 }
 
 int file::upload_multi_init(const request::ptr &req, string *upload_id)
@@ -609,7 +717,7 @@ int file::upload_multi_complete(const request::ptr &req, const string &upload_id
   return 0;
 }
 
-int file::upload_multi()
+int file::upload_multi(string *returned_etag)
 {
   string upload_id, complete_upload;
   bool success = true;
@@ -618,7 +726,6 @@ int file::upload_multi()
   size_t last_part = 0;
   vector<transfer_part> parts(num_parts);
   list<transfer_part *> parts_in_progress;
-  string etag, computed_md5;
   int r;
 
   r = pool::call(threads::PR_REQ_0, bind(&file::upload_multi_init, shared_from_this(), _1, &upload_id));
@@ -704,21 +811,9 @@ int file::upload_multi()
     return -EIO;
   }
 
-  r = pool::call(
+  return pool::call(
     threads::PR_REQ_0, 
-    bind(&file::upload_multi_complete, shared_from_this(), _1, upload_id, complete_upload, &etag));
-
-  if (r)
-    return r;
-
-  // TODO: switch to hash tree to compute message segments in parallel?
-  computed_md5 = hash::compute<md5, hex_with_quotes>(_fd);
-
-  // set the MD5 digest manually because the etag we get back is not itself a valid digest
-  set_etag(etag);
-  set_md5(computed_md5, etag);
-
-  return commit();
+    bind(&file::upload_multi_complete, shared_from_this(), _1, upload_id, complete_upload, returned_etag));
 }
 
 int file::upload_part(const request::ptr &req, const string &upload_id, transfer_part *part)

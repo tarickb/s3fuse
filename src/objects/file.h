@@ -1,6 +1,8 @@
 #ifndef S3_OBJECTS_FILE_H
 #define S3_OBJECTS_FILE_H
 
+#include "crypto/hash_list.h"
+#include "crypto/sha256.h"
 #include "objects/object.h"
 #include "threads/async_handle.h"
 
@@ -24,6 +26,7 @@ namespace s3
         return reinterpret_cast<file *>(handle);
       }
 
+      static void test_transfer_chunk_sizes();
       static int open(const std::string &path, file_open_mode mode, uint64_t *handle);
 
       file(const std::string &path);
@@ -52,8 +55,13 @@ namespace s3
       virtual int write_chunk(const char *buffer, size_t size, off_t offset);
       virtual int read_chunk(size_t size, off_t offset, std::vector<char> *buffer);
 
-      virtual size_t get_transfer_size();
-      virtual int check_download_consistency();
+      virtual int prepare_download();
+      virtual int finalize_download();
+
+      virtual int prepare_upload();
+      virtual int finalize_upload(const std::string &returned_etag);
+
+      void set_sha256_hash(const std::string &hash);
 
     private:
       struct transfer_part
@@ -81,16 +89,16 @@ namespace s3
 
       int open(file_open_mode mode, uint64_t *handle);
 
-      int download(const boost::shared_ptr<base::request> &req);
+      int download(const boost::shared_ptr<base::request> &);
 
       int download_single(const boost::shared_ptr<base::request> &req);
       int download_multi();
       int download_part(const boost::shared_ptr<base::request> &req, const transfer_part *part);
 
-      int upload(const boost::shared_ptr<base::request> &req);
+      int upload(const boost::shared_ptr<base::request> &);
 
-      int upload_single(const boost::shared_ptr<base::request> &req);
-      int upload_multi();
+      int upload_single(const boost::shared_ptr<base::request> &req, std::string *returned_etag);
+      int upload_multi(std::string *returned_etag);
       int upload_multi_init(const boost::shared_ptr<base::request> &req, std::string *upload_id);
       int upload_multi_cancel(const boost::shared_ptr<base::request> &req, const std::string &upload_id);
       int upload_multi_complete(
@@ -100,25 +108,21 @@ namespace s3
         std::string *etag);
       int upload_part(const boost::shared_ptr<base::request> &req, const std::string &upload_id, transfer_part *part);
 
+      size_t get_transfer_size();
+
       void on_download_complete(int ret);
 
-      inline void set_md5(const std::string &md5, const std::string &md5_etag)
-      {
-        boost::mutex::scoped_lock lock(_md5_mutex);
-
-        _md5 = md5;
-        _md5_etag = md5_etag;
-      }
-
-      boost::mutex _fs_mutex, _md5_mutex;
+      // TODO: does everything need to lock _hash_mutex?
+      boost::mutex _fs_mutex, _hash_mutex;
       boost::condition _condition;
+      crypto::hash_list<crypto::sha256>::ptr _hash_list;
 
       // protected by _fs_mutex
       int _fd, _status, _async_error;
       uint64_t _ref_count;
 
-      // protected by _md5_mutex
-      std::string _md5, _md5_etag;
+      // protected by _hash_mutex
+      std::string _sha256_hash, _last_mod_etag;
     };
   }
 }
