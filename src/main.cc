@@ -613,6 +613,8 @@ void * init(fuse_conn_info *info)
     pool::init();
     cache::init();
 
+    file::test_transfer_chunk_sizes();
+
     if (info->capable & FUSE_CAP_ATOMIC_O_TRUNC) {
       info->want |= FUSE_CAP_ATOMIC_O_TRUNC;
       S3_LOG(LOG_DEBUG, "init", "enabling FUSE_CAP_ATOMIC_O_TRUNC\n");
