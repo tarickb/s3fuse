@@ -42,7 +42,7 @@ int main(int argc, char **argv)
     buffer::ptr v_key;
     hash_list<sha256>::ptr hashes;
     aes_ctr_256::ptr ctr_dec;
-    size_t part_num = 0;
+    size_t offset = 0;
     string root_hash, meta;
     size_t file_size = 0;
     string ref_meta;
@@ -117,7 +117,7 @@ int main(int argc, char **argv)
       }
     }
 
-    hashes.reset(new hash_list<sha256>((file_size + HASH_BLOCK_SIZE - 1) / HASH_BLOCK_SIZE));
+    hashes.reset(new hash_list<sha256>(file_size));
 
     ctr_dec = aes_ctr_256::create(file_key);
 
@@ -134,7 +134,8 @@ int main(int argc, char **argv)
         return 1;
       }
 
-      hashes->set_hash_of_part(part_num++, buf_out, read_count);
+      hashes->compute_hash(offset, buf_out, read_count);
+      offset += read_count;
 
       if (read_count < HASH_BLOCK_SIZE)
         break;

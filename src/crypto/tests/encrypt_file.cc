@@ -39,7 +39,7 @@ int main(int argc, char **argv)
   hash_list<sha256>::ptr hashes;
   struct stat s;
   aes_ctr_256::ptr ctr_enc;
-  size_t part_num = 0;
+  size_t offset = 0;
   string root_hash, meta;
 
   if (argc != 4) {
@@ -67,7 +67,7 @@ int main(int argc, char **argv)
   fprintf(f_meta, "f_key: %s\n", file_key->to_string().c_str());
 
   fstat(fileno(f_in), &s);
-  hashes.reset(new hash_list<sha256>((s.st_size + HASH_BLOCK_SIZE - 1) / HASH_BLOCK_SIZE));
+  hashes.reset(new hash_list<sha256>(s.st_size));
 
   fprintf(f_meta, "size: %" PRId64 "\n", s.st_size);
 
@@ -86,7 +86,8 @@ int main(int argc, char **argv)
       return 1;
     }
 
-    hashes->set_hash_of_part(part_num++, buf_in, read_count);
+    hashes->compute_hash(offset, buf_in, read_count);
+    offset += read_count;
 
     if (read_count < HASH_BLOCK_SIZE)
       break;
