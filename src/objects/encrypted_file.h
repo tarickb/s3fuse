@@ -33,9 +33,11 @@ namespace s3
         return boost::static_pointer_cast<encrypted_file>(object::shared_from_this());
       }
 
-      void init(const boost::shared_ptr<base::request> &req);
-
     protected:
+      virtual void init(const boost::shared_ptr<base::request> &req);
+
+      virtual void set_request_headers(const boost::shared_ptr<base::request> &req);
+
       virtual int prepare_download();
       virtual int finalize_download();
 
@@ -47,7 +49,7 @@ namespace s3
 
     private:
       boost::shared_ptr<crypto::symmetric_key> _meta_key, _data_key;
-      std::string _expected_root_hash;
+      std::string _enc_iv, _enc_meta;
     };
   }
 }
