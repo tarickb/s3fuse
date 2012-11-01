@@ -12,7 +12,6 @@
 #include "crypto/md5.h"
 #include "objects/cache.h"
 #include "objects/file.h"
-#include "objects/reference_xattr.h"
 #include "services/service.h"
 #include "threads/pool.h"
 
@@ -148,8 +147,8 @@ void file::set_sha256_hash(const string &hash)
   if (hash.empty())
     return;
 
-  if (_sha256_hash.empty())
-    get_metadata()->insert(reference_xattr::from_string("s3fuse_sha256", &_sha256_hash, &_hash_mutex));
+  // TODO: rethink this
+  get_metadata()->replace(xattr::from_string("s3fuse_sha256", hash));
 
   _sha256_hash = hash;
   _last_mod_etag = get_etag();

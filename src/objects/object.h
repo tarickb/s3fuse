@@ -68,15 +68,9 @@ namespace s3
       inline const std::string & get_path() const { return _path; }
       inline const std::string & get_content_type() const { return _content_type; }
       inline const std::string & get_url() const { return _url; }
+      inline const std::string & get_etag() const { return _etag; }
       inline mode_t get_mode() const { return _stat.st_mode; }
       inline mode_t get_type() const { return _stat.st_mode & S_IFMT; }
-
-      inline std::string get_etag()
-      {
-        boost::mutex::scoped_lock lock(_mutex);
-        
-        return _etag;
-      }
 
       void get_metadata_keys(std::vector<std::string> *keys);
       int get_metadata(const std::string &key, char *buffer, size_t max_size);
@@ -122,19 +116,13 @@ namespace s3
 
       virtual void init(const boost::shared_ptr<base::request> &req);
 
-      inline void set_etag(const std::string &etag)
-      {
-        boost::mutex::scoped_lock lock(_mutex);
-
-        _etag = etag;
-      }
-
       virtual void set_request_headers(const boost::shared_ptr<base::request> &req);
       virtual void set_request_body(const boost::shared_ptr<base::request> &req);
 
       inline void set_url(const std::string &url) { _url = url; }
       inline void set_content_type(const std::string &content_type) { _content_type = content_type; }
       inline void set_object_type(mode_t mode) { _stat.st_mode |= mode & S_IFMT; }
+      inline void set_etag(const std::string &etag) { _etag = etag; }
 
       inline xattr_map * get_metadata() { return &_metadata; }
       inline const struct stat * get_stat() const { return &_stat; }
@@ -151,11 +139,11 @@ namespace s3
       std::string _url;
 
       // unprotected
+      std::string _etag;
       struct stat _stat;
       time_t _expiry;
 
       // protected by _mutex
-      std::string _etag;
       xattr_map _metadata;
     };
   }

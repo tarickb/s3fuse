@@ -27,8 +27,6 @@
 #include "base/request.h"
 #include "objects/cache.h"
 #include "objects/object.h"
-#include "objects/reference_xattr.h"
-#include "objects/value_xattr.h"
 #include "services/service.h"
 
 #ifndef ENOATTR
@@ -177,14 +175,16 @@ int object::set_metadata(const string &key, const char *value, size_t size, int 
     if (flags & XATTR_REPLACE)
       return -ENOATTR;
 
-    itor = _metadata.insert(value_xattr::create(user_key)).first;
+    itor = _metadata.insert(xattr::create(
+      user_key, 
+      xattr::XM_WRITABLE | xattr::XM_SERIALIZABLE)).first;
   }
 
   // since we show read-only keys in get_metadata_keys(), an application might reasonably 
   // assume that it can set them too.  since we don't want it failing for no good reason, 
   // we'll fail silently.
 
-  if (!itor->second->is_read_only())
+  if (itor->second->is_writable())
     itor->second->set_value(value, size);
 
   return 0;
@@ -221,7 +221,7 @@ int object::remove_metadata(const string &key)
   mutex::scoped_lock lock(_mutex);
   xattr_map::iterator itor = _metadata.find(key.substr(config::get_xattr_prefix().size()));
 
-  if (itor == _metadata.end() || itor->second->is_read_only())
+  if (itor == _metadata.end() || !itor->second->is_writable())
     return -ENOATTR;
 
   _metadata.erase(itor);
@@ -263,12 +263,15 @@ void object::init(const request::ptr &req)
       strncmp(key.c_str(), meta_prefix.c_str(), meta_prefix.size()) == 0 &&
       strncmp(key.c_str(), meta_prefix_reserved.c_str(), meta_prefix_reserved.size()) != 0
     ) {
-      _metadata.insert(value_xattr::from_header(key.substr(meta_prefix.size()), value));
+      _metadata.replace(xattr::from_header(
+        key.substr(meta_prefix.size()), 
+        value, 
+        xattr::XM_WRITABLE | xattr::XM_SERIALIZABLE));
     }
   }
 
-  _metadata.insert(reference_xattr::from_string("s3fuse_content_type", &_content_type));
-  _metadata.insert(reference_xattr::from_string("s3fuse_etag", &_etag));
+  _metadata.replace(xattr::from_string("s3fuse_content_type", _content_type));
+  _metadata.replace(xattr::from_string("s3fuse_etag", _etag));
 
   // this workaround is for cases when the file was updated by someone else and the mtime header wasn't set
   if (_mtime_etag != _etag && req->get_last_modified() > _stat.st_mtime)
@@ -322,17 +325,15 @@ void object::set_request_body(const request::ptr &req)
 
 int object::commit(const request::ptr &req)
 {
-  string etag = get_etag();
-
   req->init(base::HTTP_PUT);
   req->set_url(_url);
 
   // if the object already exists (i.e., if we have an etag) then just update
   // the metadata.
 
-  if (!etag.empty()) {
+  if (!_etag.empty()) {
     req->set_header(service::get_header_prefix() + "copy-source", _url);
-    req->set_header(service::get_header_prefix() + "copy-source-if-match", get_etag()); // get_etag() locks the metadata mutex
+    req->set_header(service::get_header_prefix() + "copy-source-if-match", _etag);
     req->set_header(service::get_header_prefix() + "metadata-directive", "REPLACE");
   }
 

@@ -9,7 +9,7 @@
 #include "crypto/hash.h"
 #include "crypto/hex.h"
 #include "crypto/md5.h"
-#include "objects/value_xattr.h"
+#include "objects/xattr.h"
 
 using std::string;
 using std::runtime_error;
@@ -21,7 +21,6 @@ using s3::crypto::hash;
 using s3::crypto::hex;
 using s3::crypto::md5;
 using s3::objects::xattr;
-using s3::objects::value_xattr;
 
 namespace
 {
@@ -53,10 +52,10 @@ namespace
   }
 }
 
-xattr::ptr value_xattr::from_header(const string &header_key, const string &header_value)
+xattr::ptr xattr::from_header(const string &header_key, const string &header_value, int mode)
 {
   ptr ret;
-  value_xattr *val = NULL;
+  xattr *val = NULL;
 
   if (strncmp(header_key.c_str(), XATTR_HEADER_PREFIX_CSTR, XATTR_HEADER_PREFIX_LEN) == 0) {
     vector<uint8_t> dec_key;
@@ -67,13 +66,13 @@ xattr::ptr value_xattr::from_header(const string &header_key, const string &head
 
     encoder::decode<base64>(header_value.substr(0, separator), &dec_key);
 
-    ret.reset(val = new value_xattr(reinterpret_cast<char *>(&dec_key[0]), true));
+    ret.reset(val = new xattr(reinterpret_cast<char *>(&dec_key[0]), true, true, mode));
 
     encoder::decode<base64>(header_value.substr(separator + 1), &val->_value);
 
   } else {
     // we know the value doesn't need encoding because it came to us as a valid HTTP string.
-    ret.reset(val = new value_xattr(header_key, false, false));
+    ret.reset(val = new xattr(header_key, false, false, mode));
 
     val->_value.resize(header_value.size());
     memcpy(&val->_value[0], reinterpret_cast<const uint8_t *>(header_value.c_str()), header_value.size());
@@ -82,22 +81,22 @@ xattr::ptr value_xattr::from_header(const string &header_key, const string &head
   return ret;
 }
 
-xattr::ptr value_xattr::create(const string &key)
+xattr::ptr xattr::from_string(const string &key, const string &value, int mode)
 {
-  return ptr(new value_xattr(key, !is_key_valid(key)));
+  ptr ret = create(key, mode);
+
+  // terminating nulls are not stored
+  ret->set_value(value.c_str(), value.size());
+
+  return ret;
 }
 
-bool value_xattr::is_read_only()
+xattr::ptr xattr::create(const string &key, int mode)
 {
-  return false;
+  return ptr(new xattr(key, !is_key_valid(key), true, mode));
 }
 
-bool value_xattr::is_serializable()
-{
-  return true;
-}
-
-void value_xattr::set_value(const char *value, size_t size)
+void xattr::set_value(const char *value, size_t size)
 {
   _value.resize(size);
   memcpy(&_value[0], reinterpret_cast<const uint8_t *>(value), size);
@@ -105,7 +104,7 @@ void value_xattr::set_value(const char *value, size_t size)
   _encode_value = !is_value_valid(value, size);
 }
 
-int value_xattr::get_value(char *buffer, size_t max_size)
+int xattr::get_value(char *buffer, size_t max_size)
 {
   size_t size = (_value.size() > max_size) ? max_size : _value.size();
 
@@ -123,7 +122,7 @@ int value_xattr::get_value(char *buffer, size_t max_size)
   return (size == _value.size()) ? size : -ERANGE;
 }
 
-void value_xattr::to_header(string *header, string *value)
+void xattr::to_header(string *header, string *value)
 {
   if (_encode_key || _encode_value) {
     *header = XATTR_HEADER_PREFIX + hash::compute<md5, hex>(_key);

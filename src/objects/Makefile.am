@@ -1,3 +1,7 @@
+if BUILD_TESTS
+SUBDIRS = . tests
+endif
+	
 noinst_LIBRARIES = libs3fuse_objects.a
 
 libs3fuse_objects_a_SOURCES = \
@@ -11,10 +15,7 @@ libs3fuse_objects_a_SOURCES = \
 	file.h \
 	object.cc \
 	object.h \
-	reference_xattr.cc \
-	reference_xattr.h \
 	symlink.cc \
 	symlink.h \
-	value_xattr.cc \
-	value_xattr.h \
+	xattr.cc \
 	xattr.h
