@@ -6,7 +6,7 @@ if [ ! -d src ] || [ ! -d dist ]; then
 fi
 
 
-for D in src src/base src/crypto src/crypto/tests src/objects src/services src/tests src/threads dist; do
+for D in src src/base src/crypto src/crypto/tests src/objects src/objects/tests src/services src/tests src/threads dist; do
   pushd $D >& /dev/null
     make clean distclean >& /dev/null
     rm -rf .deps >& /dev/null
