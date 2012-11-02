@@ -70,10 +70,10 @@ void encrypted_file::init(const request::ptr &req)
   _enc_iv = req->get_response_header(meta_prefix + "s3fuse-e-iv");
   _enc_meta = req->get_response_header(meta_prefix + "s3fuse-e-meta");
 
-  // TODO: check is_last_mod() or something like that so that we don't try to 
-  // decrypt the metadata if s3fuse was not the last app to modify the file
-
   try {
+    if (!is_intact())
+      throw runtime_error("encrypted file not intact!");
+
     if (_enc_iv.empty() || _enc_meta.empty())
       throw runtime_error("no IV or metadata");
 

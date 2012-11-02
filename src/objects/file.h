@@ -61,14 +61,9 @@ namespace s3
       virtual int prepare_upload();
       virtual int finalize_upload(const std::string &returned_etag);
 
+      inline const std::string & get_sha256_hash() { return _sha256_hash; }
+
       void set_sha256_hash(const std::string &hash);
-
-      inline std::string get_sha256_hash()
-      {
-        boost::mutex::scoped_lock lock(_hash_mutex);
-
-        return _sha256_hash;
-      }
 
     private:
       struct transfer_part
@@ -119,17 +114,14 @@ namespace s3
 
       void on_download_complete(int ret);
 
-      // TODO: does everything need to lock _hash_mutex?
-      boost::mutex _fs_mutex, _hash_mutex;
+      boost::mutex _fs_mutex;
       boost::condition _condition;
       crypto::hash_list<crypto::sha256>::ptr _hash_list;
+      std::string _sha256_hash;
 
       // protected by _fs_mutex
       int _fd, _status, _async_error;
       uint64_t _ref_count;
-
-      // protected by _hash_mutex
-      std::string _sha256_hash, _last_mod_etag;
     };
   }
 }

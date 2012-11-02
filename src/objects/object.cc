@@ -248,12 +248,12 @@ void object::init(const request::ptr &req)
 
   _content_type = req->get_response_header("Content-Type");
   _etag = req->get_response_header("ETag");
+  _last_update_etag = req->get_response_header(meta_prefix_reserved + "lu-etag");
   _stat.st_size = strtol(req->get_response_header("Content-Length").c_str(), NULL, 0);
   _stat.st_mode = (_stat.st_mode & S_IFMT) | (strtol(req->get_response_header(meta_prefix_reserved + "mode").c_str(), NULL, 0) & ~S_IFMT);
   _stat.st_uid = strtol(req->get_response_header(meta_prefix_reserved + "uid").c_str(), NULL, 0);
   _stat.st_gid = strtol(req->get_response_header(meta_prefix_reserved + "gid").c_str(), NULL, 0);
   _stat.st_mtime = strtol(req->get_response_header(meta_prefix_reserved + "mtime").c_str(), NULL, 0);
-  _mtime_etag = req->get_response_header(meta_prefix_reserved + "mtime-etag");
 
   for (header_map::const_iterator itor = req->get_response_headers().begin(); itor != req->get_response_headers().end(); ++itor) {
     const string &key = itor->first;
@@ -274,10 +274,8 @@ void object::init(const request::ptr &req)
   _metadata.replace(xattr::from_string("s3fuse_etag", _etag));
 
   // this workaround is for cases when the file was updated by someone else and the mtime header wasn't set
-  if (_mtime_etag != _etag && req->get_last_modified() > _stat.st_mtime)
+  if (!is_intact() && req->get_last_modified() > _stat.st_mtime)
     _stat.st_mtime = req->get_last_modified();
-
-  _mtime_etag = _etag;
 
   _stat.st_blocks = (_stat.st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
@@ -315,7 +313,7 @@ void object::set_request_headers(const request::ptr &req)
   snprintf(buf, 16, "%li", _stat.st_mtime);
   req->set_header(meta_prefix_reserved + "mtime", buf);
 
-  req->set_header(meta_prefix_reserved + "mtime-etag", _mtime_etag);
+  req->set_header(meta_prefix_reserved + "lu-etag", _etag);
   req->set_header("Content-Type", _content_type);
 }
 

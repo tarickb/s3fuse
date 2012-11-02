@@ -117,41 +117,31 @@ bool file::is_expired()
 void file::init(const request::ptr &req)
 {
   const string &meta_prefix = service::get_header_meta_prefix();
-  string last_mod_etag = req->get_response_header(meta_prefix + "s3fuse-lm-etag");
 
   object::init(req);
 
-  // TODO: set _last_mod_by_us member variable or something so that
-  // encrypted_file can check if the file is still the same
-
-  if (last_mod_etag == get_etag()) {
+  if (is_intact()) {
     // we were the last people to modify this object, so everything should be
     // as we left it
 
     set_sha256_hash(req->get_response_header(meta_prefix + "s3fuse-sha256"));
-  } else {
-    S3_LOG(
-      LOG_DEBUG,
-      "file::init",
-      "etag does not match for %s: expected %s, got %s\n",
-      get_path().c_str(),
-      last_mod_etag.c_str(),
-      get_etag().c_str());
   }
 }
 
 void file::set_sha256_hash(const string &hash)
 {
-  mutex::scoped_lock lock(_hash_mutex);
+  if (hash.empty()) {
+    S3_LOG(
+      LOG_WARNING,
+      "file::set_sha256_hash",
+      "hash is empty for %s. something's amiss.\n",
+      get_path().c_str());
 
-  if (hash.empty())
     return;
-
-  // TODO: rethink this
-  get_metadata()->replace(xattr::from_string("s3fuse_sha256", hash));
+  }
 
   _sha256_hash = hash;
-  _last_mod_etag = get_etag();
+  get_metadata()->replace(xattr::from_string("s3fuse_sha256", hash));
 }
 
 void file::set_request_headers(const request::ptr &req)
@@ -160,12 +150,7 @@ void file::set_request_headers(const request::ptr &req)
 
   object::set_request_headers(req);
 
-  {
-    mutex::scoped_lock lock(_hash_mutex);
-
-    req->set_header(meta_prefix + "s3fuse-sha256", _sha256_hash);
-    req->set_header(meta_prefix + "s3fuse-lm-etag", _last_mod_etag);
-  }
+  req->set_header(meta_prefix + "s3fuse-sha256", _sha256_hash);
 }
 
 void file::on_download_complete(int ret)
@@ -397,8 +382,6 @@ int file::download(const request::ptr & /* ignored */)
 
 int file::prepare_download()
 {
-  mutex::scoped_lock lock(_hash_mutex);
-
   if (!_sha256_hash.empty())
     _hash_list.reset(new hash_list<sha256>(get_transfer_size()));
 
@@ -407,22 +390,16 @@ int file::prepare_download()
 
 int file::finalize_download()
 {
-  mutex::scoped_lock lock(_hash_mutex);
-  string expected_hash;
-
-  expected_hash = _sha256_hash;
-  lock.unlock();
-
-  if (!expected_hash.empty()) {
+  if (!_sha256_hash.empty()) {
     string computed_hash = _hash_list->get_root_hash<hex>();
 
-    if (computed_hash != expected_hash) {
+    if (computed_hash != _sha256_hash) {
       S3_LOG(
         LOG_WARNING, 
         "file::finalize_download", 
         "sha256 mismatch for %s. expected %s, got %s.\n",
         get_path().c_str(),
-        expected_hash.c_str(),
+        _sha256_hash.c_str(),
         computed_hash.c_str());
 
       return -EIO;
