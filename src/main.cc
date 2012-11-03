@@ -35,6 +35,7 @@
 #include "base/xml.h"
 #include "objects/cache.h"
 #include "objects/directory.h"
+#include "objects/encrypted_file.h"
 #include "objects/file.h"
 #include "objects/symlink.h"
 #include "services/service.h"
@@ -49,6 +50,7 @@ using s3::base::logger;
 using s3::base::xml;
 using s3::objects::cache;
 using s3::objects::directory;
+using s3::objects::encrypted_file;
 using s3::objects::file;
 using s3::objects::object;
 using s3::objects::symlink;
@@ -181,7 +183,10 @@ int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
 
     directory::invalidate_parent(path);
 
-    f.reset(new file(path));
+    if (config::get_encrypt_files())
+      f.reset(new encrypted_file(path));
+    else
+      f.reset(new file(path));
 
     f->set_mode(mode);
     f->set_uid(ctx->uid);

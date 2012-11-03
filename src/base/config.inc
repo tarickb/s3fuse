@@ -28,6 +28,8 @@ CONFIG(std::string, aws_service_endpoint, "s3.amazonaws.com"); // service endpoi
 
 CONFIG(std::string, xattr_prefix, ""); // if set, prefixes all extended attributes (may have to be set to "user." for compatibility with getfattr)
 
+CONFIG(bool, encrypt_files, false); // if set, all newly-created files will be encrypted
+
 CONFIG_REQUIRED(std::string, service, ""); // service -- must be "aws" or "google-storage"
 CONFIG_REQUIRED(std::string, auth_data, ""); // service-specific authentication details (see documentation)
 CONFIG_REQUIRED(std::string, bucket_name, ""); // bucket name
