@@ -26,6 +26,7 @@
 #include "base/logger.h"
 #include "base/request.h"
 #include "objects/cache.h"
+#include "objects/metadata.h"
 #include "objects/object.h"
 #include "services/service.h"
 
@@ -53,11 +54,7 @@ namespace
 {
   typedef multimap<int, object::type_checker::fn> type_checker_map;
 
-  const int     BLOCK_SIZE                    = 512;
-  const string  META_PREFIX_RESERVED          = "s3fuse-";
-
-  const char   *META_PREFIX_RESERVED_CSTR     = META_PREFIX_RESERVED.c_str();
-  const size_t  META_PREFIX_RESERVED_LEN      = META_PREFIX_RESERVED.size();
+  const int BLOCK_SIZE = 512;
 
   type_checker_map *s_type_checkers = NULL;
 }
@@ -165,9 +162,6 @@ int object::set_metadata(const string &key, const char *value, size_t size, int 
   if (key.substr(0, config::get_xattr_prefix().size()) != config::get_xattr_prefix())
     return -EINVAL;
 
-  if (strncmp(user_key.c_str(), META_PREFIX_RESERVED_CSTR, META_PREFIX_RESERVED_LEN) == 0)
-    return -EINVAL;
-
   if (flags & XATTR_CREATE && itor != _metadata.end())
     return -EEXIST;
 
@@ -244,16 +238,16 @@ void object::init(const request::ptr &req)
   // isn't shareable) until the request has finished processing
 
   const string &meta_prefix = service::get_header_meta_prefix();
-  string meta_prefix_reserved = meta_prefix + META_PREFIX_RESERVED;
 
   _content_type = req->get_response_header("Content-Type");
   _etag = req->get_response_header("ETag");
-  _last_update_etag = req->get_response_header(meta_prefix_reserved + "lu-etag");
+  _last_update_etag = req->get_response_header(meta_prefix + metadata::LAST_UPDATE_ETAG);
+
   _stat.st_size = strtol(req->get_response_header("Content-Length").c_str(), NULL, 0);
-  _stat.st_mode = (_stat.st_mode & S_IFMT) | (strtol(req->get_response_header(meta_prefix_reserved + "mode").c_str(), NULL, 0) & ~S_IFMT);
-  _stat.st_uid = strtol(req->get_response_header(meta_prefix_reserved + "uid").c_str(), NULL, 0);
-  _stat.st_gid = strtol(req->get_response_header(meta_prefix_reserved + "gid").c_str(), NULL, 0);
-  _stat.st_mtime = strtol(req->get_response_header(meta_prefix_reserved + "mtime").c_str(), NULL, 0);
+  _stat.st_mode = (_stat.st_mode & S_IFMT) | (strtol(req->get_response_header(meta_prefix + metadata::MODE).c_str(), NULL, 0) & ~S_IFMT);
+  _stat.st_uid = strtol(req->get_response_header(meta_prefix + metadata::UID).c_str(), NULL, 0);
+  _stat.st_gid = strtol(req->get_response_header(meta_prefix + metadata::GID).c_str(), NULL, 0);
+  _stat.st_mtime = strtol(req->get_response_header(meta_prefix + metadata::LAST_MODIFIED_TIME).c_str(), NULL, 0);
 
   for (header_map::const_iterator itor = req->get_response_headers().begin(); itor != req->get_response_headers().end(); ++itor) {
     const string &key = itor->first;
@@ -261,7 +255,7 @@ void object::init(const request::ptr &req)
 
     if (
       strncmp(key.c_str(), meta_prefix.c_str(), meta_prefix.size()) == 0 &&
-      strncmp(key.c_str(), meta_prefix_reserved.c_str(), meta_prefix_reserved.size()) != 0
+      strncmp(key.c_str() + meta_prefix.size(), metadata::RESERVED_PREFIX, strlen(metadata::RESERVED_PREFIX)) != 0
     ) {
       _metadata.replace(xattr::from_header(
         key.substr(meta_prefix.size()), 
@@ -287,7 +281,6 @@ void object::set_request_headers(const request::ptr &req)
 {
   mutex::scoped_lock lock(_mutex);
   const string &meta_prefix = service::get_header_meta_prefix();
-  string meta_prefix_reserved = service::get_header_meta_prefix() + META_PREFIX_RESERVED;
   char buf[16];
 
   // do this first so that we overwrite any keys we care about (i.e., those that start with "META_PREFIX-META_PREFIX_RESERVED-")
@@ -302,18 +295,18 @@ void object::set_request_headers(const request::ptr &req)
   }
 
   snprintf(buf, 16, "%#o", _stat.st_mode & ~S_IFMT);
-  req->set_header(meta_prefix_reserved + "mode", buf);
+  req->set_header(meta_prefix + metadata::MODE, buf);
 
   snprintf(buf, 16, "%i", _stat.st_uid);
-  req->set_header(meta_prefix_reserved + "uid", buf);
+  req->set_header(meta_prefix + metadata::UID, buf);
 
   snprintf(buf, 16, "%i", _stat.st_gid);
-  req->set_header(meta_prefix_reserved + "gid", buf);
+  req->set_header(meta_prefix + metadata::GID, buf);
 
   snprintf(buf, 16, "%li", _stat.st_mtime);
-  req->set_header(meta_prefix_reserved + "mtime", buf);
+  req->set_header(meta_prefix + metadata::LAST_MODIFIED_TIME, buf);
 
-  req->set_header(meta_prefix_reserved + "lu-etag", _etag);
+  req->set_header(meta_prefix + metadata::LAST_UPDATE_ETAG, _etag);
   req->set_header("Content-Type", _content_type);
 }
 

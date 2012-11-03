@@ -11,6 +11,7 @@
 #include "crypto/hex_with_quotes.h"
 #include "crypto/md5.h"
 #include "objects/cache.h"
+#include "objects/metadata.h"
 #include "objects/file.h"
 #include "services/service.h"
 #include "threads/pool.h"
@@ -34,6 +35,7 @@ using s3::crypto::hex_with_quotes;
 using s3::crypto::md5;
 using s3::crypto::sha256;
 using s3::objects::file;
+using s3::objects::metadata;
 using s3::objects::object;
 using s3::services::service;
 using s3::threads::pool;
@@ -124,21 +126,14 @@ void file::init(const request::ptr &req)
     // we were the last people to modify this object, so everything should be
     // as we left it
 
-    set_sha256_hash(req->get_response_header(meta_prefix + "s3fuse-sha256"));
+    set_sha256_hash(req->get_response_header(meta_prefix + metadata::SHA256));
   }
 }
 
 void file::set_sha256_hash(const string &hash)
 {
-  if (hash.empty()) {
-    S3_LOG(
-      LOG_WARNING,
-      "file::set_sha256_hash",
-      "hash is empty for %s. something's amiss.\n",
-      get_path().c_str());
-
+  if (hash.empty())
     return;
-  }
 
   _sha256_hash = hash;
   get_metadata()->replace(xattr::from_string("s3fuse_sha256", hash));
@@ -150,7 +145,7 @@ void file::set_request_headers(const request::ptr &req)
 
   object::set_request_headers(req);
 
-  req->set_header(meta_prefix + "s3fuse-sha256", _sha256_hash);
+  req->set_header(meta_prefix + metadata::SHA256, _sha256_hash);
 }
 
 void file::on_download_complete(int ret)

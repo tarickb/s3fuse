@@ -6,6 +6,7 @@
 #include "crypto/hex.h"
 #include "crypto/symmetric_key.h"
 #include "objects/encrypted_file.h"
+#include "objects/metadata.h"
 #include "services/service.h"
 
 using std::runtime_error;
@@ -20,6 +21,7 @@ using s3::crypto::cipher;
 using s3::crypto::hex;
 using s3::crypto::symmetric_key;
 using s3::objects::encrypted_file;
+using s3::objects::metadata;
 using s3::objects::object;
 using s3::services::service;
 
@@ -67,8 +69,8 @@ void encrypted_file::init(const request::ptr &req)
 
   file::init(req);
 
-  _enc_iv = req->get_response_header(meta_prefix + "s3fuse-e-iv");
-  _enc_meta = req->get_response_header(meta_prefix + "s3fuse-e-meta");
+  _enc_iv = req->get_response_header(meta_prefix + metadata::ENC_IV);
+  _enc_meta = req->get_response_header(meta_prefix + metadata::ENC_METADATA);
 
   try {
     if (!is_intact())
@@ -127,10 +129,10 @@ void encrypted_file::set_request_headers(const request::ptr &req)
   file::set_request_headers(req);
 
   // hide the real hash
-  req->set_header(meta_prefix + "s3fuse-sha256", "");
+  req->set_header(meta_prefix + metadata::SHA256, "");
 
-  req->set_header(meta_prefix + "s3fuse-e-iv", _enc_iv);
-  req->set_header(meta_prefix + "s3fuse-e-meta", _enc_meta);
+  req->set_header(meta_prefix + metadata::ENC_IV, _enc_iv);
+  req->set_header(meta_prefix + metadata::ENC_METADATA, _enc_meta);
 }
 
 int encrypted_file::prepare_download()

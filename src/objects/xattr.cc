@@ -9,6 +9,7 @@
 #include "crypto/hash.h"
 #include "crypto/hex.h"
 #include "crypto/md5.h"
+#include "objects/metadata.h"
 #include "objects/xattr.h"
 
 using std::string;
@@ -20,18 +21,21 @@ using s3::crypto::encoder;
 using s3::crypto::hash;
 using s3::crypto::hex;
 using s3::crypto::md5;
+using s3::objects::metadata;
 using s3::objects::xattr;
 
 namespace
 {
   const size_t  MAX_STRING_SCAN_LEN      = 128;
-  const string  XATTR_HEADER_PREFIX      = "s3fuse_xattr_";
-
-  const char   *XATTR_HEADER_PREFIX_CSTR = XATTR_HEADER_PREFIX.c_str();
-  const size_t  XATTR_HEADER_PREFIX_LEN  = XATTR_HEADER_PREFIX.size();
 
   inline bool is_key_valid(const string &key)
   {
+    if (strncmp(key.c_str(), metadata::RESERVED_PREFIX, strlen(metadata::RESERVED_PREFIX)) == 0)
+      return false;
+
+    if (strncmp(key.c_str(), metadata::XATTR_PREFIX, strlen(metadata::XATTR_PREFIX)) == 0)
+      return false;
+
     for (size_t i = 0; i < key.length(); i++)
       if (key[i] != '.' && key[i] != '-' && key[i] != '_' && !isdigit(key[i]) && !islower(key[i]))
         return false;
@@ -57,7 +61,7 @@ xattr::ptr xattr::from_header(const string &header_key, const string &header_val
   ptr ret;
   xattr *val = NULL;
 
-  if (strncmp(header_key.c_str(), XATTR_HEADER_PREFIX_CSTR, XATTR_HEADER_PREFIX_LEN) == 0) {
+  if (strncmp(header_key.c_str(), metadata::XATTR_PREFIX, strlen(metadata::XATTR_PREFIX)) == 0) {
     vector<uint8_t> dec_key;
     size_t separator = header_value.find(' ');
 
@@ -125,7 +129,7 @@ int xattr::get_value(char *buffer, size_t max_size)
 void xattr::to_header(string *header, string *value)
 {
   if (_encode_key || _encode_value) {
-    *header = XATTR_HEADER_PREFIX + hash::compute<md5, hex>(_key);
+    *header = string(metadata::XATTR_PREFIX) + hash::compute<md5, hex>(_key);
     *value = encoder::encode<base64>(_key) + " " + encoder::encode<base64>(_value);
   } else {
     *header = _key;

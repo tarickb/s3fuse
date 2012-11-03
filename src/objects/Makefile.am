@@ -13,6 +13,8 @@ libs3fuse_objects_a_SOURCES = \
 	encrypted_file.h \
 	file.cc \
 	file.h \
+	metadata.cc \
+	metadata.h \
 	object.cc \
 	object.h \
 	symlink.cc \
