@@ -53,7 +53,7 @@ namespace
     return new file(path);
   }
 
-  object::type_checker::type_checker s_checker_reg(checker, 1000);
+  object::type_checker_list::entry s_checker_reg(checker, 1000);
 }
 
 void file::test_transfer_chunk_sizes()

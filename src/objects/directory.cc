@@ -44,7 +44,7 @@ namespace
     return new directory(path);
   }
 
-  object::type_checker::type_checker s_checker_reg(checker, 10);
+  object::type_checker_list::entry s_checker_reg(checker, 10);
 
   int check_if_truncated(const xml::document &doc, bool *truncated)
   {

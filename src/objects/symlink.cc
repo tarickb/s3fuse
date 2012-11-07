@@ -26,7 +26,7 @@ namespace
     return new s3::objects::symlink(path);
   }
 
-  object::type_checker::type_checker s_checker_reg(checker, 100);
+  object::type_checker_list::entry s_checker_reg(checker, 100);
 }
 
 symlink::symlink(const string &path)

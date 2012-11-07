@@ -31,6 +31,7 @@
 #include <boost/smart_ptr.hpp>
 #include <boost/thread.hpp>
 
+#include "base/static_list.h"
 #include "objects/xattr.h"
 #include "threads/pool.h"
 
@@ -48,13 +49,8 @@ namespace s3
     public:
       typedef boost::shared_ptr<object> ptr;
 
-      class type_checker
-      {
-      public:
-        typedef object * (*fn)(const std::string &path, const boost::shared_ptr<base::request> &req);
-
-        type_checker(fn checker, int priority);
-      };
+      typedef object * (*type_checker_fn)(const std::string &path, const boost::shared_ptr<base::request> &req);
+      typedef base::static_list<type_checker_fn> type_checker_list;
 
       static std::string build_url(const std::string &path);
       static ptr create(const std::string &path, const boost::shared_ptr<base::request> &req);

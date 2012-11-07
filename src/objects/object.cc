@@ -52,19 +52,7 @@ using s3::services::service;
 
 namespace
 {
-  typedef multimap<int, object::type_checker::fn> type_checker_map;
-
   const int BLOCK_SIZE = 512;
-
-  type_checker_map *s_type_checkers = NULL;
-}
-
-object::type_checker::type_checker(object::type_checker::fn checker, int priority)
-{
-  if (!s_type_checkers)
-    s_type_checkers = new type_checker_map;
-
-  s_type_checkers->insert(make_pair(priority, checker));
 }
 
 string object::build_url(const string &path)
@@ -79,7 +67,7 @@ object::ptr object::create(const string &path, const request::ptr &req)
   if (!path.empty() && req->get_response_code() != base::HTTP_SC_OK)
     return obj;
 
-  for (type_checker_map::const_iterator itor = s_type_checkers->begin(); itor != s_type_checkers->end(); ++itor) {
+  for (type_checker_list::const_iterator itor = type_checker_list::begin(); itor != type_checker_list::end(); ++itor) {
     obj.reset(itor->second(path, req));
 
     if (obj)
