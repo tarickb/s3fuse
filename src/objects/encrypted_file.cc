@@ -4,6 +4,7 @@
 #include "crypto/aes_ctr_256.h"
 #include "crypto/cipher.h"
 #include "crypto/hex.h"
+#include "crypto/keys.h"
 #include "crypto/symmetric_key.h"
 #include "objects/encrypted_file.h"
 #include "objects/metadata.h"
@@ -19,6 +20,7 @@ using s3::crypto::aes_ctr_256;
 using s3::crypto::buffer;
 using s3::crypto::cipher;
 using s3::crypto::hex;
+using s3::crypto::keys;
 using s3::crypto::symmetric_key;
 using s3::objects::encrypted_file;
 using s3::objects::metadata;
@@ -39,16 +41,6 @@ namespace
   }
 
   object::type_checker_list::entry s_checker_reg(checker, 100);
-
-  // TODO: move this (and, obviously, make it a config option)
-  class keys
-  {
-  public:
-    inline static buffer::ptr get_volume_key()
-    {
-      return buffer::from_string("9d85a5ee66cf7ba8b313a926be06ca6a5e62b87be88c2e7f45d058d7479fd42e");
-    }
-  };
 }
 
 encrypted_file::encrypted_file(const string &path)

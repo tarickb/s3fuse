@@ -33,6 +33,7 @@
 #include "base/logger.h"
 #include "base/version.h"
 #include "base/xml.h"
+#include "crypto/keys.h"
 #include "objects/cache.h"
 #include "objects/directory.h"
 #include "objects/encrypted_file.h"
@@ -48,6 +49,7 @@ using std::vector;
 using s3::base::config;
 using s3::base::logger;
 using s3::base::xml;
+using s3::crypto::keys;
 using s3::objects::cache;
 using s3::objects::directory;
 using s3::objects::encrypted_file;
@@ -183,7 +185,7 @@ int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
 
     directory::invalidate_parent(path);
 
-    if (config::get_encrypt_files())
+    if (config::get_encrypt_new_files())
       f.reset(new encrypted_file(path));
     else
       f.reset(new file(path));
@@ -619,6 +621,12 @@ void * init(fuse_conn_info *info)
     cache::init();
 
     file::test_transfer_chunk_sizes();
+
+    if (!config::get_volume_key().empty())
+      keys::init(config::get_volume_key());
+    else
+      if (config::get_encrypt_new_files())
+        throw runtime_error("cannot encrypt new files without a volume key!");
 
     if (info->capable & FUSE_CAP_ATOMIC_O_TRUNC) {
       info->want |= FUSE_CAP_ATOMIC_O_TRUNC;
