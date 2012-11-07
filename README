@@ -46,7 +46,7 @@ auth_data for Amazon Web Services:
 
   For Amazon S3, set auth_data to the full path of a file containing your AWS 
   Access Key ID followed by a space, followed by the AWS Secret Access Key, 
-  i.e.:
+  e.g.:
 
     auth_data=/home/user/.s3fuse/aws.key
 
@@ -85,6 +85,52 @@ support non-US buckets.  For instance, the following line in s3fuse.conf
 enables use of EU buckets:
  
   aws_service_endpoint=s3-eu-west-1.amazonaws.com
+
+File Encryption
+---------------
+
+s3fuse-0.13 adds early support for transparent file encryption.  File contents
+are encrypted with AES, in CTR mode, using a 256-bit key unique to the file.  
+The unique file key, a nonce, and a hash of the plaintext are then encrypted 
+with AES in CBC mode using the volume key and a random IV.  This is stored out
+of band as a file metadata attribute.
+
+Two configuration options are relevant: volume_key and encrypt_new_files.
+
+Set volume_key to the location of a file containing the volume key.  The key
+should be 128, 192, or 256 bits long and hex encoded (with no spaces).  Use
+OpenSSL to generate the key ("32" below refers to the key size in bytes):
+
+  openssl rand -hex 32 > /home/user/.s3fuse/bucket.vk
+
+Set the permissions on the key file such that only the owner can read/write
+(s3fuse will abort otherwise):
+
+  chmod 0600 /home/user/.s3fuse/bucket.vk
+
+And set volume_key accordingly:
+
+  volume_key=/home/user/.s3fuse/bucket.vk
+
+The volume key is used for both encryption and decryption.  However, by 
+default newly-created files will not be encrypted.  To change this, set
+encrypt_new_files:
+
+  encrypt_new_files=yes
+
+Some notes, in no particular order:
+
+  - Only file contents are encrypted.  Names are not.  Object metadata is not.
+    Symlink targets are not.  Directory contents are not.
+  - If volume_key is set but encrypt_new_files is not, encrypted files already 
+    in the bucket can be opened but new files will not be encrypted.
+  - Attempts to open encrypted files will fail with EIO (input/output error)
+    if volume_key is not set or if the key is not the same as the one used to 
+    encrypt the file.  The file can still be deleted or renamed (as these 
+    operations do not modify the contents).
+  - s3fuse encrypts contents during upload and decrypts during download.  The
+    locally cached copy of an open file (which is generally kept in /tmp) 
+    remains unencrypted.
 
 Running
 -------
