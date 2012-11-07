@@ -30,6 +30,7 @@
 #include "crypto/base64.h"
 #include "crypto/encoder.h"
 #include "crypto/hmac_sha1.h"
+#include "crypto/private_file.h"
 #include "services/aws_impl.h"
 
 using boost::bind;
@@ -47,6 +48,7 @@ using s3::base::request;
 using s3::crypto::base64;
 using s3::crypto::encoder;
 using s3::crypto::hmac_sha1;
+using s3::crypto::private_file;
 using s3::services::aws_impl;
 using s3::services::signing_function;
 
@@ -72,7 +74,7 @@ aws_impl::aws_impl()
   string line;
   vector<string> fields;
 
-  open_private_file(config::get_auth_data(), &f);
+  private_file::open(config::get_auth_data(), &f);
   getline(f, line);
 
   split(fields, line, is_any_of(string(" \t")), token_compress_on);

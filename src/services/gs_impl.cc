@@ -26,6 +26,7 @@
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
+#include "crypto/private_file.h"
 #include "services/gs_impl.h"
 
 using boost::bind;
@@ -40,6 +41,7 @@ using std::stringstream;
 
 using s3::base::config;
 using s3::base::request;
+using s3::crypto::private_file;
 using s3::services::gs_impl;
 using s3::services::signing_function;
 
@@ -118,7 +120,7 @@ string gs_impl::read_token(const string &file)
   ifstream f;
   string token;
 
-  open_private_file(file, &f);
+  private_file::open(file, &f);
   getline(f, token);
 
   return token;
@@ -128,7 +130,7 @@ void gs_impl::write_token(const string &file, const string &token)
 {
   ofstream f;
 
-  open_private_file(file, &f);
+  private_file::open(file, &f);
   f << token << endl;
 }
 

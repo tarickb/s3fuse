@@ -22,7 +22,6 @@
 #ifndef S3_SERVICES_IMPL_H
 #define S3_SERVICES_IMPL_H
 
-#include <fstream>
 #include <string>
 #include <boost/function.hpp>
 #include <boost/smart_ptr.hpp>
@@ -54,10 +53,6 @@ namespace s3
       virtual const std::string & get_bucket_url() = 0;
 
       virtual const signing_function & get_signing_function() = 0;
-
-    protected:
-      static void open_private_file(const std::string &file, std::ifstream *f);
-      static void open_private_file(const std::string &file, std::ofstream *f);
     };
   }
 }
