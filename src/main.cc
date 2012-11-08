@@ -34,11 +34,11 @@
 #include "base/version.h"
 #include "base/xml.h"
 #include "crypto/keys.h"
-#include "objects/cache.h"
-#include "objects/directory.h"
-#include "objects/encrypted_file.h"
-#include "objects/file.h"
-#include "objects/symlink.h"
+#include "fs/cache.h"
+#include "fs/directory.h"
+#include "fs/encrypted_file.h"
+#include "fs/file.h"
+#include "fs/symlink.h"
 #include "services/service.h"
 
 using boost::static_pointer_cast;
@@ -50,12 +50,12 @@ using s3::base::config;
 using s3::base::logger;
 using s3::base::xml;
 using s3::crypto::keys;
-using s3::objects::cache;
-using s3::objects::directory;
-using s3::objects::encrypted_file;
-using s3::objects::file;
-using s3::objects::object;
-using s3::objects::symlink;
+using s3::fs::cache;
+using s3::fs::directory;
+using s3::fs::encrypted_file;
+using s3::fs::file;
+using s3::fs::object;
+using s3::fs::symlink;
 using s3::services::service;
 using s3::threads::pool;
 
@@ -199,7 +199,7 @@ int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
     if (r)
       return r;
 
-    return file::open(static_cast<string>(path), s3::objects::OPEN_DEFAULT, &file_info->fh);
+    return file::open(static_cast<string>(path), s3::fs::OPEN_DEFAULT, &file_info->fh);
   END_TRY;
 }
 
@@ -333,7 +333,7 @@ int s3fuse_open(const char *path, fuse_file_info *file_info)
   BEGIN_TRY;
     return file::open(
       static_cast<string>(path), 
-      (file_info->flags & O_TRUNC) ? s3::objects::OPEN_TRUNCATE_TO_ZERO : s3::objects::OPEN_DEFAULT, 
+      (file_info->flags & O_TRUNC) ? s3::fs::OPEN_TRUNCATE_TO_ZERO : s3::fs::OPEN_DEFAULT, 
       &file_info->fh);
   END_TRY;
 }
@@ -365,7 +365,7 @@ int s3fuse_readlink(const char *path, char *buffer, size_t max_size)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    GET_OBJECT_AS(s3::objects::symlink, S_IFLNK, link, path);
+    GET_OBJECT_AS(s3::fs::symlink, S_IFLNK, link, path);
 
     string target;
     int r = link->read(&target);
@@ -490,7 +490,7 @@ int s3fuse_symlink(const char *target, const char *path)
 
     directory::invalidate_parent(path);
 
-    link.reset(new s3::objects::symlink(path));
+    link.reset(new s3::fs::symlink(path));
 
     link->set_uid(ctx->uid);
     link->set_gid(ctx->gid);

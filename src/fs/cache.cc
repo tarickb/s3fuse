@@ -21,14 +21,14 @@
 
 #include "base/logger.h"
 #include "base/request.h"
-#include "objects/cache.h"
-#include "objects/directory.h"
+#include "fs/cache.h"
+#include "fs/directory.h"
 
 using boost::mutex;
 using std::string;
 
 using s3::base::request;
-using s3::objects::cache;
+using s3::fs::cache;
 
 boost::mutex cache::s_mutex;
 cache::cache_map cache::s_cache_map;

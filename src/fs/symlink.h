@@ -1,12 +1,12 @@
-#ifndef S3_OBJECTS_SYMLINK_H
-#define S3_OBJECTS_SYMLINK_H
+#ifndef S3_FS_SYMLINK_H
+#define S3_FS_SYMLINK_H
 
-#include "objects/object.h"
+#include "fs/object.h"
 #include "threads/pool.h"
 
 namespace s3
 {
-  namespace objects
+  namespace fs
   {
     class symlink : public object
     {

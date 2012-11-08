@@ -9,8 +9,8 @@
 #include "crypto/hash.h"
 #include "crypto/hex.h"
 #include "crypto/md5.h"
-#include "objects/metadata.h"
-#include "objects/xattr.h"
+#include "fs/metadata.h"
+#include "fs/xattr.h"
 
 using std::string;
 using std::runtime_error;
@@ -21,8 +21,8 @@ using s3::crypto::encoder;
 using s3::crypto::hash;
 using s3::crypto::hex;
 using s3::crypto::md5;
-using s3::objects::metadata;
-using s3::objects::xattr;
+using s3::fs::metadata;
+using s3::fs::xattr;
 
 namespace
 {

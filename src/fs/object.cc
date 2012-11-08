@@ -25,9 +25,9 @@
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
-#include "objects/cache.h"
-#include "objects/metadata.h"
-#include "objects/object.h"
+#include "fs/cache.h"
+#include "fs/metadata.h"
+#include "fs/object.h"
 #include "services/service.h"
 
 #ifndef ENOATTR
@@ -47,7 +47,7 @@ using std::vector;
 using s3::base::config;
 using s3::base::header_map;
 using s3::base::request;
-using s3::objects::object;
+using s3::fs::object;
 using s3::services::service;
 
 namespace

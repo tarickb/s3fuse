@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_OBJECTS_OBJECT_H
-#define S3_OBJECTS_OBJECT_H
+#ifndef S3_FS_OBJECT_H
+#define S3_FS_OBJECT_H
 
 #include <string.h>
 #include <sys/stat.h>
@@ -32,7 +32,7 @@
 #include <boost/thread.hpp>
 
 #include "base/static_list.h"
-#include "objects/xattr.h"
+#include "fs/xattr.h"
 #include "threads/pool.h"
 
 namespace s3
@@ -42,7 +42,7 @@ namespace s3
     class request;
   }
 
-  namespace objects
+  namespace fs
   {
     class object : public boost::enable_shared_from_this<object>
     {

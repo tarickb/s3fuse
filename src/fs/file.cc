@@ -10,9 +10,9 @@
 #include "crypto/hex.h"
 #include "crypto/hex_with_quotes.h"
 #include "crypto/md5.h"
-#include "objects/cache.h"
-#include "objects/metadata.h"
-#include "objects/file.h"
+#include "fs/cache.h"
+#include "fs/metadata.h"
+#include "fs/file.h"
 #include "services/service.h"
 #include "threads/pool.h"
 
@@ -34,9 +34,9 @@ using s3::crypto::hex;
 using s3::crypto::hex_with_quotes;
 using s3::crypto::md5;
 using s3::crypto::sha256;
-using s3::objects::file;
-using s3::objects::metadata;
-using s3::objects::object;
+using s3::fs::file;
+using s3::fs::metadata;
+using s3::fs::object;
 using s3::services::service;
 using s3::threads::pool;
 
@@ -177,7 +177,7 @@ int file::open(file_open_mode mode, uint64_t *handle)
     if (_fd == -1)
       return -errno;
 
-    if (!(mode & objects::OPEN_TRUNCATE_TO_ZERO)) {
+    if (!(mode & fs::OPEN_TRUNCATE_TO_ZERO)) {
       if (ftruncate(_fd, get_stat()->st_size) != 0)
         return -errno;
 

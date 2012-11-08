@@ -1,14 +1,14 @@
-#ifndef S3_OBJECTS_FILE_H
-#define S3_OBJECTS_FILE_H
+#ifndef S3_FS_FILE_H
+#define S3_FS_FILE_H
 
 #include "crypto/hash_list.h"
 #include "crypto/sha256.h"
-#include "objects/object.h"
+#include "fs/object.h"
 #include "threads/async_handle.h"
 
 namespace s3
 {
-  namespace objects
+  namespace fs
   {
     enum file_open_mode
     {

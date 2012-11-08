@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_OBJECTS_CACHE_H
-#define S3_OBJECTS_CACHE_H
+#ifndef S3_FS_CACHE_H
+#define S3_FS_CACHE_H
 
 #include <map>
 #include <string>
@@ -28,7 +28,7 @@
 #include <boost/thread.hpp>
 
 #include "base/logger.h"
-#include "objects/object.h"
+#include "fs/object.h"
 #include "threads/pool.h"
 
 namespace s3
@@ -38,7 +38,7 @@ namespace s3
     class request;
   }
 
-  namespace objects
+  namespace fs
   {
     enum cache_hints
     {

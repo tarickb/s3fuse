@@ -1,12 +1,12 @@
 #include <iostream>
 
-#include "objects/xattr.h"
+#include "fs/xattr.h"
 
 using std::cout;
 using std::endl;
 using std::string;
 
-using s3::objects::xattr;
+using s3::fs::xattr;
 
 void test(const xattr::ptr &p)
 {

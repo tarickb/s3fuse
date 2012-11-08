@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_OBJECTS_XATTR_H
-#define S3_OBJECTS_XATTR_H
+#ifndef S3_FS_XATTR_H
+#define S3_FS_XATTR_H
 
 #include <stdint.h>
 
@@ -31,7 +31,7 @@
 
 namespace s3
 {
-  namespace objects
+  namespace fs
   {
     class xattr
     {

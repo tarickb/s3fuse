@@ -1,9 +1,9 @@
-#ifndef S3_OBJECTS_METADATA_H
-#define S3_OBJECTS_METADATA_H
+#ifndef S3_FS_METADATA_H
+#define S3_FS_METADATA_H
 
 namespace s3
 {
-  namespace objects
+  namespace fs
   {
     class metadata
     {

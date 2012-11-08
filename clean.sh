@@ -12,8 +12,8 @@ for D in \
   src/base/tests \
   src/crypto \
   src/crypto/tests \
-  src/objects \
-  src/objects/tests \
+  src/fs \
+  src/fs/tests \
   src/services \
   src/tests \
   src/threads \

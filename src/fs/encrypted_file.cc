@@ -6,8 +6,8 @@
 #include "crypto/hex.h"
 #include "crypto/keys.h"
 #include "crypto/symmetric_key.h"
-#include "objects/encrypted_file.h"
-#include "objects/metadata.h"
+#include "fs/encrypted_file.h"
+#include "fs/metadata.h"
 #include "services/service.h"
 
 using std::runtime_error;
@@ -22,9 +22,9 @@ using s3::crypto::cipher;
 using s3::crypto::hex;
 using s3::crypto::keys;
 using s3::crypto::symmetric_key;
-using s3::objects::encrypted_file;
-using s3::objects::metadata;
-using s3::objects::object;
+using s3::fs::encrypted_file;
+using s3::fs::metadata;
+using s3::fs::object;
 using s3::services::service;
 
 namespace

@@ -1,12 +1,12 @@
-#ifndef S3_OBJECTS_DIRECTORY_H
-#define S3_OBJECTS_DIRECTORY_H
+#ifndef S3_FS_DIRECTORY_H
+#define S3_FS_DIRECTORY_H
 
-#include "objects/object.h"
+#include "fs/object.h"
 #include "threads/pool.h"
 
 namespace s3
 {
-  namespace objects
+  namespace fs
   {
     class directory : public object
     {

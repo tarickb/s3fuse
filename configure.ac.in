@@ -83,9 +83,9 @@ AC_FUNC_MALLOC
 AC_CHECK_FUNCS([ftruncate gettimeofday memset strchr strerror strstr strtol])
 
 AC_CONFIG_FILES([Makefile])
-AC_CONFIG_FILES([src/Makefile src/base/Makefile src/crypto/Makefile src/objects/Makefile src/services/Makefile src/threads/Makefile])
+AC_CONFIG_FILES([src/Makefile src/base/Makefile src/crypto/Makefile src/fs/Makefile src/services/Makefile src/threads/Makefile])
 
-AM_COND_IF([BUILD_TESTS], [AC_CONFIG_FILES([src/base/tests/Makefile src/crypto/tests/Makefile src/objects/tests/Makefile src/tests/Makefile])])
+AM_COND_IF([BUILD_TESTS], [AC_CONFIG_FILES([src/base/tests/Makefile src/crypto/tests/Makefile src/fs/tests/Makefile src/tests/Makefile])])
 AM_COND_IF([BUILD_RPM], [AC_CONFIG_FILES([dist/Makefile])])
 
 AC_SUBST([AM_CXXFLAGS], ["$CXXFLAGS -g -Wall -Werror"])

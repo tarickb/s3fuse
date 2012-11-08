@@ -2,8 +2,8 @@
 #include "base/logger.h"
 #include "base/request.h"
 #include "base/xml.h"
-#include "objects/cache.h"
-#include "objects/directory.h"
+#include "fs/cache.h"
+#include "fs/directory.h"
 #include "services/service.h"
 #include "threads/pool.h"
 
@@ -15,8 +15,8 @@ using std::string;
 using s3::base::config;
 using s3::base::request;
 using s3::base::xml;
-using s3::objects::directory;
-using s3::objects::object;
+using s3::fs::directory;
+using s3::fs::object;
 using s3::services::service;
 using s3::threads::pool;
 using s3::threads::wait_async_handle;

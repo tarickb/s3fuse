@@ -2,9 +2,9 @@ if BUILD_TESTS
 SUBDIRS = . tests
 endif
 	
-noinst_LIBRARIES = libs3fuse_objects.a
+noinst_LIBRARIES = libs3fuse_fs.a
 
-libs3fuse_objects_a_SOURCES = \
+libs3fuse_fs_a_SOURCES = \
 	cache.cc \
 	cache.h \
 	directory.cc \

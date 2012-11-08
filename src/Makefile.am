@@ -1,4 +1,4 @@
-SUBDIRS = base crypto objects services threads .
+SUBDIRS = base crypto fs services threads .
 
 if BUILD_TESTS
 SUBDIRS += tests
@@ -11,7 +11,7 @@ bin_PROGRAMS = s3fuse s3fuse_gs_get_token
 
 s3fuse_SOURCES = main.cc
 s3fuse_LDADD = \
-	objects/libs3fuse_objects.a \
+	fs/libs3fuse_fs.a \
 	services/libs3fuse_services.a \
 	crypto/libs3fuse_crypto.a \
 	threads/libs3fuse_threads.a \

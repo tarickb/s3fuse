@@ -1,14 +1,14 @@
 #include "base/logger.h"
 #include "base/request.h"
-#include "objects/symlink.h"
+#include "fs/symlink.h"
 
 using boost::defer_lock;
 using boost::mutex;
 using std::string;
 
 using s3::base::request;
-using s3::objects::object;
-using s3::objects::symlink;
+using s3::fs::object;
+using s3::fs::symlink;
 
 namespace
 {
@@ -23,7 +23,7 @@ namespace
     if (req->get_response_header("Content-Type") != CONTENT_TYPE)
       return NULL;
 
-    return new s3::objects::symlink(path);
+    return new s3::fs::symlink(path);
   }
 
   object::type_checker_list::entry s_checker_reg(checker, 100);

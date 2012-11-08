@@ -1,10 +1,10 @@
-#ifndef S3_OBJECTS_ENCRYPTED_FILE_H
-#define S3_OBJECTS_ENCRYPTED_FILE_H
+#ifndef S3_FS_ENCRYPTED_FILE_H
+#define S3_FS_ENCRYPTED_FILE_H
 
 #include <string>
 #include <vector>
 
-#include "objects/file.h"
+#include "fs/file.h"
 
 namespace s3
 {
@@ -18,7 +18,7 @@ namespace s3
     class symmetric_key;
   }
 
-  namespace objects
+  namespace fs
   {
     class encrypted_file : public file
     {

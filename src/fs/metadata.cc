@@ -1,6 +1,6 @@
-#include "objects/metadata.h"
+#include "fs/metadata.h"
 
-using s3::objects::metadata;
+using s3::fs::metadata;
 
 const char *metadata::RESERVED_PREFIX    = "s3fuse-";
 
