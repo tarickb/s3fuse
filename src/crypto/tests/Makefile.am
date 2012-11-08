@@ -10,6 +10,7 @@ noinst_PROGRAMS = \
 	hashes \
 	hash_file \
 	hash_list \
+	pbkdf2_sha1_kat \
 	symmetric_key
 
 aes_cbc_256_file_SOURCES = aes_cbc_256_file.cc
@@ -44,6 +45,9 @@ hash_file_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 hash_list_SOURCES = hash_list.cc
 hash_list_LDADD = ../libs3fuse_crypto.a $(LDADD)
+
+pbkdf2_sha1_kat_SOURCES = pbkdf2_sha1_kat.cc
+pbkdf2_sha1_kat_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 symmetric_key_SOURCES = symmetric_key.cc
 symmetric_key_LDADD = ../libs3fuse_crypto.a $(LDADD)

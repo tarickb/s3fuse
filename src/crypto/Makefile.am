@@ -25,6 +25,8 @@ libs3fuse_crypto_a_SOURCES = \
 	keys.h \
 	md5.cc \
 	md5.h \
+	pbkdf2_sha1.cc \
+	pbkdf2_sha1.h \
 	private_file.cc \
 	private_file.h \
 	sha256.cc \

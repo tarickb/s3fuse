@@ -50,6 +50,15 @@ namespace s3
         return b;
       }
 
+      inline static ptr from_bytes(const std::vector<uint8_t> &bytes)
+      {
+        ptr b(new buffer());
+
+        b->_buf = bytes;
+
+        return b;
+      }
+
       inline const uint8_t * get() const { return &_buf[0]; }
       inline size_t size() const { return _buf.size(); }
 
