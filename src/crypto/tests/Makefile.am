@@ -10,6 +10,7 @@ noinst_PROGRAMS = \
 	hashes \
 	hash_file \
 	hash_list \
+	passwords \
 	pbkdf2_sha1_kat \
 	symmetric_key
 
@@ -45,6 +46,9 @@ hash_file_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 hash_list_SOURCES = hash_list.cc
 hash_list_LDADD = ../libs3fuse_crypto.a $(LDADD)
+
+passwords_SOURCES = passwords.cc
+passwords_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 pbkdf2_sha1_kat_SOURCES = pbkdf2_sha1_kat.cc
 pbkdf2_sha1_kat_LDADD = ../libs3fuse_crypto.a $(LDADD)
