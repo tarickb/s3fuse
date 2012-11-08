@@ -4,9 +4,9 @@
 #include "crypto/aes_ctr_256.h"
 #include "crypto/cipher.h"
 #include "crypto/hex.h"
-#include "crypto/keys.h"
 #include "crypto/symmetric_key.h"
 #include "fs/encrypted_file.h"
+#include "fs/encryption.h"
 #include "fs/metadata.h"
 #include "services/service.h"
 
@@ -20,9 +20,9 @@ using s3::crypto::aes_ctr_256;
 using s3::crypto::buffer;
 using s3::crypto::cipher;
 using s3::crypto::hex;
-using s3::crypto::keys;
 using s3::crypto::symmetric_key;
 using s3::fs::encrypted_file;
+using s3::fs::encryption;
 using s3::fs::metadata;
 using s3::fs::object;
 using s3::services::service;
@@ -71,7 +71,7 @@ void encrypted_file::init(const request::ptr &req)
     if (_enc_iv.empty() || _enc_meta.empty())
       throw runtime_error("no IV or metadata");
 
-    _meta_key = symmetric_key::create(keys::get_volume_key(), buffer::from_string(_enc_iv));
+    _meta_key = symmetric_key::create(encryption::get_volume_key(), buffer::from_string(_enc_iv));
 
     meta = cipher::decrypt<aes_cbc_256, hex>(_meta_key, _enc_meta);
 
@@ -139,7 +139,7 @@ int encrypted_file::finalize_download()
 
 int encrypted_file::prepare_upload()
 {
-  _meta_key = symmetric_key::generate<aes_cbc_256>(keys::get_volume_key());
+  _meta_key = symmetric_key::generate<aes_cbc_256>(encryption::get_volume_key());
   _data_key = symmetric_key::generate<aes_ctr_256>();
 
   _enc_iv.clear();

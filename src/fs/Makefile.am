@@ -11,6 +11,8 @@ libs3fuse_fs_a_SOURCES = \
 	directory.h \
 	encrypted_file.cc \
 	encrypted_file.h \
+	encryption.cc \
+	encryption.h \
 	file.cc \
 	file.h \
 	metadata.cc \

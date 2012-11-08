@@ -33,10 +33,10 @@
 #include "base/logger.h"
 #include "base/version.h"
 #include "base/xml.h"
-#include "crypto/keys.h"
 #include "fs/cache.h"
 #include "fs/directory.h"
 #include "fs/encrypted_file.h"
+#include "fs/encryption.h"
 #include "fs/file.h"
 #include "fs/symlink.h"
 #include "services/service.h"
@@ -49,10 +49,10 @@ using std::vector;
 using s3::base::config;
 using s3::base::logger;
 using s3::base::xml;
-using s3::crypto::keys;
 using s3::fs::cache;
 using s3::fs::directory;
 using s3::fs::encrypted_file;
+using s3::fs::encryption;
 using s3::fs::file;
 using s3::fs::object;
 using s3::fs::symlink;
@@ -613,20 +613,16 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
 void * init(fuse_conn_info *info)
 {
   try {
+    // TODO: move this into main()?
     logger::init(s_opts.verbosity);
     config::init(s_opts.config);
     service::init(config::get_service());
     xml::init(service::get_xml_namespace());
     pool::init();
     cache::init();
+    encryption::init();
 
     file::test_transfer_chunk_sizes();
-
-    if (!config::get_volume_key().empty())
-      keys::init(config::get_volume_key());
-    else
-      if (config::get_encrypt_new_files())
-        throw runtime_error("cannot encrypt new files without a volume key!");
 
     if (info->capable & FUSE_CAP_ATOMIC_O_TRUNC) {
       info->want |= FUSE_CAP_ATOMIC_O_TRUNC;

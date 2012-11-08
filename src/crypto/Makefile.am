@@ -21,8 +21,6 @@ libs3fuse_crypto_a_SOURCES = \
 	hex_with_quotes.h \
 	hmac_sha1.cc \
 	hmac_sha1.h \
-	keys.cc \
-	keys.h \
 	md5.cc \
 	md5.h \
 	passwords.cc \
