@@ -1,5 +1,5 @@
 #ifdef __APPLE__
-  #include <CommonCrypto/CommonKeyDerivation.h>
+  #include <CommonCrypto/CommonCrypto.h>
 #else
   #include <openssl/evp.h>
 #endif
