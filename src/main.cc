@@ -612,39 +612,17 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
 
 void * init(fuse_conn_info *info)
 {
-  try {
-    // TODO: move this into main()?
-    logger::init(s_opts.verbosity);
-    config::init(s_opts.config);
-    service::init(config::get_service());
-    xml::init(service::get_xml_namespace());
-    pool::init();
-    cache::init();
-    encryption::init();
-
-    file::test_transfer_chunk_sizes();
-
-    if (info->capable & FUSE_CAP_ATOMIC_O_TRUNC) {
-      info->want |= FUSE_CAP_ATOMIC_O_TRUNC;
-      S3_LOG(LOG_DEBUG, "init", "enabling FUSE_CAP_ATOMIC_O_TRUNC\n");
-    } else {
-      S3_LOG(LOG_WARNING, "init", "FUSE_CAP_ATOMIC_O_TRUNC not supported, will revert to truncate-then-open\n");
-    }
-
-    return NULL;
-
-  } catch (const std::exception &e) {
-    S3_LOG(LOG_ERR, "init", "caught exception while initializing: %s\n", e.what());
-
-  } catch (...) {
-    S3_LOG(LOG_ERR, "init", "caught unknown exception while initializing.\n");
+  if (info->capable & FUSE_CAP_ATOMIC_O_TRUNC) {
+    info->want |= FUSE_CAP_ATOMIC_O_TRUNC;
+    S3_LOG(LOG_DEBUG, "init", "enabling FUSE_CAP_ATOMIC_O_TRUNC\n");
+  } else {
+    S3_LOG(LOG_WARNING, "init", "FUSE_CAP_ATOMIC_O_TRUNC not supported, will revert to truncate-then-open\n");
   }
 
-  fuse_exit(fuse_get_context()->fuse);
   return NULL;
 }
 
-void build_ops(fuse_operations *ops)
+void build_operations(fuse_operations *ops)
 {
   memset(ops, 0, sizeof(*ops));
 
@@ -677,11 +655,8 @@ void build_ops(fuse_operations *ops)
   ops->write = s3fuse_write;
 }
 
-int main(int argc, char **argv)
+void build_options(int argc, char **argv, fuse_args *args)
 {
-  int r;
-  fuse_operations ops;
-  fuse_args args = FUSE_ARGS_INIT(argc, argv);
   struct stat mp_stat;
 
   s_opts.verbosity = LOG_WARNING;
@@ -692,16 +667,16 @@ int main(int argc, char **argv)
     s_opts.noappledouble_set = false;
   #endif
 
-  fuse_opt_parse(&args, NULL, NULL, process_argument);
+  fuse_opt_parse(args, NULL, NULL, process_argument);
 
   if (s_opts.mountpoint.empty()) {
     print_usage(s_opts.arg0);
-    return 1;
+    exit(1);
   }
 
   if (stat(s_opts.mountpoint.c_str(), &mp_stat)) {
     fprintf(stderr, "Failed to stat mount point.\n");
-    return 1;
+    exit(1);
   }
 
   s_opts.mountpoint_mode = S_IFDIR | mp_stat.st_mode;
@@ -714,8 +689,37 @@ int main(int argc, char **argv)
     if (!s_opts.noappledouble_set)
       fprintf(stderr, "You are *strongly* advised to pass \"-o noappledouble\" to disable the creation/checking/etc. of .DS_Store files.\n");
   #endif
+}
 
-  build_ops(&ops);
+int main(int argc, char **argv)
+{
+  int r;
+  fuse_operations ops;
+  fuse_args args = FUSE_ARGS_INIT(argc, argv);
+
+  build_options(argc, argv, &args);
+
+  try {
+    logger::init(s_opts.verbosity);
+    config::init(s_opts.config);
+    service::init(config::get_service());
+    xml::init(service::get_xml_namespace());
+    pool::init();
+    cache::init();
+    encryption::init();
+
+    file::test_transfer_chunk_sizes();
+
+  } catch (const std::exception &e) {
+    S3_LOG(LOG_ERR, "init", "caught exception while initializing: %s\n", e.what());
+    return 1;
+
+  } catch (...) {
+    S3_LOG(LOG_ERR, "init", "caught unknown exception while initializing.\n");
+    return 1;
+  }
+
+  build_operations(&ops);
 
   r = fuse_main(args.argc, args.argv, &ops, NULL);
 
