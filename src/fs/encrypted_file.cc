@@ -73,10 +73,14 @@ void encrypted_file::init(const request::ptr &req)
 
     _meta_key = symmetric_key::create(encryption::get_volume_key(), buffer::from_string(_enc_iv));
 
-    meta = cipher::decrypt<aes_cbc_256, hex>(_meta_key, _enc_meta);
+    try {
+      meta = cipher::decrypt<aes_cbc_256, hex>(_meta_key, _enc_meta);
+    } catch (...) {
+      throw runtime_error("failed to decrypt file metadata. this probably means the volume key is invalid.");
+    }
 
     if (meta.substr(0, META_VERIFIER.size()) != META_VERIFIER)
-      throw runtime_error("failed to decrypt file metadata. this probably means the volume key is invalid.");
+      throw runtime_error("file metadata not valid. this probably means the volume key is invalid.");
 
     meta = meta.substr(META_VERIFIER.size());
     pos = meta.find('#');
