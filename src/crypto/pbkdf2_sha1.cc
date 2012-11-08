@@ -32,6 +32,9 @@ buffer::ptr pbkdf2_sha1::derive(const string &password, const string &salt, int 
       rounds,
       &key[0],
       key_len);
+
+    if (r != kCCSuccess)
+      throw runtime_error("failed to derive key");
   #else
     r = PKCS5_PBKDF2_HMAC_SHA1(
       password.c_str(),
@@ -41,10 +44,10 @@ buffer::ptr pbkdf2_sha1::derive(const string &password, const string &salt, int 
       rounds,
       key_len,
       &key[0]);
-  #endif
 
-  if (r)
-    throw runtime_error("failed to derive key");
+    if (r != 1)
+      throw runtime_error("failed to derive key");
+  #endif
 
   return buffer::from_bytes(key);
 }
