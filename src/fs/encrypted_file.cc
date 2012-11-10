@@ -61,16 +61,30 @@ void encrypted_file::init(const request::ptr &req)
 
   file::init(req);
 
+  if (!is_intact()) {
+    S3_LOG(
+      LOG_DEBUG,
+      "encrypted_file::init",
+      "file [%s] is not intact",
+      get_path().c_str());
+
+    return;
+  }
+
   _enc_iv = req->get_response_header(meta_prefix + metadata::ENC_IV);
   _enc_meta = req->get_response_header(meta_prefix + metadata::ENC_METADATA);
 
+  if (_enc_iv.empty() || _enc_meta.empty()) {
+    S3_LOG(
+      LOG_DEBUG,
+      "encrypted_file::init",
+      "file [%s] has no IV/metadata",
+      get_path().c_str());
+
+    return;
+  }
+
   try {
-    if (!is_intact())
-      throw runtime_error("encrypted file not intact!");
-
-    if (_enc_iv.empty() || _enc_meta.empty())
-      throw runtime_error("no IV or metadata");
-
     _meta_key = symmetric_key::create(encryption::get_volume_key(), buffer::from_string(_enc_iv));
 
     try {
@@ -103,7 +117,7 @@ void encrypted_file::init(const request::ptr &req)
     _meta_key.reset();
     _data_key.reset();
 
-  } catch (...) {
+  } catch (...) { // TODO: reconsider catching (...)?
     S3_LOG(
       LOG_WARNING,
       "encrypted_file::init",
