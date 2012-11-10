@@ -20,6 +20,7 @@
  */
 
 #include <string.h>
+#include <unistd.h>
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
 #include <openssl/evp.h>
