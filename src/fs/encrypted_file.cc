@@ -65,7 +65,7 @@ void encrypted_file::init(const request::ptr &req)
     S3_LOG(
       LOG_DEBUG,
       "encrypted_file::init",
-      "file [%s] is not intact",
+      "file [%s] is not intact\n",
       get_path().c_str());
 
     return;
@@ -78,7 +78,7 @@ void encrypted_file::init(const request::ptr &req)
     S3_LOG(
       LOG_DEBUG,
       "encrypted_file::init",
-      "file [%s] has no IV/metadata",
+      "file [%s] has no IV/metadata\n",
       get_path().c_str());
 
     return;
