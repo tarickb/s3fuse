@@ -116,16 +116,6 @@ void encrypted_file::init(const request::ptr &req)
 
     _meta_key.reset();
     _data_key.reset();
-
-  } catch (...) { // TODO: reconsider catching (...)?
-    S3_LOG(
-      LOG_WARNING,
-      "encrypted_file::init",
-      "caught unknown exception while initializing [%s]\n",
-      get_path().c_str());
-
-    _meta_key.reset();
-    _data_key.reset();
   }
 
   // by not throwing an exception when something goes wrong here, we leave a

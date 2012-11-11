@@ -713,10 +713,6 @@ int main(int argc, char **argv)
   } catch (const std::exception &e) {
     S3_LOG(LOG_ERR, "init", "caught exception while initializing: %s\n", e.what());
     return 1;
-
-  } catch (...) {
-    S3_LOG(LOG_ERR, "init", "caught unknown exception while initializing.\n");
-    return 1;
   }
 
   build_operations(&ops);

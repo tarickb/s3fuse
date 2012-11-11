@@ -71,9 +71,6 @@ xml::document xml::parse(const string &data)
 
   } catch (const std::exception &e) {
     S3_LOG(LOG_WARNING, "xml::parse", "caught exception: %s\n", e.what());
-
-  } catch (...) {
-    S3_LOG(LOG_WARNING, "xml::parse", "caught unknown exception.");
   }
 
   return document();
@@ -103,9 +100,6 @@ int xml::find(const xml::document &doc, const char *xpath, string *element)
 
   } catch (const std::exception &e) {
     S3_LOG(LOG_WARNING, "xml::find", "caught exception while finding [%s]: %s\n", xpath, e.what());
-
-  } catch (...) {
-    S3_LOG(LOG_WARNING, "xml::find", "caught unknown exception while finding [%s].\n", xpath);
   }
 
   return -EIO;
@@ -132,9 +126,6 @@ int xml::find(const xml::document &doc, const char *xpath, xml::element_list *li
 
   } catch (const std::exception &e) {
     S3_LOG(LOG_WARNING, "xml::find", "caught exception while finding [%s]: %s\n", xpath, e.what());
-
-  } catch (...) {
-    S3_LOG(LOG_WARNING, "xml::find", "caught unknown exception while finding [%s].\n", xpath);
   }
 
   return -EIO;
