@@ -204,7 +204,7 @@ int encrypted_file::write_chunk(const char *buffer, size_t size, off_t offset)
     return 0;
 
   if (!_data_key)
-    return -EIO;
+    return -EACCES;
 
   aes_ctr_256::create_with_byte_offset(_data_key, offset)->decrypt(
     reinterpret_cast<const uint8_t *>(buffer), 
