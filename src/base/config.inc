@@ -28,9 +28,9 @@ CONFIG(std::string, aws_service_endpoint, "s3.amazonaws.com"); // service endpoi
 
 CONFIG(std::string, xattr_prefix, ""); // if set, prefixes all extended attributes (may have to be set to "user." for compatibility with getfattr)
 
-CONFIG(bool, encrypt_new_files, false); // if set, all newly-created files will be encrypted
-CONFIG(std::string, volume_key_file, ""); // name of file containing hex-encoded volume key
-CONFIG(bool, prompt_for_volume_password, false); // if set, prompt for volume password and derive key from that
+CONFIG(bool, use_encryption, false); // if set, encryption/decryption support will be enabled
+CONFIG(bool, encrypt_new_files, true); // if set, all newly-created files will be encrypted
+CONFIG(std::string, volume_key_file, ""); // name of file containing hex-encoded volume key. if blank, read from stdin.
 
 CONFIG_REQUIRED(std::string, service, ""); // service -- must be "aws" or "google-storage"
 CONFIG_REQUIRED(std::string, auth_data, ""); // service-specific authentication details (see documentation)

@@ -59,18 +59,18 @@ namespace
 
 void encryption::init()
 {
+  if (!config::get_use_encryption())
+    return;
+
   if (!config::get_volume_key_file().empty())
     s_volume_key = init_from_file(config::get_volume_key_file());
-  else if (config::get_prompt_for_volume_password())
+  else
     s_volume_key = init_from_password();
-  else if (config::get_encrypt_new_files())
-    throw runtime_error("cannot encrypt new files without a volume key or without prompting for a password!");
 
   S3_LOG(
     LOG_DEBUG,
     "encryption::init",
-    "volume key: [%s]\n",
-    (s_volume_key ? s_volume_key->to_string().c_str() : "(not set)"));
+    "encryption enabled\n");
 }
 
 buffer::ptr encryption::get_volume_key()
