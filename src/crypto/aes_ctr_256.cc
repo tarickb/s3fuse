@@ -13,7 +13,6 @@ aes_ctr_256::aes_ctr_256(const symmetric_key::ptr &key, uint64_t starting_block)
   if (key->get_iv()->size() != IV_LEN)
     throw runtime_error("iv length is not valid for aes_ctr_256");
 
-  // TODO: fail on big-endian systems
   starting_block = __builtin_bswap64(starting_block);
 
   #ifdef __APPLE__

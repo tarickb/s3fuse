@@ -630,6 +630,9 @@ void build_operations(fuse_operations *ops)
 
   ops->flag_nullpath_ok = 1;
 
+  // not an actual FS operation
+  ops->init = init;
+
   ops->chmod = s3fuse_chmod;
   ops->chown = s3fuse_chown;
   ops->create = s3fuse_create;
@@ -637,7 +640,6 @@ void build_operations(fuse_operations *ops)
   ops->getxattr = s3fuse_getxattr;
   ops->flush = s3fuse_flush;
   ops->ftruncate = s3fuse_ftruncate;
-  ops->init = init;
   ops->listxattr = s3fuse_listxattr;
   ops->mkdir = s3fuse_mkdir;
   ops->open = s3fuse_open;

@@ -18,6 +18,7 @@ namespace s3
   {
     class symmetric_key;
 
+    // TODO: move starting block parameter (or offset) to encrypt method so that only one cipher is created.. maybe?
     class aes_ctr_256
     {
     public:
