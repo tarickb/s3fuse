@@ -10,6 +10,7 @@ libs3fuse_base_a_SOURCES = \
 	config.inc \
 	logger.cc \
 	logger.h \
+	lru_cache_map.h \
 	request.cc \
 	request.h \
 	ssl_locks.cc \
