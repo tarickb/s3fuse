@@ -109,11 +109,11 @@ file::~file()
 {
 }
 
-bool file::is_expired()
+bool file::is_removable()
 {
   mutex::scoped_lock lock(_fs_mutex);
 
-  return _ref_count == 0 && object::is_expired();
+  return _ref_count == 0 && object::is_removable();
 }
 
 void file::init(const request::ptr &req)

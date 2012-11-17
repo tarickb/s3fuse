@@ -60,7 +60,9 @@ namespace s3
       virtual ~object();
 
       inline bool is_intact() const { return (_etag == _last_update_etag); }
-      virtual bool is_expired();
+      inline bool is_expired() const { return (_expiry == 0 || time(NULL) >= _expiry); }
+
+      virtual bool is_removable();
 
       inline const std::string & get_path() const { return _path; }
       inline const std::string & get_content_type() const { return _content_type; }

@@ -37,7 +37,7 @@ namespace s3
         return boost::static_pointer_cast<file>(object::shared_from_this());
       }
 
-      virtual bool is_expired();
+      virtual bool is_removable();
 
       int release();
       int flush();

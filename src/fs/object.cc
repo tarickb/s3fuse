@@ -131,9 +131,9 @@ object::~object()
 {
 }
 
-bool object::is_expired()
+bool object::is_removable()
 {
-  return (_expiry == 0 || time(NULL) >= _expiry); 
+  return true;
 }
 
 void object::copy_stat(struct stat *s)
