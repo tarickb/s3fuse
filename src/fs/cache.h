@@ -117,7 +117,7 @@ namespace s3
     private:
       inline static bool is_object_removable(const object::ptr &obj)
       {
-        return obj->is_removable();
+        return !obj || obj->is_removable();
       }
 
       inline static object::ptr find(const std::string &path)

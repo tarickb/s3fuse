@@ -43,7 +43,7 @@ void cache::init()
   s_misses = 0;
   s_expiries = 0;
 
-  s_cache_map.reset(new cache_map(config::get_max_num_objects_in_cache()));
+  s_cache_map.reset(new cache_map(config::get_max_objects_in_cache()));
 }
 
 void cache::print_summary()
@@ -56,7 +56,8 @@ void cache::print_summary()
   S3_LOG(
     LOG_DEBUG,
     "cache::print_summary", 
-    "hits: %" PRIu64 " (%.02f%%), misses: %" PRIu64 " (%.02f%%), expiries: %" PRIu64 " (%.02f%%)\n", 
+    "size: %zu, hits: %" PRIu64 " (%.02f%%), misses: %" PRIu64 " (%.02f%%), expiries: %" PRIu64 " (%.02f%%)\n", 
+    s_cache_map->get_size(),
     s_hits,
     double(s_hits) / double(total) * 100.0,
     s_misses,
