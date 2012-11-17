@@ -2,6 +2,7 @@
 #define S3_BASE_LRU_CACHE_MAP_H
 
 #include <map>
+#include <boost/function.hpp>
 
 namespace s3
 {
@@ -19,7 +20,7 @@ namespace s3
     class lru_cache_map
     {
     public:
-      typedef void (*itor_callback_fn)(const key_type &key, const value_type &value);
+      typedef boost::function2<void, const key_type &, const value_type &> itor_callback_fn;
 
       inline lru_cache_map(size_t max_size)
         : _max_size(max_size),
@@ -28,13 +29,25 @@ namespace s3
       {
       }
 
+      inline bool find(const key_type &key, value_type *value)
+      {
+        entry *e = find_and_update(key);
+
+        if (!e)
+          return false;
+
+        *value = e->value;
+
+        return true;
+      }
+
       inline value_type & operator [](const key_type &key)
       {
-        entry *e = &_map[key];
+        entry *e = find_and_update(key);
 
-        if (e->valid) {
-          unlink(e);
-        } else {
+        if (!e) {
+          e = &_map[key];
+
           e->key = key;
           e->valid = true;
 
@@ -44,9 +57,9 @@ namespace s3
             if (to_remove)
               erase(to_remove->key);
           }
-        }
 
-        make_newest(e);
+          make_newest(e);
+        }
 
         return e->value;
       }
@@ -65,7 +78,7 @@ namespace s3
         _map.erase(itor);
       }
 
-      inline void for_each_newest(itor_callback_fn cb) const
+      inline void for_each_newest(const itor_callback_fn &cb) const
       {
         entry *e = _newest;
 
@@ -76,7 +89,7 @@ namespace s3
         }
       }
 
-      inline void for_each_oldest(itor_callback_fn cb) const
+      inline void for_each_oldest(const itor_callback_fn &cb) const
       {
         entry *e = _oldest;
 
@@ -145,6 +158,22 @@ namespace s3
 
           e = e->newer;
         }
+
+        return e;
+      }
+
+      inline entry * find_and_update(const key_type &key)
+      {
+        typename map::iterator itor = _map.find(key);
+        entry *e = NULL;
+
+        if (itor == _map.end())
+          return NULL;
+
+        e = &itor->second;
+
+        unlink(e);
+        make_newest(e);
 
         return e;
       }
