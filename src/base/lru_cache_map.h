@@ -88,6 +88,11 @@ namespace s3
         }
       }
 
+      inline size_t get_size()
+      {
+        return _map.size();
+      }
+
     private:
       struct entry
       {
