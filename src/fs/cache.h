@@ -22,12 +22,12 @@
 #ifndef S3_FS_CACHE_H
 #define S3_FS_CACHE_H
 
-#include <map>
 #include <string>
 #include <boost/smart_ptr.hpp>
 #include <boost/thread.hpp>
 
 #include "base/logger.h"
+#include "base/lru_cache_map.h"
 #include "fs/object.h"
 #include "threads/pool.h"
 
@@ -81,7 +81,7 @@ namespace s3
       {
         boost::mutex::scoped_lock lock(s_mutex);
 
-        s_cache_map.erase(path);
+        s_cache_map->erase(path);
       }
 
       // this method is intended to ensure that fn() is called on the one and
@@ -109,23 +109,26 @@ namespace s3
         // pointer, which fn() has to check for anyway.
 
         lock.lock();
-        obj = s_cache_map[path];
+        obj = (*s_cache_map)[path];
 
         fn(obj);
       }
 
     private:
-      typedef std::map<std::string, object::ptr> cache_map;
+      inline static bool is_object_removable(const object::ptr &obj)
+      {
+        return obj->is_removable();
+      }
 
       inline static object::ptr find(const std::string &path)
       {
         boost::mutex::scoped_lock lock(s_mutex);
-        object::ptr &obj = s_cache_map[path];
+        object::ptr &obj = (*s_cache_map)[path];
 
         if (!obj) {
           s_misses++;
 
-        } else if (obj->is_expired()) {
+        } else if (obj->is_expired() && obj->is_removable()) {
           s_expiries++;
           obj.reset();
 
@@ -138,10 +141,10 @@ namespace s3
 
       static int fetch(const boost::shared_ptr<base::request> &req, const std::string &path, int hints, object::ptr *obj);
 
-      // TODO: prune periodically?
+      typedef base::lru_cache_map<std::string, object::ptr, is_object_removable> cache_map;
 
       static boost::mutex s_mutex;
-      static cache_map s_cache_map;
+      static boost::scoped_ptr<cache_map> s_cache_map;
       static uint64_t s_hits, s_misses, s_expiries;
     };
   }

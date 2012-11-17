@@ -19,19 +19,22 @@
  * limitations under the License.
  */
 
+#include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
 #include "fs/cache.h"
 #include "fs/directory.h"
 
 using boost::mutex;
+using boost::scoped_ptr;
 using std::string;
 
+using s3::base::config;
 using s3::base::request;
 using s3::fs::cache;
 
 boost::mutex cache::s_mutex;
-cache::cache_map cache::s_cache_map;
+scoped_ptr<cache::cache_map> cache::s_cache_map;
 uint64_t cache::s_hits, cache::s_misses, cache::s_expiries;
 
 void cache::init()
@@ -39,6 +42,8 @@ void cache::init()
   s_hits = 0;
   s_misses = 0;
   s_expiries = 0;
+
+  s_cache_map.reset(new cache_map(config::get_max_num_objects_in_cache()));
 }
 
 void cache::print_summary()
@@ -85,7 +90,7 @@ int cache::fetch(const request::ptr &req, const string &path, int hints, object:
 
   {
     mutex::scoped_lock lock(s_mutex);
-    object::ptr &map_obj = s_cache_map[path];
+    object::ptr &map_obj = (*s_cache_map)[path];
 
     if (map_obj) {
       // if the object is already in the map, don't overwrite it
