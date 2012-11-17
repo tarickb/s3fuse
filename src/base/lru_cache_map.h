@@ -29,25 +29,13 @@ namespace s3
       {
       }
 
-      inline bool find(const key_type &key, value_type *value)
-      {
-        entry *e = find_and_update(key);
-
-        if (!e)
-          return false;
-
-        *value = e->value;
-
-        return true;
-      }
-
       inline value_type & operator [](const key_type &key)
       {
-        entry *e = find_and_update(key);
+        entry *e = &_map[key];
 
-        if (!e) {
-          e = &_map[key];
-
+        if (e->valid) {
+          unlink(e);
+        } else {
           e->key = key;
           e->valid = true;
 
@@ -57,9 +45,9 @@ namespace s3
             if (to_remove)
               erase(to_remove->key);
           }
-
-          make_newest(e);
         }
+
+        make_newest(e);
 
         return e->value;
       }
@@ -158,22 +146,6 @@ namespace s3
 
           e = e->newer;
         }
-
-        return e;
-      }
-
-      inline entry * find_and_update(const key_type &key)
-      {
-        typename map::iterator itor = _map.find(key);
-        entry *e = NULL;
-
-        if (itor == _map.end())
-          return NULL;
-
-        e = &itor->second;
-
-        unlink(e);
-        make_newest(e);
 
         return e;
       }
