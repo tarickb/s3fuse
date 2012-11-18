@@ -480,8 +480,10 @@ int file::download_multi()
     parts_in_progress.pop_front();
     part_r = part->handle->wait();
 
-    if (part_r == -EAGAIN || part_r == -ETIMEDOUT) {
+    if (part_r)
       S3_LOG(LOG_DEBUG, "file::download_multi", "part %i returned status %i for [%s].\n", part->id, part_r, get_url().c_str());
+
+    if (part_r == -EAGAIN || part_r == -ETIMEDOUT) {
       part->retry_count++;
 
       if (part->retry_count > config::get_max_transfer_retries()) {
