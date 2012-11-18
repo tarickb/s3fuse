@@ -261,9 +261,9 @@ int directory::rename(const request::ptr &req, const string &to_)
       const char *relative_path_cs = full_path_cs + from_len;
       string new_name = to + relative_path_cs;
 
-      cache::remove(*oper.old_name);
-
       oper.old_name.reset(new string(full_path_cs));
+
+      cache::remove(*oper.old_name);
       oper.handle = pool::post(threads::PR_REQ_1, bind(&object::copy_by_path, _1, *oper.old_name, new_name));
 
       pending_renames.push_back(oper);
