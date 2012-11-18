@@ -227,6 +227,9 @@ int file::flush()
   while (_status & (FS_DOWNLOADING | FS_UPLOADING | FS_WRITING))
     _condition.wait(lock);
 
+  if (_async_error)
+    return _async_error;
+
   if (!(_status & FS_DIRTY)) {
     S3_LOG(LOG_DEBUG, "file::flush", "skipping flush for non-dirty file [%s].\n", get_path().c_str());
     return 0;
