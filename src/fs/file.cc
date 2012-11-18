@@ -531,8 +531,10 @@ int file::download_part(const request::ptr &req, const transfer_part *part)
     return -EAGAIN; // temporary failure
   else if (rc != base::HTTP_SC_PARTIAL_CONTENT)
     return -EIO;
+  else if (req->get_output_buffer().size() < part->size)
+    return -EIO;
 
-  return write_chunk(&req->get_output_buffer()[0], req->get_output_buffer().size(), part->offset);
+  return write_chunk(&req->get_output_buffer()[0], part->size, part->offset);
 }
 
 int file::upload(const request::ptr & /* ignored */)
