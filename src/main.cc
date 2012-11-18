@@ -27,6 +27,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <limits>
 #include <string>
 
 #include "base/config.h"
@@ -42,6 +43,7 @@
 #include "services/service.h"
 
 using boost::static_pointer_cast;
+using std::numeric_limits;
 using std::runtime_error;
 using std::string;
 using std::vector;
@@ -472,6 +474,21 @@ int s3fuse_setxattr(const char *path, const char *name, const char *value, size_
   END_TRY;
 }
 
+int s3fuse_statfs(const char * /* ignored */, struct statvfs *s)
+{
+  s->f_namemax = 1024; // arbitrary
+
+  s->f_bsize = object::get_block_size();
+
+  s->f_blocks = numeric_limits<typeof(s->f_blocks)>::max();
+  s->f_bfree = numeric_limits<typeof(s->f_bfree)>::max();
+  s->f_bavail = numeric_limits<typeof(s->f_bavail)>::max();
+  s->f_files = numeric_limits<typeof(s->f_files)>::max();
+  s->f_ffree = numeric_limits<typeof(s->f_ffree)>::max();
+
+  return 0;
+}
+
 int s3fuse_symlink(const char *target, const char *path)
 {
   const fuse_context *ctx = fuse_get_context();
@@ -651,6 +668,7 @@ void build_operations(fuse_operations *ops)
   ops->rename = s3fuse_rename;
   ops->rmdir = s3fuse_unlink;
   ops->setxattr = s3fuse_setxattr;
+  ops->statfs = s3fuse_statfs;
   ops->symlink = s3fuse_symlink;
   ops->unlink = s3fuse_unlink;
   ops->utimens = s3fuse_utimens;
