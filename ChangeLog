@@ -1,13 +1,15 @@
 s3fuse (0.13) unstable; urgency=low
 
   * NEW: File encryption. See README.
-  * Switched to SHA256 for file integrity check. File hash, if available,
-    will be in the "s3fuse_sha256" extended attribute.
-  * Changed handling of last-modified times. Some timestamps may be
-    inaccurate (but will be correct when updated).
+  * NEW: Add least-recently-used eviction to object cache, controlled by the
+    max_objects_in_cache configuration option.
+  * Switched to SHA256 for file integrity check. File hash, if available, will 
+    be in the "s3fuse_sha256" extended attribute.
+  * Changed handling of last-modified times. Some timestamps may be inaccurate 
+    (but will be correct when updated).
   * Removed precache_on_readdir configuration option (and feature).
-  * Renamed built-in extended attributes "__content_type__" and "__etag__"
-    to "s3fuse_content_type" and "s3fuse_etag", respectively.
+  * Renamed built-in extended attributes "__content_type__" and "__etag__" to 
+    "s3fuse_content_type" and "s3fuse_etag", respectively.
   * Removed "__md5__" extended attribute.
   * Added note about daemon_timeout.
 
