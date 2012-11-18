@@ -55,6 +55,11 @@ namespace
   const int BLOCK_SIZE = 512;
 }
 
+int object::get_block_size()
+{
+  return BLOCK_SIZE;
+}
+
 string object::build_url(const string &path)
 {
   return service::get_bucket_url() + "/" + request::url_encode(path);

@@ -52,6 +52,7 @@ namespace s3
       typedef object * (*type_checker_fn)(const std::string &path, const boost::shared_ptr<base::request> &req);
       typedef base::static_list<type_checker_fn> type_checker_list;
 
+      static int get_block_size();
       static std::string build_url(const std::string &path);
       static ptr create(const std::string &path, const boost::shared_ptr<base::request> &req);
       static int remove_by_url(const boost::shared_ptr<base::request> &req, const std::string &url);
