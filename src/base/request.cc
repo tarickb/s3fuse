@@ -31,6 +31,7 @@
 #include "request.h"
 #include "ssl_locks.h"
 
+using std::min;
 using std::runtime_error;
 using std::string;
 
@@ -328,6 +329,8 @@ void request::internal_run(int timeout_in_s)
 {
   int r = CURLE_OK;
   curl_slist_wrapper headers;
+  double elapsed_time;
+  long response_code;
 
   _output_buffer.clear();
   _response_headers.clear();
@@ -338,8 +341,6 @@ void request::internal_run(int timeout_in_s)
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers.get()));
 
   for (int i = 0; i < config::get_max_transfer_retries(); i++) {
-    double elapsed_time;
-
     _timeout = time(NULL) + ((timeout_in_s == DEFAULT_REQUEST_TIMEOUT) ? config::get_request_timeout_in_s() : timeout_in_s);
     r = curl_easy_perform(_curl);
     _timeout = 0; // reset this here so that subsequent calls to check_timeout() don't fail
@@ -365,16 +366,22 @@ void request::internal_run(int timeout_in_s)
     }
 
     if (r == CURLE_OK) {
-      TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &elapsed_time));
+      TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &response_code));
 
-      // don't save the time for the first request since it's likely to be disproportionately large
-      if (_run_count > 0)
-        _total_run_time += elapsed_time;
+      // ugly hack to handle "RequestTimeout" error
+      if (response_code == HTTP_SC_BAD_REQUEST) {
+        char *err = NULL;
+       
+        err = strnstr(
+          &_output_buffer[0], 
+          "<Error><Code>RequestTimeout</Code>", 
+          min(static_cast<size_t>(100), _output_buffer.size()));
 
-      // but save it in _current_run_time since it's compared to overall function time (i.e., it's relative)
-      _current_run_time += elapsed_time;
-
-      _run_count++;
+        if (err) {
+          S3_LOG(LOG_WARNING, "request::run", "got timeout error from server. retrying.\n");
+          continue;
+        }
+      }
     }
 
     // break on CURLE_OK or some other error where we don't want to try the request again
@@ -384,10 +391,27 @@ void request::internal_run(int timeout_in_s)
   if (r != CURLE_OK)
     throw runtime_error(_curl_error);
 
-  TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code));
+  _response_code = response_code;
+
+  TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &elapsed_time));
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
 
+  // don't save the time for the first request since it's likely to be disproportionately large
+  if (_run_count > 0)
+    _total_run_time += elapsed_time;
+
+  // but save it in _current_run_time since it's compared to overall function time (i.e., it's relative)
+  _current_run_time += elapsed_time;
+
+  _run_count++;
+
   if (_response_code >= HTTP_SC_MULTIPLE_CHOICES && _response_code != HTTP_SC_NOT_FOUND)
-    S3_LOG(LOG_WARNING, "request::run", "request for [%s] failed with code %i and response: %s\n", _url.c_str(), _response_code, &_output_buffer[0]);
+    S3_LOG(
+      LOG_WARNING, 
+      "request::run", 
+      "request for [%s] failed with code %i and response: %s\n", 
+      _url.c_str(), 
+      _response_code, 
+      &_output_buffer[0]);
 }
 
