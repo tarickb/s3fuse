@@ -331,6 +331,9 @@ int object::commit(const request::ptr &req)
 
 int object::remove(const request::ptr &req)
 {
+  if (!is_removable())
+    return -EBUSY;
+
   cache::remove(get_path());
 
   return object::remove_by_url(req, _url);
@@ -338,7 +341,12 @@ int object::remove(const request::ptr &req)
 
 int object::rename(const request::ptr &req, const string &to)
 {
-  int r = object::copy_by_path(req, _path, to);
+  int r;
+
+  if (!is_removable())
+    return -EBUSY;
+ 
+  r = object::copy_by_path(req, _path, to);
 
   if (r)
     return r;
