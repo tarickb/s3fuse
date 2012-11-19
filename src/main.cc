@@ -187,7 +187,7 @@ int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
 
     directory::invalidate_parent(path);
 
-    if (config::get_encrypt_new_files())
+    if (config::get_use_encryption() && config::get_encrypt_new_files())
       f.reset(new encrypted_file(path));
     else
       f.reset(new file(path));
