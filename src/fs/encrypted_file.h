@@ -38,8 +38,7 @@ namespace s3
 
       virtual void set_request_headers(const boost::shared_ptr<base::request> &req);
 
-      virtual int prepare_download();
-      virtual int finalize_download();
+      virtual int is_downloadable();
 
       virtual int prepare_upload();
       virtual int finalize_upload(const std::string &returned_etag);

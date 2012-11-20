@@ -135,14 +135,19 @@ void encrypted_file::set_request_headers(const request::ptr &req)
   req->set_header(meta_prefix + metadata::ENC_METADATA, _enc_meta);
 }
 
-int encrypted_file::prepare_download()
+int encrypted_file::is_downloadable()
 {
-  return file::prepare_download();
-}
+  if (!_data_key) {
+    S3_LOG(
+      LOG_DEBUG, 
+      "encrypted_file::is_downloadable", 
+      "cannot open [%s] without key\n", 
+      get_path().c_str());
 
-int encrypted_file::finalize_download()
-{
-  return file::finalize_download();
+    return -EACCES;
+  }
+
+  return 0;
 }
 
 int encrypted_file::prepare_upload()
@@ -196,15 +201,6 @@ int encrypted_file::read_chunk(size_t size, off_t offset, vector<char> *buffer)
 int encrypted_file::write_chunk(const char *buffer, size_t size, off_t offset)
 {
   vector<char> temp(size);
-
-  // test this here rather than in prepare_download() so that we only fail
-  // if we're asked to decrypt non-empty files.
-
-  if (size == 0)
-    return 0;
-
-  if (!_data_key)
-    return -EACCES;
 
   aes_ctr_256::create_with_byte_offset(_data_key, offset)->decrypt(
     reinterpret_cast<const uint8_t *>(buffer), 
