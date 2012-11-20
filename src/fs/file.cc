@@ -45,8 +45,8 @@ using s3::threads::pool;
 namespace
 {
   const size_t MAX_PARTS_IN_PROGRESS = 4;
-  const char *ETAG_XPATH = "/s3:CompleteMultipartUploadResult/s3:ETag";
-  const char *UPLOAD_ID_XPATH = "/s3:InitiateMultipartUploadResult/s3:UploadId";
+  const char *MULTIPART_ETAG_XPATH = "/s3:CompleteMultipartUploadResult/s3:ETag";
+  const char *MULTIPART_UPLOAD_ID_XPATH = "/s3:InitiateMultipartUploadResult/s3:UploadId";
 
   object * checker(const string &path, const request::ptr &req)
   {
@@ -162,6 +162,11 @@ void file::on_download_complete(int ret)
   _condition.notify_all();
 }
 
+int file::is_downloadable()
+{
+  return 0;
+}
+
 int file::open(file_open_mode mode, uint64_t *handle)
 {
   mutex::scoped_lock lock(_fs_mutex);
@@ -181,12 +186,21 @@ int file::open(file_open_mode mode, uint64_t *handle)
       if (ftruncate(_fd, get_stat()->st_size) != 0)
         return -errno;
 
-      _status = FS_DOWNLOADING;
+      if (get_transfer_size() > 0) {
+        int r;
 
-      pool::post(
-        threads::PR_0,
-        bind(&file::download, shared_from_this(), _1),
-        bind(&file::on_download_complete, shared_from_this(), _1));
+        r = is_downloadable();
+
+        if (r)
+          return r;
+
+        _status = FS_DOWNLOADING;
+
+        pool::post(
+          threads::PR_0,
+          bind(&file::download, shared_from_this(), _1),
+          bind(&file::on_download_complete, shared_from_this(), _1));
+      }
     }
   }
 
@@ -646,7 +660,7 @@ int file::upload_multi_init(const request::ptr &req, string *upload_id)
     return -EIO;
   }
 
-  if ((r = xml::find(doc, UPLOAD_ID_XPATH, upload_id)))
+  if ((r = xml::find(doc, MULTIPART_UPLOAD_ID_XPATH, upload_id)))
     return r;
 
   if (upload_id->empty())
@@ -693,7 +707,7 @@ int file::upload_multi_complete(const request::ptr &req, const string &upload_id
     return -EIO;
   }
 
-  if ((r = xml::find(doc, ETAG_XPATH, etag)))
+  if ((r = xml::find(doc, MULTIPART_ETAG_XPATH, etag)))
     return r;
 
   if (etag->empty()) {

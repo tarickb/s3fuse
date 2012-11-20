@@ -47,10 +47,10 @@ namespace s3
 
       virtual void copy_stat(struct stat *s);
 
-      virtual void set_request_headers(const boost::shared_ptr<base::request> &req);
-
     protected:
       virtual void init(const boost::shared_ptr<base::request> &req);
+
+      virtual int is_downloadable();
 
       virtual int write_chunk(const char *buffer, size_t size, off_t offset);
       virtual int read_chunk(size_t size, off_t offset, std::vector<char> *buffer);
@@ -60,6 +60,8 @@ namespace s3
 
       virtual int prepare_upload();
       virtual int finalize_upload(const std::string &returned_etag);
+
+      virtual void set_request_headers(const boost::shared_ptr<base::request> &req);
 
       inline const std::string & get_sha256_hash() { return _sha256_hash; }
 
