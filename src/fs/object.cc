@@ -25,6 +25,7 @@
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
+#include "base/xml.h"
 #include "fs/cache.h"
 #include "fs/metadata.h"
 #include "fs/object.h"
@@ -47,12 +48,14 @@ using std::vector;
 using s3::base::config;
 using s3::base::header_map;
 using s3::base::request;
+using s3::base::xml;
 using s3::fs::object;
 using s3::services::service;
 
 namespace
 {
   const int BLOCK_SIZE = 512;
+  const char *COMMIT_ETAG_XPATH = "/s3:CopyObjectResult/s3:ETag";
 }
 
 int object::get_block_size()
@@ -234,7 +237,8 @@ void object::init(const request::ptr &req)
 
   _content_type = req->get_response_header("Content-Type");
   _etag = req->get_response_header("ETag");
-  _last_update_etag = req->get_response_header(meta_prefix + metadata::LAST_UPDATE_ETAG);
+
+  _intact = (_etag == req->get_response_header(meta_prefix + metadata::LAST_UPDATE_ETAG));
 
   _stat.st_size = strtol(req->get_response_header("Content-Length").c_str(), NULL, 0);
   _stat.st_mode = (_stat.st_mode & S_IFMT) | (strtol(req->get_response_header(meta_prefix + metadata::MODE).c_str(), NULL, 0) & ~S_IFMT);
@@ -309,26 +313,69 @@ void object::set_request_body(const request::ptr &req)
 
 int object::commit(const request::ptr &req)
 {
-  req->init(base::HTTP_PUT);
-  req->set_url(_url);
+  // since the etag can change as a result of the copy, we need to run this
+  // at most twice so that the second pass will have an updated last-update
+  // etag
 
-  // if the object already exists (i.e., if we have an etag) then just update
-  // the metadata.
+  for (int i = 0; i < 2; i++) {
+    xml::document doc;
+    string response, new_etag;
+    int r;
 
-  if (!_etag.empty()) {
-    req->set_header(service::get_header_prefix() + "copy-source", _url);
-    req->set_header(service::get_header_prefix() + "copy-source-if-match", _etag);
-    req->set_header(service::get_header_prefix() + "metadata-directive", "REPLACE");
-  }
+    req->init(base::HTTP_PUT);
+    req->set_url(_url);
 
-  set_request_headers(req);
-  set_request_body(req);
+    // if the object already exists (i.e., if we have an etag) then just update
+    // the metadata.
 
-  req->run();
+    if (!_etag.empty()) {
+      req->set_header(service::get_header_prefix() + "copy-source", _url);
+      req->set_header(service::get_header_prefix() + "copy-source-if-match", _etag);
+      req->set_header(service::get_header_prefix() + "metadata-directive", "REPLACE");
+    }
 
-  if (req->get_response_code() != base::HTTP_SC_OK) {
-    S3_LOG(LOG_WARNING, "object::commit", "failed to commit object metadata for [%s].\n", _url.c_str());
-    return -EIO;
+    set_request_headers(req);
+    set_request_body(req);
+
+    req->run();
+
+    if (req->get_response_code() != base::HTTP_SC_OK) {
+      S3_LOG(LOG_WARNING, "object::commit", "failed to commit object metadata for [%s].\n", _url.c_str());
+      return -EIO;
+    }
+
+    response = req->get_output_string();
+
+    // an empty response means the etag hasn't changed
+    if (response.empty())
+      return 0;
+
+    // if we started out without an etag, then ignore anything we get here
+    if (_etag.empty())
+      return 0;
+
+    doc = xml::parse(response);
+
+    if (!doc) {
+      S3_LOG(LOG_WARNING, "object::commit", "failed to parse response.\n");
+      return -EIO;
+    }
+
+    if ((r = xml::find(doc, COMMIT_ETAG_XPATH, &new_etag)))
+      return r;
+
+    if (new_etag.empty()) {
+      S3_LOG(LOG_WARNING, "object::commit", "no etag after commit.\n");
+      return -EIO;
+    }
+
+    // if the etag hasn't changed, don't re-commit
+    if (new_etag == _etag)
+      return 0;
+
+    S3_LOG(LOG_WARNING, "object::commit", "commit resulted in new etag. recommitting.\n");
+
+    _etag = new_etag;
   }
 
   return 0;

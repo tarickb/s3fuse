@@ -60,7 +60,7 @@ namespace s3
 
       virtual ~object();
 
-      inline bool is_intact() const { return (_etag == _last_update_etag); }
+      inline bool is_intact() const { return _intact; }
       inline bool is_expired() const { return (_expiry == 0 || time(NULL) >= _expiry); }
 
       virtual bool is_removable();
@@ -134,9 +134,9 @@ namespace s3
 
       // should only be modified during init()
       std::string _path;
-      std::string _last_update_etag;
       std::string _content_type;
       std::string _url;
+      bool _intact;
 
       // unprotected
       std::string _etag;
