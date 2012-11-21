@@ -13,6 +13,8 @@ libs3fuse_base_a_SOURCES = \
 	lru_cache_map.h \
 	request.cc \
 	request.h \
+	statistics.cc \
+	statistics.h \
 	ssl_locks.cc \
 	ssl_locks.h \
 	timer.h \
