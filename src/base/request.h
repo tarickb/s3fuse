@@ -93,7 +93,7 @@ namespace s3
         return ret;
       }
 
-      request();
+      request(const std::string &tag = "");
       ~request();
 
       void init(http_method method);
@@ -158,8 +158,22 @@ namespace s3
 
       void internal_run(int timeout_in_s);
 
-      // review init() when making changes here
+      // not reset by init()
       CURL *_curl;
+
+      std::string _url_prefix;
+      signing_function _signing_function;
+
+      double _current_run_time, _total_run_time;
+      uint64_t _run_count;
+      uint64_t _total_bytes_transferred;
+
+      bool _canceled;
+      time_t _timeout;
+
+      std::string _tag;
+
+      // should be reset by init()
       char _curl_error[CURL_ERROR_SIZE];
 
       std::string _method;
@@ -168,24 +182,14 @@ namespace s3
 
       std::vector<char> _output_buffer;
 
-      const char *_input_buffer;
-      size_t _input_size;
-      std::string _input_string_copy;
-
       long _response_code;
       time_t _last_modified;
 
       header_map _headers; // assumptions: no duplicates, all header names are always lower-case
 
-      double _current_run_time, _total_run_time;
-      uint64_t _run_count;
-
-      bool _canceled;
-      time_t _timeout;
-
-      // not reset by init()
-      std::string _url_prefix;
-      signing_function _signing_function;
+      const char *_input_buffer;
+      size_t _input_size;
+      std::string _input_string_copy;
     };
   }
 }

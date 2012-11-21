@@ -30,12 +30,14 @@
 #include "logger.h"
 #include "request.h"
 #include "ssl_locks.h"
+#include "statistics.h"
 
 using std::min;
 using std::runtime_error;
 using std::string;
 
 using s3::base::request;
+using s3::base::statistics;
 
 #define TEST_OK(x) do { if ((x) != CURLE_OK) throw runtime_error("call to " #x " failed."); } while (0)
 
@@ -70,12 +72,14 @@ namespace
   };
 }
 
-request::request()
+request::request(const string &tag)
   : _current_run_time(0.0),
     _total_run_time(0.0),
     _run_count(0),
+    _total_bytes_transferred(0),
     _canceled(false),
-    _timeout(0)
+    _timeout(0),
+    _tag(tag)
 {
   _curl = curl_easy_init();
 
@@ -104,13 +108,23 @@ request::~request()
 {
   curl_easy_cleanup(_curl);
 
-  if (_run_count > 0)
-    S3_LOG(
-      LOG_DEBUG,
-      "request::~request", 
-      "served %" PRIu64 " requests at an average of %.02f ms per request.\n", 
-      _run_count,
-      (_run_count && _total_run_time > 0.0) ? (_total_run_time / double(_run_count) * 1000.0) : 0.0);
+  if (_run_count > 0) {
+    statistics::post(
+      "request_count",
+      _tag,
+      "requests: %" PRIu64 ", total_time: %.03f, average_per_request_ms: %.03f",
+      _run_count, 
+      _total_run_time,
+      static_cast<double>(_run_count) / _total_run_time * 1.0e3);
+
+    statistics::post(
+      "request_throughput",
+      _tag,
+      "bytes: %" PRIu64 ", total_time: %.03f, average_throughput_kbs: %.03f",
+      _total_bytes_transferred, 
+      _total_run_time,
+      static_cast<double>(_total_bytes_transferred) / _total_run_time * 1.0e-3);
+  }
 
   ssl_locks::release();
 }
@@ -331,14 +345,23 @@ void request::internal_run(int timeout_in_s)
   curl_slist_wrapper headers;
   double elapsed_time;
   long response_code;
-
+  uint64_t request_size = 0;
+ 
   _output_buffer.clear();
   _response_headers.clear();
 
-  for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor)
-    headers.append((itor->first + ": " + itor->second).c_str());
+  for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor) {
+    string header = itor->first + ": " + itor->second;
+
+    headers.append(header.c_str());
+    request_size += header.size();
+  }
 
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers.get()));
+
+  // we need _input_size before calling curl_easy_perform(), because the input-
+  // reading callbacks will wind _input_size down to zero as the input is read
+  request_size += _input_size;
 
   for (int i = 0; i < config::get_max_transfer_retries(); i++) {
     _timeout = time(NULL) + ((timeout_in_s == DEFAULT_REQUEST_TIMEOUT) ? config::get_request_timeout_in_s() : timeout_in_s);
@@ -397,8 +420,10 @@ void request::internal_run(int timeout_in_s)
   TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
 
   // don't save the time for the first request since it's likely to be disproportionately large
-  if (_run_count > 0)
+  if (_run_count > 0) {
     _total_run_time += elapsed_time;
+    _total_bytes_transferred += request_size + _output_buffer.size();
+  }
 
   // but save it in _current_run_time since it's compared to overall function time (i.e., it's relative)
   _current_run_time += elapsed_time;
