@@ -23,16 +23,19 @@
 #include <boost/lexical_cast.hpp>
 
 #include "base/logger.h"
+#include "base/statistics.h"
 #include "threads/request_worker.h"
 #include "threads/pool.h"
 #include "threads/work_item_queue.h"
 #include "threads/worker.h"
 
 using boost::bind;
+using boost::lexical_cast;
 using boost::scoped_ptr;
 using boost::thread;
 using std::string;
 
+using s3::base::statistics;
 using s3::threads::async_handle;
 using s3::threads::pool;
 using s3::threads::work_item;
@@ -81,7 +84,7 @@ namespace
         _watchdog_thread.reset(new thread(bind(&_pool_impl::watchdog, this)));
 
       for (int i = 0; i < NUM_THREADS_PER_POOL; i++)
-        _threads.push_back(worker_type::create(_queue));
+        _threads.push_back(worker_type::create(_queue, _id + "_" + lexical_cast<string>(i)));
     }
 
     ~_pool_impl()
@@ -100,7 +103,11 @@ namespace
       sleep_one_second();
 
       if (use_watchdog)
-        S3_LOG(LOG_DEBUG, "_pool_impl::~_pool_impl", "[%s] respawn counter: %i.\n", _id.c_str(), _respawn_counter);
+        statistics::post(
+          "pool",
+          _id,
+          "respawn_counter: %i",
+          _respawn_counter);
     }
 
     virtual void post(const work_item::worker_function &fn, const async_handle::ptr &ah)
@@ -126,7 +133,7 @@ namespace
         }
 
         for (int i = 0; i < respawn; i++)
-          _threads.push_back(worker_type::create(_queue));
+          _threads.push_back(worker_type::create(_queue, _id + "_respawn_" + lexical_cast<string>(_respawn_counter + i)));
 
         _respawn_counter += respawn;
         sleep_one_second();
