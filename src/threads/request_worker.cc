@@ -1,5 +1,6 @@
 #include "base/logger.h"
 #include "base/request.h"
+#include "base/statistics.h"
 #include "base/timer.h"
 #include "services/service.h"
 #include "threads/async_handle.h"
@@ -7,18 +8,21 @@
 #include "threads/work_item_queue.h"
 
 using boost::mutex;
+using std::string;
 
 using s3::base::request;
+using s3::base::statistics;
 using s3::base::timer;
 using s3::services::service;
 using s3::threads::request_worker;
 using s3::threads::work_item;
 using s3::threads::work_item_queue;
 
-request_worker::request_worker(const work_item_queue::ptr &queue)
-  : _request(new request()),
+request_worker::request_worker(const work_item_queue::ptr &queue, const string &tag)
+  : _request(new request(tag)),
     _time_in_function(0.),
     _time_in_request(0.),
+    _tag(tag),
     _queue(queue)
 {
   _request->set_url_prefix(service::get_url_prefix());
@@ -28,13 +32,13 @@ request_worker::request_worker(const work_item_queue::ptr &queue)
 request_worker::~request_worker()    
 {
   if (_time_in_function > 0.0)
-    S3_LOG(
-      LOG_DEBUG,
-      "request_worker::~request_worker", 
-      "time in request/function: %.2f s/%.2f s (%.2f %%)\n", 
-      _time_in_request, 
-      _time_in_function, 
-      (_time_in_request / _time_in_function) * 100.0);
+    statistics::post(
+      "request_worker",
+      _tag,
+      "request_time: %.03f, function_time: %.03f, ratio: %.03f", 
+      _time_in_request,
+      _time_in_function,
+      _time_in_request / _time_in_function * 100.0);
 }
 
 bool request_worker::check_timeout()

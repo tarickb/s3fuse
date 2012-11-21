@@ -21,9 +21,9 @@ namespace s3
     public:
       typedef boost::shared_ptr<request_worker> ptr;
 
-      static ptr create(const boost::shared_ptr<work_item_queue> &queue)
+      static ptr create(const boost::shared_ptr<work_item_queue> &queue, const std::string &tag = "")
       {
-        ptr wt(new request_worker(queue));
+        ptr wt(new request_worker(queue, tag));
 
         // passing "wt", a shared_ptr, for "this" keeps the object alive so long as worker() hasn't returned
         wt->_thread.reset(new boost::thread(boost::bind(&request_worker::work, wt)));
@@ -36,7 +36,7 @@ namespace s3
       bool check_timeout(); // return true if thread has hanged
 
     private:
-      request_worker(const boost::shared_ptr<work_item_queue> &queue);
+      request_worker(const boost::shared_ptr<work_item_queue> &queue, const std::string &tag);
 
       void work();
 
@@ -44,6 +44,7 @@ namespace s3
       boost::shared_ptr<boost::thread> _thread;
       boost::shared_ptr<base::request> _request;
       double _time_in_function, _time_in_request;
+      std::string _tag;
 
       // access controlled by _mutex
       boost::weak_ptr<work_item_queue> _queue;
