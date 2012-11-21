@@ -70,6 +70,8 @@ namespace
   private:
     curl_slist *_list;
   };
+
+  const char *REQUEST_TIMEOUT_ERROR = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Error><Code>RequestTimeout</Code>";
 }
 
 request::request(const string &tag)
@@ -393,14 +395,14 @@ void request::internal_run(int timeout_in_s)
 
       // ugly hack to handle "RequestTimeout" error
       if (response_code == HTTP_SC_BAD_REQUEST) {
-        char *err = NULL;
+        int cmp = 0;
        
-        err = strnstr(
+        cmp = strncmp(
           &_output_buffer[0], 
-          "<Error><Code>RequestTimeout</Code>", 
-          min(static_cast<size_t>(100), _output_buffer.size()));
+          REQUEST_TIMEOUT_ERROR,
+          min(strlen(REQUEST_TIMEOUT_ERROR), _output_buffer.size()));
 
-        if (err) {
+        if (cmp == 0) {
           S3_LOG(LOG_WARNING, "request::run", "got timeout error from server. retrying.\n");
           continue;
         }
