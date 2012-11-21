@@ -22,6 +22,7 @@
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
+#include "base/statistics.h"
 #include "fs/cache.h"
 #include "fs/directory.h"
 
@@ -31,10 +32,11 @@ using std::string;
 
 using s3::base::config;
 using s3::base::request;
+using s3::base::statistics;
 using s3::fs::cache;
 
 boost::mutex cache::s_mutex;
-scoped_ptr<cache::cache_map> cache::s_cache_map;
+scoped_ptr<cache::cache_map> cache::s_cache_map;// TODO: replace with plain pointer?
 uint64_t cache::s_hits, cache::s_misses, cache::s_expiries;
 
 void cache::init()
@@ -46,17 +48,17 @@ void cache::init()
   s_cache_map.reset(new cache_map(config::get_max_objects_in_cache()));
 }
 
-void cache::print_summary()
+void cache::terminate()
 {
   uint64_t total = s_hits + s_misses + s_expiries;
 
   if (total == 0)
     total = 1; // avoid NaNs below
 
-  S3_LOG(
-    LOG_DEBUG,
-    "cache::print_summary", 
-    "size: %zu, hits: %" PRIu64 " (%.02f%%), misses: %" PRIu64 " (%.02f%%), expiries: %" PRIu64 " (%.02f%%)\n", 
+  statistics::post(
+    "cache",
+    0,
+    "size: %zu, hits: %" PRIu64 ", hit_ratio: %.02f, misses: %" PRIu64 ", miss_ratio: %.02f, expiries: %" PRIu64 ", expiry_ratio: %.02f",
     s_cache_map->get_size(),
     s_hits,
     double(s_hits) / double(total) * 100.0,

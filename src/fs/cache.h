@@ -53,7 +53,7 @@ namespace s3
       typedef boost::function1<void, object::ptr> locked_object_function;
 
       static void init();
-      static void print_summary();
+      static void terminate();
 
       inline static object::ptr get(const std::string &path, int hints = HINT_NONE)
       {

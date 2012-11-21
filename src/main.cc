@@ -32,6 +32,7 @@
 
 #include "base/config.h"
 #include "base/logger.h"
+#include "base/statistics.h"
 #include "base/version.h"
 #include "base/xml.h"
 #include "fs/cache.h"
@@ -50,6 +51,7 @@ using std::vector;
 
 using s3::base::config;
 using s3::base::logger;
+using s3::base::statistics;
 using s3::base::xml;
 using s3::fs::cache;
 using s3::fs::directory;
@@ -117,6 +119,7 @@ namespace
     const char *arg0;
     string config;
     string mountpoint;
+    string stats;
     int verbosity;
     bool daemon_timeout_set;
     int mountpoint_mode;
@@ -578,6 +581,7 @@ int print_usage(const char *arg0)
     "     allow_other         allow other users to access the mounted file system\n"
     "     allow_root          allow root to access the mounted file system\n"
     "     config=<file>       use <file> rather than the default configuration file\n"
+    "     stats=<file>        write statistics to <file>\n"
     "     daemon_timeout=<n>  set fuse timeout to <n> seconds\n"
     "     noappledouble       disable testing for/creating .DS_Store files on Mac OS\n"
     "  -v, --verbose        enable logging to stderr (can be repeated for more verbosity)\n"
@@ -606,6 +610,11 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
 
   if (strstr(arg, "config=") == arg) {
     s_opts.config = arg + 7;
+    return 0;
+  }
+
+  if (strstr(arg, "stats=") == arg) {
+    s_opts.stats = arg + 6;
     return 0;
   }
 
@@ -730,6 +739,9 @@ int main(int argc, char **argv)
 
     file::test_transfer_chunk_sizes();
 
+    if (!s_opts.stats.empty())
+      statistics::init();
+
   } catch (const std::exception &e) {
     S3_LOG(LOG_ERR, "init", "caught exception while initializing: %s\n", e.what());
     return 1;
@@ -742,7 +754,10 @@ int main(int argc, char **argv)
   fuse_opt_free_args(&args);
 
   pool::terminate();
-  cache::print_summary();
+  cache::terminate();
+
+  // this won't do anything if statistics::init() wasn't called
+  statistics::write(s_opts.stats);
 
   return r;
 }
