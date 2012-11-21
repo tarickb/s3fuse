@@ -4,6 +4,7 @@
 #include <stdarg.h>
 
 #include <fstream>
+#include <iostream>
 #include <stdexcept>
 #include <string>
 #include <boost/lexical_cast.hpp>
