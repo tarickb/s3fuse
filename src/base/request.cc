@@ -114,7 +114,7 @@ request::~request()
     statistics::post(
       "request_count",
       _tag,
-      "requests: %" PRIu64 ", total_time: %.03f, average_per_request_ms: %.03f",
+      "requests: %" PRIu64 ", total_time_s: %.03f, average_per_request_ms: %.02f",
       _run_count, 
       _total_run_time,
       static_cast<double>(_run_count) / _total_run_time * 1.0e3);
@@ -122,7 +122,7 @@ request::~request()
     statistics::post(
       "request_throughput",
       _tag,
-      "bytes: %" PRIu64 ", total_time: %.03f, average_throughput_kbs: %.03f",
+      "bytes: %" PRIu64 ", total_time_s: %.03f, average_throughput_kbs: %.03f",
       _total_bytes_transferred, 
       _total_run_time,
       static_cast<double>(_total_bytes_transferred) / _total_run_time * 1.0e-3);

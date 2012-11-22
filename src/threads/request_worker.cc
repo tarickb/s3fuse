@@ -35,7 +35,7 @@ request_worker::~request_worker()
     statistics::post(
       "request_worker",
       _tag,
-      "request_time: %.03f, function_time: %.03f, ratio: %.03f", 
+      "request_time_s: %.03f, function_time_s: %.03f, ratio: %.03f", 
       _time_in_request,
       _time_in_function,
       _time_in_request / _time_in_function * 100.0);
