@@ -22,12 +22,16 @@
 #include <fstream>
 #include <iostream>
 
-#include "gs_service_impl.h"
-#include "logger.h"
+#include "base/logger.h"
+#include "services/gs_impl.h"
 
-using namespace std;
+using std::cerr;
+using std::cin;
+using std::cout;
+using std::endl;
+using std::string;
 
-using namespace s3;
+using s3::services::gs_impl;
 
 int main(int argc, char **argv)
 {
@@ -41,16 +45,16 @@ int main(int argc, char **argv)
 
   try {
     // make sure we can write to the token file before we run the request.
-    gs_service_impl::write_token(argv[1], "");
+    gs_impl::write_token(argv[1], "");
 
     cout << "Paste this URL into your browser:" << endl;
-    cout << gs_service_impl::get_new_token_url() << endl << endl;
+    cout << gs_impl::get_new_token_url() << endl << endl;
 
     cout << "Please enter the authorization code: ";
     getline(cin, code);
 
-    gs_service_impl::get_tokens(gs_service_impl::GT_AUTH_CODE, code, &access_token, &expiry, &refresh_token);
-    gs_service_impl::write_token(argv[1], refresh_token);
+    gs_impl::get_tokens(gs_impl::GT_AUTH_CODE, code, &access_token, &expiry, &refresh_token);
+    gs_impl::write_token(argv[1], refresh_token);
 
   } catch (const std::exception &e) {
     cerr << "Failed to get tokens: " << e.what() << endl;

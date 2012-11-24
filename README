@@ -46,7 +46,7 @@ auth_data for Amazon Web Services:
 
   For Amazon S3, set auth_data to the full path of a file containing your AWS 
   Access Key ID followed by a space, followed by the AWS Secret Access Key, 
-  i.e.:
+  e.g.:
 
     auth_data=/home/user/.s3fuse/aws.key
 
@@ -85,6 +85,59 @@ support non-US buckets.  For instance, the following line in s3fuse.conf
 enables use of EU buckets:
  
   aws_service_endpoint=s3-eu-west-1.amazonaws.com
+
+File Encryption
+---------------
+
+s3fuse-0.13 adds early support for transparent file content encryption.
+
+Three configuration options are relevant:
+
+  - use_encryption: Defaults to "false", set to "true" to enable encryption.
+  - encrypt_new_files: Defaults to "true", set to "false" to disable encryption
+    of newly-created files (i.e., allow decryption of existing, encrypted
+    files, but don't encrypt new files).
+  - volume_key_file: See below.
+
+If "use_encryption" is set to "true", s3fuse will prompt for a password during
+initialization.  If "volume_key_file" is not empty, s3fuse will skip the 
+password prompt and read the volume key from the specified file.  The file 
+should contain a hex-encoded key 128, 192, or 256 bits long.  OpenSSL can be 
+used to generate the key.  For instance ("32" below refers to the key size in 
+bytes):
+
+  openssl rand -hex 32 > /home/user/.s3fuse/bucket.vk
+
+Set the permissions on the key file such that only the owner can read/write
+(s3fuse will abort otherwise):
+
+  chmod 0600 /home/user/.s3fuse/bucket.vk
+
+And set volume_key accordingly:
+
+  volume_key_file=/home/user/.s3fuse/bucket.vk
+
+s3fuse will not immediately report an error if the password or volume key 
+specified is not valid.  Instead, when accessing a file encrypted with a
+different password/volume key, operations will fail with -EACCES ("Access 
+denied").  The file can still be deleted or renamed (as these operations do 
+not read or modify the contents).
+
+Note that only file contents are encrypted.  Names are not.  Object metadata 
+is not.  Symlink targets are not.  Directory contents are not.
+
+Also note that s3fuse encrypts contents during upload and decrypts during 
+download.  The locally-cached copy of an open file (which is generally kept in 
+/tmp) remains unencrypted.
+
+File Encryption Details
+-----------------------
+
+File contents are encrypted with AES, in CTR mode, using a 256-bit key unique 
+to the file.  The unique file key, a nonce, and a hash of the plaintext are 
+then encrypted with AES in CBC mode using the volume key and a random IV.  
+The encrypted key/nonce/hash combination and the IV are stored out of band as 
+file metadata attributes.
 
 Running
 -------
