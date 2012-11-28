@@ -45,12 +45,13 @@ using std::vector;
 using s3::base::config;
 using s3::base::header_map;
 using s3::base::request;
+using s3::base::request_signer;
 using s3::crypto::base64;
 using s3::crypto::encoder;
 using s3::crypto::hmac_sha1;
 using s3::crypto::private_file;
 using s3::services::aws_impl;
-using s3::services::signing_function;
+using s3::services::aws_signer;
 
 namespace
 {
@@ -67,6 +68,28 @@ namespace
     return (itor == map.end()) ? EMPTY : itor->second;
   }
 }
+
+class aws_signer : public request_signer
+{
+public:
+  aws_signer(aws_impl *impl)
+    : _impl(impl)
+  {
+  }
+
+  virtual void sign(request *r, int iter)
+  {
+    _impl->sign(r, iter);
+  }
+
+  virtual bool should_retry(request *r, int iter)
+  {
+    return false;
+  }
+
+private:
+  aws_impl *_impl;
+};
 
 aws_impl::aws_impl()
 {
@@ -95,7 +118,7 @@ aws_impl::aws_impl()
   _endpoint = string("https://") + config::get_aws_service_endpoint();
   _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
 
-  _signing_function = bind(&aws_impl::sign, this, _1, _2);
+  _signer.reset(new aws_signer(this));
 }
 
 const string & aws_impl::get_header_prefix()
@@ -133,12 +156,12 @@ const string & aws_impl::get_bucket_url()
   return _bucket_url;
 }
 
-const signing_function & aws_impl::get_signing_function()
+request_signer * aws_impl::get_request_signer()
 {
-  return _signing_function;
+  return _signer.get();
 }
 
-void aws_impl::sign(request *req, bool last_sign_failed)
+void aws_impl::sign(request *req, int iter)
 {
   const header_map &headers = req->get_headers();
   string to_sign;
@@ -158,7 +181,4 @@ void aws_impl::sign(request *req, bool last_sign_failed)
 
   hmac_sha1::sign(_secret, to_sign, mac);
   req->set_header("Authorization", string("AWS ") + _key + ":" + encoder::encode<base64>(mac, hmac_sha1::MAC_LEN));
-
-  if (last_sign_failed)
-    S3_LOG(LOG_DEBUG, "aws_impl::sign", "last sign failed. string to sign: [%s].\n", to_sign.c_str());
 }

@@ -26,13 +26,10 @@
 
 namespace s3
 {
-  namespace base
-  {
-    class request;
-  }
-
   namespace services
   {
+    class aws_signer;
+
     class aws_impl : public impl
     {
     public:
@@ -48,13 +45,15 @@ namespace s3
 
       virtual const std::string & get_bucket_url();
 
-      virtual const signing_function & get_signing_function();
+      virtual base::request_signer * get_request_signer();
 
     private:
-      void sign(base::request *req, bool last_sign_failed);
+      friend class aws_signer;
+
+      void sign(base::request *req, int iter);
 
       std::string _key, _secret, _endpoint, _bucket_url;
-      signing_function _signing_function;
+      boost::scoped_ptr<base::request_signer> _signer;
     };
   }
 }

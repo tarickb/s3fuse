@@ -41,9 +41,10 @@ using std::stringstream;
 
 using s3::base::config;
 using s3::base::request;
+using s3::base::request_signer;
 using s3::crypto::private_file;
 using s3::services::gs_impl;
-using s3::services::signing_function;
+using s3::services::gs_signer;
 
 namespace
 {
@@ -65,6 +66,28 @@ namespace
     "scope=" + GS_OAUTH_SCOPE + "&"
     "response_type=code";
 }
+
+class gs_signer : public request_signer
+{
+public:
+  gs_signer(gs_impl *impl)
+    : _impl(impl)
+  {
+  }
+
+  virtual void sign(request *r, int iter)
+  {
+    _impl->sign(r, iter);
+  }
+
+  virtual bool should_retry(request *r, int iter)
+  {
+    return _impl->should_retry(r, iter);
+  }
+
+private:
+  gs_impl *_impl;
+};
 
 const string & gs_impl::get_new_token_url()
 {
@@ -144,7 +167,7 @@ gs_impl::gs_impl()
   _refresh_token = gs_impl::read_token(config::get_auth_data());
   refresh(lock);
 
-  _signing_function = bind(&gs_impl::sign, this, _1, _2);
+  _signer.reset(new gs_signer(this));
 }
 
 const string & gs_impl::get_header_prefix()
@@ -182,20 +205,28 @@ const string & gs_impl::get_bucket_url()
   return _bucket_url;
 }
 
-const signing_function & gs_impl::get_signing_function()
+request_signer * gs_impl::get_request_signer()
 {
-  return _signing_function;
+  return _signer.get();
 }
 
-void gs_impl::sign(request *req, bool last_sign_failed)
+void gs_impl::sign(request *req, int iter)
 {
   mutex::scoped_lock lock(_mutex);
 
-  if (last_sign_failed || time(NULL) >= _expiry) 
+  // TODO: remove the timeout check and re-test
+  // if this is the second attempt, or the token has expired, refresh
+  if (iter > 0 || time(NULL) >= _expiry)
     refresh(lock);
 
   req->set_header("Authorization", _access_token);
   req->set_header("x-goog-api-version", "2");
+}
+
+bool gs_impl::should_retry(request *req, int iter)
+{
+  // only retry the first time, and only if the response code is "Unauthorized" (401)
+  return (iter == 0 && req->get_response_code() == base::HTTP_SC_UNAUTHORIZED);
 }
 
 void gs_impl::refresh(const mutex::scoped_lock &lock)

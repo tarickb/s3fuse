@@ -26,17 +26,12 @@
 #include <boost/function.hpp>
 #include <boost/smart_ptr.hpp>
 
+#include "base/request.h"
+
 namespace s3
 {
-  namespace base
-  {
-    class request;
-  }
-
   namespace services
   {
-    typedef boost::function2<void, base::request *, bool> signing_function;
-
     class impl
     {
     public:
@@ -52,7 +47,7 @@ namespace s3
 
       virtual const std::string & get_bucket_url() = 0;
 
-      virtual const signing_function & get_signing_function() = 0;
+      virtual base::request_signer * get_request_signer() = 0;
     };
   }
 }

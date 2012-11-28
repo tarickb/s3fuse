@@ -62,6 +62,15 @@ namespace s3
 
     typedef std::map<std::string, std::string> header_map;
 
+    class request;
+
+    class request_signer
+    {
+    public:
+      virtual void sign(request *req, int iter) = 0;
+      virtual bool should_retry(request *req, int iter) = 0;
+    };
+
     class request : boost::noncopyable
     {
     public:
@@ -101,7 +110,7 @@ namespace s3
       inline const std::string & get_method() { return _method; }
 
       inline void set_url_prefix(const std::string &prefix) { _url_prefix = prefix; }
-      inline void set_signing_function(const signing_function &fn) { _signing_function = fn; }
+      inline void set_signer(request_signer *signer) { _signer = signer; }
 
       void set_full_url(const std::string &url);
       void set_url(const std::string &url, const std::string &query_string = "");
@@ -162,7 +171,8 @@ namespace s3
       CURL *_curl;
 
       std::string _url_prefix;
-      signing_function _signing_function;
+      request_signer *_signer;
+      int _num_sign_attempts;
 
       double _current_run_time, _total_run_time;
       uint64_t _run_count;

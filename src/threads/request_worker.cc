@@ -26,7 +26,7 @@ request_worker::request_worker(const work_item_queue::ptr &queue, const string &
     _queue(queue)
 {
   _request->set_url_prefix(service::get_url_prefix());
-  _request->set_signing_function(service::get_signing_function());
+  _request->set_signer(service::get_request_signer());
 }
 
 request_worker::~request_worker()    

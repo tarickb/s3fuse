@@ -35,6 +35,7 @@
 using std::min;
 using std::runtime_error;
 using std::string;
+using std::vector;
 
 using s3::base::request;
 using s3::base::statistics;
@@ -71,6 +72,12 @@ namespace
     curl_slist *_list;
   };
 
+  inline bool compare(const vector<char> &buffer, const char *str)
+  {
+    return (strncmp(&buffer[0], str, min(strlen(str), buffer.size())) == 0);
+  }
+
+  // TODO: find some other way to handle this
   const char *REQUEST_TIMEOUT_ERROR = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Error><Code>RequestTimeout</Code>";
 }
 
@@ -314,6 +321,8 @@ bool request::check_timeout()
 
 void request::run(int timeout_in_s)
 {
+  int iter = 0;
+
   // sanity
   if (_url.empty())
     throw runtime_error("call set_url() first!");
@@ -324,20 +333,23 @@ void request::run(int timeout_in_s)
   if (_canceled)
     throw runtime_error("cannot reuse a canceled request.");
 
-  // run twice. if we fail with a 401 (unauthorized) error, try again but tell
-  // the signing function that we failed on the last try. this allows GS, in 
-  // particular, to refresh its access token.
+  // TODO: merge this back in with internal_run()?
 
-  for (int i = 0; i < 2; i++) {
+  while (true) {
+    // TODO: this needs to be set before calling sign()
     build_request_time();
 
-    if (_signing_function)
-      _signing_function(this, (i == 1));
+    // TODO: rewrite so that there's only the one loop in internal_run()
+
+    if (_signer)
+      _signer->sign(this, iter); 
 
     internal_run(timeout_in_s);
 
-    if (!_signing_function || (_response_code != HTTP_SC_UNAUTHORIZED && _response_code != HTTP_SC_FORBIDDEN))
+    if (!_signer || !_signer->should_retry(this, iter))
       break;
+
+    iter++;
   }
 }
 
@@ -394,18 +406,9 @@ void request::internal_run(int timeout_in_s)
       TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &response_code));
 
       // ugly hack to handle "RequestTimeout" error
-      if (response_code == HTTP_SC_BAD_REQUEST) {
-        int cmp = 0;
-       
-        cmp = strncmp(
-          &_output_buffer[0], 
-          REQUEST_TIMEOUT_ERROR,
-          min(strlen(REQUEST_TIMEOUT_ERROR), _output_buffer.size()));
-
-        if (cmp == 0) {
-          S3_LOG(LOG_WARNING, "request::run", "got timeout error from server. retrying.\n");
-          continue;
-        }
+      if (response_code == HTTP_SC_BAD_REQUEST && compare(_output_buffer, REQUEST_TIMEOUT_ERROR)) {
+        S3_LOG(LOG_WARNING, "request::run", "got timeout error from server. retrying.\n");
+        continue;
       }
     }
 
