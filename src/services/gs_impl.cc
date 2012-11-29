@@ -26,6 +26,7 @@
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
+#include "base/xml.h"
 #include "crypto/private_file.h"
 #include "services/gs_impl.h"
 
@@ -41,10 +42,11 @@ using std::stringstream;
 
 using s3::base::config;
 using s3::base::request;
-using s3::base::request_signer;
+using s3::base::request_hook;
+using s3::base::xml;
 using s3::crypto::private_file;
 using s3::services::gs_impl;
-using s3::services::gs_signer;
+using s3::services::gs_hook;
 
 namespace
 {
@@ -65,24 +67,33 @@ namespace
     "redirect_uri=urn%3aietf%3awg%3aoauth%3a2.0%3aoob&"
     "scope=" + GS_OAUTH_SCOPE + "&"
     "response_type=code";
+
+  const char *GS_REQ_TIMEOUT_XPATH = "/Error/Code[text() = 'RequestTimeout']";
 }
 
-class gs_signer : public request_signer
+class gs_hook : public request_hook
 {
 public:
-  gs_signer(gs_impl *impl)
+  gs_hook(gs_impl *impl)
     : _impl(impl)
   {
   }
 
-  virtual void sign(request *r, int iter)
+  virtual string adjust_url(const string &url)
+  {
+    return GS_URL_PREFIX + url;
+  }
+
+  virtual void pre_run(request *r, int iter)
   {
     _impl->sign(r, iter);
   }
 
   virtual bool should_retry(request *r, int iter)
   {
-    return _impl->should_retry(r, iter);
+    return 
+      (r->get_response_code() == base::HTTP_SC_BAD_REQUEST && xml::match(r->get_output_buffer(), GS_REQ_TIMEOUT_XPATH)) || 
+      (r->get_response_code() == base::HTTP_SC_UNAUTHORIZED && iter == 0);
   }
 
 private:
@@ -167,7 +178,7 @@ gs_impl::gs_impl()
   _refresh_token = gs_impl::read_token(config::get_auth_data());
   refresh(lock);
 
-  _signer.reset(new gs_signer(this));
+  _hook.reset(new gs_hook(this));
 }
 
 const string & gs_impl::get_header_prefix()
@@ -178,11 +189,6 @@ const string & gs_impl::get_header_prefix()
 const string & gs_impl::get_header_meta_prefix()
 {
   return GS_HEADER_META_PREFIX;
-}
-
-const string & gs_impl::get_url_prefix()
-{
-  return GS_URL_PREFIX;
 }
 
 const string & gs_impl::get_xml_namespace()
@@ -205,28 +211,22 @@ const string & gs_impl::get_bucket_url()
   return _bucket_url;
 }
 
-request_signer * gs_impl::get_request_signer()
+request_hook * gs_impl::get_request_hook()
 {
-  return _signer.get();
+  return _hook.get();
 }
 
 void gs_impl::sign(request *req, int iter)
 {
   mutex::scoped_lock lock(_mutex);
 
-  // TODO: remove the timeout check and re-test
+  // TODO: remove the timeout check and re-test (and do we need the date header?)
   // if this is the second attempt, or the token has expired, refresh
   if (iter > 0 || time(NULL) >= _expiry)
     refresh(lock);
 
   req->set_header("Authorization", _access_token);
   req->set_header("x-goog-api-version", "2");
-}
-
-bool gs_impl::should_retry(request *req, int iter)
-{
-  // only retry the first time, and only if the response code is "Unauthorized" (401)
-  return (iter == 0 && req->get_response_code() == base::HTTP_SC_UNAUTHORIZED);
 }
 
 void gs_impl::refresh(const mutex::scoped_lock &lock)

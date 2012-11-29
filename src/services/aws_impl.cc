@@ -27,6 +27,8 @@
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
+#include "base/timer.h"
+#include "base/xml.h"
 #include "crypto/base64.h"
 #include "crypto/encoder.h"
 #include "crypto/hmac_sha1.h"
@@ -45,19 +47,23 @@ using std::vector;
 using s3::base::config;
 using s3::base::header_map;
 using s3::base::request;
-using s3::base::request_signer;
+using s3::base::request_hook;
+using s3::base::timer;
+using s3::base::xml;
 using s3::crypto::base64;
 using s3::crypto::encoder;
 using s3::crypto::hmac_sha1;
 using s3::crypto::private_file;
 using s3::services::aws_impl;
-using s3::services::aws_signer;
+using s3::services::aws_hook;
 
 namespace
 {
   const string AWS_HEADER_PREFIX = "x-amz-";
   const string AWS_HEADER_META_PREFIX = "x-amz-meta-";
   const string AWS_XML_NAMESPACE = "http://s3.amazonaws.com/doc/2006-03-01/";
+
+  const char *AWS_REQ_TIMEOUT_XPATH = "/Error/Code[text() = 'RequestTimeout']";
 
   const string EMPTY = "";
 
@@ -69,22 +75,29 @@ namespace
   }
 }
 
-class aws_signer : public request_signer
+class aws_hook : public request_hook
 {
 public:
-  aws_signer(aws_impl *impl)
+  aws_hook(aws_impl *impl)
     : _impl(impl)
   {
   }
 
-  virtual void sign(request *r, int iter)
+  virtual string adjust_url(const string &url)
   {
-    _impl->sign(r, iter);
+    return _impl->get_endpoint() + url;
+  }
+
+  virtual void pre_run(request *r, int iter)
+  {
+    _impl->sign(r);
   }
 
   virtual bool should_retry(request *r, int iter)
   {
-    return false;
+    return
+      r->get_response_code() == base::HTTP_SC_BAD_REQUEST &&
+      xml::match(r->get_output_buffer(), AWS_REQ_TIMEOUT_XPATH);
   }
 
 private:
@@ -118,7 +131,7 @@ aws_impl::aws_impl()
   _endpoint = string("https://") + config::get_aws_service_endpoint();
   _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
 
-  _signer.reset(new aws_signer(this));
+  _hook.reset(new aws_hook(this));
 }
 
 const string & aws_impl::get_header_prefix()
@@ -129,11 +142,6 @@ const string & aws_impl::get_header_prefix()
 const string & aws_impl::get_header_meta_prefix()
 {
   return AWS_HEADER_META_PREFIX;
-}
-
-const string & aws_impl::get_url_prefix()
-{
-  return _endpoint;
 }
 
 const string & aws_impl::get_xml_namespace()
@@ -156,22 +164,26 @@ const string & aws_impl::get_bucket_url()
   return _bucket_url;
 }
 
-request_signer * aws_impl::get_request_signer()
+request_hook * aws_impl::get_request_hook()
 {
-  return _signer.get();
+  return _hook.get();
 }
 
-void aws_impl::sign(request *req, int iter)
+void aws_impl::sign(request *req)
 {
   const header_map &headers = req->get_headers();
-  string to_sign;
+  string date, to_sign;
   uint8_t mac[hmac_sha1::MAC_LEN];
+
+  date = timer::get_http_time();
+
+  req->set_header("Date", date);
  
   to_sign = 
     req->get_method() + "\n" + 
     safe_find(headers, "Content-MD5") + "\n" + 
     safe_find(headers, "Content-Type") + "\n" + 
-    safe_find(headers, "Date") + "\n";
+    date + "\n";
 
   for (header_map::const_iterator itor = headers.begin(); itor != headers.end(); ++itor)
     if (!itor->second.empty() && itor->first.substr(0, AWS_HEADER_PREFIX.size()) == AWS_HEADER_PREFIX)

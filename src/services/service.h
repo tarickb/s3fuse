@@ -38,7 +38,6 @@ namespace s3
 
       inline static const std::string & get_header_prefix() { return s_impl->get_header_prefix(); }
       inline static const std::string & get_header_meta_prefix() { return s_impl->get_header_meta_prefix(); }
-      inline static const std::string & get_url_prefix() { return s_impl->get_url_prefix(); }
       inline static const std::string & get_xml_namespace() { return s_impl->get_xml_namespace(); }
 
       inline static bool is_multipart_download_supported() { return s_impl->is_multipart_download_supported(); }
@@ -46,7 +45,7 @@ namespace s3
 
       inline static const std::string & get_bucket_url() { return s_impl->get_bucket_url(); }
 
-      inline static base::request_signer * get_request_signer() { return s_impl->get_request_signer(); }
+      inline static base::request_hook * get_request_hook() { return s_impl->get_request_hook(); }
 
     private:
       static impl::ptr s_impl;

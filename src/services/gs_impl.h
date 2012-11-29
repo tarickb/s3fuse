@@ -30,7 +30,7 @@ namespace s3
 {
   namespace services
   {
-    class gs_signer;
+    class gs_hook;
 
     class gs_impl : public impl
     {
@@ -51,7 +51,6 @@ namespace s3
 
       virtual const std::string & get_header_prefix();
       virtual const std::string & get_header_meta_prefix();
-      virtual const std::string & get_url_prefix();
       virtual const std::string & get_xml_namespace();
 
       virtual bool is_multipart_download_supported();
@@ -59,20 +58,18 @@ namespace s3
 
       virtual const std::string & get_bucket_url();
 
-      virtual base::request_signer * get_request_signer();
+      virtual base::request_hook * get_request_hook();
 
     private:
-      friend class gs_signer;
+      friend class gs_hook;
 
       void sign(base::request *req, int iter);
-      bool should_retry(base::request *req, int iter);
-
       void refresh(const boost::mutex::scoped_lock &lock);
 
       boost::mutex _mutex;
       std::string _access_token, _refresh_token, _bucket_url;
       time_t _expiry;
-      boost::scoped_ptr<base::request_signer> _signer;
+      boost::scoped_ptr<base::request_hook> _hook;
     };
   }
 }

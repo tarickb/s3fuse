@@ -21,21 +21,18 @@
 
 #include <stdint.h>
 #include <string.h>
-#include <time.h>
-#include <sys/stat.h>
 
 #include <stdexcept>
 
 #include "config.h"
 #include "logger.h"
 #include "request.h"
+#include "request_hook.h"
 #include "ssl_locks.h"
 #include "statistics.h"
 
-using std::min;
 using std::runtime_error;
 using std::string;
-using std::vector;
 
 using s3::base::request;
 using s3::base::statistics;
@@ -71,18 +68,11 @@ namespace
   private:
     curl_slist *_list;
   };
-
-  inline bool compare(const vector<char> &buffer, const char *str)
-  {
-    return (strncmp(&buffer[0], str, min(strlen(str), buffer.size())) == 0);
-  }
-
-  // TODO: find some other way to handle this
-  const char *REQUEST_TIMEOUT_ERROR = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><Error><Code>RequestTimeout</Code>";
 }
 
 request::request(const string &tag)
-  : _current_run_time(0.0),
+  : _hook(NULL),
+    _current_run_time(0.0),
     _total_run_time(0.0),
     _run_count(0),
     _total_bytes_transferred(0),
@@ -262,9 +252,7 @@ size_t request::process_input(char *data, size_t size, size_t items, void *conte
 
 void request::set_url(const string &url, const string &query_string)
 {
-  string curl_url;
-
-  curl_url = _url_prefix + url;
+  string curl_url = _hook ? _hook->adjust_url(url) : url;
 
   if (!query_string.empty()) {
     curl_url += ((curl_url.find('?') == string::npos) ? "?" : "&");
@@ -273,12 +261,6 @@ void request::set_url(const string &url, const string &query_string)
 
   _url = url;
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_URL, curl_url.c_str()));
-}
-
-void request::set_full_url(const string &url)
-{
-  _url = url;
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_URL, url.c_str()));
 }
 
 void request::set_input_buffer(const char *buffer, size_t size)
@@ -292,19 +274,6 @@ void request::set_input_buffer(const char *buffer, size_t size)
     TEST_OK(curl_easy_setopt(_curl, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(size)));
   else if (size)
     throw runtime_error("can't set input data for non-POST/non-PUT request.");
-}
-
-void request::build_request_time()
-{
-  time_t sys_time;
-  tm gm_time;
-  char time_str[128];
-
-  time(&sys_time);
-  gmtime_r(&sys_time, &gm_time);
-  strftime(time_str, 128, "%a, %d %b %Y %H:%M:%S GMT", &gm_time);
-
-  _headers["Date"] = time_str;
 }
 
 bool request::check_timeout()
@@ -321,7 +290,9 @@ bool request::check_timeout()
 
 void request::run(int timeout_in_s)
 {
-  int iter = 0;
+  int r = CURLE_OK;
+  double elapsed_time;
+  uint64_t request_size = 0;
 
   // sanity
   if (_url.empty())
@@ -333,51 +304,28 @@ void request::run(int timeout_in_s)
   if (_canceled)
     throw runtime_error("cannot reuse a canceled request.");
 
-  // TODO: merge this back in with internal_run()?
+  for (int iter = 0; iter < config::get_max_transfer_retries(); iter++) {
+    curl_slist_wrapper headers;
+   
+    _output_buffer.clear();
+    _response_headers.clear();
 
-  while (true) {
-    // TODO: this needs to be set before calling sign()
-    build_request_time();
+    if (_hook)
+      _hook->pre_run(this, iter);
 
-    // TODO: rewrite so that there's only the one loop in internal_run()
+    for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor) {
+      string header = itor->first + ": " + itor->second;
 
-    if (_signer)
-      _signer->sign(this, iter); 
+      headers.append(header.c_str());
+      request_size += header.size();
+    }
 
-    internal_run(timeout_in_s);
+    TEST_OK(curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers.get()));
 
-    if (!_signer || !_signer->should_retry(this, iter))
-      break;
+    // we need _input_size before calling curl_easy_perform(), because the input-
+    // reading callbacks will wind _input_size down to zero as the input is read
+    request_size += _input_size;
 
-    iter++;
-  }
-}
-
-void request::internal_run(int timeout_in_s)
-{
-  int r = CURLE_OK;
-  curl_slist_wrapper headers;
-  double elapsed_time;
-  long response_code;
-  uint64_t request_size = 0;
- 
-  _output_buffer.clear();
-  _response_headers.clear();
-
-  for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor) {
-    string header = itor->first + ": " + itor->second;
-
-    headers.append(header.c_str());
-    request_size += header.size();
-  }
-
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers.get()));
-
-  // we need _input_size before calling curl_easy_perform(), because the input-
-  // reading callbacks will wind _input_size down to zero as the input is read
-  request_size += _input_size;
-
-  for (int i = 0; i < config::get_max_transfer_retries(); i++) {
     _timeout = time(NULL) + ((timeout_in_s == DEFAULT_REQUEST_TIMEOUT) ? config::get_request_timeout_in_s() : timeout_in_s);
     r = curl_easy_perform(_curl);
     _timeout = 0; // reset this here so that subsequent calls to check_timeout() don't fail
@@ -403,13 +351,12 @@ void request::internal_run(int timeout_in_s)
     }
 
     if (r == CURLE_OK) {
-      TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &response_code));
+      TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code));
+      TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &elapsed_time));
+      TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
 
-      // ugly hack to handle "RequestTimeout" error
-      if (response_code == HTTP_SC_BAD_REQUEST && compare(_output_buffer, REQUEST_TIMEOUT_ERROR)) {
-        S3_LOG(LOG_WARNING, "request::run", "got timeout error from server. retrying.\n");
+      if (_hook && _hook->should_retry(this, iter))
         continue;
-      }
     }
 
     // break on CURLE_OK or some other error where we don't want to try the request again
@@ -418,11 +365,6 @@ void request::internal_run(int timeout_in_s)
 
   if (r != CURLE_OK)
     throw runtime_error(_curl_error);
-
-  _response_code = response_code;
-
-  TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &elapsed_time));
-  TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
 
   // don't save the time for the first request since it's likely to be disproportionately large
   if (_run_count > 0) {

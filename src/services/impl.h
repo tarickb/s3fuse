@@ -26,7 +26,7 @@
 #include <boost/function.hpp>
 #include <boost/smart_ptr.hpp>
 
-#include "base/request.h"
+#include "base/request_hook.h"
 
 namespace s3
 {
@@ -39,7 +39,6 @@ namespace s3
 
       virtual const std::string & get_header_prefix() = 0;
       virtual const std::string & get_header_meta_prefix() = 0;
-      virtual const std::string & get_url_prefix() = 0;
       virtual const std::string & get_xml_namespace() = 0;
 
       virtual bool is_multipart_download_supported() = 0;
@@ -47,7 +46,7 @@ namespace s3
 
       virtual const std::string & get_bucket_url() = 0;
 
-      virtual base::request_signer * get_request_signer() = 0;
+      virtual base::request_hook * get_request_hook() = 0;
     };
   }
 }

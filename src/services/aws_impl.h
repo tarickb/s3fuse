@@ -28,7 +28,7 @@ namespace s3
 {
   namespace services
   {
-    class aws_signer;
+    class aws_hook;
 
     class aws_impl : public impl
     {
@@ -37,7 +37,6 @@ namespace s3
 
       virtual const std::string & get_header_prefix();
       virtual const std::string & get_header_meta_prefix();
-      virtual const std::string & get_url_prefix();
       virtual const std::string & get_xml_namespace();
 
       virtual bool is_multipart_download_supported();
@@ -45,15 +44,17 @@ namespace s3
 
       virtual const std::string & get_bucket_url();
 
-      virtual base::request_signer * get_request_signer();
+      virtual base::request_hook * get_request_hook();
 
     private:
-      friend class aws_signer;
+      friend class aws_hook;
 
-      void sign(base::request *req, int iter);
+      inline const std::string & get_endpoint() { return _endpoint; }
+
+      void sign(base::request *req);
 
       std::string _key, _secret, _endpoint, _bucket_url;
-      boost::scoped_ptr<base::request_signer> _signer;
+      boost::scoped_ptr<base::request_hook> _hook;
     };
   }
 }

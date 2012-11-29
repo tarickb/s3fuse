@@ -62,14 +62,7 @@ namespace s3
 
     typedef std::map<std::string, std::string> header_map;
 
-    class request;
-
-    class request_signer
-    {
-    public:
-      virtual void sign(request *req, int iter) = 0;
-      virtual bool should_retry(request *req, int iter) = 0;
-    };
+    class request_hook;
 
     class request : boost::noncopyable
     {
@@ -77,7 +70,6 @@ namespace s3
       static const int DEFAULT_REQUEST_TIMEOUT = -1;
 
       typedef boost::shared_ptr<request> ptr;
-      typedef boost::function2<void, request *, bool> signing_function;
 
       inline static std::string url_encode(const std::string &url)
       {
@@ -109,10 +101,8 @@ namespace s3
 
       inline const std::string & get_method() { return _method; }
 
-      inline void set_url_prefix(const std::string &prefix) { _url_prefix = prefix; }
-      inline void set_signer(request_signer *signer) { _signer = signer; }
+      inline void set_hook(request_hook *hook) { _hook = hook; }
 
-      void set_full_url(const std::string &url);
       void set_url(const std::string &url, const std::string &query_string = "");
       inline const std::string & get_url() { return _url; }
 
@@ -161,18 +151,10 @@ namespace s3
       static size_t process_output(char *data, size_t size, size_t items, void *context);
       static size_t process_input(char *data, size_t size, size_t items, void *context);
 
-      void reset();
-      void build_request_time();
-      void build_signature();
-
-      void internal_run(int timeout_in_s);
-
       // not reset by init()
       CURL *_curl;
 
-      std::string _url_prefix;
-      request_signer *_signer;
-      int _num_sign_attempts;
+      request_hook *_hook;
 
       double _current_run_time, _total_run_time;
       uint64_t _run_count;
