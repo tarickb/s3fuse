@@ -1,10 +1,10 @@
 /*
- * logger.h
+ * base/logger.h
  * -------------------------------------------------------------------------
  * Provides logging to stderr and syslog.
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2011, Tarick Bedeir.
+ * Copyright (c) 2012, Tarick Bedeir.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_LOGGER_H
-#define S3_LOGGER_H
+#ifndef S3_BASE_LOGGER_H
+#define S3_BASE_LOGGER_H
 
 #define __STDC_FORMAT_MACROS
 #include <inttypes.h>

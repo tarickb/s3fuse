@@ -1,10 +1,10 @@
 /*
- * service.cc
+ * services/service.cc
  * -------------------------------------------------------------------------
  * Implementation for service static methods.
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2011, Tarick Bedeir.
+ * Copyright (c) 2012, Tarick Bedeir.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

@@ -1,10 +1,10 @@
 /*
- * version.h
+ * base/version.h
  * -------------------------------------------------------------------------
  * Version information (set by the various configure scripts).
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2011, Tarick Bedeir.
+ * Copyright (c) 2012, Tarick Bedeir.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_VERSION_H
-#define S3_VERSION_H
+#ifndef S3_BASE_VERSION_H
+#define S3_BASE_VERSION_H
 
 namespace s3
 {

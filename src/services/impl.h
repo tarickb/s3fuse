@@ -1,10 +1,10 @@
 /*
- * service_impl.h
+ * services/impl.h
  * -------------------------------------------------------------------------
  * Abstract base class for service-specific implementation classes.
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2011, Tarick Bedeir.
+ * Copyright (c) 2012, Tarick Bedeir.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

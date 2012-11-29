@@ -1,11 +1,11 @@
 /*
- * config.h
+ * base/config.h
  * -------------------------------------------------------------------------
  * Methods to get cached configuration values.  Mostly auto-generated with
  * configuration keys in config.inc.
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2011, Tarick Bedeir.
+ * Copyright (c) 2012, Tarick Bedeir.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,8 +20,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_CONFIG_H
-#define S3_CONFIG_H
+#ifndef S3_BASE_CONFIG_H
+#define S3_BASE_CONFIG_H
 
 #include <unistd.h>
 

@@ -1,10 +1,10 @@
 /*
- * pool.cc
+ * threads/pool.cc
  * -------------------------------------------------------------------------
  * Implements a pool of worker threads which are monitored for timeouts.
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2011, Tarick Bedeir.
+ * Copyright (c) 2012, Tarick Bedeir.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.

@@ -1,10 +1,10 @@
 /*
- * object.h
+ * fs/object.h
  * -------------------------------------------------------------------------
- * Represents an S3 object (a file, a directory, or a symlink).
+ * Base class for S3 objects.
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2011, Tarick Bedeir.
+ * Copyright (c) 2012, Tarick Bedeir.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
