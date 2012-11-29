@@ -3,7 +3,8 @@ noinst_PROGRAMS = \
 	request \
 	static_list \
 	static_list_multi \
-	statistics
+	statistics \
+	xml_match
 
 lru_cache_map_SOURCES = lru_cache_map.cc
 lru_cache_map_LDADD = ../libs3fuse_base.a $(LDADD)
@@ -19,3 +20,6 @@ static_list_multi_LDADD = ../libs3fuse_base.a $(LDADD)
 
 statistics_SOURCES = statistics.cc 
 statistics_LDADD = ../libs3fuse_base.a $(LDADD)
+
+xml_match_SOURCES = xml_match.cc 
+xml_match_LDADD = ../libs3fuse_base.a $(LDADD)

@@ -48,7 +48,8 @@ void xml::init(const string &ns)
   xmlInitParser();
   LIBXML_TEST_VERSION;
 
-  s_ns_map["s3"] = ns;
+  if (!ns.empty())
+    s_ns_map["s3"] = ns;
 }
 
 xml::document xml::parse(const string &data)
@@ -129,4 +130,30 @@ int xml::find(const xml::document &doc, const char *xpath, xml::element_list *li
   }
 
   return -EIO;
+}
+
+bool xml::match(const char *in, size_t len, const char *xpath)
+{
+  try {
+    DomParser dom;
+    Element *root = NULL;
+
+    dom.parse_memory_raw(reinterpret_cast<const uint8_t *>(in), len);
+
+    if (!dom)
+      return false;
+
+    if (!dom.get_document())
+      return false;
+
+    root = dom.get_document()->get_root_node();
+
+    if (!root)
+      return false;
+
+    return !root->find(xpath, s_ns_map).empty();
+
+  } catch (...) {}
+
+  return false;
 }
