@@ -4,6 +4,7 @@ noinst_PROGRAMS = \
 	static_list \
 	static_list_multi \
 	statistics \
+	timer \
 	xml_match
 
 lru_cache_map_SOURCES = lru_cache_map.cc
@@ -20,6 +21,9 @@ static_list_multi_LDADD = ../libs3fuse_base.a $(LDADD)
 
 statistics_SOURCES = statistics.cc 
 statistics_LDADD = ../libs3fuse_base.a $(LDADD)
+
+timer_SOURCES = timer.cc 
+timer_LDADD = ../libs3fuse_base.a $(LDADD)
 
 xml_match_SOURCES = xml_match.cc 
 xml_match_LDADD = ../libs3fuse_base.a $(LDADD)
