@@ -36,7 +36,7 @@ using s3::base::statistics;
 using s3::fs::cache;
 
 boost::mutex cache::s_mutex;
-scoped_ptr<cache::cache_map> cache::s_cache_map; // TODO: replace with plain pointer?
+scoped_ptr<cache::cache_map> cache::s_cache_map;
 uint64_t cache::s_hits, cache::s_misses, cache::s_expiries;
 
 void cache::init()
