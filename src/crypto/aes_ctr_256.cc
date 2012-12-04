@@ -75,15 +75,15 @@ void aes_ctr_256::crypt(const symmetric_key::ptr &key, uint64_t starting_block, 
     if (r != kCCSuccess)
       throw runtime_error("CCCryptorUpdate() failed in aes_ctr_256");
   #else
-    AES_KEY key;
+    AES_KEY aes_key;
     uint8_t ecount_buf[BLOCK_LEN];
     unsigned int num = 0;
 
     memset(ecount_buf, 0, sizeof(ecount_buf));
 
-    if (AES_set_encrypt_key(key->get_key()->get(), key->get_key()->size() * 8 /* in bits */, &key) != 0)
+    if (AES_set_encrypt_key(key->get_key()->get(), key->get_key()->size() * 8 /* in bits */, &aes_key) != 0)
       throw runtime_error("failed to set encryption key for aes_ctr_256");
 
-    AES_ctr128_encrypt(in, out, size, &key, iv, ecount_buf, &num);
+    AES_ctr128_encrypt(in, out, size, &aes_key, iv, ecount_buf, &num);
   #endif
 }
