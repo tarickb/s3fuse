@@ -27,8 +27,6 @@ namespace
 
 void run_aes_thread(const symmetric_key::ptr &cs, int fd_in, int fd_out, off_t offset, size_t size)
 {
-  aes_ctr_256::ptr aes = aes_ctr_256::create_with_byte_offset(cs, offset);
-
   while (size) {
     uint8_t buf_in[CHUNK_SIZE], buf_out[CHUNK_SIZE];
     ssize_t sz;
@@ -41,7 +39,7 @@ void run_aes_thread(const symmetric_key::ptr &cs, int fd_in, int fd_out, off_t o
     if (sz == 0)
       break;
 
-    aes->encrypt(buf_in, sz, buf_out);
+    aes_ctr_256::encrypt_with_byte_offset(cs, offset, buf_in, sz, buf_out);
 
     sz = pwrite(fd_out, buf_out, sz, offset);
 

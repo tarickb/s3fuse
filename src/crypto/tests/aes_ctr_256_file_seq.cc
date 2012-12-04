@@ -22,7 +22,6 @@ namespace
 
 int run_aes(const symmetric_key::ptr &cs, const string &file_in, const string &file_out)
 {
-  aes_ctr_256::ptr aes = aes_ctr_256::create(cs);
   int fd_in, fd_out;
   off_t offset = 0;
 
@@ -46,7 +45,7 @@ int run_aes(const symmetric_key::ptr &cs, const string &file_in, const string &f
     if (sz == 0)
       break;
 
-    aes->encrypt(buf_in, sz, buf_out);
+    aes_ctr_256::encrypt(cs, buf_in, sz, buf_out);
 
     sz = pwrite(fd_out, buf_out, sz, offset);
 

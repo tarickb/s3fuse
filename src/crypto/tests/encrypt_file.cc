@@ -28,7 +28,7 @@ using s3::crypto::hex;
 using s3::crypto::sha256;
 using s3::crypto::symmetric_key;
 
-const size_t HASH_BLOCK_SIZE = 32 * 1024;
+const size_t HASH_BLOCK_SIZE = hash_list<sha256>::CHUNK_SIZE;
 
 int main(int argc, char **argv)
 {
@@ -38,7 +38,6 @@ int main(int argc, char **argv)
   buffer::ptr v_key;
   hash_list<sha256>::ptr hashes;
   struct stat s;
-  aes_ctr_256::ptr ctr_enc;
   size_t offset = 0;
   string root_hash, meta;
 
@@ -71,15 +70,13 @@ int main(int argc, char **argv)
 
   fprintf(f_meta, "size: %" PRId64 "\n", s.st_size);
 
-  ctr_enc = aes_ctr_256::create(file_key);
-
   while (true) {
     uint8_t buf_in[HASH_BLOCK_SIZE], buf_out[HASH_BLOCK_SIZE];
     size_t read_count = 0;
 
     read_count = fread(buf_in, 1, HASH_BLOCK_SIZE, f_in);
 
-    ctr_enc->encrypt(buf_in, read_count, buf_out);
+    aes_ctr_256::encrypt(file_key, buf_in, read_count, buf_out);
 
     if (fwrite(buf_out, read_count, 1, f_out) != 1) {
       cerr << "failed to write to output file" << endl;

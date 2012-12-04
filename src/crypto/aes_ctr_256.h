@@ -39,12 +39,9 @@ namespace s3
   {
     class symmetric_key;
 
-    // TODO: move starting block parameter (or offset) to encrypt method so that only one cipher is created.. maybe?
     class aes_ctr_256
     {
     public:
-      typedef boost::shared_ptr<aes_ctr_256> ptr;
-
       #ifdef __APPLE__
         enum { BLOCK_LEN = kCCBlockSizeAES128 };
       #else
@@ -54,68 +51,41 @@ namespace s3
       enum { IV_LEN = BLOCK_LEN / 2 };
       enum { DEFAULT_KEY_LEN = 32 }; // 256 bits
 
-      inline static ptr create(const boost::shared_ptr<symmetric_key> &key)
-      {
-        return create_with_starting_block(key, 0);
-      }
-
-      inline static ptr create_with_byte_offset(const boost::shared_ptr<symmetric_key> &key, uint64_t offset)
+      inline static void encrypt_with_byte_offset(const boost::shared_ptr<symmetric_key> &key, uint64_t offset, const uint8_t *in, size_t size, uint8_t *out)
       {
         if (offset % BLOCK_LEN)
           throw std::runtime_error("offset must be a multiple of BLOCK_LEN");
 
-        return create_with_starting_block(key, offset / BLOCK_LEN);
+        crypt(key, offset / BLOCK_LEN, in, size, out);
       }
 
-      inline static ptr create_with_starting_block(const boost::shared_ptr<symmetric_key> &key, uint64_t starting_block)
+      inline static void decrypt_with_byte_offset(const boost::shared_ptr<symmetric_key> &key, uint64_t offset, const uint8_t *in, size_t size, uint8_t *out)
       {
-        return ptr(new aes_ctr_256(key, starting_block));
+        encrypt_with_byte_offset(key, offset, in, size, out);
       }
 
-      ~aes_ctr_256();
-
-      inline void encrypt(const uint8_t *in, size_t size, uint8_t *out)
+      inline static void encrypt_with_starting_block(const boost::shared_ptr<symmetric_key> &key, uint64_t starting_block, const uint8_t *in, size_t size, uint8_t *out)
       {
-        #ifdef __APPLE__
-          CCCryptorStatus r;
-
-          // TODO: find some way to force block boundary
-
-          r = CCCryptorUpdate(
-            _cryptor,
-            in,
-            size,
-            out,
-            size,
-            NULL);
-
-          if (r != kCCSuccess)
-            throw std::runtime_error("CCCryptorUpdate() failed in aes_ctr_256");
-        #else
-          // by always setting _num = 0 before encrypting we enforce our 
-          // requirement that all encryption be started on block boundaries
-
-          _num = 0;
-          AES_ctr128_encrypt(in, out, size, &_key, _iv, _ecount_buf, &_num);
-        #endif
+        crypt(key, starting_block, in, size, out);
       }
 
-      inline void decrypt(const uint8_t *in, size_t size, uint8_t *out)
+      inline static void decrypt_with_starting_block(const boost::shared_ptr<symmetric_key> &key, uint64_t starting_block, const uint8_t *in, size_t size, uint8_t *out)
       {
-        encrypt(in, size, out);
+        encrypt_with_starting_block(key, starting_block, in, size, out);
+      }
+
+      inline static void encrypt(const boost::shared_ptr<symmetric_key> &key, const uint8_t *in, size_t size, uint8_t *out)
+      {
+        crypt(key, 0, in, size, out);
+      }
+
+      inline static void decrypt(const boost::shared_ptr<symmetric_key> &key, const uint8_t *in, size_t size, uint8_t *out)
+      {
+        encrypt(key, in, size, out);
       }
 
     private:
-      aes_ctr_256(const boost::shared_ptr<symmetric_key> &key, uint64_t starting_block);
-
-      #ifdef __APPLE__
-        CCCryptorRef _cryptor;
-      #else
-        AES_KEY _key;
-        uint8_t _iv[BLOCK_LEN];
-        uint8_t _ecount_buf[BLOCK_LEN];
-        unsigned int _num;
-      #endif
+      static void crypt(const boost::shared_ptr<symmetric_key> &key, uint64_t starting_block, const uint8_t *in, size_t size, uint8_t *out);
     };
   }
 }

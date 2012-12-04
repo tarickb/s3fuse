@@ -50,7 +50,6 @@ int main(int argc, char **argv)
 
     if (!key.empty() && !iv.empty() && !starting_block.empty() && !plaintext.empty() && !ciphertext.empty()) {
       symmetric_key::ptr cs;
-      aes_ctr_256::ptr aes_enc, aes_dec;
       vector<uint8_t> in_buf, out_buf;
       string in_enc, out_enc;
       uint64_t sb = 0;
@@ -73,16 +72,13 @@ int main(int argc, char **argv)
         encoder::decode<hex>(plaintext, &in_buf);
         out_buf.resize(in_buf.size());
 
-        aes_enc = aes_ctr_256::create_with_starting_block(cs, sb);
-        aes_dec = aes_ctr_256::create_with_starting_block(cs, sb);
-        
-        aes_enc->encrypt(&in_buf[0], in_buf.size(), &out_buf[0]);
+        aes_ctr_256::encrypt_with_starting_block(cs, sb, &in_buf[0], in_buf.size(), &out_buf[0]);
         out_enc = encoder::encode<hex>(out_buf);
 
         if (out_enc != ciphertext)
           throw runtime_error("ciphertext does not match");
 
-        aes_dec->decrypt(&out_buf[0], out_buf.size(), &in_buf[0]);
+        aes_ctr_256::decrypt_with_starting_block(cs, sb, &out_buf[0], out_buf.size(), &in_buf[0]);
         in_enc = encoder::encode<hex>(in_buf);
 
         if (in_enc != plaintext)

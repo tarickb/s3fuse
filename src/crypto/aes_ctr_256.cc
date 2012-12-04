@@ -29,19 +29,21 @@ using std::runtime_error;
 using s3::crypto::aes_ctr_256;
 using s3::crypto::symmetric_key;
 
-aes_ctr_256::aes_ctr_256(const symmetric_key::ptr &key, uint64_t starting_block)
+void aes_ctr_256::crypt(const symmetric_key::ptr &key, uint64_t starting_block, const uint8_t *in, size_t size, uint8_t *out)
 {
+  uint8_t iv[BLOCK_LEN];
+
   if (key->get_iv()->size() != IV_LEN)
     throw runtime_error("iv length is not valid for aes_ctr_256");
 
   starting_block = __builtin_bswap64(starting_block);
 
-  #ifdef __APPLE__
-    CCCryptorStatus r;
-    uint8_t iv[BLOCK_LEN];
+  memcpy(iv, key->get_iv()->get(), IV_LEN);
+  memcpy(iv + IV_LEN, &starting_block, sizeof(starting_block));
 
-    memcpy(iv, key->get_iv()->get(), IV_LEN);
-    memcpy(iv + IV_LEN, &starting_block, sizeof(starting_block));
+  #ifdef __APPLE__
+    CCCryptorRef cryptor;
+    CCCryptorStatus r;
 
     r = CCCryptorCreateWithMode(
       kCCEncrypt, // use for both encryption and decryption because ctr is symmetric
@@ -55,24 +57,33 @@ aes_ctr_256::aes_ctr_256(const symmetric_key::ptr &key, uint64_t starting_block)
       0,
       0,
       kCCModeOptionCTR_BE,
-      &_cryptor);
+      &cryptor);
 
     if (r != kCCSuccess)
       throw runtime_error("call to CCCryptorCreateWithMode() failed in aes_ctr_256");
+
+    r = CCCryptorUpdate(
+      cryptor,
+      in,
+      size,
+      out,
+      size,
+      NULL);
+
+    CCCryptorRelease(cryptor);
+
+    if (r != kCCSuccess)
+      throw runtime_error("CCCryptorUpdate() failed in aes_ctr_256");
   #else
-    memset(_ecount_buf, 0, sizeof(_ecount_buf));
+    AES_KEY key;
+    uint8_t ecount_buf[BLOCK_LEN];
+    unsigned int num = 0;
 
-    memcpy(_iv, key->get_iv()->get(), IV_LEN);
-    memcpy(_iv + IV_LEN, &starting_block, sizeof(starting_block));
+    memset(ecount_buf, 0, sizeof(ecount_buf));
 
-    if (AES_set_encrypt_key(key->get_key()->get(), key->get_key()->size() * 8 /* in bits */, &_key) != 0)
+    if (AES_set_encrypt_key(key->get_key()->get(), key->get_key()->size() * 8 /* in bits */, &key) != 0)
       throw runtime_error("failed to set encryption key for aes_ctr_256");
-  #endif
-}
 
-aes_ctr_256::~aes_ctr_256()
-{
-  #ifdef __APPLE__
-    CCCryptorRelease(_cryptor);
+    AES_ctr128_encrypt(in, out, size, &key, iv, ecount_buf, &num);
   #endif
 }

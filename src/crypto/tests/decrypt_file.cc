@@ -31,7 +31,7 @@ using s3::crypto::hex;
 using s3::crypto::sha256;
 using s3::crypto::symmetric_key;
 
-const size_t HASH_BLOCK_SIZE = 32 * 1024;
+const size_t HASH_BLOCK_SIZE = hash_list<sha256>::CHUNK_SIZE;
 
 int main(int argc, char **argv)
 {
@@ -41,7 +41,6 @@ int main(int argc, char **argv)
     FILE *f_in, *f_out, *f_meta;
     buffer::ptr v_key;
     hash_list<sha256>::ptr hashes;
-    aes_ctr_256::ptr ctr_dec;
     size_t offset = 0;
     string root_hash, meta;
     size_t file_size = 0;
@@ -119,15 +118,13 @@ int main(int argc, char **argv)
 
     hashes.reset(new hash_list<sha256>(file_size));
 
-    ctr_dec = aes_ctr_256::create(file_key);
-
     while (true) {
       uint8_t buf_in[HASH_BLOCK_SIZE], buf_out[HASH_BLOCK_SIZE];
       size_t read_count = 0;
 
       read_count = fread(buf_in, 1, HASH_BLOCK_SIZE, f_in);
 
-      ctr_dec->decrypt(buf_in, read_count, buf_out);
+      aes_ctr_256::decrypt(file_key, buf_in, read_count, buf_out);
 
       if (fwrite(buf_out, read_count, 1, f_out) != 1) {
         cerr << "failed to write to output file" << endl;

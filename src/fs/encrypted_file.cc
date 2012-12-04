@@ -211,7 +211,9 @@ int encrypted_file::read_chunk(size_t size, off_t offset, vector<char> *buffer)
 
   buffer->resize(temp.size());
 
-  aes_ctr_256::create_with_byte_offset(_data_key, offset)->encrypt(
+  aes_ctr_256::encrypt_with_byte_offset(
+    _data_key, 
+    offset,
     reinterpret_cast<const uint8_t *>(&temp[0]), 
     temp.size(), 
     reinterpret_cast<uint8_t *>(&(*buffer)[0]));
@@ -223,7 +225,9 @@ int encrypted_file::write_chunk(const char *buffer, size_t size, off_t offset)
 {
   vector<char> temp(size);
 
-  aes_ctr_256::create_with_byte_offset(_data_key, offset)->decrypt(
+  aes_ctr_256::decrypt_with_byte_offset(
+    _data_key, 
+    offset,
     reinterpret_cast<const uint8_t *>(buffer), 
     size, 
     reinterpret_cast<uint8_t *>(&temp[0]));
