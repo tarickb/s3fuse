@@ -220,10 +220,13 @@ void gs_impl::sign(request *req, int iter)
 {
   mutex::scoped_lock lock(_mutex);
 
-  // TODO: remove the timeout check and re-test (and do we need the date header?)
-  // if this is the second attempt, or the token has expired, refresh
-  if (iter > 0 || time(NULL) >= _expiry)
+  if (iter > 0) {
+    S3_LOG(LOG_DEBUG, "gs_impl::sign", "last request failed. refreshing token.\n");
     refresh(lock);
+  } else if (time(NULL) >= _expiry) {
+    S3_LOG(LOG_DEBUG, "gs_impl::sign", "token timed out. refreshing.\n");
+    refresh(lock);
+  }
 
   req->set_header("Authorization", _access_token);
   req->set_header("x-goog-api-version", "2");
