@@ -19,6 +19,8 @@ void test(const xattr::ptr &p)
     p->get_key() << ": " << 
     (p->is_writable() ? "(writable) " : "") << 
     (p->is_serializable() ? "(serializable) " : "") << 
+    (p->is_visible() ? "(visible) " : "") <<
+    (p->is_removable() ? "(removable) " : "") <<
     hk << ": " <<
     hv << endl;
 }
@@ -35,8 +37,8 @@ int main(int argc, char **argv)
   for (int i = 0; i < LEN; i++)
     buf[i] = rand();
 
-  test(static_xattr::from_string("x1", "abcdef"));
-  test(static_xattr::create("x2"));
+  test(static_xattr::from_string("x1", "abcdef", xattr::XM_VISIBLE));
+  test(static_xattr::create("x2", xattr::XM_VISIBLE));
   test(static_xattr::create("x3", xattr::XM_WRITABLE));
   test(static_xattr::from_string("x4", "blah", xattr::XM_WRITABLE | xattr::XM_SERIALIZABLE));
   test(static_xattr::from_string("AN_UPPERCASE_KEY", "value", xattr::XM_SERIALIZABLE));
@@ -48,7 +50,7 @@ int main(int argc, char **argv)
 
   p->to_header(&hk, &hv);
 
-  p = static_xattr::from_header(hk, hv);
+  p = static_xattr::from_header(hk, hv, xattr::XM_VISIBLE);
   test(p);
 
   cout << "get_value: " << p->get_value(buf_out, LEN) << endl;

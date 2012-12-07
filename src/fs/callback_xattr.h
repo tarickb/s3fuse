@@ -41,9 +41,10 @@ namespace s3
       inline static ptr create(
         const std::string &key, 
         const get_value_function &get_fn,
-        const set_value_function &set_fn)
+        const set_value_function &set_fn,
+        int mode)
       {
-        return xattr::ptr(new callback_xattr(key, get_fn, set_fn));
+        return xattr::ptr(new callback_xattr(key, get_fn, set_fn, mode));
       }
 
       virtual int set_value(const char *value, size_t size);
@@ -55,8 +56,9 @@ namespace s3
       inline callback_xattr(
         const std::string &key, 
         const get_value_function &get_fn, 
-        const set_value_function &set_fn
-      ) : xattr(key, XM_DEFAULT),
+        const set_value_function &set_fn,
+        int mode
+      ) : xattr(key, mode),
           _get_fn(get_fn),
           _set_fn(set_fn)
       {
@@ -64,7 +66,6 @@ namespace s3
 
       get_value_function _get_fn;
       set_value_function _set_fn;
-      std::string _last_get_result;
     };
   }
 }

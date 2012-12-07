@@ -40,16 +40,16 @@ namespace s3
       static ptr from_header(
         const std::string &header_key, 
         const std::string &header_value, 
-        int mode = XM_DEFAULT);
+        int mode);
 
       static ptr from_string(
         const std::string &key, 
         const std::string &value, 
-        int mode = XM_DEFAULT);
+        int mode);
 
       static ptr create(
         const std::string &key, 
-        int mode = XM_DEFAULT);
+        int mode);
 
       virtual int set_value(const char *value, size_t size);
       virtual int get_value(char *buffer, size_t max_size);

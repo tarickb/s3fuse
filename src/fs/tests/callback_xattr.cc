@@ -40,6 +40,8 @@ void test(const xattr::ptr &p)
     p->get_key() << ": " << 
     (p->is_writable() ? "(writable) " : "") << 
     (p->is_serializable() ? "(serializable) " : "") << 
+    (p->is_visible() ? "(visible) " : "") <<
+    (p->is_removable() ? "(removable) " : "") <<
     &buf[0] << endl;
 }
 
@@ -67,7 +69,8 @@ int main(int argc, char **argv)
   p = callback_xattr::create(
     "cb_test_key", 
     bind(get, _1),
-    bind(set, _1));
+    bind(set, _1),
+    xattr::XM_VISIBLE);
 
   cout << "test 1" << endl;
   test(p);

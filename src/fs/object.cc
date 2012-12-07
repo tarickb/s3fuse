@@ -27,7 +27,6 @@
 #include "base/request.h"
 #include "base/xml.h"
 #include "fs/cache.h"
-#include "fs/callback_xattr.h"
 #include "fs/glacier.h"
 #include "fs/metadata.h"
 #include "fs/object.h"
@@ -61,11 +60,6 @@ namespace
 {
   const int BLOCK_SIZE = 512;
   const char *COMMIT_ETAG_XPATH = "/s3:CopyObjectResult/s3:ETag";
-
-  int nop_set_callback(const string & /* ignored */)
-  {
-    return 0;
-  }
 }
 
 int object::get_block_size()
@@ -195,7 +189,8 @@ void object::get_metadata_keys(vector<string> *keys)
   mutex::scoped_lock lock(_mutex);
 
   for (xattr_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)
-    keys->push_back(config::get_xattr_prefix() + itor->first);
+    if (itor->second->is_visible())
+      keys->push_back(config::get_xattr_prefix() + itor->first);
 }
 
 int object::get_metadata(const string &key, char *buffer, size_t max_size)
@@ -221,7 +216,7 @@ int object::remove_metadata(const string &key)
   mutex::scoped_lock lock(_mutex);
   xattr_map::iterator itor = _metadata.find(key.substr(config::get_xattr_prefix().size()));
 
-  if (itor == _metadata.end() || !itor->second->is_writable())
+  if (itor == _metadata.end() || !itor->second->is_removable())
     return -ENOATTR;
 
   _metadata.erase(itor);
@@ -267,12 +262,12 @@ void object::init(const request::ptr &req)
       _metadata.replace(static_xattr::from_header(
         key.substr(meta_prefix.size()), 
         value, 
-        xattr::XM_WRITABLE | xattr::XM_SERIALIZABLE));
+        xattr::XM_WRITABLE | xattr::XM_SERIALIZABLE | xattr::XM_VISIBLE | xattr::XM_REMOVABLE));
     }
   }
 
-  _metadata.replace(static_xattr::from_string("s3fuse_content_type", _content_type));
-  _metadata.replace(static_xattr::from_string("s3fuse_etag", _etag));
+  _metadata.replace(static_xattr::from_string("s3fuse_content_type", _content_type, xattr::XM_VISIBLE));
+  _metadata.replace(static_xattr::from_string("s3fuse_etag", _etag, xattr::XM_VISIBLE));
 
   // this workaround is for cases when the file was updated by someone else and the mtime header wasn't set
   if (!is_intact() && req->get_last_modified() > _stat.st_mtime)
@@ -284,12 +279,11 @@ void object::init(const request::ptr &req)
   _expiry = time(NULL) + config::get_cache_expiry_in_s();
 
   if (config::get_allow_glacier_restores()) {
-    _glacier = glacier::create(_path);
+    _glacier = glacier::create(this, req);
 
-    _metadata.replace(callback_xattr::create(
-      "s3fuse_storage_class",
-      bind(&glacier::get_storage_class, _glacier, _1),
-      nop_set_callback));
+    _metadata.replace(_glacier->get_storage_class());
+    _metadata.replace(_glacier->get_restore_ongoing());
+    _metadata.replace(_glacier->get_restore_expiry());
   }
 }
 

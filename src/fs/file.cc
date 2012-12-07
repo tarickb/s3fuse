@@ -159,7 +159,7 @@ void file::set_sha256_hash(const string &hash)
     return;
 
   _sha256_hash = hash;
-  get_metadata()->replace(static_xattr::from_string("s3fuse_sha256", hash));
+  get_metadata()->replace(static_xattr::from_string("s3fuse_sha256", hash, xattr::XM_VISIBLE));
 }
 
 void file::set_request_headers(const request::ptr &req)
