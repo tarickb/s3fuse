@@ -35,8 +35,8 @@ namespace s3
     class callback_xattr : public xattr
     {
     public:
-      typedef boost::function2<int, std::string, std::string *> get_value_function;
-      typedef boost::function2<int, std::string, std::string> set_value_function;
+      typedef boost::function1<int, std::string *> get_value_function;
+      typedef boost::function1<int, std::string> set_value_function;
 
       inline static ptr create(
         const std::string &key, 

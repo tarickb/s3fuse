@@ -33,6 +33,8 @@ CONFIG(bool, use_encryption, false); // if set, encryption/decryption support wi
 CONFIG(bool, encrypt_new_files, true); // if set, all newly-created files will be encrypted
 CONFIG(std::string, volume_key_file, ""); // name of file containing hex-encoded volume key. if blank, read from stdin.
 
+CONFIG(bool, allow_glacier_restores, false); // enable glacier object restores
+
 CONFIG_REQUIRED(std::string, service, ""); // service -- must be "aws" or "google-storage"
 CONFIG_REQUIRED(std::string, auth_data, ""); // service-specific authentication details (see documentation)
 CONFIG_REQUIRED(std::string, bucket_name, ""); // bucket name

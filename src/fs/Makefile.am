@@ -17,6 +17,8 @@ libs3fuse_fs_a_SOURCES = \
 	encryption.h \
 	file.cc \
 	file.h \
+	glacier.cc \
+	glacier.h \
 	metadata.cc \
 	metadata.h \
 	object.cc \

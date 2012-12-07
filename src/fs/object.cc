@@ -27,6 +27,8 @@
 #include "base/request.h"
 #include "base/xml.h"
 #include "fs/cache.h"
+#include "fs/callback_xattr.h"
+#include "fs/glacier.h"
 #include "fs/metadata.h"
 #include "fs/object.h"
 #include "fs/static_xattr.h"
@@ -59,44 +61,9 @@ namespace
 {
   const int BLOCK_SIZE = 512;
   const char *COMMIT_ETAG_XPATH = "/s3:CopyObjectResult/s3:ETag";
-  const char *STORAGE_CLASS_XPATH = "/s3:ListBucketResult/s3:Contents/s3:StorageClass";
 
-  int get_storage_class_by_path(const request::ptr &req, const string &path, string *sc)
+  int nop_set_callback(const string & /* ignored */)
   {
-    xml::document doc;
-    xml::element_list results;
-
-    // set max-keys to two, then make sure we have one result
-    // it's easier than checking to see if IsTruncated is "true"
-    string url = string("max-keys=2&prefix=") + request::url_encode(path);
-
-    req->init(s3::base::HTTP_GET);
-    req->set_url(service::get_bucket_url(), url);
-    req->run();
-
-    fprintf(stderr, "url: %s\n", url.c_str());
-
-    if (req->get_response_code() != s3::base::HTTP_SC_OK)
-      return -EIO;
-
-    fprintf(stderr, "output: %s\n", req->get_output_string().c_str());
-
-    doc = xml::parse(req->get_output_string());
-
-    if (!doc) {
-      S3_LOG(LOG_WARNING, "get_storage_class_by_path", "failed to parse response.\n");
-      return -EIO;
-    }
-
-    xml::find(doc, STORAGE_CLASS_XPATH, &results);
-
-    if (results.size() != 1) {
-      S3_LOG(LOG_WARNING, "get_storage_class_by_path", "found unexpected number of objects.\n");
-      return -EIO;
-    }
-
-    *sc = *results.begin();
-
     return 0;
   }
 }
@@ -316,16 +283,13 @@ void object::init(const request::ptr &req)
   // setting _expiry > 0 makes this object valid
   _expiry = time(NULL) + config::get_cache_expiry_in_s();
 
-  // TODO: make this a config option
-  if (true) {
-    string sc;
+  if (config::get_allow_glacier_restores()) {
+    _glacier = glacier::create(_path);
 
-    pool::call(
-      threads::PR_REQ_1,
-      bind(get_storage_class_by_path, _1, _path, &sc));
-
-    if (!sc.empty())
-      _metadata.replace(static_xattr::from_string("s3fuse_storage_class", sc));
+    _metadata.replace(callback_xattr::create(
+      "s3fuse_storage_class",
+      bind(&glacier::get_storage_class, _glacier, _1),
+      nop_set_callback));
   }
 }
 

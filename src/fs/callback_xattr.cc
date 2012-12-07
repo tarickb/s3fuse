@@ -38,7 +38,7 @@ int callback_xattr::set_value(const char *value, size_t size)
 
   s.assign(value, size);
 
-  return _set_fn(get_key(), s);
+  return _set_fn(s);
 }
 
 int callback_xattr::get_value(char *buffer, size_t max_size)
@@ -47,7 +47,7 @@ int callback_xattr::get_value(char *buffer, size_t max_size)
   size_t size;
   int r;
 
-  r = _get_fn(get_key(), &value);
+  r = _get_fn(&value);
 
   if (r)
     return r;
