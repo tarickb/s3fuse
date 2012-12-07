@@ -34,6 +34,7 @@
 #include "fs/cache.h"
 #include "fs/metadata.h"
 #include "fs/file.h"
+#include "fs/static_xattr.h"
 #include "services/service.h"
 #include "threads/pool.h"
 
@@ -58,6 +59,7 @@ using s3::crypto::sha256;
 using s3::fs::file;
 using s3::fs::metadata;
 using s3::fs::object;
+using s3::fs::static_xattr;
 using s3::services::service;
 using s3::threads::pool;
 
@@ -157,7 +159,7 @@ void file::set_sha256_hash(const string &hash)
     return;
 
   _sha256_hash = hash;
-  get_metadata()->replace(xattr::from_string("s3fuse_sha256", hash));
+  get_metadata()->replace(static_xattr::from_string("s3fuse_sha256", hash));
 }
 
 void file::set_request_headers(const request::ptr &req)

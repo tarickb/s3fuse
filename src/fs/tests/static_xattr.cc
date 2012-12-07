@@ -1,11 +1,12 @@
 #include <iostream>
 
-#include "fs/xattr.h"
+#include "fs/static_xattr.h"
 
 using std::cout;
 using std::endl;
 using std::string;
 
+using s3::fs::static_xattr;
 using s3::fs::xattr;
 
 void test(const xattr::ptr &p)
@@ -34,20 +35,20 @@ int main(int argc, char **argv)
   for (int i = 0; i < LEN; i++)
     buf[i] = rand();
 
-  test(xattr::from_string("x1", "abcdef"));
-  test(xattr::create("x2"));
-  test(xattr::create("x3", xattr::XM_WRITABLE));
-  test(xattr::from_string("x4", "blah", xattr::XM_WRITABLE | xattr::XM_SERIALIZABLE));
-  test(xattr::from_string("AN_UPPERCASE_KEY", "value", xattr::XM_SERIALIZABLE));
+  test(static_xattr::from_string("x1", "abcdef"));
+  test(static_xattr::create("x2"));
+  test(static_xattr::create("x3", xattr::XM_WRITABLE));
+  test(static_xattr::from_string("x4", "blah", xattr::XM_WRITABLE | xattr::XM_SERIALIZABLE));
+  test(static_xattr::from_string("AN_UPPERCASE_KEY", "value", xattr::XM_SERIALIZABLE));
 
-  p = xattr::create("should_be_AN_INVALID_KEY", xattr::XM_WRITABLE | xattr::XM_SERIALIZABLE);
+  p = static_xattr::create("should_be_AN_INVALID_KEY", xattr::XM_WRITABLE | xattr::XM_SERIALIZABLE);
 
   p->set_value(buf, LEN);
   test(p);
 
   p->to_header(&hk, &hv);
 
-  p = xattr::from_header(hk, hv);
+  p = static_xattr::from_header(hk, hv);
   test(p);
 
   cout << "get_value: " << p->get_value(buf_out, LEN) << endl;

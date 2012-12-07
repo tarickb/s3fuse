@@ -1,7 +1,7 @@
 /*
- * fs/xattr.cc
+ * fs/static_xattr.cc
  * -------------------------------------------------------------------------
- * Object extended attribute implementation.
+ * Static object extended attribute implementation.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
@@ -31,7 +31,7 @@
 #include "crypto/hex.h"
 #include "crypto/md5.h"
 #include "fs/metadata.h"
-#include "fs/xattr.h"
+#include "fs/static_xattr.h"
 
 using std::string;
 using std::runtime_error;
@@ -43,11 +43,11 @@ using s3::crypto::hash;
 using s3::crypto::hex;
 using s3::crypto::md5;
 using s3::fs::metadata;
-using s3::fs::xattr;
+using s3::fs::static_xattr;
 
 namespace
 {
-  const size_t  MAX_STRING_SCAN_LEN      = 128;
+  const size_t MAX_STRING_SCAN_LEN = 128;
 
   inline bool is_key_valid(const string &key)
   {
@@ -77,10 +77,10 @@ namespace
   }
 }
 
-xattr::ptr xattr::from_header(const string &header_key, const string &header_value, int mode)
+static_xattr::ptr static_xattr::from_header(const string &header_key, const string &header_value, int mode)
 {
   ptr ret;
-  xattr *val = NULL;
+  static_xattr *val = NULL;
 
   if (strncmp(header_key.c_str(), metadata::XATTR_PREFIX, strlen(metadata::XATTR_PREFIX)) == 0) {
     vector<uint8_t> dec_key;
@@ -91,13 +91,13 @@ xattr::ptr xattr::from_header(const string &header_key, const string &header_val
 
     encoder::decode<base64>(header_value.substr(0, separator), &dec_key);
 
-    ret.reset(val = new xattr(reinterpret_cast<char *>(&dec_key[0]), true, true, mode));
+    ret.reset(val = new static_xattr(reinterpret_cast<char *>(&dec_key[0]), true, true, mode));
 
     encoder::decode<base64>(header_value.substr(separator + 1), &val->_value);
 
   } else {
     // we know the value doesn't need encoding because it came to us as a valid HTTP string.
-    ret.reset(val = new xattr(header_key, false, false, mode));
+    ret.reset(val = new static_xattr(header_key, false, false, mode));
 
     val->_value.resize(header_value.size());
     memcpy(&val->_value[0], reinterpret_cast<const uint8_t *>(header_value.c_str()), header_value.size());
@@ -106,7 +106,7 @@ xattr::ptr xattr::from_header(const string &header_key, const string &header_val
   return ret;
 }
 
-xattr::ptr xattr::from_string(const string &key, const string &value, int mode)
+static_xattr::ptr static_xattr::from_string(const string &key, const string &value, int mode)
 {
   ptr ret = create(key, mode);
 
@@ -116,20 +116,22 @@ xattr::ptr xattr::from_string(const string &key, const string &value, int mode)
   return ret;
 }
 
-xattr::ptr xattr::create(const string &key, int mode)
+static_xattr::ptr static_xattr::create(const string &key, int mode)
 {
-  return ptr(new xattr(key, !is_key_valid(key), true, mode));
+  return ptr(new static_xattr(key, !is_key_valid(key), true, mode));
 }
 
-void xattr::set_value(const char *value, size_t size)
+int static_xattr::set_value(const char *value, size_t size)
 {
   _value.resize(size);
   memcpy(&_value[0], reinterpret_cast<const uint8_t *>(value), size);
 
   _encode_value = !is_value_valid(value, size);
+
+  return 0;
 }
 
-int xattr::get_value(char *buffer, size_t max_size)
+int static_xattr::get_value(char *buffer, size_t max_size)
 {
   size_t size = (_value.size() > max_size) ? max_size : _value.size();
 
@@ -147,16 +149,15 @@ int xattr::get_value(char *buffer, size_t max_size)
   return (size == _value.size()) ? size : -ERANGE;
 }
 
-void xattr::to_header(string *header, string *value)
+void static_xattr::to_header(string *header, string *value)
 {
   if (_encode_key || _encode_value) {
-    *header = string(metadata::XATTR_PREFIX) + hash::compute<md5, hex>(_key);
-    *value = encoder::encode<base64>(_key) + " " + encoder::encode<base64>(_value);
+    *header = string(metadata::XATTR_PREFIX) + hash::compute<md5, hex>(get_key());
+    *value = encoder::encode<base64>(get_key()) + " " + encoder::encode<base64>(_value);
   } else {
-    *header = _key;
+    *header = get_key();
 
     value->resize(_value.size());
     memcpy(&(*value)[0], &_value[0], _value.size());
   }
 }
-

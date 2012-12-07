@@ -7,6 +7,8 @@ noinst_LIBRARIES = libs3fuse_fs.a
 libs3fuse_fs_a_SOURCES = \
 	cache.cc \
 	cache.h \
+	callback_xattr.cc \
+	callback_xattr.h \
 	directory.cc \
 	directory.h \
 	encrypted_file.cc \
@@ -19,7 +21,8 @@ libs3fuse_fs_a_SOURCES = \
 	metadata.h \
 	object.cc \
 	object.h \
+	static_xattr.cc \
+	static_xattr.h \
 	symlink.cc \
 	symlink.h \
-	xattr.cc \
 	xattr.h

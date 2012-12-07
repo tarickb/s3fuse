@@ -29,6 +29,7 @@
 #include "fs/cache.h"
 #include "fs/metadata.h"
 #include "fs/object.h"
+#include "fs/static_xattr.h"
 #include "services/service.h"
 
 #ifndef ENOATTR
@@ -50,12 +51,54 @@ using s3::base::header_map;
 using s3::base::request;
 using s3::base::xml;
 using s3::fs::object;
+using s3::fs::static_xattr;
 using s3::services::service;
+using s3::threads::pool;
 
 namespace
 {
   const int BLOCK_SIZE = 512;
   const char *COMMIT_ETAG_XPATH = "/s3:CopyObjectResult/s3:ETag";
+  const char *STORAGE_CLASS_XPATH = "/s3:ListBucketResult/s3:Contents/s3:StorageClass";
+
+  int get_storage_class_by_path(const request::ptr &req, const string &path, string *sc)
+  {
+    xml::document doc;
+    xml::element_list results;
+
+    // set max-keys to two, then make sure we have one result
+    // it's easier than checking to see if IsTruncated is "true"
+    string url = string("max-keys=2&prefix=") + request::url_encode(path);
+
+    req->init(s3::base::HTTP_GET);
+    req->set_url(service::get_bucket_url(), url);
+    req->run();
+
+    fprintf(stderr, "url: %s\n", url.c_str());
+
+    if (req->get_response_code() != s3::base::HTTP_SC_OK)
+      return -EIO;
+
+    fprintf(stderr, "output: %s\n", req->get_output_string().c_str());
+
+    doc = xml::parse(req->get_output_string());
+
+    if (!doc) {
+      S3_LOG(LOG_WARNING, "get_storage_class_by_path", "failed to parse response.\n");
+      return -EIO;
+    }
+
+    xml::find(doc, STORAGE_CLASS_XPATH, &results);
+
+    if (results.size() != 1) {
+      S3_LOG(LOG_WARNING, "get_storage_class_by_path", "found unexpected number of objects.\n");
+      return -EIO;
+    }
+
+    *sc = *results.begin();
+
+    return 0;
+  }
 }
 
 int object::get_block_size()
@@ -165,7 +208,7 @@ int object::set_metadata(const string &key, const char *value, size_t size, int 
     if (flags & XATTR_REPLACE)
       return -ENOATTR;
 
-    itor = _metadata.insert(xattr::create(
+    itor = _metadata.insert(static_xattr::create(
       user_key, 
       xattr::XM_WRITABLE | xattr::XM_SERIALIZABLE)).first;
   }
@@ -175,9 +218,9 @@ int object::set_metadata(const string &key, const char *value, size_t size, int 
   // we'll fail silently.
 
   if (itor->second->is_writable())
-    itor->second->set_value(value, size);
-
-  return 0;
+    return itor->second->set_value(value, size);
+  else
+    return 0;
 }
 
 void object::get_metadata_keys(vector<string> *keys)
@@ -254,15 +297,15 @@ void object::init(const request::ptr &req)
       strncmp(key.c_str(), meta_prefix.c_str(), meta_prefix.size()) == 0 &&
       strncmp(key.c_str() + meta_prefix.size(), metadata::RESERVED_PREFIX, strlen(metadata::RESERVED_PREFIX)) != 0
     ) {
-      _metadata.replace(xattr::from_header(
+      _metadata.replace(static_xattr::from_header(
         key.substr(meta_prefix.size()), 
         value, 
         xattr::XM_WRITABLE | xattr::XM_SERIALIZABLE));
     }
   }
 
-  _metadata.replace(xattr::from_string("s3fuse_content_type", _content_type));
-  _metadata.replace(xattr::from_string("s3fuse_etag", _etag));
+  _metadata.replace(static_xattr::from_string("s3fuse_content_type", _content_type));
+  _metadata.replace(static_xattr::from_string("s3fuse_etag", _etag));
 
   // this workaround is for cases when the file was updated by someone else and the mtime header wasn't set
   if (!is_intact() && req->get_last_modified() > _stat.st_mtime)
@@ -272,6 +315,18 @@ void object::init(const request::ptr &req)
 
   // setting _expiry > 0 makes this object valid
   _expiry = time(NULL) + config::get_cache_expiry_in_s();
+
+  // TODO: make this a config option
+  if (true) {
+    string sc;
+
+    pool::call(
+      threads::PR_REQ_1,
+      bind(get_storage_class_by_path, _1, _path, &sc));
+
+    if (!sc.empty())
+      _metadata.replace(static_xattr::from_string("s3fuse_storage_class", sc));
+  }
 }
 
 void object::set_request_headers(const request::ptr &req)

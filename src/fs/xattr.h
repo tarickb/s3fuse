@@ -1,7 +1,7 @@
 /*
  * fs/xattr.h
  * -------------------------------------------------------------------------
- * Represents an object extended attribute.
+ * Base class for object extended attributes.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
@@ -22,11 +22,8 @@
 #ifndef S3_FS_XATTR_H
 #define S3_FS_XATTR_H
 
-#include <stdint.h>
-
 #include <map>
 #include <string>
-#include <vector>
 #include <boost/smart_ptr.hpp>
 
 namespace s3
@@ -45,42 +42,25 @@ namespace s3
         XM_SERIALIZABLE = 0x2
       };
 
-      static ptr from_header(
-        const std::string &header_key, 
-        const std::string &header_value, 
-        int mode = XM_DEFAULT);
-
-      static ptr from_string(
-        const std::string &key, 
-        const std::string &value, 
-        int mode = XM_DEFAULT);
-
-      static ptr create(
-        const std::string &key, 
-        int mode = XM_DEFAULT);
-
       inline const std::string & get_key() const { return _key; }
 
       inline bool is_serializable() const { return _mode & XM_SERIALIZABLE; }
       inline bool is_writable() const { return _mode & XM_WRITABLE; }
 
-      void set_value(const char *value, size_t size);
-      int get_value(char *buffer, size_t max_size);
+      virtual int set_value(const char *value, size_t size) = 0;
+      virtual int get_value(char *buffer, size_t max_size) = 0;
 
-      void to_header(std::string *header, std::string *value);
+      virtual void to_header(std::string *header, std::string *value) = 0;
 
     protected:
-      inline xattr(const std::string &key, bool encode_key, bool encode_value, int mode)
+      inline xattr(const std::string &key, int mode)
         : _key(key),
-          _encode_key(encode_key),
-          _encode_value(encode_value),
           _mode(mode)
       {
       }
 
+    private:
       std::string _key;
-      std::vector<uint8_t> _value;
-      bool _encode_key, _encode_value;
       int _mode;
     };
 
