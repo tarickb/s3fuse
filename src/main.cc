@@ -469,11 +469,15 @@ int s3fuse_setxattr(const char *path, const char *name, const char *value, size_
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
+    bool needs_commit = false;
     GET_OBJECT(obj, path);
 
-    int r = obj->set_metadata(name, value, size, flags);
+    int r = obj->set_metadata(name, value, size, flags, &needs_commit);
 
-    return r ? r : obj->commit();
+    if (r)
+      return r;
+
+    return needs_commit ? obj->commit() : 0;
   END_TRY;
 }
 

@@ -76,7 +76,7 @@ namespace s3
 
       void get_metadata_keys(std::vector<std::string> *keys);
       int get_metadata(const std::string &key, char *buffer, size_t max_size);
-      int set_metadata(const std::string &key, const char *value, size_t size, int flags = 0);
+      int set_metadata(const std::string &key, const char *value, size_t size, int flags, bool *needs_commit);
       int remove_metadata(const std::string &key);
 
       inline void set_uid(uid_t uid) { _stat.st_uid = uid; }

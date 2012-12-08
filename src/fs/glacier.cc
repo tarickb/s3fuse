@@ -27,6 +27,7 @@
 #include "fs/object.h"
 #include "services/service.h"
 
+using boost::lexical_cast;
 using std::string;
 
 using s3::base::request;
@@ -34,6 +35,7 @@ using s3::base::xml;
 using s3::fs::callback_xattr;
 using s3::fs::glacier;
 using s3::fs::object;
+using s3::fs::xattr;
 using s3::services::service;
 
 namespace
@@ -45,6 +47,9 @@ namespace
     string r;
     size_t pos = s.find('=');
 
+    if (s.empty())
+      return s;
+
     if (pos == string::npos) {
       S3_LOG(LOG_WARNING, "unformat", "malformed string: [%s]\n", s.c_str());
       return "";
@@ -52,12 +57,24 @@ namespace
 
     r = s.substr(pos + 1);
 
-    if (*r.begin() != '=' || *r.end() != '=') {
+    if (*r.begin() != '"' || *(r.end() - 1) != '"') {
       S3_LOG(LOG_WARNING, "unformat", "missing quotes: [%s]\n", s.c_str());
       return "";
     }
 
     return r.substr(1, r.size() - 2);
+  }
+
+  inline void set_mode(const xattr::ptr &x, int mode, bool enable)
+  {
+    x->set_mode((x->get_mode() & ~mode) | (enable ? mode : 0));
+  }
+
+  int get_nop_callback(const char *value, string *out)
+  {
+    *out = value;
+
+    return 0;
   }
 
   int set_nop_callback(const string & /* ignored */)
@@ -75,20 +92,26 @@ glacier::glacier(const object *obj)
     set_nop_callback,
     xattr::XM_VISIBLE);
 
-  _ongoing_xattr = callback_xattr::create(
+  _restore_ongoing_xattr = callback_xattr::create(
     "s3fuse_restore_ongoing",
-    bind(&glacier::get_ongoing_value, this, _1),
+    bind(&glacier::get_restore_ongoing_value, this, _1),
     set_nop_callback,
     xattr::XM_DEFAULT);
 
-  _expiry_xattr = callback_xattr::create(
+  _restore_expiry_xattr = callback_xattr::create(
     "s3fuse_restore_expiry",
-    bind(&glacier::get_expiry_value, this, _1),
+    bind(&glacier::get_restore_expiry_value, this, _1),
     set_nop_callback,
     xattr::XM_DEFAULT);
+
+  _request_restore_xattr = callback_xattr::create(
+    "s3fuse_request_restore",
+    bind(get_nop_callback, "set-to-num-days-for-restore", _1),
+    bind(&glacier::set_request_restore_value, this, _1),
+    xattr::XM_VISIBLE | xattr::XM_WRITABLE);
 }
 
-int glacier::read_storage_class(const request::ptr &req)
+int glacier::query_storage_class(const request::ptr &req)
 {
   xml::document doc;
 
@@ -102,26 +125,26 @@ int glacier::read_storage_class(const request::ptr &req)
   doc = xml::parse(req->get_output_string());
 
   if (!doc) {
-    S3_LOG(LOG_WARNING, "glacier::read_storage_class", "failed to parse response.\n");
+    S3_LOG(LOG_WARNING, "glacier::query_storage_class", "failed to parse response.\n");
     return -EIO;
   }
 
   xml::find(doc, STORAGE_CLASS_XPATH, &_storage_class);
 
   if (_storage_class.empty()) {
-    S3_LOG(LOG_WARNING, "glacier::read_storage_class", "cannot find storage class.\n");
+    S3_LOG(LOG_WARNING, "glacier::query_storage_class", "cannot find storage class.\n");
     return -EIO;
   }
 
   return 0;
 }
 
-void glacier::set_restore_status(const request::ptr &req)
+void glacier::read_restore_status(const request::ptr &req)
 {
   const string &restore = req->get_response_header("x-amz-restore");
 
-  _ongoing.clear();
-  _expiry.clear();
+  _restore_ongoing.clear();
+  _restore_expiry.clear();
 
   if (!restore.empty()) {
     size_t pos;
@@ -129,24 +152,79 @@ void glacier::set_restore_status(const request::ptr &req)
     pos = restore.find(',');
 
     if (pos == string::npos) {
-      _ongoing = restore;
+      _restore_ongoing = restore;
     } else {
-      _ongoing = restore.substr(0, pos);
-      _expiry = restore.substr(pos + 2);
+      _restore_ongoing = restore.substr(0, pos);
+      _restore_expiry = restore.substr(pos + 2);
     }
 
-    _ongoing = unformat(_ongoing);
-    _expiry = unformat(_expiry);
+    _restore_ongoing = unformat(_restore_ongoing);
+    _restore_expiry = unformat(_restore_expiry);
 
-    if (_ongoing.empty()) {
-      S3_LOG(LOG_WARNING, "glacier::set_restore_status", "malformed ongoing status string: [%s]\n", restore.c_str());
-      _ongoing = "(error)";
-    } else if (_ongoing == "true" && _expiry.empty()) {
-      S3_LOG(LOG_WARNING, "glacier::set_restore_status", "empty expiry when ongoing is true: [%s]\n", restore.c_str());
-      _ongoing = "(error)";
+    if (_restore_ongoing.empty()) {
+      S3_LOG(LOG_WARNING, "glacier::read_restore_status", "malformed ongoing status string: [%s]\n", restore.c_str());
+      _restore_ongoing = "error";
+    } else if (_restore_ongoing == "false" && _restore_expiry.empty()) {
+      S3_LOG(LOG_WARNING, "glacier::read_restore_status", "empty expiry when ongoing is false: [%s]\n", restore.c_str());
+      _restore_ongoing = "error";
     }
   }
 
-  _ongoing_xattr->set_mode((_ongoing_xattr->get_mode() & ~xattr::XM_VISIBLE) | (_ongoing.empty() ? 0 : xattr::XM_VISIBLE));
-  _expiry_xattr->set_mode((_expiry_xattr->get_mode() & ~xattr::XM_VISIBLE) | (_expiry.empty() ? 0 : xattr::XM_VISIBLE));
+  set_mode(_restore_ongoing_xattr, xattr::XM_VISIBLE, !_restore_ongoing.empty());
+  set_mode(_restore_expiry_xattr, xattr::XM_VISIBLE, !_restore_expiry.empty());
+  set_mode(_request_restore_xattr, xattr::XM_VISIBLE, _restore_ongoing != "true");
+}
+
+int glacier::start_restore(const request::ptr &req, int days)
+{
+  if (_restore_ongoing == "true") {
+    S3_LOG(
+      LOG_DEBUG, 
+      "glacier::start_restore", 
+      "attempted to start restore when restore is ongoing on [%s]\n", 
+      _object->get_path().c_str());
+
+    return 0;
+  }
+
+  req->init(base::HTTP_POST);
+  req->set_url(_object->get_url() + "?restore");
+  req->set_header("Content-Type", "");
+
+  req->set_input_buffer(
+    string("<RestoreRequest><Days>") + 
+    lexical_cast<string>(days) +
+    "</Days></RestoreRequest>");
+
+  req->run();
+
+  if (req->get_response_code() != base::HTTP_SC_OK && req->get_response_code() != base::HTTP_SC_ACCEPTED) {
+    S3_LOG(
+      LOG_WARNING,
+      "glacier::start_restore",
+      "restore request failed for [%s] with status %i\n",
+      _object->get_path().c_str(),
+      req->get_response_code());
+
+    return -EIO;
+  }
+
+  req->init(base::HTTP_HEAD);
+  req->set_url(_object->get_url());
+  req->run();
+
+  if (req->get_response_code() != base::HTTP_SC_OK) {
+    S3_LOG(
+      LOG_WARNING,
+      "glacier::start_restore",
+      "failed to retrieve object metadata for [%s] with status %i\n",
+      _object->get_path().c_str(),
+      req->get_response_code());
+
+    return -EIO;
+  }
+
+  read_restore_status(req);
+
+  return 0;
 }

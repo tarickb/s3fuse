@@ -60,6 +60,13 @@ namespace
 {
   const int BLOCK_SIZE = 512;
   const char *COMMIT_ETAG_XPATH = "/s3:CopyObjectResult/s3:ETag";
+
+  const int USER_XATTR_FLAGS = 
+    s3::fs::xattr::XM_WRITABLE | 
+    s3::fs::xattr::XM_SERIALIZABLE | 
+    s3::fs::xattr::XM_VISIBLE | 
+    s3::fs::xattr::XM_REMOVABLE | 
+    s3::fs::xattr::XM_COMMIT_REQUIRED;
 }
 
 int object::get_block_size()
@@ -153,11 +160,13 @@ void object::copy_stat(struct stat *s)
   memcpy(s, &_stat, sizeof(_stat));
 }
 
-int object::set_metadata(const string &key, const char *value, size_t size, int flags)
+int object::set_metadata(const string &key, const char *value, size_t size, int flags, bool *needs_commit)
 {
   mutex::scoped_lock lock(_mutex);
   string user_key = key.substr(config::get_xattr_prefix().size());
   xattr_map::iterator itor = _metadata.find(user_key);
+
+  *needs_commit = false;
 
   if (key.substr(0, config::get_xattr_prefix().size()) != config::get_xattr_prefix())
     return -EINVAL;
@@ -171,17 +180,19 @@ int object::set_metadata(const string &key, const char *value, size_t size, int 
 
     itor = _metadata.insert(static_xattr::create(
       user_key, 
-      xattr::XM_WRITABLE | xattr::XM_SERIALIZABLE)).first;
+      USER_XATTR_FLAGS)).first;
   }
 
   // since we show read-only keys in get_metadata_keys(), an application might reasonably 
   // assume that it can set them too.  since we don't want it failing for no good reason, 
   // we'll fail silently.
 
-  if (itor->second->is_writable())
-    return itor->second->set_value(value, size);
-  else
+  if (!itor->second->is_writable())
     return 0;
+
+  *needs_commit = itor->second->is_commit_required();
+
+  return itor->second->set_value(value, size);
 }
 
 void object::get_metadata_keys(vector<string> *keys)
@@ -262,7 +273,7 @@ void object::init(const request::ptr &req)
       _metadata.replace(static_xattr::from_header(
         key.substr(meta_prefix.size()), 
         value, 
-        xattr::XM_WRITABLE | xattr::XM_SERIALIZABLE | xattr::XM_VISIBLE | xattr::XM_REMOVABLE));
+        USER_XATTR_FLAGS));
     }
   }
 
@@ -281,9 +292,10 @@ void object::init(const request::ptr &req)
   if (config::get_allow_glacier_restores()) {
     _glacier = glacier::create(this, req);
 
-    _metadata.replace(_glacier->get_storage_class());
-    _metadata.replace(_glacier->get_restore_ongoing());
-    _metadata.replace(_glacier->get_restore_expiry());
+    _metadata.replace(_glacier->get_storage_class_xattr());
+    _metadata.replace(_glacier->get_restore_ongoing_xattr());
+    _metadata.replace(_glacier->get_restore_expiry_xattr());
+    _metadata.replace(_glacier->get_request_restore_xattr());
   }
 }
 
