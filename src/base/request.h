@@ -49,6 +49,7 @@ namespace s3
     enum http_status_code
     {
       HTTP_SC_OK = 200,
+      HTTP_SC_ACCEPTED = 202,
       HTTP_SC_NO_CONTENT = 204,
       HTTP_SC_PARTIAL_CONTENT = 206,
       HTTP_SC_MULTIPLE_CHOICES = 300,
