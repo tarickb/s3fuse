@@ -37,11 +37,12 @@ namespace s3
 
       enum access_mode
       {
-        XM_DEFAULT      = 0x0,
-        XM_WRITABLE     = 0x1,
-        XM_SERIALIZABLE = 0x2,
-        XM_VISIBLE      = 0x4,
-        XM_REMOVABLE    = 0x8
+        XM_DEFAULT         = 0x00,
+        XM_WRITABLE        = 0x01,
+        XM_SERIALIZABLE    = 0x02,
+        XM_VISIBLE         = 0x04,
+        XM_REMOVABLE       = 0x08,
+        XM_COMMIT_REQUIRED = 0x10
       };
 
       inline const std::string & get_key() const { return _key; }
@@ -50,6 +51,7 @@ namespace s3
       inline bool is_serializable() const { return _mode & XM_SERIALIZABLE; }
       inline bool is_visible() const { return _mode & XM_VISIBLE; }
       inline bool is_removable() const { return _mode & XM_REMOVABLE; }
+      inline bool is_commit_required() const { return _mode & XM_COMMIT_REQUIRED; }
 
       inline int get_mode() const { return _mode; }
       inline void set_mode(int mode) { _mode = mode; }
