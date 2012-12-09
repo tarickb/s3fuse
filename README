@@ -139,6 +139,76 @@ then encrypted with AES in CBC mode using the volume key and a random IV.
 The encrypted key/nonce/hash combination and the IV are stored out of band as 
 file metadata attributes.
 
+MacOS
+-----
+
+Early MacOS support is available as of s3fuse-0.12.  This support is built on
+fuse4x, which can be installed with MacPorts:
+
+  sudo port install fuse4x
+
+Run s3fuse the same way you would on a Linux system.  Passing the 
+"noappledouble" option to FUSE is strongly suggested -- this will prevent
+MacOS (the Finder?) from trying to open or create .DS_Store files in every 
+directory you browse through.
+
+Glacier
+-------
+
+s3fuse-0.13 adds preliminary support for restoring files from Glacier.  Before
+reading further, read this:
+
+  http://aws.typepad.com/aws/2012/11/archive-s3-to-glacier.html
+
+Opening a file archived to Glacier will return an -EIO error.  If s3fuse's 
+Glacier support is enabled, requests can be issued to restore files to S3.  
+Three extended attributes are used to query Glacier-related status 
+information:
+
+  - s3fuse_storage_class: Reports the current storage class of the object
+      (can be STANDARD, REDUCED_REDUNDANCY, or GLACIER).
+  - s3fuse_restore_ongoing: "true" if a restore of the object is ongoing, 
+      "false" otherwise.
+  - s3fuse_restore_expiry: If the object is a restored copy of a Glacier 
+      archive, this will be the date at which the restored copy expires.
+
+Restores are initiated by setting the "s3fuse_request_restore" extended
+attribute to the number of days to retain the retrieved copy.  For instance,
+to restore "some_path/some_file" for four days, assuming the bucket is mounted 
+at /mnt, on OS X:
+
+  xattr -w s3fuse_request_restore 4 /mnt/some_path/some_file
+
+And on Linux:
+
+  setfattr -n user.s3fuse_request_restore -v 4 /mnt/some_path/some_file
+
+The status of a pending restore operation can be checked using xattr/getfattr:
+
+  $ xattr -l /mnt/some_path/some_file
+  s3fuse_content_type: binary/encrypted-s3fuse-file_0100
+  s3fuse_etag: "9d768fd6ff0386566152ddad5fb3cc10"
+  s3fuse_restore_ongoing: true
+  s3fuse_sha256: 32f1e12dc2d4101873e85fe99147ccbadff06925811e7e79e3fbae934336aeb4
+  s3fuse_storage_class: GLACIER
+
+  $ getfattr -d /mnt/some_path/some_file
+  # file: /mnt/some_path/some_file
+  user.s3fuse_content_type="binary/encrypted-s3fuse-file_0100"
+  user.s3fuse_etag="\"9d768fd6ff0386566152ddad5fb3cc10\""
+  user.s3fuse_restore_ongoing="true"
+  user.s3fuse_sha256="32f1e12dc2d4101873e85fe99147ccbadff06925811e7e79e3fbae934336aeb4"
+  user.s3fuse_storage_class="GLACIER" 
+
+By default, Glacier support is disabled.  Enable it by setting the following 
+option in s3fuse.conf:
+
+  allow_glacier_restores=true
+
+Linux also seems to require a "user." prefix on extended attributes:
+
+  xattr_prefix=user.
+
 Running
 -------
 
@@ -154,9 +224,12 @@ Some (potentially useful) command line options:
                     verbosity).
   -o <fuse-options> Pass additional options, separated by commas.
     options:
-      allow_other   Allow other users to access the mounted file system.
-      allow_root    Allow root to access the mounted file system.
-      config=<file> Use <file> rather than the default configuration file.
+      allow_other         Allow other users to access the mounted file system.
+      allow_root          Allow root to access the mounted file system.
+      config=<file>       Use <file> rather than the default configuration file.
+      stats=<file>        Write statistics to <file>
+      daemon_timeout=<n>  Set FUSE timeout to <n> seconds (OS X only).
+      noappledouble       Disable testing for/creating .DS_Store files (OS X only).
 
 This is not intended to be an exhaustive listing of FUSE options.
 
@@ -173,16 +246,3 @@ configuration file and a corresponding entry in /etc/fstab:
 
   s3fuse /media/bucket0 fuse defaults,noauto,user,allow_other,config=/etc/s3fuse.bucket0.conf 0 0
   s3fuse /media/bucket1 fuse defaults,noauto,user,allow_other,config=/etc/s3fuse.bucket1.conf 0 0
-
-MacOS
------
-
-Early MacOS support is available as of s3fuse-0.12.  This support is built on
-fuse4x, which can be installed with MacPorts:
-
-  sudo port install fuse4x
-
-Run s3fuse the same way you would on a Linux system.  Passing the 
-"noappledouble" option to FUSE is strongly suggested -- this will prevent
-MacOS (the Finder?) from trying to open or create .DS_Store files in every 
-directory you browse through.
