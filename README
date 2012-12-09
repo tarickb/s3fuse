@@ -160,6 +160,8 @@ reading further, read this:
 
   http://aws.typepad.com/aws/2012/11/archive-s3-to-glacier.html
 
+Pay particular attention to the pricing structure for restore requests.
+
 Opening a file archived to Glacier will return an -EIO error.  If s3fuse's 
 Glacier support is enabled, requests can be issued to restore files to S3.  
 Three extended attributes are used to query Glacier-related status 
@@ -199,6 +201,10 @@ The status of a pending restore operation can be checked using xattr/getfattr:
   user.s3fuse_restore_ongoing="true"
   user.s3fuse_sha256="32f1e12dc2d4101873e85fe99147ccbadff06925811e7e79e3fbae934336aeb4"
   user.s3fuse_storage_class="GLACIER" 
+
+Restored files are functionally read-only.  Opening a restored file for writing
+will not fail, but the flush operation that attempts to upload the file back to 
+S3 will fail.
 
 By default, Glacier support is disabled.  Enable it by setting the following 
 option in s3fuse.conf:
