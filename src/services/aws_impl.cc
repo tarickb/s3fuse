@@ -128,7 +128,9 @@ aws_impl::aws_impl()
   _key = fields[0];
   _secret = fields[1];
 
-  _endpoint = string("https://") + config::get_aws_service_endpoint();
+  _endpoint = config::get_aws_use_ssl() ? "https://" : "http://";
+  _endpoint += config::get_aws_service_endpoint();
+
   _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
 
   _hook.reset(new aws_hook(this));

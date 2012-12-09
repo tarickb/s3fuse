@@ -26,6 +26,7 @@ CONFIG(bool, verbose_requests, false); // set CURLOPT_VERBOSE (enable verbosity 
 CONFIG(int, request_timeout_in_s, 30); // request timeout in seconds (for all HTTP requests besides transfers)
 
 CONFIG(std::string, aws_service_endpoint, "s3.amazonaws.com"); // service endpoint for Amazon AWS (change to "s3-eu-west-1.amazonaws.com" for EU buckets)
+CONFIG(bool, aws_use_ssl, true); // set to false to disable SSL
 
 CONFIG(std::string, xattr_prefix, ""); // if set, prefixes all extended attributes (may have to be set to "user." for compatibility with getfattr)
 
