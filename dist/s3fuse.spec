@@ -19,7 +19,7 @@ Provides a FUSE filesystem driver for Amazon AWS S3 and Google Storage buckets.
 
 %build
 autoreconf --force --install
-./configure --enable-build-rpm=yes --prefix=/usr --sysconfdir=/etc
+./configure --prefix=/usr --sysconfdir=/etc
 make
 
 %install

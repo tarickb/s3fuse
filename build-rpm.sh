@@ -26,7 +26,7 @@ cd s3fuse-$VERSION || exit 1
 
 cp -r $SRC_DIR/* . || exit 1
 ./clean.sh || exit 1
-rm -rf *.sh debian || exit 1
+rm -f *.sh || exit 1
 find . -type d -name .svn | xargs rm -rf || exit 1
 cat configure.ac.in | sed -e "s/__VERSION__/$VERSION/g" > configure.ac
 rm -f configure.ac.in

@@ -9,15 +9,6 @@ AC_PROG_RANLIB
 AC_C_BIGENDIAN([AC_MSG_ERROR([big endian systems are not supported])])
 
 AC_ARG_ENABLE(
-  [build-rpm], 
-  [  --enable-build-rpm      Enable RPM build support],
-  [case "${enableval}" in
-    yes) build_rpm=true ;;
-    no)  build_rpm=false ;;
-    *) AC_MSG_ERROR([bad value ${enableval} for --enable-build-rpm]) ;;
-   esac], [build_rpm=false])
-
-AC_ARG_ENABLE(
   [tests], 
   [  --enable-tests          Build test programs],
   [case "${enableval}" in
@@ -35,7 +26,6 @@ AC_ARG_ENABLE(
      *) AC_MSG_ERROR([bad value ${enableval} for --enable-darwin]) ;;
    esac], [darwin=false])
 
-AM_CONDITIONAL([BUILD_RPM], [test x$build_rpm = xtrue])
 AM_CONDITIONAL([BUILD_TESTS], [test x$build_tests = xtrue])
 
 if test "x$darwin" = xtrue; then
@@ -86,9 +76,9 @@ AC_CHECK_FUNCS([ftruncate gettimeofday memset strchr strerror strstr strtol])
 
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([src/Makefile src/base/Makefile src/crypto/Makefile src/fs/Makefile src/services/Makefile src/threads/Makefile])
-
-AM_COND_IF([BUILD_TESTS], [AC_CONFIG_FILES([src/base/tests/Makefile src/crypto/tests/Makefile src/fs/tests/Makefile src/tests/Makefile])])
-AM_COND_IF([BUILD_RPM], [AC_CONFIG_FILES([dist/Makefile])])
+AC_CONFIG_FILES([src/base/tests/Makefile src/crypto/tests/Makefile src/fs/tests/Makefile src/tests/Makefile])
+AC_CONFIG_FILES([debian/Makefile debian/source/Makefile])
+AC_CONFIG_FILES([dist/Makefile])
 
 AC_SUBST([AM_CXXFLAGS], ["$CXXFLAGS -g -Wall -Werror"])
 AC_SUBST([AM_CPPFLAGS], ["-I \$(top_srcdir)/src $CPPFLAGS $DEPS_XML_CFLAGS $DEPS_CURL_CFLAGS $DEPS_FUSE_CFLAGS $DEPS_OPENSSL_CFLAGS $DEPS_CRYPTO_CFLAGS $DEPS_GNUTLS_CFLAGS $BOOST_CPPFLAGS"])

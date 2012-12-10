@@ -1,5 +1,8 @@
+SUBDIRS = .
+DIST_SUBDIRS = $(SUBDIRS) tests
+
 if BUILD_TESTS
-SUBDIRS = . tests
+SUBDIRS += tests
 endif
 
 noinst_LIBRARIES = libs3fuse_base.a
@@ -14,6 +17,7 @@ libs3fuse_base_a_SOURCES = \
 	request.cc \
 	request.h \
 	request_hook.h \
+	static_list.h \
 	statistics.cc \
 	statistics.h \
 	ssl_locks.cc \
