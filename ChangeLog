@@ -1,6 +1,7 @@
 s3fuse (0.13) unstable; urgency=low
 
   * NEW: File encryption. See README.
+  * NEW: Glacier restore requests. See README.
   * NEW: Add least-recently-used eviction to object cache, controlled by the
     max_objects_in_cache configuration option.
   * Switched to SHA256 for file integrity check. File hash, if available, will 
@@ -13,7 +14,7 @@ s3fuse (0.13) unstable; urgency=low
   * Removed "__md5__" extended attribute.
   * Added note about daemon_timeout.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Tue, 09 Oct 2012 19:37:02 -0600
+ -- Tarick Bedeir <tarick@bedeir.com>  Tue, 09 Dec 2012 22:14:21 -0600
 
 s3fuse (0.12) unstable; urgency=low
 
