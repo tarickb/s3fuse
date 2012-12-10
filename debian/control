@@ -2,10 +2,25 @@ Source: s3fuse
 Section: utils
 Priority: extra
 Maintainer: Tarick Bedeir <tarick@bedeir.com>
-Build-Depends: debhelper (>= 7.0.50~), autotools-dev
-Standards-Version: 3.8.4
+Uploaders: Scott Ritchie <scottritchie@ubuntu.com>
+Build-Depends: debhelper (>= 7.0.50~),
+               autotools-dev,
+               libboost-system-dev,
+               libboost-thread-dev,
+               libcurl4-nss-dev,
+               libfuse-dev,
+               libglibmm-2.4-dev,
+               libsigc++-2.0-dev,
+               libssl-dev,
+               libstdc++6-4.6-dev | libstdc++-dev,
+               libxml++2.6-dev,
+               libxml2-dev
+Standards-Version: 3.9.3
 
 Package: s3fuse
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: FUSE filesystem driver for Amazon AWS S3 and Google Storage buckets.
+ s3fuse is a FUSE (Filesystem in Userspace) driver for Amazon S3 and Google
+ Storage for Developers.
+
