@@ -202,6 +202,27 @@ The status of a pending restore operation can be checked using xattr/getfattr:
   user.s3fuse_sha256="32f1e12dc2d4101873e85fe99147ccbadff06925811e7e79e3fbae934336aeb4"
   user.s3fuse_storage_class="GLACIER" 
 
+Upon completion, restored file attributes will list an expiry date:
+
+  $ xattr -l /mnt/some_path/some_file
+  s3fuse_content_type: binary/encrypted-s3fuse-file_0100
+  s3fuse_etag: "9d768fd6ff0386566152ddad5fb3cc10"
+  s3fuse_request_restore: set-to-num-days-for-restore
+  s3fuse_restore_expiry: Thu, 13 Dec 2012 00:00:00 GMT
+  s3fuse_restore_ongoing: false
+  s3fuse_sha256: 32f1e12dc2d4101873e85fe99147ccbadff06925811e7e79e3fbae934336aeb4
+  s3fuse_storage_class: GLACIER
+
+  $ getfattr -d /mnt/some_path/some_file
+  # file: /mnt/some_path/some_file
+  user.s3fuse_content_type="binary/encrypted-s3fuse-file_0100"
+  user.s3fuse_etag="\"9d768fd6ff0386566152ddad5fb3cc10\""
+  user.s3fuse_request_restore="set-to-num-days-for-restore"
+  user.s3fuse_restore_expiry="Thu, 13 Dec 2012 00:00:00 GMT"
+  user.s3fuse_restore_ongoing="false"
+  user.s3fuse_sha256="32f1e12dc2d4101873e85fe99147ccbadff06925811e7e79e3fbae934336aeb4"
+  user.s3fuse_storage_class="GLACIER"
+
 Restored files are functionally read-only.  Opening a restored file for writing
 will not fail, but the flush operation that attempts to upload the file back to 
 S3 will fail.
