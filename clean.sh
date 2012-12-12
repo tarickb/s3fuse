@@ -17,6 +17,8 @@ for D in \
   src/services \
   src/tests \
   src/threads \
+  debian \
+  debian/source \
   dist; \
 do
   pushd $D >& /dev/null

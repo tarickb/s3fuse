@@ -1,1 +1,1 @@
-EXTRA_DIST=s3fuse.spec
+EXTRA_DIST = s3fuse.spec

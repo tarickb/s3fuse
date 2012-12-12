@@ -6,7 +6,7 @@ Summary: FUSE Driver for AWS S3 and Google Storage
 Name: %{name}
 Version: %{version}
 Release: %{release}
-Source: %{name}-%{version}-%{release}.tar.gz
+Source: %{name}-%{version}.tar.gz
 Group: Applications/System
 BuildRoot: %{_builddir}/%{name}-root
 License: Apache-2.0

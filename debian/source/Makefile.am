@@ -1,1 +1,1 @@
-EXTRA_DIST=format
+EXTRA_DIST = format

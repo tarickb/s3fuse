@@ -32,4 +32,4 @@ dist_sysconf_DATA = s3fuse.conf
 CLEANFILES = s3fuse.conf
 
 s3fuse.conf: config.inc
-	../../build-config.sh $^ $@
+	../../make-config.sh $^ $@

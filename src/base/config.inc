@@ -6,7 +6,7 @@
 // notes:
 //   - a semicolon must follow CONFIG() or CONFIG_REQUIRED().
 //   - a description can follow.  if it does, it must follow the semicolon and be preceded by " // ".
-//   - build-config.sh does not preprocess this file, so there's not much room for variation in formatting
+//   - make-config.sh does not preprocess this file, so there's not much room for variation in formatting
 
 CONFIG(int, default_uid, UID_MAX); // UID for files in S3 that don't have a UID set (defaults to process effective UID)
 CONFIG(int, default_gid, GID_MAX); // GID for files in S3 that don't have a GID set (defaults to process effective GID)

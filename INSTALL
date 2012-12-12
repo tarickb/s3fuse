@@ -16,24 +16,23 @@ Working Copies
 To build a working copy in the source directory:
 
   ./build.sh
-  make
 
 build.sh will invoke "autoreconf" to build the configure scripts, then call 
-"./configure".
+"./configure", then call "make".
 
 Debian Packages
 ---------------
 
 To build a Debian package (.deb):
 
-  ./build-deb.sh <output-directory>
+  ./make-deb.sh <output-directory>
 
 RPMs
 ----
 
 To build an RPM:
 
-  ./build-rpm.sh <rpm-top-level-dir>
+  ./make-rpm.sh <rpm-top-level-dir>
 
 The top-level directory should contain directories named RPMS, SRPMS, SOURCES, 
 SPECS, and BUILD.
