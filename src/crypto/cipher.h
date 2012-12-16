@@ -101,7 +101,7 @@ namespace s3
         const boost::shared_ptr<symmetric_key> &key,
         const std::string &input_)
       {
-        std::vector<uint8_t> input, output;
+        std::vector<uint8_t> input;
 
         encoder::decode<encoder_type>(input_, &input);
 

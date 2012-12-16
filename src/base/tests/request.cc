@@ -8,11 +8,6 @@ using std::endl;
 
 using s3::base::request;
 
-void bogus_signer(request *r, bool ignore)
-{
-  r->set_url("http://www.kernel.org/");
-}
-
 int main(int argc, char **argv)
 {
   request r;
@@ -21,8 +16,6 @@ int main(int argc, char **argv)
     cerr << "usage: " << argv[0] << " <url>" << endl;
     return 1;
   }
-
-  // r.set_signing_function(bogus_signer);
 
   r.init(s3::base::HTTP_GET);
   r.set_url(argv[1]);
