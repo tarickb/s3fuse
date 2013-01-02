@@ -32,12 +32,12 @@ using std::vector;
 using s3::crypto::aes_cbc_256;
 using s3::crypto::symmetric_key;
 
-void aes_cbc_256::crypt(crypt_mode mode, const symmetric_key::ptr &key, const uint8_t *in, size_t size, vector<uint8_t> *out)
+void aes_cbc_256::crypt(int mode, const symmetric_key::ptr &key, const uint8_t *in, size_t size, vector<uint8_t> *out)
 {
   if (key->get_iv()->size() != IV_LEN)
     throw runtime_error("iv length is not valid for aes_cbc_256");
 
-  if (mode == M_ENCRYPT) {
+  if (mode & M_ENCRYPT) {
     // allow for padding
     out->resize(size + BLOCK_LEN);
   } else {
@@ -52,9 +52,9 @@ void aes_cbc_256::crypt(crypt_mode mode, const symmetric_key::ptr &key, const ui
     size_t written = 0;
 
     r = CCCrypt(
-      (mode == M_ENCRYPT ? kCCEncrypt : kCCDecrypt),
+      (mode & M_ENCRYPT ? kCCEncrypt : kCCDecrypt),
       kCCAlgorithmAES128,
-      kCCOptionPKCS7Padding,
+      (mode & M_NO_PAD) ? 0 : kCCOptionPKCS7Padding,
       key->get_key()->get(),
       key->get_key()->size(),
       key->get_iv()->get(),
@@ -94,9 +94,12 @@ void aes_cbc_256::crypt(crypt_mode mode, const symmetric_key::ptr &key, const ui
     try {
       int updated = 0, finalized = 0;
 
-      if (mode == M_ENCRYPT) {
+      if (mode & M_ENCRYPT) {
         if (EVP_EncryptInit_ex(&ctx, cipher, NULL, key->get_key()->get(), key->get_iv()->get()) == 0)
           throw runtime_error("EVP_EncryptInit_ex() failed in aes_cbc_256");
+
+        if (mode & M_NO_PAD)
+          EVP_CIPHER_CTX_set_padding(&ctx, 0);
 
         if (!EVP_EncryptUpdate(&ctx, &(*out)[0], &updated, in, size))
           throw runtime_error("EVP_EncryptUpdate() failed in aes_cbc_256");
@@ -106,6 +109,9 @@ void aes_cbc_256::crypt(crypt_mode mode, const symmetric_key::ptr &key, const ui
       } else {
         if (EVP_DecryptInit_ex(&ctx, cipher, NULL, key->get_key()->get(), key->get_iv()->get()) == 0)
           throw runtime_error("EVP_DecryptInit_ex() failed in aes_cbc_256");
+
+        if (mode & M_NO_PAD)
+          EVP_CIPHER_CTX_set_padding(&ctx, 0);
 
         if (!EVP_DecryptUpdate(&ctx, &(*out)[0], &updated, in, size))
           throw runtime_error("EVP_DecryptUpdate() failed in aes_cbc_256");

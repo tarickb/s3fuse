@@ -21,7 +21,7 @@ using std::cout;
 using std::endl;
 using std::string;
 
-using s3::crypto::aes_cbc_256;
+using s3::crypto::aes_cbc_256_with_pkcs;
 using s3::crypto::aes_ctr_256;
 using s3::crypto::base64;
 using s3::crypto::buffer;
@@ -92,7 +92,7 @@ int main(int argc, char **argv)
       } else if (prefix == "meta") {
         ref_meta = line;
       } else if (prefix == "meta_enc") {
-        string meta = cipher::decrypt<aes_cbc_256, hex>(meta_key, line);
+        string meta = cipher::decrypt<aes_cbc_256_with_pkcs, hex>(meta_key, line);
 
         if (meta != ref_meta) {
           cerr << "meta mismatch" << endl;

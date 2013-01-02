@@ -53,14 +53,27 @@ namespace s3
       enum { IV_LEN = BLOCK_LEN };
       enum { DEFAULT_KEY_LEN = 32 }; // 256 bits
 
-    private:
-      friend class cipher; // for encrypt() and decrypt()
-
+    protected:
       enum crypt_mode
       {
-        M_ENCRYPT,
-        M_DECRYPT
+        M_ENCRYPT = 0x1,
+        M_DECRYPT = 0x2,
+
+        M_NO_PAD  = 0x1000
       };
+
+      static void crypt(
+        int mode, 
+        const boost::shared_ptr<symmetric_key> &key, 
+        const uint8_t *in, 
+        size_t size, 
+        std::vector<uint8_t> *out);
+    };
+
+    class aes_cbc_256_with_pkcs : public aes_cbc_256
+    {
+    private:
+      friend class cipher; // for encrypt() and decrypt()
 
       inline static void encrypt(const boost::shared_ptr<symmetric_key> &key, const uint8_t *in, size_t size, std::vector<uint8_t> *out)
       {
@@ -71,13 +84,22 @@ namespace s3
       {
         crypt(M_DECRYPT, key, in, size, out);
       }
+    };
 
-      static void crypt(
-        crypt_mode mode, 
-        const boost::shared_ptr<symmetric_key> &key, 
-        const uint8_t *in, 
-        size_t size, 
-        std::vector<uint8_t> *out);
+    class aes_cbc_256_no_padding : public aes_cbc_256
+    {
+    private:
+      friend class cipher; // for encrypt() and decrypt()
+
+      inline static void encrypt(const boost::shared_ptr<symmetric_key> &key, const uint8_t *in, size_t size, std::vector<uint8_t> *out)
+      {
+        crypt(M_ENCRYPT | M_NO_PAD, key, in, size, out);
+      }
+
+      inline static void decrypt(const boost::shared_ptr<symmetric_key> &key, const uint8_t *in, size_t size, std::vector<uint8_t> *out)
+      {
+        crypt(M_DECRYPT | M_NO_PAD, key, in, size, out);
+      }
     };
   }
 }

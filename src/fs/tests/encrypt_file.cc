@@ -18,7 +18,7 @@ using std::cerr;
 using std::endl;
 using std::string;
 
-using s3::crypto::aes_cbc_256;
+using s3::crypto::aes_cbc_256_with_pkcs;
 using s3::crypto::aes_ctr_256;
 using s3::crypto::base64;
 using s3::crypto::buffer;
@@ -59,7 +59,7 @@ int main(int argc, char **argv)
   }
 
   file_key = symmetric_key::generate<aes_ctr_256>();
-  meta_key = symmetric_key::generate<aes_cbc_256>(v_key);
+  meta_key = symmetric_key::generate<aes_cbc_256_with_pkcs>(v_key);
 
   fprintf(f_meta, "v_key: %s\n", v_key->to_string().c_str());
   fprintf(f_meta, "iv: %s\n", meta_key->get_iv()->to_string().c_str());
@@ -95,7 +95,7 @@ int main(int argc, char **argv)
 
   fprintf(f_meta, "root_hash: %s\n", root_hash.c_str());
   fprintf(f_meta, "meta: %s\n", meta.c_str());
-  fprintf(f_meta, "meta_enc: %s\n", cipher::encrypt<aes_cbc_256, hex>(meta_key, meta).c_str());
+  fprintf(f_meta, "meta_enc: %s\n", cipher::encrypt<aes_cbc_256_with_pkcs, hex>(meta_key, meta).c_str());
 
   return 0;
 }

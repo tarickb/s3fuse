@@ -1,83 +1,76 @@
-#include <iostream>
-#include <string>
-#include <boost/lexical_cast.hpp>
+#include <gtest/gtest.h>
 
 #include "crypto/buffer.h"
 #include "crypto/pbkdf2_sha1.h"
 
-using boost::lexical_cast;
-using std::cin;
-using std::cout;
-using std::endl;
-using std::runtime_error;
 using std::string;
 
 using s3::crypto::buffer;
 using s3::crypto::pbkdf2_sha1;
 
-int main(int argc, char **argv)
+namespace
 {
-  string password, salt, output;
-  int rounds = 0, key_len = 0;
+  struct known_answer
+  {
+    const char *password;
+    const char *salt;
+    int rounds;
+    int key_len;
+    const char *output;
+  };
 
-  while (!cin.eof()) {
-    string line, first, last;
-    size_t pos;
+  const known_answer TESTS[] = {
+    // from http://tools.ietf.org/html/draft-josefsson-pbkdf2-test-vectors-06
+    // (excluding the last test, since nulls in strings would complicate matters)
 
-    getline(cin, line);
-    pos = line.find(": ");
+    { "password",
+      "salt",
+      1,
+      20,
+      "0c60c80f961f0e71f3a9b524af6012062fe037a6" },
 
-    if (line[0] == '#' || pos == string::npos)
-      continue;
+    { "password",
+      "salt",
+      2,
+      20,
+      "ea6c014dc72d6f8ccd1ed92ace1d41f0d8de8957" },
 
-    first = line.substr(0, pos);
-    last = line.substr(pos + 2);
+    { "password",
+      "salt",
+      4096,
+      20,
+      "4b007901b765489abead49d926f721d065a429c1" },
 
-    if (first == "password")
-      password = last;
-    else if (first == "salt")
-      salt = last;
-    else if (first == "output")
-      output = last;
-    else if (first == "rounds")
-      rounds = lexical_cast<int>(last);
-    else if (first == "key_len")
-      key_len = lexical_cast<int>(last);
+    { "password",
+      "salt",
+      16777216,
+      20,
+      "eefe3d61cd4da4e4e9945b3d6ba2158c2634e984" },
 
-    if (!password.empty() && !salt.empty() && !output.empty() && rounds && key_len) {
-      string key_out;
+    { "passwordPASSWORDpassword",
+      "saltSALTsaltSALTsaltSALTsaltSALTsalt",
+      4096,
+      25,
+      "3d2eec4fe41c849b80c8d83662c0e44a8b291a964cf2f07038" }
+  };
 
-      try {
-        buffer::ptr key;
+  const int TEST_COUNT = sizeof(TESTS) / sizeof(TESTS[0]);
+}
 
-        key = pbkdf2_sha1::derive(password, salt, rounds, key_len);
-        key_out = key->to_string();
+TEST(pbkdf2_sha1, known_answers)
+{
+  for (int test = 0; test < TEST_COUNT; test++) {
+    const known_answer *kat = TESTS + test;
+    string key_out, pretty_kat;
+    buffer::ptr key;
 
-        if (key_out != output)
-          throw runtime_error("key derivation failed");
+    key = pbkdf2_sha1::derive(kat->password, kat->salt, kat->rounds, kat->key_len);
+    key_out = key->to_string();
 
-        cout << "PASSED: rounds: " << rounds << ", key len: " << key_len << endl;
-
-      } catch (const std::exception &e) {
-        cout
-          << "FAILED: " << e.what() << endl
-          << "  password: " << password << endl
-          << "  salt: " << salt << endl
-          << "  rounds: " << rounds << endl
-          << "  key len: " << key_len << endl
-          << "  expected: " << output << endl
-          << "  derived: " << key_out << endl;
-
-        return 1;
-      }
-
-      password.clear();
-      salt.clear();
-      output.clear();
-      rounds = 0;
-      key_len = 0;
-    }
+    EXPECT_EQ(string(kat->output), key_out) <<
+      "password: " << kat->password << ", " <<
+      "salt: " << kat->salt << ", " <<
+      "rounds: " << kat->rounds << ", " <<
+      "key len: " << kat->key_len;
   }
-
-  return 0;
 }

@@ -36,7 +36,7 @@ using std::string;
 using std::vector;
 
 using s3::base::request;
-using s3::crypto::aes_cbc_256;
+using s3::crypto::aes_cbc_256_with_pkcs;
 using s3::crypto::aes_ctr_256;
 using s3::crypto::buffer;
 using s3::crypto::cipher;
@@ -109,7 +109,7 @@ void encrypted_file::init(const request::ptr &req)
     _meta_key = symmetric_key::create(encryption::get_volume_key(), buffer::from_string(_enc_iv));
 
     try {
-      meta = cipher::decrypt<aes_cbc_256, hex>(_meta_key, _enc_meta);
+      meta = cipher::decrypt<aes_cbc_256_with_pkcs, hex>(_meta_key, _enc_meta);
     } catch (...) {
       throw runtime_error("failed to decrypt file metadata. this probably means the volume key is invalid.");
     }
@@ -173,7 +173,7 @@ int encrypted_file::is_downloadable()
 
 int encrypted_file::prepare_upload()
 {
-  _meta_key = symmetric_key::generate<aes_cbc_256>(encryption::get_volume_key());
+  _meta_key = symmetric_key::generate<aes_cbc_256_with_pkcs>(encryption::get_volume_key());
   _data_key = symmetric_key::generate<aes_ctr_256>();
 
   _enc_iv.clear();
@@ -192,7 +192,7 @@ int encrypted_file::finalize_upload(const string &returned_etag)
     return r;
 
   _enc_iv = _meta_key->get_iv()->to_string();
-  _enc_meta = cipher::encrypt<aes_cbc_256, hex>(
+  _enc_meta = cipher::encrypt<aes_cbc_256_with_pkcs, hex>(
     _meta_key, 
     META_VERIFIER + _data_key->to_string() + "#" + get_sha256_hash());
 
