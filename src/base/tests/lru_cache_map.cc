@@ -1,12 +1,10 @@
-#include <iostream>
 #include <string>
 #include <boost/bind.hpp>
+#include <gtest/gtest.h>
 
 #include "base/lru_cache_map.h"
 
 using boost::bind;
-using std::cout;
-using std::endl;
 using std::string;
 
 using s3::base::lru_cache_map;
@@ -23,90 +21,147 @@ void append_to_string(const string &key, const int &i, string *str)
 }
 
 template <class T>
-void test(const char *desc, const T &t, const char *expected_newest, const char *expected_oldest)
+string oldest(const T &t)
 {
-  string newest, oldest;
+  string s;
 
-  t.for_each_newest(bind(append_to_string, _1, _2, &newest));
-  t.for_each_oldest(bind(append_to_string, _1, _2, &oldest));
+  t.for_each_oldest(bind(append_to_string, _1, _2, &s));
 
-  cout << desc << " newest: " << newest << endl;
-  cout << desc << " oldest: " << oldest << endl;
-
-  if (newest != expected_newest)
-    cout << "FAILED: " << desc << " newest: [" << newest << "], expected: [" << expected_newest << "]" << endl;
-
-  if (oldest != expected_oldest)
-    cout << "FAILED: " << desc << " oldest: [" << oldest << "], expected: [" << expected_oldest << "]" << endl;
+  return s;
 }
 
-int main(int argc, char **argv)
+template <class T>
+string newest(const T &t)
 {
-  lru_cache_map<string, int> c1(5);
-  lru_cache_map<string, int, remove_if_over_100> c2(5);
+  string s;
 
-  c1["e1"] = c2["e1"] = 1;
-  c1["e2"] = c2["e2"] = 2;
-  c1["e3"] = c2["e3"] = 101;
-  c1["e4"] = c2["e4"] = 102;
+  t.for_each_newest(bind(append_to_string, _1, _2, &s));
 
-  test("init, c1", c1, "e4,e3,e2,e1", "e1,e2,e3,e4");
-  test("init, c2", c2, "e4,e3,e2,e1", "e1,e2,e3,e4");
+  return s;
+}
 
-  c1["e5"] = c2["e5"] = 200;
+TEST(lru_cache_map, no_remove_condition)
+{
+  lru_cache_map<string, int> c(5);
 
-  test("add e5, c1", c1, "e5,e4,e3,e2,e1", "e1,e2,e3,e4,e5");
-  test("add e5, c2", c2, "e5,e4,e3,e2,e1", "e1,e2,e3,e4,e5");
+  c["e1"] = 1;
+  c["e2"] = 2;
+  c["e3"] = 101;
+  c["e4"] = 102;
 
-  c1["e6"] = c2["e6"] = 300;
+  EXPECT_EQ(string("e4,e3,e2,e1"), newest(c)) << "init, newest";
+  EXPECT_EQ(string("e1,e2,e3,e4"), oldest(c)) << "init, oldest";
 
-  test("add e6, c1", c1, "e6,e5,e4,e3,e2", "e2,e3,e4,e5,e6");
-  test("add e6, c2", c2, "e6,e5,e4,e2,e1", "e1,e2,e4,e5,e6");
+  c["e5"] = 200;
 
-  cout << "c1 value of e2: " << c1["e2"] << endl;
-  cout << "c2 value of e2: " << c2["e2"] << endl;
+  EXPECT_EQ(string("e5,e4,e3,e2,e1"), newest(c)) << "add e5, newest";
+  EXPECT_EQ(string("e1,e2,e3,e4,e5"), oldest(c)) << "add e5, oldest";
 
-  test("get e2, c1", c1, "e2,e6,e5,e4,e3", "e3,e4,e5,e6,e2");
-  test("get e2, c2", c2, "e2,e6,e5,e4,e1", "e1,e4,e5,e6,e2");
+  c["e6"] = 300;
 
-  c1["e7"] = c2["e7"] = 400;
+  EXPECT_EQ(string("e6,e5,e4,e3,e2"), newest(c)) << "add e6, newest";
+  EXPECT_EQ(string("e2,e3,e4,e5,e6"), oldest(c)) << "add e6, oldest";
 
-  test("add e7, c1", c1, "e7,e2,e6,e5,e4", "e4,e5,e6,e2,e7");
-  test("add e7, c2", c2, "e7,e2,e6,e5,e1", "e1,e5,e6,e2,e7");
+  EXPECT_EQ(2, c["e2"]);
 
-  c1.erase("e1");
-  c2.erase("e1");
+  EXPECT_EQ(string("e2,e6,e5,e4,e3"), newest(c)) << "get e2, newest";
+  EXPECT_EQ(string("e3,e4,e5,e6,e2"), oldest(c)) << "get e2, oldest";
 
-  test("erase e1, c1", c1, "e7,e2,e6,e5,e4", "e4,e5,e6,e2,e7");
-  test("erase e1, c2", c2, "e7,e2,e6,e5", "e5,e6,e2,e7");
+  c["e7"] = 400;
 
-  c1.erase("e2");
-  c2.erase("e2");
+  EXPECT_EQ(string("e7,e2,e6,e5,e4"), newest(c)) << "add e7, newest";
+  EXPECT_EQ(string("e4,e5,e6,e2,e7"), oldest(c)) << "add e7, oldest";
 
-  test("erase e2, c1", c1, "e7,e6,e5,e4", "e4,e5,e6,e7");
-  test("erase e2, c2", c2, "e7,e6,e5", "e5,e6,e7");
+  c.erase("e1");
 
-  cout << "c1 value of e7: " << c1["e7"] << endl;
-  cout << "c2 value of e7: " << c2["e7"] << endl;
+  EXPECT_EQ(string("e7,e2,e6,e5,e4"), newest(c)) << "erase e1, newest";
+  EXPECT_EQ(string("e4,e5,e6,e2,e7"), oldest(c)) << "erase e1, oldest";
 
-  test("get e7, c1", c1, "e7,e6,e5,e4", "e4,e5,e6,e7");
-  test("get e7, c2", c2, "e7,e6,e5", "e5,e6,e7");
+  c.erase("e2");
 
-  cout << "c1 value of e5: " << c1["e5"] << endl;
-  cout << "c2 value of e5: " << c2["e5"] << endl;
+  EXPECT_EQ(string("e7,e6,e5,e4"), newest(c)) << "erase e2, newest";
+  EXPECT_EQ(string("e4,e5,e6,e7"), oldest(c)) << "erase e2, oldest";
 
-  test("get e5, c1", c1, "e5,e7,e6,e4", "e4,e6,e7,e5");
-  test("get e5, c2", c2, "e5,e7,e6", "e6,e7,e5");
+  EXPECT_EQ(400, c["e7"]);
 
-  c1["e8"] = c2["e8"] = 500;
+  EXPECT_EQ(string("e7,e6,e5,e4"), newest(c)) << "get e7, newest";
+  EXPECT_EQ(string("e4,e5,e6,e7"), oldest(c)) << "get e7, oldest";
 
-  test("add e8, c1", c1, "e8,e5,e7,e6,e4", "e4,e6,e7,e5,e8");
-  test("add e8, c2", c2, "e8,e5,e7,e6", "e6,e7,e5,e8");
+  EXPECT_EQ(200, c["e5"]);
 
-  c1["e1"] = c2["e1"] = 600;
+  EXPECT_EQ(string("e5,e7,e6,e4"), newest(c)) << "get e5, newest";
+  EXPECT_EQ(string("e4,e6,e7,e5"), oldest(c)) << "get e5, oldest";
 
-  test("re-add e1, c1", c1, "e1,e8,e5,e7,e6", "e6,e7,e5,e8,e1");
-  test("re-add e1, c2", c2, "e1,e8,e5,e7,e6", "e6,e7,e5,e8,e1");
+  c["e8"] = 500;
 
-  return 0;
+  EXPECT_EQ(string("e8,e5,e7,e6,e4"), newest(c)) << "add e8, newest";
+  EXPECT_EQ(string("e4,e6,e7,e5,e8"), oldest(c)) << "add e8, oldest";
+
+  c["e1"] = 600;
+
+  EXPECT_EQ(string("e1,e8,e5,e7,e6"), newest(c)) << "re-add e1, newest";
+  EXPECT_EQ(string("e6,e7,e5,e8,e1"), oldest(c)) << "re-add e1, oldest";
+}
+
+TEST(lru_cache_map, remove_if_over_100)
+{
+  lru_cache_map<string, int, remove_if_over_100> c(5);
+
+  c["e1"] = 1;
+  c["e2"] = 2;
+  c["e3"] = 101;
+  c["e4"] = 102;
+
+  EXPECT_EQ(string("e4,e3,e2,e1"), newest(c)) << "init, newest";
+  EXPECT_EQ(string("e1,e2,e3,e4"), oldest(c)) << "init, oldest";
+
+  c["e5"] = 200;
+
+  EXPECT_EQ(string("e5,e4,e3,e2,e1"), newest(c)) << "add e5, newest";
+  EXPECT_EQ(string("e1,e2,e3,e4,e5"), oldest(c)) << "add e5, oldest";
+
+  c["e6"] = 300;
+
+  EXPECT_EQ(string("e6,e5,e4,e2,e1"), newest(c)) << "add e6, newest";
+  EXPECT_EQ(string("e1,e2,e4,e5,e6"), oldest(c)) << "add e6, oldest";
+
+  EXPECT_EQ(2, c["e2"]);
+
+  EXPECT_EQ(string("e2,e6,e5,e4,e1"), newest(c)) << "get e2, newest";
+  EXPECT_EQ(string("e1,e4,e5,e6,e2"), oldest(c)) << "get e2, oldest";
+
+  c["e7"] = 400;
+
+  EXPECT_EQ(string("e7,e2,e6,e5,e1"), newest(c)) << "add e7, newest";
+  EXPECT_EQ(string("e1,e5,e6,e2,e7"), oldest(c)) << "add e7, oldest";
+
+  c.erase("e1");
+
+  EXPECT_EQ(string("e7,e2,e6,e5"), newest(c)) << "erase e1, newest";
+  EXPECT_EQ(string("e5,e6,e2,e7"), oldest(c)) << "erase e1, oldest";
+
+  c.erase("e2");
+
+  EXPECT_EQ(string("e7,e6,e5"), newest(c)) << "erase e2, newest";
+  EXPECT_EQ(string("e5,e6,e7"), oldest(c)) << "erase e2, oldest";
+
+  EXPECT_EQ(400, c["e7"]);
+
+  EXPECT_EQ(string("e7,e6,e5"), newest(c)) << "get e7, newest";
+  EXPECT_EQ(string("e5,e6,e7"), oldest(c)) << "get e7, oldest";
+
+  EXPECT_EQ(200, c["e5"]);
+
+  EXPECT_EQ(string("e5,e7,e6"), newest(c)) << "get e5, newest";
+  EXPECT_EQ(string("e6,e7,e5"), oldest(c)) << "get e5, oldest";
+
+  c["e8"] = 500;
+
+  EXPECT_EQ(string("e8,e5,e7,e6"), newest(c)) << "add e8, newest";
+  EXPECT_EQ(string("e6,e7,e5,e8"), oldest(c)) << "add e8, oldest";
+
+  c["e1"] = 600;
+
+  EXPECT_EQ(string("e1,e8,e5,e7,e6"), newest(c)) << "re-add e1, newest";
+  EXPECT_EQ(string("e6,e7,e5,e8,e1"), oldest(c)) << "re-add e1, oldest";
 }

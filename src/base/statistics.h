@@ -57,6 +57,8 @@ namespace s3
         }
       }
 
+      static void write(std::ostream *output);
+
       template <class T>
       inline static void post(const std::string &id, T tag, const char *format, ...)
       {
@@ -74,7 +76,6 @@ namespace s3
 
     private:
       static void post(const std::string &id, const std::string &stats);
-      static void write(std::ostream *output);
     };
   }
 }

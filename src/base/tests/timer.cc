@@ -1,16 +1,19 @@
-#include <iostream>
+#include <gtest/gtest.h>
 
 #include "base/timer.h"
 
-using std::cout;
-using std::endl;
-
 using s3::base::timer;
 
-int main(int argc, char **argv)
+TEST(timer, current_time_et)
 {
-  cout << "current time in seconds: " << timer::get_current_time() << endl;
-  cout << "http time: " << timer::get_http_time() << endl;
+  double start, stop, diff;
 
-  return 0;
+  start = timer::get_current_time();
+  sleep(1);
+  stop = timer::get_current_time();
+
+  diff = stop - start;
+
+  EXPECT_GT(diff, 0.9);
+  EXPECT_LT(diff, 1.1);
 }

@@ -1,59 +1,59 @@
-#include <iostream>
+#include <gtest/gtest.h>
+
 #include <boost/function.hpp>
 
 #include "base/static_list.h"
 
-using std::cout;
-using std::endl;
+using std::string;
 
-typedef s3::base::static_list<boost::function0<void> > void_fn_list;
-typedef s3::base::static_list<boost::function1<int, int> > int_fn_list;
+typedef s3::base::static_list<boost::function1<string, const char *> > str_fn_list;
+typedef s3::base::static_list<boost::function1<string, double> > double_fn_list;
 
-void void_fn_1()
+string str_fn_1(const char *a)
 {
-  cout << "this is void fn 1" << endl;
+  return "str fn 1";
 }
 
-void void_fn_2()
+string str_fn_2(const char *a)
 {
-  cout << "this is void fn 2" << endl;
+  return "str fn 2";
 }
 
-int int_fn_1(int a)
+string double_fn_1(double a)
 {
-  return a + 1;
+  return "double fn 1";
 }
 
-int int_fn_2(int a)
+string double_fn_2(double a)
 {
-  return a * 2;
+  return "double fn 2";
 }
 
-int int_fn_3(int a)
+string double_fn_3(double a)
 {
-  return a * a;
+  return "double fn 3";
 }
 
-void_fn_list::entry vf1(void_fn_1, 100);
-void_fn_list::entry vf2(void_fn_2, 1); // higher priority
+str_fn_list::entry sf1(str_fn_1, 100);
+str_fn_list::entry sf2(str_fn_2, 1); // higher priority
 
-int_fn_list::entry if1(int_fn_1, 10);
-int_fn_list::entry if2(int_fn_2, 1);
-int_fn_list::entry if3(int_fn_3, 5);
+double_fn_list::entry df1(double_fn_1, 10);
+double_fn_list::entry df2(double_fn_2, 1);
+double_fn_list::entry df3(double_fn_3, 5);
 
-int main(int argc, char **argv)
+TEST(static_list, single_sequence)
 {
-  const int INT_IN = 123;
+  string s;
 
-  cout << "void functions:" << endl;
+  for (str_fn_list::const_iterator itor = str_fn_list::begin(); itor != str_fn_list::end(); ++itor)
+    s += (s.empty() ? "" : ",") + itor->second(NULL);
 
-  for (void_fn_list::const_iterator itor = void_fn_list::begin(); itor != void_fn_list::end(); ++itor)
-    itor->second();
+  EXPECT_EQ(string("str fn 2,str fn 1"), s);
 
-  cout << "int functions:" << endl;
+  s.clear();
 
-  for (int_fn_list::const_iterator itor = int_fn_list::begin(); itor != int_fn_list::end(); ++itor)
-    cout << "in: " << INT_IN << ", out: " << itor->second(INT_IN) << endl;
+  for (double_fn_list::const_iterator itor = double_fn_list::begin(); itor != double_fn_list::end(); ++itor)
+    s += (s.empty() ? "" : ",") + itor->second(0);
 
-  return 0;
+  EXPECT_EQ(string("double fn 2,double fn 3,double fn 1"), s);
 }

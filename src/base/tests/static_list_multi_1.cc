@@ -1,22 +1,19 @@
-#include <iostream>
-
 #include "base/tests/static_list_multi.h"
 
-using std::cout;
-using std::endl;
+using std::string;
 
 using s3::base::tests::void_fn_list;
 using s3::base::tests::int_fn_list;
 
-void void_fn_1()
+string void_fn_1()
 {
-  cout << "this is void fn 1" << endl;
+  return "void fn 1";
 }
 
-int int_fn_1(int a)
+string int_fn_1(int a)
 {
-  return a + 1;
+  return "int fn 1";
 }
 
-void_fn_list::entry vf1(void_fn_1, 100);
-int_fn_list::entry if1(int_fn_1, 10);
+void_fn_list::entry vf1(void_fn_1, 1);
+int_fn_list::entry if1(int_fn_1, 1);

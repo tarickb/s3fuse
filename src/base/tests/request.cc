@@ -1,32 +1,41 @@
-#include <iostream>
+#include <stdexcept>
+#include <gtest/gtest.h>
 
 #include "base/request.h"
 
-using std::cerr;
-using std::cout;
-using std::endl;
+using std::runtime_error;
 
 using s3::base::request;
 
-int main(int argc, char **argv)
+TEST(request, bad_url)
 {
   request r;
 
-  if (argc != 2) {
-    cerr << "usage: " << argv[0] << " <url>" << endl;
-    return 1;
-  }
+  r.init(s3::base::HTTP_GET);
+  r.set_url("some:bad:url");
+
+  ASSERT_THROW(r.run(), runtime_error);
+}
+
+TEST(request, missing_page)
+{
+  request r;
 
   r.init(s3::base::HTTP_GET);
-  r.set_url(argv[1]);
+  r.set_url("http://www.google.com/this_shouldnt_exist");
   r.run();
 
-  if (r.get_response_code() != s3::base::HTTP_SC_OK) {
-    cerr << "request failed with code: " << r.get_response_code() << endl;
-    return 1;
-  }
+  ASSERT_EQ(s3::base::HTTP_SC_NOT_FOUND, r.get_response_code());
+}
 
-  cout << r.get_output_string() << endl;
+TEST(request, valid_page)
+{
+  request r;
 
-  return 0;
+  r.init(s3::base::HTTP_GET);
+  r.set_url("http://www.google.com/");
+  r.run();
+
+  ASSERT_EQ(s3::base::HTTP_SC_OK, r.get_response_code());
+  ASSERT_FALSE(r.get_output_string().empty());
 }

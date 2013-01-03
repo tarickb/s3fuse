@@ -1,26 +1,25 @@
-#include <iostream>
+#include <gtest/gtest.h>
 
 #include "base/tests/static_list_multi.h"
 
-using std::cout;
-using std::endl;
+using std::string;
 
 using s3::base::tests::int_fn_list;
 using s3::base::tests::void_fn_list;
 
-int main(int argc, char **argv)
+TEST(static_list, multi_sequence)
 {
-  const int INT_IN = 123;
-
-  cout << "void functions:" << endl;
+  string s;
 
   for (void_fn_list::const_iterator itor = void_fn_list::begin(); itor != void_fn_list::end(); ++itor)
-    itor->second();
+    s += (s.empty() ? "" : ",") + itor->second();
 
-  cout << "int functions:" << endl;
+  EXPECT_EQ(string("void fn 1,void fn 2"), s);
+
+  s.clear();
 
   for (int_fn_list::const_iterator itor = int_fn_list::begin(); itor != int_fn_list::end(); ++itor)
-    cout << "in: " << INT_IN << ", out: " << itor->second(INT_IN) << endl;
+    s += (s.empty() ? "" : ",") + itor->second(0);
 
-  return 0;
+  EXPECT_EQ(string("int fn 1,int fn 2"), s);
 }
