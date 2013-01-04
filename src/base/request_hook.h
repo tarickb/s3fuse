@@ -33,6 +33,8 @@ namespace s3
     class request_hook
     {
     public:
+      virtual ~request_hook() { }
+
       virtual std::string adjust_url(const std::string &url) = 0;
       virtual void pre_run(request *req, int iter) = 0;
       virtual bool should_retry(request *req, int iter) = 0;

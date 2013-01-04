@@ -28,12 +28,29 @@ namespace s3
 {
   namespace services
   {
-    class aws_hook;
+    class aws_impl;
+
+    class aws_hook : public base::request_hook
+    {
+    public:
+      aws_hook(aws_impl *impl);
+
+      virtual ~aws_hook() { }
+
+      virtual std::string adjust_url(const std::string &url);
+      virtual void pre_run(base::request *r, int iter);
+      virtual bool should_retry(base::request *r, int iter);
+
+    private:
+      aws_impl *_impl;
+    };
 
     class aws_impl : public impl
     {
     public:
       aws_impl();
+
+      virtual ~aws_impl() { }
 
       virtual const std::string & get_header_prefix();
       virtual const std::string & get_header_meta_prefix();

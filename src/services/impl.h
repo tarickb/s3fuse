@@ -37,6 +37,8 @@ namespace s3
     public:
       typedef boost::shared_ptr<impl> ptr;
 
+      virtual ~impl() { }
+
       virtual const std::string & get_header_prefix() = 0;
       virtual const std::string & get_header_meta_prefix() = 0;
       virtual const std::string & get_xml_namespace() = 0;

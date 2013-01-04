@@ -71,34 +71,27 @@ namespace
   const char *GS_REQ_TIMEOUT_XPATH = "/Error/Code[text() = 'RequestTimeout']";
 }
 
-class gs_hook : public request_hook
+gs_hook::gs_hook(gs_impl *impl)
+  : _impl(impl)
 {
-public:
-  gs_hook(gs_impl *impl)
-    : _impl(impl)
-  {
-  }
+}
 
-  virtual string adjust_url(const string &url)
-  {
-    return GS_URL_PREFIX + url;
-  }
+string gs_hook::adjust_url(const string &url)
+{
+  return GS_URL_PREFIX + url;
+}
 
-  virtual void pre_run(request *r, int iter)
-  {
-    _impl->sign(r, iter);
-  }
+void gs_hook::pre_run(request *r, int iter)
+{
+  _impl->sign(r, iter);
+}
 
-  virtual bool should_retry(request *r, int iter)
-  {
-    return 
-      (r->get_response_code() == base::HTTP_SC_BAD_REQUEST && xml::match(r->get_output_buffer(), GS_REQ_TIMEOUT_XPATH)) || 
-      (r->get_response_code() == base::HTTP_SC_UNAUTHORIZED && iter == 0);
-  }
-
-private:
-  gs_impl *_impl;
-};
+bool gs_hook::should_retry(request *r, int iter)
+{
+  return 
+    (r->get_response_code() == base::HTTP_SC_BAD_REQUEST && xml::match(r->get_output_buffer(), GS_REQ_TIMEOUT_XPATH)) || 
+    (r->get_response_code() == base::HTTP_SC_UNAUTHORIZED && iter == 0);
+}
 
 const string & gs_impl::get_new_token_url()
 {

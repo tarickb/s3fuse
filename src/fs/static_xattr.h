@@ -51,6 +51,8 @@ namespace s3
         const std::string &key, 
         int mode);
 
+      virtual ~static_xattr() { }
+
       virtual int set_value(const char *value, size_t size);
       virtual int get_value(char *buffer, size_t max_size);
 

@@ -75,34 +75,27 @@ namespace
   }
 }
 
-class aws_hook : public request_hook
+aws_hook::aws_hook(aws_impl *impl)
+  : _impl(impl)
 {
-public:
-  aws_hook(aws_impl *impl)
-    : _impl(impl)
-  {
-  }
+}
 
-  virtual string adjust_url(const string &url)
-  {
-    return _impl->get_endpoint() + url;
-  }
+string aws_hook::adjust_url(const string &url)
+{
+  return _impl->get_endpoint() + url;
+}
 
-  virtual void pre_run(request *r, int iter)
-  {
-    _impl->sign(r);
-  }
+void aws_hook::pre_run(request *r, int iter)
+{
+  _impl->sign(r);
+}
 
-  virtual bool should_retry(request *r, int iter)
-  {
-    return
-      r->get_response_code() == base::HTTP_SC_BAD_REQUEST &&
-      xml::match(r->get_output_buffer(), AWS_REQ_TIMEOUT_XPATH);
-  }
-
-private:
-  aws_impl *_impl;
-};
+bool aws_hook::should_retry(request *r, int iter)
+{
+  return
+    r->get_response_code() == s3::base::HTTP_SC_BAD_REQUEST &&
+    xml::match(r->get_output_buffer(), AWS_REQ_TIMEOUT_XPATH);
+}
 
 aws_impl::aws_impl()
 {

@@ -45,6 +45,8 @@ namespace s3
         XM_COMMIT_REQUIRED = 0x10
       };
 
+      virtual ~xattr() { }
+
       inline const std::string & get_key() const { return _key; }
 
       inline bool is_writable() const { return _mode & XM_WRITABLE; }

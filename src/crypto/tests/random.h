@@ -1,3 +1,6 @@
+#ifndef S3_CRYPTO_TESTS_RANDOM_H
+#define S3_CRYPTO_TESTS_RANDOM_H
+
 #include <stdexcept>
 #include <fstream>
 #include <vector>
@@ -29,3 +32,5 @@ namespace s3
     }
   }
 }
+
+#endif

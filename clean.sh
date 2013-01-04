@@ -26,11 +26,15 @@ do
     rm -rf .deps >& /dev/null
     rm -f Makefile Makefile.in
     rm -f s3fuse.conf
+    rm -f *.gcda *.gcno *.gcov
   popd >& /dev/null
 done
 
-find . -maxdepth 1 -type f -name \*.m4 ! -name boost.m4 | xargs rm -f
 rm -rf autom4te.cache
+rm -rf coverage-report 
+
+find . -maxdepth 1 -type f -name \*.m4 ! -name boost.m4 | xargs rm -f
+
 rm -f config.*
 rm -f configure
 rm -f configure.ac
@@ -41,3 +45,4 @@ rm -f missing
 rm -f *.tar.gz
 rm -f libtool
 rm -f ltmain.sh
+rm -f *.info

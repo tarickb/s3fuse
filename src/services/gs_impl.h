@@ -30,7 +30,22 @@ namespace s3
 {
   namespace services
   {
-    class gs_hook;
+    class gs_impl;
+
+    class gs_hook : public base::request_hook
+    {
+    public:
+      gs_hook(gs_impl *impl);
+
+      virtual ~gs_hook() { }
+
+      virtual std::string adjust_url(const std::string &url);
+      virtual void pre_run(base::request *r, int iter);
+      virtual bool should_retry(base::request *r, int iter);
+
+    private:
+      gs_impl *_impl;
+    };
 
     class gs_impl : public impl
     {
@@ -48,6 +63,8 @@ namespace s3
       static std::string read_token(const std::string &file);
 
       gs_impl();
+
+      virtual ~gs_impl() { }
 
       virtual const std::string & get_header_prefix();
       virtual const std::string & get_header_meta_prefix();

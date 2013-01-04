@@ -47,6 +47,8 @@ namespace s3
         return xattr::ptr(new callback_xattr(key, get_fn, set_fn, mode));
       }
 
+      virtual ~callback_xattr() { }
+
       virtual int set_value(const char *value, size_t size);
       virtual int get_value(char *buffer, size_t max_size);
 
