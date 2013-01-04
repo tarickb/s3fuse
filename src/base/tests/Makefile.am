@@ -1,3 +1,5 @@
+TESTS = tests
+
 noinst_PROGRAMS = tests
 
 tests_SOURCES = \

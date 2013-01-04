@@ -1,3 +1,5 @@
+TESTS = tests
+
 noinst_PROGRAMS = \
 	passwords \
 	tests
