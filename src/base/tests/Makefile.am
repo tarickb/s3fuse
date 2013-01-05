@@ -3,6 +3,7 @@ TESTS = tests
 noinst_PROGRAMS = tests
 
 tests_SOURCES = \
+	config.cc \
 	lru_cache_map.cc \
 	request.cc \
 	static_list.cc \
