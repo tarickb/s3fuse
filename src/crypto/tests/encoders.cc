@@ -7,6 +7,7 @@
 #include "crypto/hex_with_quotes.h"
 
 using std::numeric_limits;
+using std::runtime_error;
 using std::string;
 using std::vector;
 
@@ -101,6 +102,13 @@ TEST(hex_with_quotes, decode_known_answers)
 TEST(hex_with_quotes, random)
 {
   run_random<hex_with_quotes>();
+}
+
+TEST(hex_with_quotes, decode_with_no_quotes)
+{
+  vector<uint8_t> out;
+
+  EXPECT_THROW(encoder::decode<hex_with_quotes>("input has no quotes", &out), runtime_error);
 }
 
 TEST(base64, encode_known_answers)
