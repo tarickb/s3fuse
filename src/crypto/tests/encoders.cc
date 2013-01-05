@@ -1,3 +1,4 @@
+#include <limits>
 #include <gtest/gtest.h>
 
 #include "crypto/base64.h"
@@ -5,6 +6,7 @@
 #include "crypto/hex.h"
 #include "crypto/hex_with_quotes.h"
 
+using std::numeric_limits;
 using std::string;
 using std::vector;
 
@@ -52,7 +54,7 @@ namespace
       srand(time(NULL));
 
       for (int i = 0; i < test_size; i++)
-        in[i] = rand() % UINT8_MAX;
+        in[i] = rand() % numeric_limits<uint8_t>::max();
 
       enc = encoder::encode<encoding>(in);
       encoder::decode<encoding>(enc, &out);
