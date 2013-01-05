@@ -37,7 +37,6 @@ find . -maxdepth 1 -type f -name \*.m4 ! -name boost.m4 | xargs rm -f
 
 rm -f config.*
 rm -f configure
-rm -f configure.ac
 rm -f depcomp
 rm -f install-sh
 rm -f Makefile Makefile.in
