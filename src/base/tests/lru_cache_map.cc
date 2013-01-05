@@ -49,6 +49,8 @@ TEST(lru_cache_map, no_remove_condition)
   c["e3"] = 101;
   c["e4"] = 102;
 
+  EXPECT_EQ(4, c.get_size());
+
   EXPECT_EQ(string("e4,e3,e2,e1"), newest(c)) << "init, newest";
   EXPECT_EQ(string("e1,e2,e3,e4"), oldest(c)) << "init, oldest";
 
@@ -111,6 +113,8 @@ TEST(lru_cache_map, remove_if_over_100)
   c["e2"] = 2;
   c["e3"] = 101;
   c["e4"] = 102;
+
+  EXPECT_EQ(4, c.get_size());
 
   EXPECT_EQ(string("e4,e3,e2,e1"), newest(c)) << "init, newest";
   EXPECT_EQ(string("e1,e2,e3,e4"), oldest(c)) << "init, oldest";
