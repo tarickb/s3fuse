@@ -26,8 +26,8 @@ namespace s3
 {
   namespace base
   {
-    const char *APP_FULL_NAME = PACKAGE_NAME;
-    const char *APP_NAME = PACKAGE_TARNAME;
+    const char *APP_FULL_NAME = "FUSE Driver for Amazon S3";
+    const char *APP_NAME = PACKAGE_NAME;
     const char *APP_VERSION = PACKAGE_VERSION;
   }
 }
