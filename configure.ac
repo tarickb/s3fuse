@@ -50,7 +50,7 @@ else
 fi
 
 if test "x$coverage" = xtrue; then
-  AM_CXXFLAGS="$AM_CXXFLAGS -ftest-coverage -fprofile-arcs -O0"
+  AM_CXXFLAGS="$AM_CXXFLAGS -ftest-coverage -fprofile-arcs"
 
   if test "x$darwin" = xtrue; then
     # llvm-g++ on Darwin doesn't do code coverage
@@ -104,7 +104,7 @@ AC_CHECK_FUNCS([ftruncate gettimeofday memset strchr strerror strstr strtol])
 
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([src/Makefile src/base/Makefile src/crypto/Makefile src/fs/Makefile src/services/Makefile src/threads/Makefile])
-AC_CONFIG_FILES([src/base/tests/Makefile src/crypto/tests/Makefile src/fs/tests/Makefile src/tests/Makefile])
+AC_CONFIG_FILES([src/base/tests/Makefile src/crypto/tests/Makefile src/fs/tests/Makefile src/threads/tests/Makefile src/tests/Makefile])
 AC_CONFIG_FILES([debian/Makefile debian/source/Makefile])
 AC_CONFIG_FILES([dist/Makefile])
 

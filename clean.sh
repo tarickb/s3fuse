@@ -17,6 +17,7 @@ for D in \
   src/services \
   src/tests \
   src/threads \
+  src/threads/tests \
   debian \
   debian/source \
   dist; \
