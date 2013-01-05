@@ -4,6 +4,8 @@ SUBDIRS = src
 DIST_SUBDIRS = debian dist src
 
 coverage-report:
+	@grep 'ac_cs_config=.*code-coverage' config.status 2>&1 >/dev/null \
+		|| ( echo "must pass --enable-code-coverage to configure" && false )
 	lcov -z -d .
 	make check
 	lcov -c -d . -o s3fuse.info

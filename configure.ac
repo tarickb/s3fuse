@@ -40,6 +40,8 @@ AC_ARG_ENABLE(
 
 AM_CONDITIONAL([BUILD_TESTS], [test x$build_tests = xtrue])
 
+# set LDFLAGS rather than AM_LDFLAGS below because we need these flags
+# when using AC_CHECK_LIB
 if test "x$darwin" = xtrue; then
   LDFLAGS="$LDFLAGS -L/opt/local/lib"
   LDADD="$LDADD -framework CoreFoundation -framework Security"
@@ -48,12 +50,12 @@ else
 fi
 
 if test "x$coverage" = xtrue; then
-  CXXFLAGS="$CXXFLAGS -ftest-coverage -fprofile-arcs"
+  AM_CXXFLAGS="$AM_CXXFLAGS -ftest-coverage -fprofile-arcs -O0"
 
   if test "x$darwin" = xtrue; then
     # llvm-g++ on Darwin doesn't do code coverage
     CXX="clang++"
-    CXXFLAGS="$CXXFLAGS -Qunused-arguments"
+    AM_CXXFLAGS="$AM_CXXFLAGS -Qunused-arguments"
   fi
 fi
 
@@ -106,9 +108,9 @@ AC_CONFIG_FILES([src/base/tests/Makefile src/crypto/tests/Makefile src/fs/tests/
 AC_CONFIG_FILES([debian/Makefile debian/source/Makefile])
 AC_CONFIG_FILES([dist/Makefile])
 
-AC_SUBST([AM_CXXFLAGS], ["$CXXFLAGS -g -Wall -Werror"])
+AC_SUBST([AM_CXXFLAGS], ["$AM_CXXFLAGS -g -Wall -Werror"])
 AC_SUBST([AM_CPPFLAGS], ["-I \$(top_srcdir)/src $CPPFLAGS $DEPS_XML_CFLAGS $DEPS_CURL_CFLAGS $DEPS_FUSE_CFLAGS $DEPS_OPENSSL_CFLAGS $DEPS_CRYPTO_CFLAGS $DEPS_GNUTLS_CFLAGS $BOOST_CPPFLAGS"])
-AC_SUBST([AM_LDFLAGS], ["$LDFLAGS $BOOST_THREAD_LDFLAGS"])
+AC_SUBST([AM_LDFLAGS], ["$AM_LDFLAGS $BOOST_THREAD_LDFLAGS"])
 
 AC_SUBST([LDADD], ["$LDADD $DEPS_XML_LIBS $DEPS_CURL_LIBS $DEPS_FUSE_LIBS $DEPS_OPENSSL_LIBS $DEPS_CRYPTO_LIBS $DEPS_GNUTLS_LIBS $BOOST_THREAD_LIBS"])
 
