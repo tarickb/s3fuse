@@ -1,5 +1,5 @@
 m4_define([cl_version], [m4_esyscmd([head -n 1 ChangeLog | sed -e 's/.*(//' -e 's/).*//' | tr -d '\n'])])
-m4_define([svn_version], [m4_esyscmd([svnversion 2>/dev/null | sed -e 's/^./-&/' | tr -d '\n'])])
+m4_define([svn_version], [m4_esyscmd([svnversion 2>/dev/null | sed -e 's/^./-r&/' | tr -d '\n'])])
 
 AC_PREREQ([2.63])
 AC_INIT([s3fuse], [m4_format([%s%s], cl_version, svn_version)])
