@@ -8,8 +8,10 @@ passwords_SOURCES = passwords.cc
 passwords_LDADD = ../libs3fuse_crypto.a $(LDADD)
 
 tests_SOURCES = \
+	aes_cbc_256.cc \
 	aes_cbc_256_kat.cc \
 	aes_cbc_256_random.cc \
+	aes_ctr_256.cc \
 	aes_ctr_256_kat.cc \
 	aes_ctr_256_random_par.cc \
 	aes_ctr_256_random_seq.cc \
