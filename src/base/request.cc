@@ -384,6 +384,6 @@ void request::run(int timeout_in_s)
       "request for [%s] failed with code %i and response: %s\n", 
       _url.c_str(), 
       _response_code, 
-      &_output_buffer[0]);
+      get_output_string().c_str());
 }
 
