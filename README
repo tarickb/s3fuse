@@ -232,10 +232,6 @@ option in s3fuse.conf:
 
   allow_glacier_restores=true
 
-Linux also seems to require a "user." prefix on extended attributes:
-
-  xattr_prefix=user.
-
 Running
 -------
 

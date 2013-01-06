@@ -13,6 +13,8 @@ s3fuse (0.13) unstable; urgency=low
     "s3fuse_content_type" and "s3fuse_etag", respectively.
   * Removed "__md5__" extended attribute.
   * Added note about daemon_timeout.
+  * Removed xattr_prefix configuration option and made "user." standard (Linux
+    only).
 
  -- Tarick Bedeir <tarick@bedeir.com>  Tue, 09 Dec 2012 22:14:21 -0600
 

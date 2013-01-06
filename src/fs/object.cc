@@ -41,6 +41,10 @@
   #define ENOATTR ENODATA
 #endif
 
+#ifndef __APPLE__
+  #define NEED_XATTR_PREFIX
+#endif
+
 using boost::mutex;
 using std::multimap;
 using std::runtime_error;
@@ -60,6 +64,13 @@ namespace
 {
   const int BLOCK_SIZE = 512;
   const char *COMMIT_ETAG_XPATH = "/s3:CopyObjectResult/s3:ETag";
+
+  #ifdef NEED_XATTR_PREFIX
+    const string XATTR_PREFIX = "user.";
+    const size_t XATTR_PREFIX_LEN = XATTR_PREFIX.size();
+  #else
+    const size_t XATTR_PREFIX_LEN = 0;
+  #endif
 
   const int USER_XATTR_FLAGS = 
     s3::fs::xattr::XM_WRITABLE | 
@@ -163,13 +174,15 @@ void object::copy_stat(struct stat *s)
 int object::set_metadata(const string &key, const char *value, size_t size, int flags, bool *needs_commit)
 {
   mutex::scoped_lock lock(_mutex);
-  string user_key = key.substr(config::get_xattr_prefix().size());
+  string user_key = key.substr(XATTR_PREFIX_LEN);
   xattr_map::iterator itor = _metadata.find(user_key);
 
   *needs_commit = false;
 
-  if (key.substr(0, config::get_xattr_prefix().size()) != config::get_xattr_prefix())
-    return -EINVAL;
+  #ifdef NEED_XATTR_PREFIX
+    if (key.substr(0, XATTR_PREFIX_LEN) != XATTR_PREFIX)
+      return -EINVAL;
+  #endif
 
   if (flags & XATTR_CREATE && itor != _metadata.end())
     return -EEXIST;
@@ -199,20 +212,28 @@ void object::get_metadata_keys(vector<string> *keys)
 {
   mutex::scoped_lock lock(_mutex);
 
-  for (xattr_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor)
-    if (itor->second->is_visible())
-      keys->push_back(config::get_xattr_prefix() + itor->first);
+  for (xattr_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor) {
+    if (itor->second->is_visible()) {
+      #ifdef NEED_XATTR_PREFIX
+        keys->push_back(XATTR_PREFIX + itor->first);
+      #else
+        keys->push_back(itor->first);
+      #endif
+    }
+  }
 }
 
 int object::get_metadata(const string &key, char *buffer, size_t max_size)
 {
   mutex::scoped_lock lock(_mutex);
   xattr::ptr value;
-  string user_key = key.substr(config::get_xattr_prefix().size());
+  string user_key = key.substr(XATTR_PREFIX_LEN);
   xattr_map::const_iterator itor;
 
-  if (key.substr(0, config::get_xattr_prefix().size()) != config::get_xattr_prefix())
-    return -ENOATTR;
+  #ifdef NEED_XATTR_PREFIX
+    if (key.substr(0, XATTR_PREFIX_LEN) != XATTR_PREFIX)
+      return -ENOATTR;
+  #endif
 
   itor = _metadata.find(user_key);
 
@@ -225,7 +246,7 @@ int object::get_metadata(const string &key, char *buffer, size_t max_size)
 int object::remove_metadata(const string &key)
 {
   mutex::scoped_lock lock(_mutex);
-  xattr_map::iterator itor = _metadata.find(key.substr(config::get_xattr_prefix().size()));
+  xattr_map::iterator itor = _metadata.find(key.substr(XATTR_PREFIX_LEN));
 
   if (itor == _metadata.end() || !itor->second->is_removable())
     return -ENOATTR;

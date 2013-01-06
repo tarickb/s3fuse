@@ -28,8 +28,6 @@ CONFIG(int, request_timeout_in_s, 30); // request timeout in seconds (for all HT
 CONFIG(std::string, aws_service_endpoint, "s3.amazonaws.com"); // service endpoint for Amazon AWS (change to "s3-eu-west-1.amazonaws.com" for EU buckets)
 CONFIG(bool, aws_use_ssl, true); // set to false to disable SSL
 
-CONFIG(std::string, xattr_prefix, ""); // if set, prefixes all extended attributes (may have to be set to "user." for compatibility with getfattr)
-
 CONFIG(bool, use_encryption, false); // if set, encryption/decryption support will be enabled
 CONFIG(bool, encrypt_new_files, true); // if set, all newly-created files will be encrypted
 CONFIG(std::string, volume_key_file, ""); // name of file containing hex-encoded volume key. if blank, read from stdin.
