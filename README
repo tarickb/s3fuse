@@ -232,6 +232,12 @@ option in s3fuse.conf:
 
   allow_glacier_restores=true
 
+NOTE: With Glacier support enabled, every "xattr -l" or "getfattr -d" (or any 
+equivalent operation that queries file extended attributes) will result in a 
+LIST request.  LIST requests are charged at 10x the rate of GET requests:
+
+  http://aws.amazon.com/s3/pricing/
+
 Running
 -------
 
