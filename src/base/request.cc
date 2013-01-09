@@ -279,7 +279,7 @@ void request::set_input_buffer(const char *buffer, size_t size)
 bool request::check_timeout()
 {
   if (_timeout && time(NULL) > _timeout) {
-    S3_LOG(LOG_WARNING, "request::check_timeout", "timed out on url [%s].\n", _url.c_str());
+    S3_LOG(LOG_WARNING, "request::check_timeout", "timed out on [%s] [%s].\n", _method.c_str(), _url.c_str());
 
     _canceled = true;
     return true;
