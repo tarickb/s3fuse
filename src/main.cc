@@ -204,7 +204,19 @@ int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
     if (r)
       return r;
 
-    return file::open(static_cast<string>(path), s3::fs::OPEN_DEFAULT, &file_info->fh);
+    // TODO: start counting events like this?
+    // rarely, the newly created file won't be downloadable right away, so
+    // try a few times before giving up.
+    for (int i = 0; i < config::get_max_transfer_retries(); i++) {
+      r = file::open(static_cast<string>(path), s3::fs::OPEN_DEFAULT, &file_info->fh);
+
+      if (r != -ENOENT)
+        break;
+
+      S3_LOG(LOG_WARNING, "create", "retrying open on [%s] because of error %i\n", path, r);
+    }
+
+    return r;
   END_TRY;
 }
 
@@ -750,11 +762,13 @@ int main(int argc, char **argv)
       statistics::init();
 
   } catch (const std::exception &e) {
-    S3_LOG(LOG_ERR, "init", "caught exception while initializing: %s\n", e.what());
+    S3_LOG(LOG_ERR, "main", "caught exception while initializing: %s\n", e.what());
     return 1;
   }
 
   build_operations(&ops);
+
+  S3_LOG(LOG_INFO, "main", "%s version %s, initialized\n", s3::base::APP_NAME, s3::base::APP_VERSION);
 
   r = fuse_main(args.argc, args.argv, &ops, NULL);
 
