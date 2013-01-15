@@ -380,8 +380,10 @@ size_t file::get_transfer_size()
 {
   struct stat s;
 
-  if (fstat(_fd, &s) == -1)
+  if (fstat(_fd, &s) == -1) {
+    S3_LOG(LOG_WARNING, "file::get_transfer_size", "failed to stat [%s].\n", get_path().c_str());
     return 0;
+  }
 
   return s.st_size;
 }
