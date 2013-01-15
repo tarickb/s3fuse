@@ -119,7 +119,8 @@ int object::copy_by_path(const request::ptr &req, const string &from, const stri
   req->set_header(service::get_header_prefix() + "copy-source", object::build_url(from));
   req->set_header(service::get_header_prefix() + "metadata-directive", "COPY");
 
-  req->run();
+  // use transfer timeout because this could take a while
+  req->run(config::get_transfer_timeout_in_s());
 
   return (req->get_response_code() == base::HTTP_SC_OK) ? 0 : -EIO;
 }
@@ -359,11 +360,12 @@ void object::set_request_body(const request::ptr &req)
 
 int object::commit(const request::ptr &req)
 {
-  // since the etag can change as a result of the copy, we need to run this
-  // at most twice so that the second pass will have an updated last-update
-  // etag
+  // we may need to try to commit several times because:
+  //
+  // 1. the etag can change as a result of a copy
+  // 2. we may get intermittent "precondition failed" errors
 
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < config::get_max_transfer_retries(); i++) {
     xml::document doc;
     string response, new_etag;
     int r;
@@ -383,7 +385,13 @@ int object::commit(const request::ptr &req)
     set_request_headers(req);
     set_request_body(req);
 
-    req->run();
+    // this can, apparently, take a long time if the object is large
+    req->run(config::get_transfer_timeout_in_s());
+
+    if (req->get_response_code() == base::HTTP_SC_PRECONDITION_FAILED) {
+      S3_LOG(LOG_WARNING, "object::commit", "got precondition failed error for [%s].\n", _url.c_str());
+      continue;
+    }
 
     if (req->get_response_code() != base::HTTP_SC_OK) {
       S3_LOG(LOG_WARNING, "object::commit", "failed to commit object metadata for [%s].\n", _url.c_str());
