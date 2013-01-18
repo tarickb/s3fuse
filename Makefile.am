@@ -14,6 +14,9 @@ coverage-report:
 	lcov -r s3fuse.info \*/tests/\* -o s3fuse.info
 	genhtml -o coverage-report s3fuse.info
 
+cppcheck:
+	cd src; cppcheck --enable=all -q * 2>&1 | grep -v -e '^\[[^]]*/tests/[^]]*\]:' -e '^\[[^]]*Makefile*[^]]*\]:'
+
 deb: dist
 	rm -rf $(PACKAGE_NAME)-$(PACKAGE_VERSION)
 	tar xfz $(PACKAGE_NAME)-$(PACKAGE_VERSION).tar.gz
