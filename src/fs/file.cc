@@ -617,9 +617,7 @@ int file::download_part(const request::ptr &req, const transfer_part *part)
   req->run(config::get_transfer_timeout_in_s());
   rc = req->get_response_code();
 
-  if (rc == base::HTTP_SC_INTERNAL_SERVER_ERROR || rc == base::HTTP_SC_SERVICE_UNAVAILABLE)
-    return -EAGAIN; // temporary failure
-  else if (rc != base::HTTP_SC_PARTIAL_CONTENT)
+  if (rc != base::HTTP_SC_PARTIAL_CONTENT)
     return -EIO;
   else if (req->get_output_buffer().size() < part->size)
     return -EIO;
@@ -916,9 +914,7 @@ int file::upload_part(const request::ptr &req, const string &upload_id, transfer
   req->run(config::get_transfer_timeout_in_s());
   rc = req->get_response_code();
 
-  if (rc == base::HTTP_SC_INTERNAL_SERVER_ERROR || rc == base::HTTP_SC_SERVICE_UNAVAILABLE)
-    return -EAGAIN; // temporary failure
-  else if (rc != base::HTTP_SC_OK)
+  if (rc != base::HTTP_SC_OK)
     return -EIO;
 
   if (req->get_response_header("ETag") != part->etag) {

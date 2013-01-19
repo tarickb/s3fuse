@@ -52,6 +52,7 @@ namespace
 {
   const char *REQ_TIMEOUT_XPATH = "/Error/Code[text() = 'RequestTimeout']";
 
+  atomic_count s_internal_server_error(0), s_service_unavailable(0);
   atomic_count s_req_timeout(0), s_bad_request(0);
 
   class service_hook : public request_hook
@@ -80,6 +81,16 @@ namespace
     {
       long rc = r->get_response_code();
 
+      if (rc == s3::base::HTTP_SC_INTERNAL_SERVER_ERROR) {
+        ++s_internal_server_error;
+        return true;
+      }
+
+      if (rc == s3::base::HTTP_SC_SERVICE_UNAVAILABLE) {
+        ++s_service_unavailable;
+        return true;
+      }
+
       if (rc == s3::base::HTTP_SC_BAD_REQUEST) {
         if (xml::match(r->get_output_buffer(), REQ_TIMEOUT_XPATH)) {
           // TODO: refresh connection?
@@ -103,6 +114,8 @@ namespace
   {
     *o <<
       "service_hook:\n"
+      "  \"internal server error\": " << s_internal_server_error << "\n"
+      "  \"service unavailable\": " << s_service_unavailable << "\n"
       "  \"RequestTimeout\": " << s_req_timeout << "\n"
       "  \"bad request\": " << s_bad_request << "\n";
   }
