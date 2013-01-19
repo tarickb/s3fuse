@@ -47,8 +47,8 @@ namespace s3
         }
       };
 
-      inline static const_iterator begin() { return s_list->begin(); }
-      inline static const_iterator end() { return s_list->end(); }
+      inline static const_iterator begin() { return s_list ? s_list->begin() : const_iterator(); }
+      inline static const_iterator end() { return s_list ? s_list->end() : const_iterator(); }
 
     private:
       inline static void add(const T &t, int priority)
