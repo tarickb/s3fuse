@@ -28,7 +28,6 @@
 #include "base/logger.h"
 #include "base/request.h"
 #include "base/timer.h"
-#include "base/xml.h"
 #include "crypto/base64.h"
 #include "crypto/encoder.h"
 #include "crypto/hmac_sha1.h"
@@ -47,23 +46,18 @@ using std::vector;
 using s3::base::config;
 using s3::base::header_map;
 using s3::base::request;
-using s3::base::request_hook;
 using s3::base::timer;
-using s3::base::xml;
 using s3::crypto::base64;
 using s3::crypto::encoder;
 using s3::crypto::hmac_sha1;
 using s3::crypto::private_file;
 using s3::services::aws_impl;
-using s3::services::aws_hook;
 
 namespace
 {
   const string AWS_HEADER_PREFIX = "x-amz-";
   const string AWS_HEADER_META_PREFIX = "x-amz-meta-";
   const string AWS_XML_NAMESPACE = "http://s3.amazonaws.com/doc/2006-03-01/";
-
-  const char *AWS_REQ_TIMEOUT_XPATH = "/Error/Code[text() = 'RequestTimeout']";
 
   const string EMPTY = "";
 
@@ -73,28 +67,6 @@ namespace
 
     return (itor == map.end()) ? EMPTY : itor->second;
   }
-}
-
-aws_hook::aws_hook(aws_impl *impl)
-  : _impl(impl)
-{
-}
-
-string aws_hook::adjust_url(const string &url)
-{
-  return _impl->get_endpoint() + url;
-}
-
-void aws_hook::pre_run(request *r, int iter)
-{
-  _impl->sign(r);
-}
-
-bool aws_hook::should_retry(request *r, int iter)
-{
-  return
-    r->get_response_code() == s3::base::HTTP_SC_BAD_REQUEST &&
-    xml::match(r->get_output_buffer(), AWS_REQ_TIMEOUT_XPATH);
 }
 
 aws_impl::aws_impl()
@@ -125,8 +97,6 @@ aws_impl::aws_impl()
   _endpoint += config::get_aws_service_endpoint();
 
   _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
-
-  _hook.reset(new aws_hook(this));
 }
 
 const string & aws_impl::get_header_prefix()
@@ -159,11 +129,6 @@ const string & aws_impl::get_bucket_url()
   return _bucket_url;
 }
 
-request_hook * aws_impl::get_request_hook()
-{
-  return _hook.get();
-}
-
 void aws_impl::sign(request *req)
 {
   const header_map &headers = req->get_headers();
@@ -188,4 +153,19 @@ void aws_impl::sign(request *req)
 
   hmac_sha1::sign(_secret, to_sign, mac);
   req->set_header("Authorization", string("AWS ") + _key + ":" + encoder::encode<base64>(mac, hmac_sha1::MAC_LEN));
+}
+
+string aws_impl::adjust_url(const string &url)
+{
+  return _endpoint + url;
+}
+
+void aws_impl::pre_run(request *r, int iter)
+{
+  sign(r);
+}
+
+bool aws_impl::should_retry(request *r, int iter)
+{
+  return false;
 }

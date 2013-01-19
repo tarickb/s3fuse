@@ -30,23 +30,6 @@ namespace s3
 {
   namespace services
   {
-    class gs_impl;
-
-    class gs_hook : public base::request_hook
-    {
-    public:
-      gs_hook(gs_impl *impl);
-
-      virtual ~gs_hook() { }
-
-      virtual std::string adjust_url(const std::string &url);
-      virtual void pre_run(base::request *r, int iter);
-      virtual bool should_retry(base::request *r, int iter);
-
-    private:
-      gs_impl *_impl;
-    };
-
     class gs_impl : public impl
     {
     public:
@@ -75,18 +58,17 @@ namespace s3
 
       virtual const std::string & get_bucket_url();
 
-      virtual base::request_hook * get_request_hook();
+      virtual std::string adjust_url(const std::string &url);
+      virtual void pre_run(base::request *r, int iter);
+      virtual bool should_retry(base::request *r, int iter);
 
     private:
-      friend class gs_hook;
-
       void sign(base::request *req, int iter);
       void refresh(const boost::mutex::scoped_lock &lock);
 
       boost::mutex _mutex;
       std::string _access_token, _refresh_token, _bucket_url;
       time_t _expiry;
-      boost::scoped_ptr<base::request_hook> _hook;
     };
   }
 }

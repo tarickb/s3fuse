@@ -29,6 +29,11 @@
 
 namespace s3
 {
+  namespace base
+  {
+    class request_hook;
+  }
+
   namespace services
   {
     class service
@@ -45,10 +50,11 @@ namespace s3
 
       inline static const std::string & get_bucket_url() { return s_impl->get_bucket_url(); }
 
-      inline static base::request_hook * get_request_hook() { return s_impl->get_request_hook(); }
+      inline static base::request_hook * get_request_hook() { return s_hook.get(); }
 
     private:
       static impl::ptr s_impl;
+      static boost::shared_ptr<base::request_hook> s_hook;
     };
   }
 }

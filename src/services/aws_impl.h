@@ -28,23 +28,6 @@ namespace s3
 {
   namespace services
   {
-    class aws_impl;
-
-    class aws_hook : public base::request_hook
-    {
-    public:
-      aws_hook(aws_impl *impl);
-
-      virtual ~aws_hook() { }
-
-      virtual std::string adjust_url(const std::string &url);
-      virtual void pre_run(base::request *r, int iter);
-      virtual bool should_retry(base::request *r, int iter);
-
-    private:
-      aws_impl *_impl;
-    };
-
     class aws_impl : public impl
     {
     public:
@@ -61,17 +44,14 @@ namespace s3
 
       virtual const std::string & get_bucket_url();
 
-      virtual base::request_hook * get_request_hook();
+      virtual std::string adjust_url(const std::string &url);
+      virtual void pre_run(base::request *r, int iter);
+      virtual bool should_retry(base::request *r, int iter);
 
     private:
-      friend class aws_hook;
-
-      inline const std::string & get_endpoint() { return _endpoint; }
-
       void sign(base::request *req);
 
       std::string _key, _secret, _endpoint, _bucket_url;
-      boost::scoped_ptr<base::request_hook> _hook;
     };
   }
 }

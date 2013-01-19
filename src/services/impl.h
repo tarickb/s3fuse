@@ -26,10 +26,13 @@
 #include <boost/function.hpp>
 #include <boost/smart_ptr.hpp>
 
-#include "base/request_hook.h"
-
 namespace s3
 {
+  namespace base
+  {
+    class request;
+  }
+
   namespace services
   {
     class impl
@@ -48,7 +51,9 @@ namespace s3
 
       virtual const std::string & get_bucket_url() = 0;
 
-      virtual base::request_hook * get_request_hook() = 0;
+      virtual std::string adjust_url(const std::string &url) = 0;
+      virtual void pre_run(base::request *r, int iter) = 0;
+      virtual bool should_retry(base::request *r, int iter) = 0;
     };
   }
 }

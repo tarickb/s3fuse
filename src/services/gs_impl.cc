@@ -20,33 +20,34 @@
  */
 
 #include <boost/bind.hpp>
+#include <boost/detail/atomic_count.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
-#include "base/xml.h"
+#include "base/statistics.h"
 #include "crypto/private_file.h"
 #include "services/gs_impl.h"
 
 using boost::bind;
 using boost::mutex;
+using boost::detail::atomic_count;
 using boost::property_tree::ptree;
 using std::endl;
 using std::ifstream;
 using std::ofstream;
+using std::ostream;
 using std::runtime_error;
 using std::string;
 using std::stringstream;
 
 using s3::base::config;
 using s3::base::request;
-using s3::base::request_hook;
-using s3::base::xml;
+using s3::base::statistics;
 using s3::crypto::private_file;
 using s3::services::gs_impl;
-using s3::services::gs_hook;
 
 namespace
 {
@@ -68,29 +69,17 @@ namespace
     "scope=" + GS_OAUTH_SCOPE + "&"
     "response_type=code";
 
-  const char *GS_REQ_TIMEOUT_XPATH = "/Error/Code[text() = 'RequestTimeout']";
-}
+  atomic_count s_refresh_on_fail(0), s_refresh_on_timeout(0);
 
-gs_hook::gs_hook(gs_impl *impl)
-  : _impl(impl)
-{
-}
+  void statistics_writer(ostream *o)
+  {
+    *o <<
+      "gs_impl:\n"
+      "  token refreshes due to request failure: " << s_refresh_on_fail << "\n"
+      "  token refreshes due to timeout: " << s_refresh_on_timeout << "\n";
+  }
 
-string gs_hook::adjust_url(const string &url)
-{
-  return GS_URL_PREFIX + url;
-}
-
-void gs_hook::pre_run(request *r, int iter)
-{
-  _impl->sign(r, iter);
-}
-
-bool gs_hook::should_retry(request *r, int iter)
-{
-  return 
-    (r->get_response_code() == base::HTTP_SC_BAD_REQUEST && xml::match(r->get_output_buffer(), GS_REQ_TIMEOUT_XPATH)) || 
-    (r->get_response_code() == base::HTTP_SC_UNAUTHORIZED && iter == 0);
+  statistics::writers::entry s_entry(statistics_writer, 0);
 }
 
 const string & gs_impl::get_new_token_url()
@@ -170,8 +159,6 @@ gs_impl::gs_impl()
 
   _refresh_token = gs_impl::read_token(config::get_auth_data());
   refresh(lock);
-
-  _hook.reset(new gs_hook(this));
 }
 
 const string & gs_impl::get_header_prefix()
@@ -204,19 +191,16 @@ const string & gs_impl::get_bucket_url()
   return _bucket_url;
 }
 
-request_hook * gs_impl::get_request_hook()
-{
-  return _hook.get();
-}
-
 void gs_impl::sign(request *req, int iter)
 {
   mutex::scoped_lock lock(_mutex);
 
   if (iter > 0) {
+    ++s_refresh_on_fail;
     S3_LOG(LOG_DEBUG, "gs_impl::sign", "last request failed. refreshing token.\n");
     refresh(lock);
   } else if (time(NULL) >= _expiry) {
+    ++s_refresh_on_timeout;
     S3_LOG(LOG_DEBUG, "gs_impl::sign", "token timed out. refreshing.\n");
     refresh(lock);
   }
@@ -242,4 +226,20 @@ void gs_impl::refresh(const mutex::scoped_lock &lock)
     _access_token.c_str());
 
   _access_token = "OAuth " + _access_token;
+}
+
+string gs_impl::adjust_url(const string &url)
+{
+  return GS_URL_PREFIX + url;
+}
+
+void gs_impl::pre_run(request *r, int iter)
+{
+  sign(r, iter);
+}
+
+bool gs_impl::should_retry(request *r, int iter)
+{
+  // retry only on first unauthorized response
+  return (r->get_response_code() == base::HTTP_SC_UNAUTHORIZED && iter == 0);
 }
