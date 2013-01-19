@@ -130,6 +130,7 @@ namespace s3
       inline const struct stat * get_stat() const { return &_stat; }
 
       inline void expire() { _expiry = 0; }
+      inline void force_zero_size() { _stat.st_size = 0; }
 
     private:
       boost::mutex _mutex;

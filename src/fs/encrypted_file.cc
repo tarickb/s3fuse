@@ -116,6 +116,21 @@ void encrypted_file::init(const request::ptr &req)
   if (_enc_iv.empty() || _enc_meta.empty()) {
     ++s_no_iv_or_meta;
 
+    // there are two cases where we'll encounter an encrypted_file that has no
+    // IV and/or no metadata:
+    //
+    // 1. the file is new, has size zero, and has yet to get metadata or an IV.
+    //
+    // 2. the file was new, content was written, the file was flushed/uploaded,
+    //    but the commit() that would have saved the IV and metadata failed.
+    //    there's no point trying to do anything with a file like this -- the
+    //    decryption key has been lost.
+    //
+    // since case #2 results in a useless file, we force the file size to zero.
+    // this has no effect in case #1 because a new file always has size == 0.
+
+    force_zero_size();
+
     S3_LOG(
       LOG_DEBUG,
       "encrypted_file::init",
@@ -199,11 +214,6 @@ int encrypted_file::prepare_upload()
 {
   _meta_key = symmetric_key::generate<aes_cbc_256_with_pkcs>(encryption::get_volume_key());
   _data_key = symmetric_key::generate<aes_ctr_256>();
-
-  // TODO: update _enc_iv and _enc_meta here so that if the upload finishes 
-  // but the commit fails, we don't end up with an un-openable object.  maybe 
-  // set _enc_meta to a value that indicates we have a zombie or something.
-  // maybe even report the file size as zero?
 
   _enc_iv.clear();
   _enc_meta.clear();
