@@ -230,10 +230,12 @@ int file::open(file_open_mode mode, uint64_t *handle)
       return -errno;
 
     if (!(mode & fs::OPEN_TRUNCATE_TO_ZERO)) {
-      if (ftruncate(_fd, get_stat()->st_size) != 0)
+      off_t size = get_stat()->st_size;
+
+      if (ftruncate(_fd, size) != 0)
         return -errno;
 
-      if (get_transfer_size() > 0) {
+      if (size > 0) {
         int r;
 
         r = is_downloadable();
