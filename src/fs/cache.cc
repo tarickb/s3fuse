@@ -19,15 +19,18 @@
  * limitations under the License.
  */
 
+#include <boost/detail/atomic_count.hpp>
+
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
-#include "base/statistics.h"
 #include "fs/cache.h"
 #include "fs/directory.h"
 
 using boost::mutex;
 using boost::scoped_ptr;
+using boost::detail::atomic_count;
+using std::ostream;
 using std::string;
 
 using s3::base::config;
@@ -37,35 +40,41 @@ using s3::fs::cache;
 
 boost::mutex cache::s_mutex;
 scoped_ptr<cache::cache_map> cache::s_cache_map;
-uint64_t cache::s_hits, cache::s_misses, cache::s_expiries;
+uint64_t cache::s_hits(0), cache::s_misses(0), cache::s_expiries(0);
+statistics::writers::entry cache::s_writer(cache::statistics_writer, 0);
+
+namespace
+{
+  atomic_count s_get_failures(0);
+
+  inline double percent(uint64_t a, uint64_t b)
+  {
+    return static_cast<double>(a) / static_cast<double>(b) * 100.0;
+  }
+}
 
 void cache::init()
 {
-  s_hits = 0;
-  s_misses = 0;
-  s_expiries = 0;
-
   s_cache_map.reset(new cache_map(config::get_max_objects_in_cache()));
 }
 
-void cache::terminate()
+void cache::statistics_writer(ostream *o)
 {
   uint64_t total = s_hits + s_misses + s_expiries;
 
   if (total == 0)
     total = 1; // avoid NaNs below
 
-  statistics::post(
-    "cache",
-    0,
-    "size: %zu, hits: %" PRIu64 ", hit_ratio: %.02f, misses: %" PRIu64 ", miss_ratio: %.02f, expiries: %" PRIu64 ", expiry_ratio: %.02f",
-    s_cache_map->get_size(),
-    s_hits,
-    double(s_hits) / double(total) * 100.0,
-    s_misses,
-    double(s_misses) / double(total) * 100.0,
-    s_expiries,
-    double(s_expiries) / double(total) * 100.0);
+  o->setf(ostream::fixed);
+  o->precision(2);
+
+  *o << 
+    "object cache:\n"
+    "  size: " << s_cache_map->get_size() << "\n"
+    "  hits: " << s_hits << " (" << percent(s_hits, total) << " %)\n"
+    "  misses: " << s_misses << " (" << percent(s_misses, total) << " %)\n"
+    "  expiries: " << s_expiries << " (" << percent(s_expiries, total) << " %)\n"
+    "  get failures: " << s_get_failures << "\n";
 }
 
 int cache::fetch(const request::ptr &req, const string &path, int hints, object::ptr *obj)
@@ -85,8 +94,10 @@ int cache::fetch(const request::ptr &req, const string &path, int hints, object:
       req->run();
     }
 
-    if (req->get_response_code() != base::HTTP_SC_OK)
+    if (req->get_response_code() != base::HTTP_SC_OK) {
+      ++s_get_failures;
       return 0;
+    }
   }
 
   *obj = object::create(path, req);

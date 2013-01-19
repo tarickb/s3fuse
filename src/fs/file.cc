@@ -20,10 +20,12 @@
  */
 
 #include <boost/lexical_cast.hpp>
+#include <boost/detail/atomic_count.hpp>
 
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
+#include "base/statistics.h"
 #include "base/xml.h"
 #include "crypto/base64.h"
 #include "crypto/encoder.h"
@@ -40,13 +42,16 @@
 
 using boost::lexical_cast;
 using boost::mutex;
+using boost::detail::atomic_count;
 using std::list;
+using std::ostream;
 using std::runtime_error;
 using std::string;
 using std::vector;
 
 using s3::base::config;
 using s3::base::request;
+using s3::base::statistics;
 using s3::base::xml;
 using s3::crypto::base64;
 using s3::crypto::encoder;
@@ -71,12 +76,28 @@ namespace
   const char *MULTIPART_ETAG_XPATH = "/s3:CompleteMultipartUploadResult/s3:ETag";
   const char *MULTIPART_UPLOAD_ID_XPATH = "/s3:InitiateMultipartUploadResult/s3:UploadId";
 
+  atomic_count s_downloads(0), s_downloads_failed(0), s_download_chunks_failed(0);
+  atomic_count s_uploads(0), s_uploads_failed(0), s_upload_chunks_failed(0);
+  atomic_count s_sha256_mismatches(0), s_md5_mismatches(0), s_no_hash_checks(0);
+  atomic_count s_non_dirty_flushes(0);
+
   object * checker(const string &path, const request::ptr &req)
   {
     return new file(path);
   }
 
+  void statistics_writer(ostream *o)
+  {
+    *o <<
+      "file:\n"
+      "  downloads: " << s_downloads << ", failed: " << s_downloads_failed << ", chunks failed: " << s_download_chunks_failed << "\n"
+      "  uploads: " << s_uploads << ", failed: " << s_uploads_failed << ", chunks failed: " << s_upload_chunks_failed << "\n"
+      "  sha256 mismatches: " << s_sha256_mismatches << ", md5 mismatches: " << s_md5_mismatches << ", no hash checks: " << s_no_hash_checks << "\n"
+      "  non-dirty flushes: " << s_non_dirty_flushes << "\n";
+  }
+
   object::type_checker_list::entry s_checker_reg(checker, 1000);
+  statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
 void file::test_transfer_chunk_sizes()
@@ -180,6 +201,9 @@ void file::on_download_complete(int ret)
     return;
   }
 
+  if (!ret)
+    ++s_downloads;
+
   _async_error = ret;
   _status = 0;
   _condition.notify_all();
@@ -268,6 +292,8 @@ int file::flush()
     return _async_error;
 
   if (!(_status & FS_DIRTY)) {
+    ++s_non_dirty_flushes;
+
     S3_LOG(LOG_DEBUG, "file::flush", "skipping flush for non-dirty file [%s].\n", get_path().c_str());
     return 0;
   }
@@ -280,6 +306,9 @@ int file::flush()
 
   _status = 0;
   _condition.notify_all();
+
+  if (!_async_error)
+    ++s_uploads;
 
   return _async_error;
 }
@@ -414,7 +443,13 @@ int file::download(const request::ptr & /* ignored */)
   else
     r = pool::call(threads::PR_REQ_1, bind(&file::download_single, shared_from_this(), _1));
 
-  return r ? r : finalize_download();
+  if (r) {
+    ++s_downloads_failed;
+
+    return r;
+  }
+
+  return finalize_download();
 }
 
 int file::prepare_download()
@@ -431,6 +466,8 @@ int file::finalize_download()
     string computed_hash = _hash_list->get_root_hash<hex>();
 
     if (computed_hash != _sha256_hash) {
+      ++s_sha256_mismatches;
+
       S3_LOG(
         LOG_WARNING, 
         "file::finalize_download", 
@@ -446,6 +483,8 @@ int file::finalize_download()
     string computed_hash = hash::compute<md5, hex_with_quotes>(_fd);
 
     if (computed_hash != get_etag()) {
+      ++s_md5_mismatches;
+
       S3_LOG(
         LOG_WARNING,
         "file::finalize_download",
@@ -457,6 +496,8 @@ int file::finalize_download()
       return -EIO;
     }
   } else {
+    ++s_no_hash_checks;
+
     S3_LOG(
       LOG_WARNING,
       "file::finalize_download",
@@ -519,8 +560,11 @@ int file::download_multi()
     parts_in_progress.pop_front();
     part_r = part->handle->wait();
 
-    if (part_r)
+    if (part_r) {
+      ++s_download_chunks_failed;
+
       S3_LOG(LOG_DEBUG, "file::download_multi", "part %i returned status %i for [%s].\n", part->id, part_r, get_url().c_str());
+    }
 
     if (part_r == -EAGAIN || part_r == -ETIMEDOUT) {
       part->retry_count++;
@@ -596,8 +640,11 @@ int file::upload(const request::ptr & /* ignored */)
   else
     r = pool::call(threads::PR_REQ_0, bind(&file::upload_single, shared_from_this(), _1, &returned_etag));
 
-  if (r)
+  if (r) {
+    ++s_uploads_failed;
+
     return r;
+  }
 
   r = finalize_upload(returned_etag);
 
@@ -784,8 +831,11 @@ int file::upload_multi(string *returned_etag)
     parts_in_progress.pop_front();
     part_r = part->handle->wait();
 
-    if (part_r != 0)
+    if (part_r != 0) {
+      ++s_upload_chunks_failed;
+
       S3_LOG(LOG_DEBUG, "file::upload_multi", "part %i returned status %i for [%s].\n", part->id, part_r, get_url().c_str());
+    }
 
     // the default action is to not retry the failed part, and leave it with success = false
 

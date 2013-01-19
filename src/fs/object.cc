@@ -22,9 +22,12 @@
 #include <string.h>
 #include <sys/xattr.h>
 
+#include <boost/detail/atomic_count.hpp>
+
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
+#include "base/statistics.h"
 #include "base/xml.h"
 #include "fs/cache.h"
 #include "fs/glacier.h"
@@ -46,7 +49,9 @@
 #endif
 
 using boost::mutex;
+using boost::detail::atomic_count;
 using std::multimap;
+using std::ostream;
 using std::runtime_error;
 using std::string;
 using std::vector;
@@ -54,6 +59,7 @@ using std::vector;
 using s3::base::config;
 using s3::base::header_map;
 using s3::base::request;
+using s3::base::statistics;
 using s3::base::xml;
 using s3::fs::object;
 using s3::fs::static_xattr;
@@ -78,6 +84,20 @@ namespace
     s3::fs::xattr::XM_VISIBLE | 
     s3::fs::xattr::XM_REMOVABLE | 
     s3::fs::xattr::XM_COMMIT_REQUIRED;
+
+  atomic_count s_precon_failed_commits(0), s_commit_failures(0), s_new_etag_on_commit(0), s_abandoned_commits(0);
+
+  void statistics_writer(ostream *o)
+  {
+    *o <<
+      "object:\n"
+      "  precondition failed during commit: " << s_precon_failed_commits << "\n"
+      "  new etag on commit: " << s_new_etag_on_commit << "\n"
+      "  commit failures: " << s_commit_failures << "\n"
+      "  abandoned commits: " << s_abandoned_commits << "\n";
+  }
+
+  statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
 int object::get_block_size()
@@ -389,11 +409,14 @@ int object::commit(const request::ptr &req)
     req->run(config::get_transfer_timeout_in_s());
 
     if (req->get_response_code() == base::HTTP_SC_PRECONDITION_FAILED) {
+      ++s_precon_failed_commits;
       S3_LOG(LOG_WARNING, "object::commit", "got precondition failed error for [%s].\n", _url.c_str());
+
       continue;
     }
 
     if (req->get_response_code() != base::HTTP_SC_OK) {
+      ++s_commit_failures;
       S3_LOG(LOG_WARNING, "object::commit", "failed to commit object metadata for [%s].\n", _url.c_str());
       return -EIO;
     }
@@ -427,12 +450,16 @@ int object::commit(const request::ptr &req)
     if (new_etag == _etag)
       return 0;
 
+    ++s_new_etag_on_commit;
     S3_LOG(LOG_WARNING, "object::commit", "commit resulted in new etag. recommitting.\n");
 
     _etag = new_etag;
   }
 
-  return 0;
+  ++s_abandoned_commits;
+  S3_LOG(LOG_WARNING, "object::commit", "giving up on [%s].\n", _url.c_str());
+
+  return -EIO;
 }
 
 int object::remove(const request::ptr &req)

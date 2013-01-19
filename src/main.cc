@@ -759,7 +759,7 @@ int main(int argc, char **argv)
     file::test_transfer_chunk_sizes();
 
     if (!s_opts.stats.empty())
-      statistics::init();
+      statistics::init(s_opts.stats);
 
   } catch (const std::exception &e) {
     S3_LOG(LOG_ERR, "main", "caught exception while initializing: %s\n", e.what());
@@ -775,10 +775,10 @@ int main(int argc, char **argv)
   fuse_opt_free_args(&args);
 
   pool::terminate();
-  cache::terminate();
 
   // this won't do anything if statistics::init() wasn't called
-  statistics::write(s_opts.stats);
+  statistics::collect();
+  statistics::flush();
 
   return r;
 }

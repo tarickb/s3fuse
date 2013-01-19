@@ -23,6 +23,7 @@
 #include <string.h>
 
 #include <stdexcept>
+#include <boost/detail/atomic_count.hpp>
 
 #include "config.h"
 #include "logger.h"
@@ -31,7 +32,11 @@
 #include "ssl_locks.h"
 #include "statistics.h"
 
+using boost::mutex;
+using boost::detail::atomic_count;
+using std::ostream;
 using std::runtime_error;
+using std::setprecision;
 using std::string;
 
 using s3::base::request;
@@ -68,17 +73,43 @@ namespace
   private:
     curl_slist *_list;
   };
+
+  uint64_t s_run_count = 0;
+  uint64_t s_total_bytes = 0;
+  double s_run_time = 0.0;
+  atomic_count s_curl_failures(0), s_request_failures(0), s_timeouts(0), s_aborts(0), s_hook_retries(0);
+
+  mutex s_stats_mutex;
+
+  void statistics_writer(ostream *o)
+  {
+    o->setf(ostream::fixed);
+
+    *o << 
+      "request:\n"
+      "  count: " << s_run_count << "\n"
+      "  total time: " << setprecision(2) << s_run_time << " s\n"
+      "  avg time per request: " << setprecision(3) << s_run_time / static_cast<double>(s_run_count) * 1.0e3 << " ms\n"
+      "  bytes: " << s_total_bytes << "\n"
+      "  throughput: " << static_cast<double>(s_total_bytes) / s_run_time * 1.0e-3 << " kB/s\n"
+      "  curl failures: " << s_curl_failures << "\n"
+      "  request failures: " << s_request_failures << "\n"
+      "  timeouts: " << s_timeouts << "\n"
+      "  aborts: " << s_aborts << "\n"
+      "  hook retries: " << s_hook_retries << "\n";
+  }
+
+  statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
-request::request(const string &tag)
+request::request()
   : _hook(NULL),
     _current_run_time(0.0),
     _total_run_time(0.0),
     _run_count(0),
     _total_bytes_transferred(0),
     _canceled(false),
-    _timeout(0),
-    _tag(tag)
+    _timeout(0)
 {
   _curl = curl_easy_init();
 
@@ -107,22 +138,12 @@ request::~request()
 {
   curl_easy_cleanup(_curl);
 
-  if (_run_count > 0) {
-    statistics::post(
-      "request_count",
-      _tag,
-      "requests: %" PRIu64 ", total_time_s: %.03f, average_per_request_ms: %.02f",
-      _run_count, 
-      _total_run_time,
-      static_cast<double>(_run_count) / _total_run_time * 1.0e3);
+  if (_total_bytes_transferred > 0) {
+    mutex::scoped_lock lock(s_stats_mutex);
 
-    statistics::post(
-      "request_throughput",
-      _tag,
-      "bytes: %" PRIu64 ", total_time_s: %.03f, average_throughput_kbs: %.03f",
-      _total_bytes_transferred, 
-      _total_run_time,
-      static_cast<double>(_total_bytes_transferred) / _total_run_time * 1.0e-3);
+    s_run_count += _run_count;
+    s_run_time += _total_run_time;
+    s_total_bytes += _total_bytes_transferred;
   }
 
   ssl_locks::release();
@@ -291,8 +312,9 @@ bool request::check_timeout()
 void request::run(int timeout_in_s)
 {
   int r = CURLE_OK;
-  double elapsed_time;
-  uint64_t request_size = 0;
+  int iter;
+  double elapsed_time = 0.0;
+  uint64_t bytes_transferred = 0;
 
   // sanity
   if (_url.empty())
@@ -304,8 +326,9 @@ void request::run(int timeout_in_s)
   if (_canceled)
     throw runtime_error("cannot reuse a canceled request.");
 
-  for (int iter = 0; iter < config::get_max_transfer_retries(); iter++) {
+  for (iter = 0; iter < config::get_max_transfer_retries(); iter++) {
     curl_slist_wrapper headers;
+    uint64_t request_size = 0;
    
     _output_buffer.clear();
     _response_headers.clear();
@@ -330,8 +353,10 @@ void request::run(int timeout_in_s)
     r = curl_easy_perform(_curl);
     _timeout = 0; // reset this here so that subsequent calls to check_timeout() don't fail
 
-    if (_canceled)
+    if (_canceled) {
+      ++s_timeouts;
       throw runtime_error("request timed out.");
+    }
 
     if (
       r == CURLE_COULDNT_RESOLVE_PROXY || 
@@ -346,38 +371,50 @@ void request::run(int timeout_in_s)
       r == CURLE_RECV_ERROR || 
       r == CURLE_BAD_CONTENT_ENCODING)
     {
+      ++s_curl_failures;
       S3_LOG(LOG_WARNING, "request::run", "got error [%s]. retrying.\n", _curl_error);
       continue;
     }
 
     if (r == CURLE_OK) {
+      double this_iter_et = 0.0;
+
       TEST_OK(curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code));
-      TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &elapsed_time));
+      TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &this_iter_et));
       TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
 
-      if (_hook && _hook->should_retry(this, iter))
+      elapsed_time += this_iter_et;
+      bytes_transferred += request_size + _output_buffer.size();
+
+      if (_hook && _hook->should_retry(this, iter)) {
+        ++s_hook_retries;
         continue;
+      }
     }
 
     // break on CURLE_OK or some other error where we don't want to try the request again
     break;
   }
 
-  if (r != CURLE_OK)
+  if (r != CURLE_OK) {
+    ++s_aborts;
     throw runtime_error(_curl_error);
+  }
 
   // don't save the time for the first request since it's likely to be disproportionately large
   if (_run_count > 0) {
     _total_run_time += elapsed_time;
-    _total_bytes_transferred += request_size + _output_buffer.size();
+    _total_bytes_transferred += bytes_transferred;
   }
 
   // but save it in _current_run_time since it's compared to overall function time (i.e., it's relative)
   _current_run_time += elapsed_time;
 
-  _run_count++;
+  _run_count += iter + 1;
 
-  if (_response_code >= HTTP_SC_MULTIPLE_CHOICES && _response_code != HTTP_SC_NOT_FOUND)
+  if (_response_code >= HTTP_SC_MULTIPLE_CHOICES && _response_code != HTTP_SC_NOT_FOUND) {
+    ++s_request_failures;
+
     S3_LOG(
       LOG_WARNING, 
       "request::run", 
@@ -385,5 +422,6 @@ void request::run(int timeout_in_s)
       _url.c_str(), 
       _response_code, 
       get_output_string().c_str());
+  }
 }
 

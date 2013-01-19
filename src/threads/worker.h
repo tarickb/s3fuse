@@ -36,7 +36,7 @@ namespace s3
     public:
       typedef boost::shared_ptr<worker> ptr;
 
-      static ptr create(const boost::shared_ptr<work_item_queue> &queue, const std::string & /* ignored */)
+      static ptr create(const boost::shared_ptr<work_item_queue> &queue)
       {
         ptr wt(new worker(queue));
 

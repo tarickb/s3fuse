@@ -96,7 +96,7 @@ namespace s3
         return ret;
       }
 
-      request(const std::string &tag = "");
+      request();
       ~request();
 
       void init(http_method method);

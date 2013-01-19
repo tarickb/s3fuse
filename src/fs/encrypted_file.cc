@@ -19,8 +19,11 @@
  * limitations under the License.
  */
 
+#include <boost/detail/atomic_count.hpp>
+
 #include "base/logger.h"
 #include "base/request.h"
+#include "base/statistics.h"
 #include "crypto/aes_cbc_256.h"
 #include "crypto/aes_ctr_256.h"
 #include "crypto/cipher.h"
@@ -31,11 +34,14 @@
 #include "fs/metadata.h"
 #include "services/service.h"
 
+using boost::detail::atomic_count;
+using std::ostream;
 using std::runtime_error;
 using std::string;
 using std::vector;
 
 using s3::base::request;
+using s3::base::statistics;
 using s3::crypto::aes_cbc_256_with_pkcs;
 using s3::crypto::aes_ctr_256;
 using s3::crypto::buffer;
@@ -53,6 +59,8 @@ namespace
   const string CONTENT_TYPE = "binary/encrypted-s3fuse-file_0100"; // version 1.0
   const string META_VERIFIER = "s3fuse_enc_meta ";
 
+  atomic_count s_no_iv_or_meta(0), s_init_errors(0), s_open_without_key(0);
+
   object * checker(const string &path, const request::ptr &req)
   {
     if (req->get_response_header("Content-Type") != CONTENT_TYPE)
@@ -61,7 +69,17 @@ namespace
     return new encrypted_file(path);
   }
 
+  void statistics_writer(ostream *o)
+  {
+    *o <<
+      "encrypted_file:\n"
+      "  init without iv or metadata: " << s_no_iv_or_meta << "\n"
+      "  init errors: " << s_init_errors << "\n"
+      "  open without key: " << s_open_without_key << "\n";
+  }
+
   object::type_checker_list::entry s_checker_reg(checker, 100);
+  statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
 encrypted_file::encrypted_file(const string &path)
@@ -96,6 +114,8 @@ void encrypted_file::init(const request::ptr &req)
   _enc_meta = req->get_response_header(meta_prefix + metadata::ENC_METADATA);
 
   if (_enc_iv.empty() || _enc_meta.empty()) {
+    ++s_no_iv_or_meta;
+
     S3_LOG(
       LOG_DEBUG,
       "encrypted_file::init",
@@ -128,6 +148,8 @@ void encrypted_file::init(const request::ptr &req)
     set_sha256_hash(meta.substr(pos + 1));
 
   } catch (const std::exception &e) {
+    ++s_init_errors;
+
     S3_LOG(
       LOG_WARNING,
       "encrypted_file::init",
@@ -159,6 +181,8 @@ void encrypted_file::set_request_headers(const request::ptr &req)
 int encrypted_file::is_downloadable()
 {
   if (!_data_key) {
+    ++s_open_without_key;
+
     S3_LOG(
       LOG_DEBUG, 
       "encrypted_file::is_downloadable", 
@@ -175,6 +199,11 @@ int encrypted_file::prepare_upload()
 {
   _meta_key = symmetric_key::generate<aes_cbc_256_with_pkcs>(encryption::get_volume_key());
   _data_key = symmetric_key::generate<aes_ctr_256>();
+
+  // TODO: update _enc_iv and _enc_meta here so that if the upload finishes 
+  // but the commit fails, we don't end up with an un-openable object.  maybe 
+  // set _enc_meta to a value that indicates we have a zombie or something.
+  // maybe even report the file size as zero?
 
   _enc_iv.clear();
   _enc_meta.clear();

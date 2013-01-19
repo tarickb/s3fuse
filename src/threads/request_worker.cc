@@ -29,6 +29,8 @@
 #include "threads/work_item_queue.h"
 
 using boost::mutex;
+using std::ostream;
+using std::setprecision;
 using std::string;
 
 using s3::base::request;
@@ -39,11 +41,31 @@ using s3::threads::request_worker;
 using s3::threads::work_item;
 using s3::threads::work_item_queue;
 
-request_worker::request_worker(const work_item_queue::ptr &queue, const string &tag)
-  : _request(new request(tag)),
+namespace
+{
+  double s_total_req_time = 0.0;
+  double s_total_fn_time = 0.0;
+
+  mutex s_stats_mutex;
+
+  void statistics_writer(ostream *o)
+  {
+    o->setf(ostream::fixed);
+
+    *o <<
+      "request_worker:\n"
+      "  total request time: " << setprecision(3) << s_total_req_time << " s\n"
+      "  total function time: " << s_total_fn_time << " s\n"
+      "  request wait: " << setprecision(2) << s_total_req_time / s_total_fn_time * 100.0 << " %\n";
+  }
+
+  statistics::writers::entry s_writer(statistics_writer, 0);
+}
+
+request_worker::request_worker(const work_item_queue::ptr &queue)
+  : _request(new request()),
     _time_in_function(0.),
     _time_in_request(0.),
-    _tag(tag),
     _queue(queue)
 {
   _request->set_hook(service::get_request_hook());
@@ -51,14 +73,12 @@ request_worker::request_worker(const work_item_queue::ptr &queue, const string &
 
 request_worker::~request_worker()    
 {
-  if (_time_in_function > 0.0)
-    statistics::post(
-      "request_worker",
-      _tag,
-      "request_time_s: %.03f, function_time_s: %.03f, ratio: %.03f", 
-      _time_in_request,
-      _time_in_function,
-      _time_in_request / _time_in_function * 100.0);
+  if (_time_in_function > 0.0) {
+    mutex::scoped_lock lock(s_stats_mutex);
+
+    s_total_req_time += _time_in_request;
+    s_total_fn_time += _time_in_function;
+  }
 }
 
 bool request_worker::check_timeout()

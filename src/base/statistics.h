@@ -29,6 +29,10 @@
 #include <stdexcept>
 #include <string>
 #include <boost/lexical_cast.hpp>
+#include <boost/smart_ptr.hpp>
+#include <boost/thread.hpp>
+
+#include "base/static_list.h"
 
 namespace s3
 {
@@ -37,45 +41,86 @@ namespace s3
     class statistics
     {
     public:
-      static void init();
+      typedef boost::function1<void, std::ostream *> writer_fn;
 
-      inline static void write(const std::string &target = "")
+      typedef static_list<writer_fn> writers;
+
+      inline static void init(const boost::shared_ptr<std::ostream> &output)
       {
-        if (target.empty()) {
-          write(&std::cout);
-        } else {
-          std::ofstream f;
+        boost::mutex::scoped_lock lock(s_mutex);
 
-          f.open(target.c_str(), std::ofstream::trunc);
+        if (s_stream)
+          throw std::runtime_error("can't call statistics::init() more than once!");
 
-          if (!f.good())
-            throw std::runtime_error("cannot open statistics target file for write");
-
-          write(&f);
-
-          f.close();
-        }
+        s_stream = output;
       }
 
-      static void write(std::ostream *output);
-
-      template <class T>
-      inline static void post(const std::string &id, T tag, const char *format, ...)
+      inline static void init(const std::string &output_file)
       {
-        const size_t BUF_LEN = 256;
+        boost::shared_ptr<std::ofstream> f(new std::ofstream());
 
+        f->open(output_file.c_str(), std::ofstream::trunc);
+
+        if (!f->good())
+          throw std::runtime_error("cannot open statistics target file for write");
+
+        init(f);
+      }
+
+      inline static void collect()
+      {
+        boost::mutex::scoped_lock lock(s_mutex);
+
+        if (!s_stream)
+          return;
+
+        for (writers::const_iterator itor = writers::begin(); itor != writers::end(); ++itor)
+          itor->second(s_stream.get());
+      }
+
+      inline static void flush()
+      {
+        if (s_stream)
+          s_stream->flush();
+      }
+
+      inline static void write(const std::string &id, const char *format, ...)
+      {
         va_list args;
-        char buf[BUF_LEN];
 
         va_start(args, format);
-        vsnprintf(buf, BUF_LEN, format, args);
+        write(id, format, args);
         va_end(args);
+      }
 
-        post(id + "_" + boost::lexical_cast<std::string>(tag), buf);
+      template <class T>
+      inline static void write(const std::string &id, T tag, const char *format, ...)
+      {
+        va_list args;
+
+        va_start(args, format);
+        write(id + "_" + boost::lexical_cast<std::string>(tag), format, args);
+        va_end(args);
       }
 
     private:
-      static void post(const std::string &id, const std::string &stats);
+      inline static void write(const std::string &id, const char *format, va_list args) 
+      {
+        const size_t BUF_LEN = 256;
+
+        char buf[BUF_LEN];
+        boost::mutex::scoped_lock lock(s_mutex);
+
+        if (!s_stream)
+          return;
+
+        vsnprintf(buf, BUF_LEN, format, args);
+
+        (*s_stream) << id << ": " << buf << std::endl;
+      }
+
+      static boost::mutex s_mutex;
+      static boost::shared_ptr<std::ostream> s_stream;
     };
   }
 }

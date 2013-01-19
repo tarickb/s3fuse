@@ -84,7 +84,7 @@ namespace
         _watchdog_thread.reset(new thread(bind(&_pool_impl::watchdog, this)));
 
       for (int i = 0; i < NUM_THREADS_PER_POOL; i++)
-        _threads.push_back(worker_type::create(_queue, _id + "_" + lexical_cast<string>(i)));
+        _threads.push_back(worker_type::create(_queue));
     }
 
     ~_pool_impl()
@@ -103,10 +103,10 @@ namespace
       sleep_one_second();
 
       if (use_watchdog)
-        statistics::post(
+        statistics::write(
           "pool",
           _id,
-          "respawn_counter: %i",
+          "\n  respawn_counter: %i",
           _respawn_counter);
     }
 
@@ -133,7 +133,7 @@ namespace
         }
 
         for (int i = 0; i < respawn; i++)
-          _threads.push_back(worker_type::create(_queue, _id + "_respawn_" + lexical_cast<string>(_respawn_counter + i)));
+          _threads.push_back(worker_type::create(_queue));
 
         _respawn_counter += respawn;
         sleep_one_second();

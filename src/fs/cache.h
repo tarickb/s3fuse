@@ -28,6 +28,7 @@
 
 #include "base/logger.h"
 #include "base/lru_cache_map.h"
+#include "base/statistics.h"
 #include "fs/object.h"
 #include "threads/pool.h"
 
@@ -53,7 +54,6 @@ namespace s3
       typedef boost::function1<void, object::ptr> locked_object_function;
 
       static void init();
-      static void terminate();
 
       inline static object::ptr get(const std::string &path, int hints = HINT_NONE)
       {
@@ -139,6 +139,7 @@ namespace s3
         return obj;
       }
 
+      static void statistics_writer(std::ostream *o);
       static int fetch(const boost::shared_ptr<base::request> &req, const std::string &path, int hints, object::ptr *obj);
 
       typedef base::lru_cache_map<std::string, object::ptr, is_object_removable> cache_map;
@@ -146,6 +147,8 @@ namespace s3
       static boost::mutex s_mutex;
       static boost::scoped_ptr<cache_map> s_cache_map;
       static uint64_t s_hits, s_misses, s_expiries;
+
+      static base::statistics::writers::entry s_writer;
     };
   }
 }
