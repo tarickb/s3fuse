@@ -79,7 +79,7 @@ namespace
   atomic_count s_downloads(0), s_downloads_failed(0), s_download_chunks_failed(0);
   atomic_count s_uploads(0), s_uploads_failed(0), s_upload_chunks_failed(0);
   atomic_count s_sha256_mismatches(0), s_md5_mismatches(0), s_no_hash_checks(0);
-  atomic_count s_non_dirty_flushes(0);
+  atomic_count s_non_dirty_flushes(0), s_reopens(0);
 
   object * checker(const string &path, const request::ptr &req)
   {
@@ -93,7 +93,8 @@ namespace
       "  downloads: " << s_downloads << ", failed: " << s_downloads_failed << ", chunks failed: " << s_download_chunks_failed << "\n"
       "  uploads: " << s_uploads << ", failed: " << s_uploads_failed << ", chunks failed: " << s_upload_chunks_failed << "\n"
       "  sha256 mismatches: " << s_sha256_mismatches << ", md5 mismatches: " << s_md5_mismatches << ", no hash checks: " << s_no_hash_checks << "\n"
-      "  non-dirty flushes: " << s_non_dirty_flushes << "\n";
+      "  non-dirty flushes: " << s_non_dirty_flushes << "\n"
+      "  reopens: " << s_reopens << "\n";
   }
 
   object::type_checker_list::entry s_checker_reg(checker, 1000);
@@ -251,6 +252,8 @@ int file::open(file_open_mode mode, uint64_t *handle)
           bind(&file::on_download_complete, shared_from_this(), _1));
       }
     }
+  } else {
+    ++s_reopens;
   }
 
   *handle = reinterpret_cast<uint64_t>(this);
