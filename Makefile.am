@@ -1,7 +1,37 @@
 ACLOCAL_AMFLAGS = -I .
 
 SUBDIRS = src
-DIST_SUBDIRS = debian dist src
+DIST_SUBDIRS = debian dist osx src
+
+$(PACKAGE_NAME)-$(PACKAGE_VERSION)_osx.tar.gz: dist
+	rm -rf osx-build
+	mkdir -p osx-build/$(PACKAGE_NAME).app/Contents/MacOS
+	mkdir -p osx-build/$(PACKAGE_NAME).app/Contents/libs
+	mkdir -p osx-build/$(PACKAGE_NAME).app/Contents/Resources
+	cd osx-build; tar xfz ../$(PACKAGE_NAME)-$(PACKAGE_VERSION).tar.gz
+	cd osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION); ./configure --enable-darwin; make
+	sed \
+		-e "s/__PACKAGE_VERSION__/$(PACKAGE_VERSION)/g" \
+		-e "s/__PACKAGE_VERSION_WITH_REV__/$(PACKAGE_VERSION_WITH_REV)/g" \
+		< osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/osx/Info.plist.in \
+		> osx-build/$(PACKAGE_NAME).app/Contents/Info.plist
+	cp \
+		osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/COPYING \
+		osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/ChangeLog \
+		osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/README \
+		osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/src/base/s3fuse.conf \
+		osx-build/$(PACKAGE_NAME).app/Contents/Resources
+	cd osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/src; \
+		echo `grep bin_PROGRAMS Makefile.am` ../../$(PACKAGE_NAME).app/Contents/MacOS | \
+			sed -e 's/^.*=//' | \
+			tr ' ' '\n' | \
+			xargs cp
+	cd osx-build; \
+		for F in ./$(PACKAGE_NAME).app/Contents/MacOS/*; do \
+			dylibbundler -od -b -x $$F -d $(PACKAGE_NAME).app/Contents/libs/; \
+		done; true
+	cd osx-build; tar cfz ../$@ $(PACKAGE_NAME).app
+	rm -rf osx-build
 
 coverage-report:
 	@grep 'ac_cs_config=.*code-coverage' config.status 2>&1 >/dev/null \
@@ -22,6 +52,22 @@ deb: dist
 	tar xfz $(PACKAGE_NAME)-$(PACKAGE_VERSION).tar.gz
 	cd $(PACKAGE_NAME)-$(PACKAGE_VERSION)/debian; debuild -us -uc
 	rm -rf $(PACKAGE_NAME)-$(PACKAGE_VERSION)
+
+dmg: $(PACKAGE_NAME)-$(PACKAGE_VERSION)_osx.tar.gz
+	rm -rf dmg-build
+	mkdir dmg-build
+	cd dmg-build; tar xfz ../$<
+	cp \
+		dmg-build/$(PACKAGE_NAME).app/Contents/Resources/COPYING \
+		dmg-build/$(PACKAGE_NAME).app/Contents/Resources/ChangeLog \
+		dmg-build/$(PACKAGE_NAME).app/Contents/Resources/README \
+		dmg-build/
+	hdiutil create \
+		-fs HFSX -layout SPUD -format UDZO -scrub -uid 99 -gid 99 -ov \
+		-volname "$(PACKAGE_NAME)-$(PACKAGE_VERSION)" \
+		"$(PACKAGE_NAME)-$(PACKAGE_VERSION).dmg" \
+		-srcfolder dmg-build
+	rm -rf dmg-build
 
 rpm: dist
 	rm -rf rpm-build
@@ -63,4 +109,4 @@ test-using-decls:
 	  done; \
 	done; true
 
-.PHONY: coverage-report rpm deb test-file-headers test-header-guards
+.PHONY: coverage-report cppcheck deb dmg rpm test-file-headers test-header-guards test-using-decls

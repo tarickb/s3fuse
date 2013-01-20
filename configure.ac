@@ -107,6 +107,7 @@ AC_CONFIG_FILES([src/Makefile src/base/Makefile src/crypto/Makefile src/fs/Makef
 AC_CONFIG_FILES([src/base/tests/Makefile src/crypto/tests/Makefile src/fs/tests/Makefile src/threads/tests/Makefile src/tests/Makefile])
 AC_CONFIG_FILES([debian/Makefile debian/source/Makefile])
 AC_CONFIG_FILES([dist/Makefile])
+AC_CONFIG_FILES([osx/Makefile])
 
 AC_DEFINE(PACKAGE_VERSION_WITH_REV, [m4_format([%s%s%s%s], ["], cl_version, svn_version, ["])])
 AC_SUBST([PACKAGE_VERSION_WITH_REV], [m4_format([%s%s], cl_version, svn_version)])
