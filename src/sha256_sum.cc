@@ -52,7 +52,7 @@ int main(int argc, char **argv)
   if (argc != 2) {
     const char *arg0 = strrchr(argv[0], '/');
 
-    fprintf(stderr, "usage: %s <file-name>\n", arg0 ? arg0 + 1 : argv[0]);
+    fprintf(stderr, "Usage: %s <file-name>\n", arg0 ? arg0 + 1 : argv[0]);
     return 1;
   }
 
