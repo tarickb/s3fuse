@@ -50,7 +50,6 @@
 
 using boost::mutex;
 using boost::detail::atomic_count;
-using std::multimap;
 using std::ostream;
 using std::runtime_error;
 using std::string;
@@ -64,7 +63,6 @@ using s3::base::xml;
 using s3::fs::object;
 using s3::fs::static_xattr;
 using s3::services::service;
-using s3::threads::pool;
 
 namespace
 {

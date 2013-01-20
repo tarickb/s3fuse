@@ -5,8 +5,6 @@
 
 #include "base/xml.h"
 
-using std::runtime_error;
-
 using s3::base::xml;
 
 namespace

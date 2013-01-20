@@ -48,7 +48,6 @@ using boost::static_pointer_cast;
 using boost::detail::atomic_count;
 using std::numeric_limits;
 using std::ostream;
-using std::runtime_error;
 using std::string;
 using std::vector;
 

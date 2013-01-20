@@ -52,4 +52,15 @@ test-header-guards:
 		fi; \
 	done; true
 
+test-using-decls:
+	@for FILE in `find . ! -path \*/.svn/\* \( -name \*.cc -or -name \*.h \)`; do \
+	  for CLASS in `grep '^using ' $$FILE | sed -e 's/^using.*:://' -e 's/;//'`; do \
+	    REF_COUNT=`grep "\<$$CLASS\>" $$FILE | wc -l`; \
+			\
+	    if [ $$REF_COUNT -eq 1 ]; then \
+	      echo $$FILE: unnecessary using declaration for [$$CLASS].; \
+    	fi; \
+	  done; \
+	done; true
+
 .PHONY: coverage-report rpm deb test-file-headers test-header-guards

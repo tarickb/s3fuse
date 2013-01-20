@@ -4,8 +4,6 @@
 #include "base/statistics.h"
 
 using boost::shared_ptr;
-using std::endl;
-using std::ostream;
 using std::ostringstream;
 using std::string;
 
