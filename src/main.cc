@@ -29,6 +29,7 @@
 
 #include <limits>
 #include <string>
+#include <boost/detail/atomic_count.hpp>
 
 #include "base/config.h"
 #include "base/logger.h"
@@ -44,7 +45,9 @@
 #include "services/service.h"
 
 using boost::static_pointer_cast;
+using boost::detail::atomic_count;
 using std::numeric_limits;
+using std::ostream;
 using std::runtime_error;
 using std::string;
 using std::vector;
@@ -129,12 +132,35 @@ namespace
     #endif
   };
 
+  atomic_count s_reopen_on_create(0);
+  atomic_count s_create(0), s_mkdir(0), s_open(0), s_rename(0), s_symlink(0), s_unlink(0);
+  atomic_count s_getattr(0), s_readdir(0), s_readlink(0);
+
   void dir_filler(fuse_fill_dir_t filler, void *buf, const std::string &path)
   {
     filler(buf, path.c_str(), NULL, 0);
   }
 
+  void statistics_writer(ostream *o)
+  {
+    *o <<
+      "main (exceptions):\n"
+      "  reopens on create: " << s_reopen_on_create << "\n"
+      "main (write):\n"
+      "  create: " << s_create << "\n"
+      "  mkdir: " << s_mkdir << "\n"
+      "  open: " << s_open << "\n"
+      "  rename: " << s_rename << "\n"
+      "  symlink: " << s_symlink << "\n"
+      "  unlink: " << s_unlink << "\n"
+      "main (read):\n"
+      "  getattr: " << s_getattr << "\n"
+      "  readdir: " << s_readdir << "\n"
+      "  readlink: " << s_readlink << "\n";
+  }
+
   options s_opts;
+  statistics::writers::entry s_entry(statistics_writer, 0);
 }
 
 int s3fuse_chmod(const char *path, mode_t mode)
@@ -177,6 +203,7 @@ int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
   const fuse_context *ctx = fuse_get_context();
 
   S3_LOG(LOG_DEBUG, "create", "path: %s, mode: %#o\n", path, mode);
+  ++s_create;
 
   ASSERT_VALID_PATH(path);
 
@@ -204,7 +231,6 @@ int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
     if (r)
       return r;
 
-    // TODO: start counting events like this?
     // rarely, the newly created file won't be downloadable right away, so
     // try a few times before giving up.
     for (int i = 0; i < config::get_max_transfer_retries(); i++) {
@@ -214,6 +240,7 @@ int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
         break;
 
       S3_LOG(LOG_WARNING, "create", "retrying open on [%s] because of error %i\n", path, r);
+      ++s_reopen_on_create;
     }
 
     return r;
@@ -245,6 +272,8 @@ int s3fuse_ftruncate(const char *path, off_t offset, fuse_file_info *file_info)
 int s3fuse_getattr(const char *path, struct stat *s)
 {
   ASSERT_VALID_PATH(path);
+
+  ++s_getattr;
 
   memset(s, 0, sizeof(*s));
 
@@ -318,6 +347,7 @@ int s3fuse_mkdir(const char *path, mode_t mode)
   const fuse_context *ctx = fuse_get_context();
 
   S3_LOG(LOG_DEBUG, "mkdir", "path: %s, mode: %#o\n", path, mode);
+  ++s_mkdir;
 
   ASSERT_VALID_PATH(path);
 
@@ -344,6 +374,7 @@ int s3fuse_mkdir(const char *path, mode_t mode)
 int s3fuse_open(const char *path, fuse_file_info *file_info)
 {
   S3_LOG(LOG_DEBUG, "open", "path: %s\n", path);
+  ++s_open;
 
   ASSERT_VALID_PATH(path);
 
@@ -365,6 +396,7 @@ int s3fuse_read(const char *path, char *buffer, size_t size, off_t offset, fuse_
 int s3fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, fuse_file_info *file_info)
 {
   S3_LOG(LOG_DEBUG, "readdir", "path: %s\n", path);
+  ++s_readdir;
 
   ASSERT_VALID_PATH(path);
 
@@ -378,6 +410,7 @@ int s3fuse_readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, f
 int s3fuse_readlink(const char *path, char *buffer, size_t max_size)
 {
   S3_LOG(LOG_DEBUG, "readlink", "path: %s, max_size: %zu\n", path, max_size);
+  ++s_readlink;
 
   ASSERT_VALID_PATH(path);
 
@@ -432,6 +465,7 @@ int s3fuse_removexattr(const char *path, const char *name)
 int s3fuse_rename(const char *from, const char *to)
 {
   S3_LOG(LOG_DEBUG, "rename", "from: %s, to: %s\n", from, to);
+  ++s_rename;
 
   ASSERT_VALID_PATH(from);
   ASSERT_VALID_PATH(to);
@@ -513,6 +547,7 @@ int s3fuse_symlink(const char *target, const char *path)
   const fuse_context *ctx = fuse_get_context();
 
   S3_LOG(LOG_DEBUG, "symlink", "path: %s, target: %s\n", path, target);
+  ++s_symlink;
 
   ASSERT_VALID_PATH(path);
 
@@ -540,6 +575,7 @@ int s3fuse_symlink(const char *target, const char *path)
 int s3fuse_unlink(const char *path)
 {
   S3_LOG(LOG_DEBUG, "unlink", "path: %s\n", path);
+  ++s_unlink;
 
   ASSERT_VALID_PATH(path);
 
@@ -776,7 +812,7 @@ int main(int argc, char **argv)
 
   pool::terminate();
 
-  // this won't do anything if statistics::init() wasn't called
+  // these won't do anything if statistics::init() wasn't called
   statistics::collect();
   statistics::flush();
 
