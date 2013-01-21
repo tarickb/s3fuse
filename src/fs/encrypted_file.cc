@@ -205,7 +205,7 @@ int encrypted_file::is_downloadable()
     ++s_open_without_key;
 
     S3_LOG(
-      LOG_DEBUG, 
+      LOG_WARNING, 
       "encrypted_file::is_downloadable", 
       "cannot open [%s] without key\n", 
       get_path().c_str());
