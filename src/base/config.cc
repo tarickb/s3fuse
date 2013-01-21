@@ -109,8 +109,10 @@ void config::init(const string &file)
   ifstream ifs((file.empty() ? DEFAULT_CONFIG_FILE : file).c_str());
   int line_number = 0;
 
-  if (ifs.fail())
+  if (ifs.fail()) {
+    S3_LOG(LOG_ERR, "config::init", "cannot open file [%s].\n", file.c_str());
     throw runtime_error("cannot open config file");
+  }
 
   while (ifs.good()) {
     string line, key, value;
