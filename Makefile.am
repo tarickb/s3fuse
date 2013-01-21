@@ -6,29 +6,40 @@ DIST_SUBDIRS = debian dist osx src
 $(PACKAGE_NAME)-$(PACKAGE_VERSION)_osx.tar.gz: dist
 	rm -rf osx-build
 	mkdir -p osx-build/$(PACKAGE_NAME).app/Contents/MacOS
-	mkdir -p osx-build/$(PACKAGE_NAME).app/Contents/libs
-	mkdir -p osx-build/$(PACKAGE_NAME).app/Contents/Resources
+	mkdir -p osx-build/$(PACKAGE_NAME).app/Contents/Resources/Scripts
+	mkdir -p osx-build/$(PACKAGE_NAME).app/Contents/Resources/libs
+	mkdir -p osx-build/$(PACKAGE_NAME).app/Contents/Resources/bin
 	cd osx-build; tar xfz ../$(PACKAGE_NAME)-$(PACKAGE_VERSION).tar.gz
-	cd osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION); ./configure --enable-darwin; make
+	cd osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION); \
+		./configure --enable-darwin --enable-osx-bundle; \
+		make
 	sed \
 		-e "s/__PACKAGE_VERSION__/$(PACKAGE_VERSION)/g" \
 		-e "s/__PACKAGE_VERSION_WITH_REV__/$(PACKAGE_VERSION_WITH_REV)/g" \
 		< osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/osx/Info.plist.in \
 		> osx-build/$(PACKAGE_NAME).app/Contents/Info.plist
 	cp \
+		osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/osx/applet \
+		osx-build/$(PACKAGE_NAME).app/Contents/MacOS
+	cp \
 		osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/COPYING \
 		osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/ChangeLog \
 		osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/README \
+		osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/osx/applet.icns \
+		osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/osx/applet.rsrc \
 		osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/src/base/s3fuse.conf \
 		osx-build/$(PACKAGE_NAME).app/Contents/Resources
+	cp \
+		osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/osx/main.scpt \
+		osx-build/$(PACKAGE_NAME).app/Contents/Resources/Scripts
 	cd osx-build/$(PACKAGE_NAME)-$(PACKAGE_VERSION)/src; \
-		echo `grep bin_PROGRAMS Makefile.am` ../../$(PACKAGE_NAME).app/Contents/MacOS | \
+		echo `grep bin_PROGRAMS Makefile.am` ../../$(PACKAGE_NAME).app/Contents/Resources/bin | \
 			sed -e 's/^.*=//' | \
 			tr ' ' '\n' | \
 			xargs cp
 	cd osx-build; \
-		for F in ./$(PACKAGE_NAME).app/Contents/MacOS/*; do \
-			dylibbundler -od -b -x $$F -d $(PACKAGE_NAME).app/Contents/libs/; \
+		for F in ./$(PACKAGE_NAME).app/Contents/Resources/bin/*; do \
+			dylibbundler -od -b -x $$F -d $(PACKAGE_NAME).app/Contents/Resources/libs/; \
 		done; true
 	cd osx-build; tar cfz ../$@ $(PACKAGE_NAME).app
 	rm -rf osx-build
