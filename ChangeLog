@@ -6,6 +6,8 @@ s3fuse (0.13) unstable; urgency=low
     max_objects_in_cache configuration option.
   * Switched to SHA256 for file integrity check. File hash, if available, will 
     be in the "s3fuse_sha256" extended attribute.
+  * Added standalone SHA256 hash generator ("s3fuse_sha256_hash") that uses the
+    same hash-list method as s3fuse.
   * Changed handling of last-modified times. Some timestamps may be inaccurate 
     (but will be correct when updated).
   * Removed precache_on_readdir configuration option (and feature).
@@ -15,8 +17,10 @@ s3fuse (0.13) unstable; urgency=low
   * Added note about daemon_timeout.
   * Removed xattr_prefix configuration option and made "user." standard (Linux
     only).
+  * Added event counters/statistics. Set "-o stats=/path/to/output.file".
+  * Various robustness fixes.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Tue, 09 Dec 2012 22:14:21 -0600
+ -- Tarick Bedeir <tarick@bedeir.com>  Tue, 20 Jan 2013 17:20:39 -0600
 
 s3fuse (0.12) unstable; urgency=low
 
