@@ -698,6 +698,10 @@ void * init(fuse_conn_info *info)
     S3_LOG(LOG_WARNING, "init", "FUSE_CAP_ATOMIC_O_TRUNC not supported, will revert to truncate-then-open\n");
   }
 
+  // this has to be here, rather than in main(), because the threads init()
+  // creates won't survive the fork in fuse_main().
+  pool::init();
+
   return NULL;
 }
 
@@ -828,7 +832,6 @@ int main(int argc, char **argv)
     config::init(s_opts.config);
     service::init(config::get_service());
     xml::init(service::get_xml_namespace());
-    pool::init();
     cache::init();
     encryption::init();
 
