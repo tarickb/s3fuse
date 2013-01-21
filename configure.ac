@@ -38,6 +38,15 @@ AC_ARG_ENABLE(
      *) AC_MSG_ERROR([bad value ${enableval} for --enable-coverage]) ;;
    esac], [coverage=false])
 
+AC_ARG_ENABLE(
+  [osx-bundle],
+  [  --enable-osx-bundle     Enable OS X app bundle features],
+  [case "${enableval}" in
+     yes) osx_bundle=true ;;
+     no)  osx_bundle=false ;;
+     *) AC_MSG_ERROR([bad value ${enableval} for --enable-osx-bundle]) ;;
+   esac], [osx_bundle=false])
+
 AM_CONDITIONAL([BUILD_TESTS], [test x$build_tests = xtrue])
 
 # set LDFLAGS rather than AM_LDFLAGS below because we need these flags
@@ -57,6 +66,10 @@ if test "x$coverage" = xtrue; then
     CXX="clang++"
     AM_CXXFLAGS="$AM_CXXFLAGS -Qunused-arguments"
   fi
+fi
+
+if test "x$osx_bundle" = xtrue; then
+  AC_DEFINE([OSX_BUNDLE], [])
 fi
 
 BOOST_REQUIRE([1.42])

@@ -774,12 +774,53 @@ void build_options(int argc, char **argv, fuse_args *args)
   #endif
 }
 
+#ifdef OSX_BUNDLE
+  void set_osx_default_options(int *argc, char ***argv)
+  {
+    char *arg0 = *argv[0];
+    string options, mountpoint, config;
+
+    config = getenv("HOME");
+    config += "/.s3fuse/s3fuse.conf";
+
+    try {
+      logger::init(LOG_ERR);
+      config::init(config);
+    } catch (...) {
+      exit(1);
+    }
+
+    options = "noappledouble";
+    options += ",daemon_timeout=3600";
+    options += ",config=" + config;
+    options += ",volname=s3fuse volume (" + config::get_bucket_name() + ")";
+
+    mountpoint = "/Volumes/s3fuse_" + config::get_bucket_name();
+
+    mkdir(mountpoint.c_str(), 0777);
+
+    *argc = 4;
+    *argv = new char *[5];
+
+    (*argv)[0] = arg0;
+    (*argv)[1] = strdup("-o");
+    (*argv)[2] = strdup(options.c_str());
+    (*argv)[3] = strdup(mountpoint.c_str());
+    (*argv)[4] = NULL;
+  }
+#endif
+
 int main(int argc, char **argv)
 {
   int r;
   fuse_operations ops;
-  fuse_args args = FUSE_ARGS_INIT(argc, argv);
 
+  #ifdef OSX_BUNDLE
+    if (argc == 1)
+      set_osx_default_options(&argc, &argv);
+  #endif
+
+  fuse_args args = FUSE_ARGS_INIT(argc, argv);
   build_options(argc, argv, &args);
 
   try {
