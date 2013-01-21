@@ -139,10 +139,10 @@ then encrypted with AES in CBC mode using the volume key and a random IV.
 The encrypted key/nonce/hash combination and the IV are stored out of band as 
 file metadata attributes.
 
-MacOS
------
+OS X
+----
 
-Early MacOS support is available as of s3fuse-0.12.  This support is built on
+Early OS X support is available as of s3fuse-0.12.  This support is built on
 fuse4x, which can be installed with MacPorts:
 
   sudo port install fuse4x
@@ -151,6 +151,35 @@ Run s3fuse the same way you would on a Linux system.  Passing the
 "noappledouble" option to FUSE is strongly suggested -- this will prevent
 MacOS (the Finder?) from trying to open or create .DS_Store files in every 
 directory you browse through.
+
+OS X Precompiled Binaries
+-------------------------
+
+As of s3fuse-0.13, precompiled binaries are available for OS X.  s3fuse can be
+installed in the usual manner (by dragging the app bundle into the Applications
+folder).  You can then run s3fuse one of two ways:
+
+Method 1: Default options, configuration in ~/.s3fuse/s3fuse.conf
+
+  This is how s3fuse runs if you double-click the "s3fuse" icon.  Before 
+  launching s3fuse, create a directory named ".s3fuse" in your home directory.
+  Edit the configuration file template (located at 
+  /Applications/s3fuse.app/Contents/Resources/s3fuse.conf) and save a copy in
+  "~/.s3fuse/s3fuse.conf".  When launching s3fuse, a Terminal window may appear
+  to prompt for a volume encryption key if encryption is enabled.  Error
+  messages will be logged to syslog (in /var/log/system.log, by default) rather
+  than to the console.
+
+Method 2: Command line, default configuration in /etc/s3fuse.conf
+
+  s3fuse can be launched from the command line just as it would be if it were
+  built from source.  In a Terminal window:
+
+  /Applications/s3fuse.app/Contents/Resources/bin/s3fuse [options] <mountpoint>
+
+  will launch s3fuse.  Command line options are described in "Running" below.
+
+The "easy" option, method 1, is very much a work in progress.
 
 Glacier
 -------
