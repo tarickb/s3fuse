@@ -93,7 +93,7 @@ namespace
 
       if (rc == s3::base::HTTP_SC_BAD_REQUEST) {
         if (xml::match(r->get_output_buffer(), REQ_TIMEOUT_XPATH)) {
-          // TODO: refresh connection?
+          r->use_fresh_connection();
 
           ++s_req_timeout;
           return true;
