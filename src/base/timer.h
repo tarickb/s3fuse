@@ -54,6 +54,13 @@ namespace s3
 
         return time_str;
       }
+
+      inline static void sleep(int sec)
+      {
+        struct timespec ts = { sec, 0 };
+
+        nanosleep(&ts, NULL);
+      }
     };
   }
 }
