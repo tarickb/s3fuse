@@ -34,9 +34,12 @@ CONFIG(std::string, volume_key_file, ""); // name of file containing hex-encoded
 
 CONFIG(bool, allow_glacier_restores, false); // enable glacier object restores
 
+CONFIG(int, max_inconsistent_state_retries, 10); // number of times to retry an operation if an inconsistent state is encountered (must be >= 2)
+
 CONFIG_REQUIRED(std::string, service, ""); // service -- must be "aws" or "google-storage"
 CONFIG_REQUIRED(std::string, auth_data, ""); // service-specific authentication details (see documentation)
 CONFIG_REQUIRED(std::string, bucket_name, ""); // bucket name
 
 CONFIG_CONSTRAINT(CONFIG_KEY(max_objects_in_cache) > 0, "max_objects_in_cache must be greater than zero");
 CONFIG_CONSTRAINT(CONFIG_KEY(max_transfer_retries) > 0, "max_transfer_retries must be greater than zero");
+CONFIG_CONSTRAINT(CONFIG_KEY(max_inconsistent_state_retries) >= 2, "max_inconsistent_state_retries must be greater than or equal to 2");
