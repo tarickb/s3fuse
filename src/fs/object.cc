@@ -28,6 +28,7 @@
 #include "base/logger.h"
 #include "base/request.h"
 #include "base/statistics.h"
+#include "base/timer.h"
 #include "base/xml.h"
 #include "fs/cache.h"
 #include "fs/glacier.h"
@@ -59,6 +60,7 @@ using s3::base::config;
 using s3::base::header_map;
 using s3::base::request;
 using s3::base::statistics;
+using s3::base::timer;
 using s3::base::xml;
 using s3::fs::object;
 using s3::fs::static_xattr;
@@ -83,7 +85,8 @@ namespace
     s3::fs::xattr::XM_REMOVABLE | 
     s3::fs::xattr::XM_COMMIT_REQUIRED;
 
-  atomic_count s_precon_failed_commits(0), s_commit_failures(0), s_new_etag_on_commit(0), s_abandoned_commits(0);
+  atomic_count s_precon_failed_commits(0), s_new_etag_on_commit(0);
+  atomic_count s_commit_failures(0), s_precon_rescues(0), s_abandoned_commits(0);
 
   void statistics_writer(ostream *o)
   {
@@ -92,6 +95,7 @@ namespace
       "  precondition failed during commit: " << s_precon_failed_commits << "\n"
       "  new etag on commit: " << s_new_etag_on_commit << "\n"
       "  commit failures: " << s_commit_failures << "\n"
+      "  precondition failed rescues: " << s_precon_rescues << "\n"
       "  abandoned commits: " << s_abandoned_commits << "\n";
   }
 
@@ -378,30 +382,36 @@ void object::set_request_body(const request::ptr &req)
 
 int object::commit(const request::ptr &req)
 {
+  int current_error = 0, last_error = 0;
+
   // we may need to try to commit several times because:
   //
   // 1. the etag can change as a result of a copy
   // 2. we may get intermittent "precondition failed" errors
 
-  for (int i = 0; i < config::get_max_transfer_retries(); i++) {
+  for (int i = 0; i < config::get_max_inconsistent_state_retries(); i++) {
     xml::document doc;
     string response, new_etag;
-    int r;
+
+    // save error from last iteration (so that we can tell if the precondition
+    // failed retry worked)
+    last_error = current_error;
 
     req->init(base::HTTP_PUT);
     req->set_url(_url);
 
+    set_request_headers(req);
+
     // if the object already exists (i.e., if we have an etag) then just update
     // the metadata.
 
-    if (!_etag.empty()) {
+    if (_etag.empty()) {
+      set_request_body(req);
+    } else {
       req->set_header(service::get_header_prefix() + "copy-source", _url);
       req->set_header(service::get_header_prefix() + "copy-source-if-match", _etag);
       req->set_header(service::get_header_prefix() + "metadata-directive", "REPLACE");
     }
-
-    set_request_headers(req);
-    set_request_body(req);
 
     // this can, apparently, take a long time if the object is large
     req->run(config::get_transfer_timeout_in_s());
@@ -410,54 +420,79 @@ int object::commit(const request::ptr &req)
       ++s_precon_failed_commits;
       S3_LOG(LOG_WARNING, "object::commit", "got precondition failed error for [%s].\n", _url.c_str());
 
+      timer::sleep(i + 1);
+
+      current_error = -EBUSY;
       continue;
     }
 
     if (req->get_response_code() != base::HTTP_SC_OK) {
-      ++s_commit_failures;
       S3_LOG(LOG_WARNING, "object::commit", "failed to commit object metadata for [%s].\n", _url.c_str());
-      return -EIO;
+
+      current_error = -EIO;
+      break;
     }
 
     response = req->get_output_string();
 
     // an empty response means the etag hasn't changed
-    if (response.empty())
-      return 0;
+    if (response.empty()) {
+      current_error = 0;
+      break;
+    }
 
     // if we started out without an etag, then ignore anything we get here
-    if (_etag.empty())
-      return 0;
+    if (_etag.empty()) {
+      current_error = 0;
+      break;
+    }
 
     doc = xml::parse(response);
 
     if (!doc) {
       S3_LOG(LOG_WARNING, "object::commit", "failed to parse response.\n");
-      return -EIO;
+
+      current_error = -EIO;
+      break;
     }
 
-    if ((r = xml::find(doc, COMMIT_ETAG_XPATH, &new_etag)))
-      return r;
+    current_error = xml::find(doc, COMMIT_ETAG_XPATH, &new_etag);
+
+    if (current_error)
+      break;
 
     if (new_etag.empty()) {
       S3_LOG(LOG_WARNING, "object::commit", "no etag after commit.\n");
-      return -EIO;
+
+      current_error = -EIO;
+      break;
     }
 
     // if the etag hasn't changed, don't re-commit
-    if (new_etag == _etag)
-      return 0;
+    if (new_etag == _etag) {
+      current_error = 0;
+      break;
+    }
 
     ++s_new_etag_on_commit;
     S3_LOG(LOG_WARNING, "object::commit", "commit resulted in new etag. recommitting.\n");
 
     _etag = new_etag;
+    current_error = -EAGAIN;
   }
 
-  ++s_abandoned_commits;
-  S3_LOG(LOG_WARNING, "object::commit", "giving up on [%s].\n", _url.c_str());
+  if (current_error) {
+    if (current_error == -EIO) {
+      ++s_commit_failures;
+    } else {
+      ++s_abandoned_commits;
+      S3_LOG(LOG_WARNING, "object::commit", "giving up on [%s].\n", _url.c_str());
+    }
+  } else if (last_error == -EBUSY) {
+    ++s_precon_rescues;
+  }
 
-  return -EIO;
+  return current_error;
 }
 
 int object::remove(const request::ptr &req)
