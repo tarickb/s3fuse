@@ -146,6 +146,8 @@ namespace s3
 
       bool check_timeout();
 
+      void use_fresh_connection();
+
       void run(int timeout_in_s = DEFAULT_REQUEST_TIMEOUT);
 
     private:

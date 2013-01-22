@@ -132,6 +132,7 @@ request::request()
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_WRITEDATA, this));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_READFUNCTION, &request::process_input));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_READDATA, this));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_FRESH_CONNECT, false));
 }
 
 request::~request()
@@ -307,6 +308,11 @@ bool request::check_timeout()
   }
 
   return false;
+}
+
+void request::use_fresh_connection()
+{
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_FRESH_CONNECT, true));
 }
 
 void request::run(int timeout_in_s)
