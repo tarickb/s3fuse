@@ -418,7 +418,8 @@ void request::run(int timeout_in_s)
     S3_LOG(
       LOG_WARNING, 
       "request::run", 
-      "request for [%s] failed with code %i and response: %s\n", 
+      "request for [%s] [%s] failed with code %i and response: %s\n", 
+      _method.c_str(),
       _url.c_str(), 
       _response_code, 
       get_output_string().c_str());
