@@ -54,10 +54,15 @@ namespace s3
 
       #define CONFIG_REQUIRED(type, name, def) CONFIG(type, name, def)
 
+      #define CONFIG_CONSTRAINT(x, y)
+      #define CONFIG_KEY(x)
+
       #include "base/config.inc"
 
       #undef CONFIG
       #undef CONFIG_REQUIRED
+      #undef CONFIG_CONSTRAINT
+      #undef CONFIG_KEY
     };
   }
 }

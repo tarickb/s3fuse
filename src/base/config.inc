@@ -37,3 +37,6 @@ CONFIG(bool, allow_glacier_restores, false); // enable glacier object restores
 CONFIG_REQUIRED(std::string, service, ""); // service -- must be "aws" or "google-storage"
 CONFIG_REQUIRED(std::string, auth_data, ""); // service-specific authentication details (see documentation)
 CONFIG_REQUIRED(std::string, bucket_name, ""); // bucket name
+
+CONFIG_CONSTRAINT(CONFIG_KEY(max_objects_in_cache) > 0, "max_objects_in_cache must be greater than zero");
+CONFIG_CONSTRAINT(CONFIG_KEY(max_transfer_retries) > 0, "max_transfer_retries must be greater than zero");

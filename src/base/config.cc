@@ -98,11 +98,15 @@ namespace
 
 #define CONFIG(type, name, def) type config::s_ ## name = (def);
 #define CONFIG_REQUIRED(type, name, def) CONFIG(type, name, def)
+#define CONFIG_CONSTRAINT(x, y)
+#define CONFIG_KEY(x)
 
 #include "base/config.inc"
 
 #undef CONFIG
 #undef CONFIG_REQUIRED
+#undef CONFIG_CONSTRAINT
+#undef CONFIG_KEY
 
 void config::init(const string &file)
 {
@@ -152,10 +156,15 @@ void config::init(const string &file)
 
     #define CONFIG_REQUIRED(type, name, def) CONFIG(type, name, def)
 
+    #define CONFIG_CONSTRAINT(x, y)
+    #define CONFIG_KEY(x)
+
     #include "base/config.inc"
 
     #undef CONFIG
     #undef CONFIG_REQUIRED
+    #undef CONFIG_CONSTRAINT
+    #undef CONFIG_KEY
 
     S3_LOG(LOG_ERR, "config::init", "error at line %i: unknown directive '%s'\n", line_number, key.c_str());
     throw runtime_error("malformed config file");
@@ -169,8 +178,18 @@ void config::init(const string &file)
       throw runtime_error("malformed config file"); \
     }
 
+  #define CONFIG_CONSTRAINT(test, message) \
+    if (!(test)) { \
+      S3_LOG(LOG_ERR, "config::init", "%s\n", message); \
+      throw runtime_error("malformed config file"); \
+    }
+
+  #define CONFIG_KEY(key) s_ ## key
+
   #include "base/config.inc"
 
   #undef CONFIG
   #undef CONFIG_REQUIRED
+  #undef CONFIG_CONSTRAINT
+  #undef CONFIG_KEY
 }
