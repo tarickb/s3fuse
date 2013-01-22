@@ -34,6 +34,7 @@
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/statistics.h"
+#include "base/timer.h"
 #include "base/version.h"
 #include "base/xml.h"
 #include "fs/cache.h"
@@ -54,6 +55,7 @@ using std::vector;
 using s3::base::config;
 using s3::base::logger;
 using s3::base::statistics;
+using s3::base::timer;
 using s3::base::xml;
 using s3::fs::cache;
 using s3::fs::directory;
@@ -131,7 +133,7 @@ namespace
     #endif
   };
 
-  atomic_count s_reopen_on_create(0);
+  atomic_count s_reopen_attempts(0), s_reopen_rescues(0), s_reopen_fails(0);
   atomic_count s_create(0), s_mkdir(0), s_open(0), s_rename(0), s_symlink(0), s_unlink(0);
   atomic_count s_getattr(0), s_readdir(0), s_readlink(0);
 
@@ -144,7 +146,9 @@ namespace
   {
     *o <<
       "main (exceptions):\n"
-      "  reopens on create: " << s_reopen_on_create << "\n"
+      "  reopen attempts: " << s_reopen_attempts << "\n"
+      "  reopens rescued: " << s_reopen_rescues << "\n"
+      "  reopens failed: " << s_reopen_fails << "\n"
       "main (write):\n"
       "  create: " << s_create << "\n"
       "  mkdir: " << s_mkdir << "\n"
@@ -198,7 +202,7 @@ int s3fuse_chown(const char *path, uid_t uid, gid_t gid)
 
 int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
 {
-  int r;
+  int r, last_error = 0;
   const fuse_context *ctx = fuse_get_context();
 
   S3_LOG(LOG_DEBUG, "create", "path: %s, mode: %#o\n", path, mode);
@@ -232,15 +236,25 @@ int s3fuse_create(const char *path, mode_t mode, fuse_file_info *file_info)
 
     // rarely, the newly created file won't be downloadable right away, so
     // try a few times before giving up.
-    for (int i = 0; i < config::get_max_transfer_retries(); i++) {
+    for (int i = 0; i < config::get_max_inconsistent_state_retries(); i++) {
+      last_error = r;
       r = file::open(static_cast<string>(path), s3::fs::OPEN_DEFAULT, &file_info->fh);
 
       if (r != -ENOENT)
         break;
 
       S3_LOG(LOG_WARNING, "create", "retrying open on [%s] because of error %i\n", path, r);
-      ++s_reopen_on_create;
+      ++s_reopen_attempts;
+
+      // sleep a bit instead of retrying more times than necessary
+      timer::sleep(i + 1);
     }
+
+    if (!r && last_error == -ENOENT)
+      ++s_reopen_rescues;
+
+    if (r == -ENOENT)
+      ++s_reopen_fails;
 
     return r;
   END_TRY;
