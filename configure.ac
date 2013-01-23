@@ -1,5 +1,5 @@
 m4_define([cl_version], [m4_esyscmd([head -n 1 ChangeLog | sed -e 's/.*(//' -e 's/).*//' | tr -d '\n'])])
-m4_define([svn_version], [m4_esyscmd([svnversion 2>/dev/null | sed -e 's/^./-r&/' | tr -d '\n'])])
+m4_define([svn_version], [m4_esyscmd([svnversion 2>/dev/null | sed -e 's/^exported$//' -e 's/^./-r&/' | tr -d '\n'])])
 
 AC_PREREQ([2.63])
 AC_INIT([s3fuse], [cl_version])
@@ -118,9 +118,6 @@ AC_CHECK_FUNCS([ftruncate gettimeofday memset strchr strerror strstr strtol])
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([src/Makefile src/base/Makefile src/crypto/Makefile src/fs/Makefile src/services/Makefile src/threads/Makefile])
 AC_CONFIG_FILES([src/base/tests/Makefile src/crypto/tests/Makefile src/fs/tests/Makefile src/threads/tests/Makefile src/tests/Makefile])
-AC_CONFIG_FILES([debian/Makefile debian/source/Makefile])
-AC_CONFIG_FILES([dist/Makefile])
-AC_CONFIG_FILES([osx/Makefile])
 
 AC_DEFINE(PACKAGE_VERSION_WITH_REV, [m4_format([%s%s%s%s], ["], cl_version, svn_version, ["])])
 AC_SUBST([PACKAGE_VERSION_WITH_REV], [m4_format([%s%s], cl_version, svn_version)])

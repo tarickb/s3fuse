@@ -1,7 +1,6 @@
 ACLOCAL_AMFLAGS = -I .
 
 SUBDIRS = src
-DIST_SUBDIRS = debian dist osx src
 
 $(PACKAGE_NAME)-$(PACKAGE_VERSION)_osx.tar.gz: dist
 	rm -rf osx-build
