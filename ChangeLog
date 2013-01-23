@@ -20,7 +20,7 @@ s3fuse (0.13) unstable; urgency=low
   * Added event counters/statistics. Set "-o stats=/path/to/output.file".
   * Various robustness fixes.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Tue, 20 Jan 2013 17:20:39 -0600
+ -- Tarick Bedeir <tarick@bedeir.com>  Sun, 20 Jan 2013 17:20:39 -0600
 
 s3fuse (0.12) unstable; urgency=low
 
