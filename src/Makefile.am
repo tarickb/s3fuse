@@ -10,7 +10,7 @@ bin_PROGRAMS = s3fuse s3fuse_gs_get_token s3fuse_sha256_sum
 # the order of archives in LDADD matters -- they must be listed such that if A
 # requires symbols provided by B, then A must appear before B
 
-s3fuse_SOURCES = main.cc
+s3fuse_SOURCES = main.cc operations.cc operations.h
 s3fuse_LDADD = \
 	fs/libs3fuse_fs.a \
 	services/libs3fuse_services.a \
