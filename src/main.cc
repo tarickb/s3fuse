@@ -152,14 +152,16 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
 void build_options(int argc, char **argv, options *opts, fuse_args *args)
 {
   opts->verbosity = LOG_WARNING;
-  opts->arg0 = argv[0];
+
+  opts->arg0 = strrchr(argv[0], '/');
+  opts->arg0 = opts->arg0 ? opts->arg0 + 1 : argv[0];
 
   #ifdef __APPLE__
     opts->noappledouble_set = false;
     opts->daemon_timeout_set = false;
   #endif
 
-  fuse_opt_parse(args, NULL, NULL, process_argument);
+  fuse_opt_parse(args, opts, NULL, process_argument);
 
   if (opts->mountpoint.empty()) {
     print_usage(opts->arg0);
