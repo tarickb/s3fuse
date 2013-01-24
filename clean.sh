@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ ! -d src ] || [ ! -d dist ]; then
+if [ ! -d src ]; then
   echo Run me from the top-level directory.
   exit 1
 fi
@@ -17,11 +17,7 @@ for D in \
   src/services \
   src/tests \
   src/threads \
-  src/threads/tests \
-  debian \
-  debian/source \
-  dist \
-  osx;
+  src/threads/tests
 do
   pushd $D >& /dev/null
     make clean distclean >& /dev/null
