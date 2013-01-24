@@ -39,7 +39,9 @@ int main(int argc, char **argv)
   time_t expiry;
 
   if (argc != 2) {
-    cerr << "Usage: " << argv[0] << " <token-file-name>" << endl;
+    const char *arg0 = strrchr(argv[0], '/');
+
+    cerr << "Usage: " << (arg0 ? arg0 + 1 : argv[0]) << " <token-file-name>" << endl;
     return 1;
   }
 
