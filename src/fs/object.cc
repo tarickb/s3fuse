@@ -131,8 +131,8 @@ string object::build_url(const string &path)
 
 string object::build_internal_url(const string &key)
 {
-  if (key.find('/'))
-    throw runtime_error("hidden url key cannot contain a slash!");
+  if (key.find('/') != string::npos)
+    throw runtime_error("internal url key cannot contain a slash!");
 
   return build_url_no_internal_check(INTERNAL_OBJECT_PREFIX + key);
 }
