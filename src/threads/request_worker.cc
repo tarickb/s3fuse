@@ -31,7 +31,6 @@
 using boost::mutex;
 using std::ostream;
 using std::setprecision;
-using std::string;
 
 using s3::base::request;
 using s3::base::statistics;
