@@ -71,6 +71,10 @@ namespace
   const int BLOCK_SIZE = 512;
   const char *COMMIT_ETAG_XPATH = "/s3:CopyObjectResult/s3:ETag";
 
+  const string INTERNAL_OBJECT_PREFIX = "$s3fuse$_";
+  const char *INTERNAL_OBJECT_PREFIX_CSTR = INTERNAL_OBJECT_PREFIX.c_str();
+  const size_t INTERNAL_OBJECT_PREFIX_SIZE = INTERNAL_OBJECT_PREFIX.size();
+
   #ifdef NEED_XATTR_PREFIX
     const string XATTR_PREFIX = "user.";
     const size_t XATTR_PREFIX_LEN = XATTR_PREFIX.size();
@@ -99,6 +103,11 @@ namespace
       "  abandoned commits: " << s_abandoned_commits << "\n";
   }
 
+  inline string build_url_no_internal_check(const string &path)
+  {
+    return service::get_bucket_url() + "/" + request::url_encode(path);
+  }
+
   statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
@@ -107,9 +116,25 @@ int object::get_block_size()
   return BLOCK_SIZE;
 }
 
+bool object::is_internal_path(const string &path)
+{
+  return strncmp(path.c_str(), INTERNAL_OBJECT_PREFIX_CSTR, INTERNAL_OBJECT_PREFIX_SIZE) == 0;
+}
+
 string object::build_url(const string &path)
 {
-  return service::get_bucket_url() + "/" + request::url_encode(path);
+  if (is_internal_path(path))
+    throw runtime_error("path cannot start with s3fuse internal object prefix.");
+
+  return build_url_no_internal_check(path);
+}
+
+string object::build_internal_url(const string &key)
+{
+  if (key.find('/'))
+    throw runtime_error("hidden url key cannot contain a slash!");
+
+  return build_url_no_internal_check(INTERNAL_OBJECT_PREFIX + key);
 }
 
 object::ptr object::create(const string &path, const request::ptr &req)
