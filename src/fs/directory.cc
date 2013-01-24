@@ -19,9 +19,12 @@
  * limitations under the License.
  */
 
+#include <boost/detail/atomic_count.hpp>
+
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
+#include "base/statistics.h"
 #include "base/xml.h"
 #include "fs/cache.h"
 #include "fs/directory.h"
@@ -30,11 +33,14 @@
 
 using boost::mutex;
 using boost::shared_ptr;
+using boost::detail::atomic_count;
 using std::list;
+using std::ostream;
 using std::string;
 
 using s3::base::config;
 using s3::base::request;
+using s3::base::statistics;
 using s3::base::xml;
 using s3::fs::directory;
 using s3::fs::object;
@@ -55,17 +61,14 @@ namespace
     wait_async_handle::ptr handle;
   };
 
-  object * checker(const string &path, const request::ptr &req)
+  atomic_count s_internal_objects_skipped_in_list(0);
+
+  void statistics_writer(ostream *o)
   {
-    const string &url = req->get_url();
-
-    if (!path.empty() && (url.empty() || url[url.size() - 1] != '/'))
-      return NULL;
-
-    return new directory(path);
+    *o << 
+      "directory:\n"
+      "  internal objects skipped in list: " << s_internal_objects_skipped_in_list << "\n";
   }
-
-  object::type_checker_list::entry s_checker_reg(checker, 10);
 
   int check_if_truncated(const xml::document &doc, bool *truncated)
   {
@@ -80,11 +83,24 @@ namespace
     *truncated = (temp == "true");
     return 0;
   }
+
+  object * checker(const string &path, const request::ptr &req)
+  {
+    const string &url = req->get_url();
+
+    if (!path.empty() && (url.empty() || url[url.size() - 1] != '/'))
+      return NULL;
+
+    return new directory(path);
+  }
+
+  object::type_checker_list::entry s_checker_reg(checker, 10);
+  statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
 string directory::build_url(const string &path)
 {
-  return service::get_bucket_url() + "/" + request::url_encode(path) + "/";
+  return object::build_url(path) + "/";
 }
 
 directory::directory(const string &path)
@@ -159,6 +175,11 @@ int directory::read(const request::ptr &req, const filler_function &filler)
     for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
       if (path != *itor) {
         string relative_path = itor->substr(path_len);
+
+        if (object::is_internal_path(relative_path)) {
+          ++s_internal_objects_skipped_in_list;
+          continue;
+        }
 
         filler(relative_path);
 
