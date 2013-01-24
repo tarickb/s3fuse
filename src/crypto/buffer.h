@@ -22,6 +22,8 @@
 #ifndef S3_CRYPTO_BUFFER_H
 #define S3_CRYPTO_BUFFER_H
 
+#include <string.h>
+
 #ifdef __APPLE__
   #include <Security/SecRandom.h>
 #else
@@ -44,6 +46,16 @@ namespace s3
     {
     public:
       typedef boost::shared_ptr<buffer> ptr;
+
+      inline static ptr zero(size_t len)
+      {
+        ptr b(new buffer());
+
+        b->_buf.resize(len);
+        memset(&b->_buf[0], 0, len);
+
+        return b;
+      }
 
       inline static ptr generate(size_t len)
       {
@@ -71,7 +83,7 @@ namespace s3
         return b;
       }
 
-      inline static ptr from_bytes(const std::vector<uint8_t> &bytes)
+      inline static ptr from_vector(const std::vector<uint8_t> &bytes)
       {
         ptr b(new buffer());
 

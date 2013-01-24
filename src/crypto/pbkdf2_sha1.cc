@@ -70,5 +70,5 @@ buffer::ptr pbkdf2_sha1::derive(const string &password, const string &salt, int 
       throw runtime_error("failed to derive key");
   #endif
 
-  return buffer::from_bytes(key);
+  return buffer::from_vector(key);
 }
