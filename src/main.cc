@@ -188,10 +188,6 @@ void build_options(int argc, char **argv, options *opts, fuse_args *args)
     config = getenv("HOME");
     config += "/.s3fuse/s3fuse.conf";
 
-    // TODO: config::init_from_file()
-    // TODO: config::init_by_prompt() (available on linux too?) (offer to save in ~/.s3fuse/s3fuse.conf)
-    // TODO: mount "bucket_name" in "/mnt/bucket_name" on linux, or "/Volumes/s3fuse_bucket_name" in os x
-
     try {
       logger::init(LOG_ERR);
       config::init(config);
@@ -252,15 +248,17 @@ int main(int argc, char **argv)
   try {
     logger::init(opts.verbosity);
     config::init(opts.config);
-    service::init(config::get_service());
-    xml::init(service::get_xml_namespace());
-    cache::init();
-    encryption::init();
-
-    file::test_transfer_chunk_sizes();
 
     if (!opts.stats.empty())
       statistics::init(opts.stats);
+
+    service::init(config::get_service());
+    xml::init(service::get_xml_namespace());
+
+    cache::init();
+    file::test_transfer_chunk_sizes();
+
+    encryption::init();
 
     operations::init(opts.mountpoint);
     operations::build_fuse_operations(&opers);
