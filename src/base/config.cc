@@ -38,7 +38,11 @@ using s3::base::config;
 
 namespace
 {
-  const string DEFAULT_CONFIG_FILE = "/etc/s3fuse.conf";
+  const string DEFAULT_CONFIG_FILES[] = {
+    string(getenv("HOME")) + "/.s3fuse/s3fuse.conf",
+    "/etc/s3fuse.conf" };
+
+  const int DEFAULT_CONFIG_FILE_COUNT = sizeof(DEFAULT_CONFIG_FILES) / sizeof(DEFAULT_CONFIG_FILES[0]);
 
   template <typename T>
   class option_parser_worker
@@ -110,12 +114,28 @@ namespace
 
 void config::init(const string &file)
 {
-  ifstream ifs((file.empty() ? DEFAULT_CONFIG_FILE : file).c_str());
+  ifstream ifs;
   int line_number = 0;
 
-  if (ifs.fail()) {
-    S3_LOG(LOG_ERR, "config::init", "cannot open file [%s].\n", file.c_str());
-    throw runtime_error("cannot open config file");
+  if (file.empty()) {
+    for (int i = 0; i < DEFAULT_CONFIG_FILE_COUNT; i++) {
+      ifs.open(DEFAULT_CONFIG_FILES[i].c_str());
+
+      if (ifs.good())
+        break;
+    }
+
+    if (ifs.fail()) {
+      S3_LOG(LOG_ERR, "config::init", "cannot open any default config files.\n");
+      throw runtime_error("cannot open any default config files");
+    }
+  } else {
+    ifs.open(file.c_str());
+
+    if (ifs.fail()) {
+      S3_LOG(LOG_ERR, "config::init", "cannot open file [%s].\n", file.c_str());
+      throw runtime_error("cannot open specified config file");
+    }
   }
 
   while (ifs.good()) {
