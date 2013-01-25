@@ -22,15 +22,19 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <stdio.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/stat.h>
+
+#include <iostream>
 
 #include "crypto/hash_list.h"
 #include "crypto/hex.h"
 #include "crypto/sha256.h"
 
+using std::cerr;
+using std::cout;
+using std::endl;
 using std::runtime_error;
 
 using s3::crypto::hash_list;
@@ -52,7 +56,7 @@ int main(int argc, char **argv)
   if (argc != 2) {
     const char *arg0 = strrchr(argv[0], '/');
 
-    fprintf(stderr, "Usage: %s <file-name>\n", arg0 ? arg0 + 1 : argv[0]);
+    cerr << "Usage: " << (arg0 ? arg0 + 1 : argv[0]) << " <file-name>" << endl;
     return 1;
   }
 
@@ -60,12 +64,12 @@ int main(int argc, char **argv)
   fd = open(file_name, O_RDONLY);
 
   if (fd == -1) {
-    fprintf(stderr, "error [%s] (%i) while opening [%s].\n", strerror(errno), errno, file_name);
+    cerr << "Error [" << strerror(errno) << "] (" << errno << ") while opening [" << file_name << "]." << endl;
     return 1;
   }
 
   if (fstat(fd, &s)) {
-    fprintf(stderr, "error [%s] (%i) while stat-ing [%s].\n", strerror(errno), errno, file_name);
+    cerr << "Error [" << strerror(errno) << "] (" << errno << ") while stat-ing [" << file_name << "]." << endl;
     return 1;
   }
 
@@ -88,10 +92,10 @@ int main(int argc, char **argv)
       offset += this_chunk;
     }
 
-    printf("%s\n", hash->get_root_hash<hex>().c_str());
+    cout << hash->get_root_hash<hex>() << endl;
 
   } catch (const std::exception &e) {
-    fprintf(stderr, "caught exception [%s] while hashing [%s].\n", e.what(), file_name);
+    cerr << "Caught exception " << e.what() << " while hashing [" << file_name << "]" << endl;
     return 1;
   }
 
