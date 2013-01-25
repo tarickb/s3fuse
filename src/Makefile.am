@@ -5,13 +5,22 @@ if BUILD_TESTS
 SUBDIRS += tests
 endif
 
-bin_PROGRAMS = s3fuse s3fuse_gs_get_token s3fuse_sha256_sum
+bin_PROGRAMS = s3fuse s3fuse_gen_key s3fuse_gs_get_token s3fuse_sha256_sum
 
 # the order of archives in LDADD matters -- they must be listed such that if A
 # requires symbols provided by B, then A must appear before B
 
 s3fuse_SOURCES = main.cc operations.cc operations.h
 s3fuse_LDADD = \
+	fs/libs3fuse_fs.a \
+	services/libs3fuse_services.a \
+	crypto/libs3fuse_crypto.a \
+	threads/libs3fuse_threads.a \
+	base/libs3fuse_base.a \
+	$(LDADD)
+
+s3fuse_gen_key_SOURCES = gen_key.cc
+s3fuse_gen_key_LDADD = \
 	fs/libs3fuse_fs.a \
 	services/libs3fuse_services.a \
 	crypto/libs3fuse_crypto.a \

@@ -39,7 +39,20 @@ namespace s3
     public:
       static void init();
 
+      // TODO: split all this stuff off into class volume_key?
       static boost::shared_ptr<crypto::buffer> get_volume_key();
+
+      static boost::shared_ptr<crypto::buffer> derive_key_from_password(const std::string &password);
+
+      static bool is_volume_key_present_in_bucket();
+
+      static void write_new_volume_key_to_bucket(const boost::shared_ptr<crypto::buffer> &key);
+
+      static void reencrypt_volume_key_in_bucket(
+        const boost::shared_ptr<crypto::buffer> &old_key, 
+        const boost::shared_ptr<crypto::buffer> &new_key);
+
+      static void delete_volume_key_from_bucket();
     };
   }
 }
