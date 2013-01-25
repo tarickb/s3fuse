@@ -51,25 +51,48 @@ using s3::threads::pool;
 
 namespace
 {
+  const int DEFAULT_VERBOSITY = LOG_WARNING;
+
+  #ifdef __APPLE__
+    const string OSX_MOUNTPOINT_PREFIX = "/volumes/s3fuse_";
+  #endif
+
   struct options
   {
-    const char *arg0;
+    const char *base_name;
     string config;
     string mountpoint;
     string stats;
     int verbosity;
 
     #ifdef __APPLE__
+      string volname;
+
       bool noappledouble_set;
       bool daemon_timeout_set;
+      bool volname_set;
     #endif
+
+    options(const char *arg0)
+    {
+      verbosity = DEFAULT_VERBOSITY;
+
+      base_name = strrchr(arg0, '/');
+      base_name = base_name ? base_name + 1 : arg0;
+
+      #ifdef __APPLE__
+        noappledouble_set = false;
+        daemon_timeout_set = false;
+        volname_set = false;
+      #endif
+    }
   };
 }
 
-int print_usage(const char *arg0)
+int print_usage(const char *base_name)
 {
   cerr <<
-    "Usage: " << arg0 << " [options] <mountpoint>\n"
+    "Usage: " << base_name << " [options] <mountpoint>\n"
     "\n"
     "Options:\n"
     "  -f                   stay in the foreground (i.e., do not daemonize)\n"
@@ -77,12 +100,10 @@ int print_usage(const char *arg0)
     "  -o OPT...            pass OPT (comma-separated) to FUSE, such as:\n"
     "     allow_other         allow other users to access the mounted file system\n"
     "     allow_root          allow root to access the mounted file system\n"
+    "     gid=<id>            force group ID for all files to <id>\n"
     "     config=<file>       use <file> rather than the default configuration file\n"
     "     stats=<file>        write statistics to <file>\n"
-    #ifdef __APPLE__
-      "     daemon_timeout=<n>  set fuse timeout to <n> seconds\n"
-      "     noappledouble       disable testing for/creating .DS_Store files on Mac OS\n"
-    #endif
+    "     uid=<id>            force user ID for all files to <id>\n"
     "  -v, --verbose        enable logging to stderr (can be repeated for more verbosity)\n"
     "  -V, --version        print version and exit\n"
     << endl;
@@ -107,7 +128,7 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
   }
 
   if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) {
-    print_usage(opts->arg0);
+    print_usage(opts->base_name);
     exit(1);
   }
 
@@ -136,6 +157,11 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
       opts->noappledouble_set = true;
       return 1; // continue processing
     }
+
+    if (strstr(arg, "volname=") == arg) {
+      opts->volname_set = true;
+      return 1; // continue processing
+    }
   #endif
 
   if (key == FUSE_OPT_KEY_NONOPT)
@@ -143,72 +169,6 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
 
   return 1;
 }
-
-void build_options(int argc, char **argv, options *opts, fuse_args *args)
-{
-  opts->verbosity = LOG_WARNING;
-
-  opts->arg0 = strrchr(argv[0], '/');
-  opts->arg0 = opts->arg0 ? opts->arg0 + 1 : argv[0];
-
-  #ifdef __APPLE__
-    opts->noappledouble_set = false;
-    opts->daemon_timeout_set = false;
-  #endif
-
-  fuse_opt_parse(args, opts, NULL, process_argument);
-
-  if (opts->mountpoint.empty()) {
-    print_usage(opts->arg0);
-    exit(1);
-  }
-
-  #ifdef __APPLE__
-    // TODO: maybe make this and -o noappledouble the default?
-
-    if (!opts->daemon_timeout_set)
-      cerr << "Set \"-o daemon_timeout=3600\" or something equally large if transferring large files, otherwise FUSE will time out." << endl;
-
-    if (!opts->noappledouble_set)
-      cerr << "You are *strongly* advised to pass \"-o noappledouble\" to disable the creation/checking/etc. of .DS_Store files." << endl;
-  #endif
-}
-
-#ifdef OSX_BUNDLE
-  void set_osx_default_options(int *argc, char ***argv)
-  {
-    char *arg0 = *argv[0];
-    string options, mountpoint, config;
-
-    config = getenv("HOME");
-    config += "/.s3fuse/s3fuse.conf";
-
-    try {
-      logger::init(LOG_ERR);
-      config::init(config);
-    } catch (...) {
-      exit(1);
-    }
-
-    options = "noappledouble";
-    options += ",daemon_timeout=3600";
-    options += ",config=" + config;
-    options += ",volname=s3fuse volume (" + config::get_bucket_name() + ")";
-
-    mountpoint = "/Volumes/s3fuse_" + config::get_bucket_name();
-
-    mkdir(mountpoint.c_str(), 0777);
-
-    *argc = 4;
-    *argv = new char *[5];
-
-    (*argv)[0] = arg0;
-    (*argv)[1] = strdup("-o");
-    (*argv)[2] = strdup(options.c_str());
-    (*argv)[3] = strdup(mountpoint.c_str());
-    (*argv)[4] = NULL;
-  }
-#endif
 
 void * init(fuse_conn_info *info)
 {
@@ -226,19 +186,48 @@ void * init(fuse_conn_info *info)
   return NULL;
 }
 
+void add_missing_options(options *opts, fuse_args *args)
+{
+  #ifdef __APPLE__
+    opts->volname = "-ovolname=s3fuse volume (" + config::get_bucket_name() + ")";
+
+    if (!opts->daemon_timeout_set)
+      fuse_opt_add_arg(args, "-odaemon_timeout=3600");
+
+    if (!opts->noappledouble_set)
+      fuse_opt_add_arg(args, "-onoappledouble");
+
+    if (!opts->volname_set)
+      fuse_opt_add_arg(args, opts->volname.c_str());
+  #endif
+}
+
 int main(int argc, char **argv)
 {
   int r;
-  options opts;
+  options opts(argv[0]);
   fuse_operations opers;
-
-  #ifdef OSX_BUNDLE
-    if (argc == 1)
-      set_osx_default_options(&argc, &argv);
-  #endif
-
   fuse_args args = FUSE_ARGS_INIT(argc, argv);
-  build_options(argc, argv, &opts, &args);
+
+  fuse_opt_parse(&args, &opts, NULL, process_argument);
+
+  #if defined(__APPLE__) && defined(OSX_BUNDLE)
+    if (opts->mountpoint.empty() && argc == 1) {
+      opts->mountpoint = OSX_MOUNTPOINT_PREFIX + config::get_bucket_name();
+
+      mkdir(opts->mountpoint.c_str(), 0777);
+
+      fuse_opt_add_arg(args, opts->mountpoint.c_str());
+    } else {
+      print_usage(opts->base_name);
+      return 1;
+    }
+  #else
+    if (opts.mountpoint.empty()) {
+      print_usage(opts.base_name);
+      return 1;
+    }
+  #endif
 
   try {
     logger::init(opts.verbosity);
@@ -262,6 +251,8 @@ int main(int argc, char **argv)
 
     // not an actual FS operation
     opers.init = init;
+
+    add_missing_options(&opts, &args);
 
     S3_LOG(LOG_INFO, "main", "%s version %s, initialized\n", s3::base::APP_NAME, s3::base::APP_VERSION);
 
