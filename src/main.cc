@@ -19,11 +19,7 @@
  * limitations under the License.
  */
 
-#include <errno.h>
-#include <getopt.h>
-#include <stdlib.h>
-#include <string.h>
-
+#include <iostream>
 #include <string>
 
 #include "operations.h"
@@ -37,6 +33,9 @@
 #include "fs/file.h"
 #include "services/service.h"
 
+using std::cerr;
+using std::cout;
+using std::endl;
 using std::string;
 
 using s3::operations;
@@ -69,8 +68,8 @@ namespace
 
 int print_usage(const char *arg0)
 {
-  fprintf(stderr, 
-    "Usage: %s [options] <mountpoint>\n"
+  cerr <<
+    "Usage: " << arg0 << " [options] <mountpoint>\n"
     "\n"
     "Options:\n"
     "  -f                   stay in the foreground (i.e., do not daemonize)\n"
@@ -85,19 +84,15 @@ int print_usage(const char *arg0)
       "     noappledouble       disable testing for/creating .DS_Store files on Mac OS\n"
     #endif
     "  -v, --verbose        enable logging to stderr (can be repeated for more verbosity)\n"
-    "  -V, --version        print version and exit\n",
-    arg0);
+    "  -V, --version        print version and exit\n"
+    << endl;
 
   return 0;
 }
 
 int print_version()
 {
-  printf(
-    "%s, %s, version %s\n", 
-    s3::base::APP_FULL_NAME, 
-    s3::base::APP_NAME, 
-    s3::base::APP_VERSION);
+  cout << s3::base::APP_FULL_NAME << ", " << s3::base::APP_NAME << ", " << s3::base::APP_VERSION << endl;
 
   return 0;
 }
@@ -172,10 +167,10 @@ void build_options(int argc, char **argv, options *opts, fuse_args *args)
     // TODO: maybe make this and -o noappledouble the default?
 
     if (!opts->daemon_timeout_set)
-      fprintf(stderr, "Set \"-o daemon_timeout=3600\" or something equally large if transferring large files, otherwise FUSE will time out.\n");
+      cerr << "Set \"-o daemon_timeout=3600\" or something equally large if transferring large files, otherwise FUSE will time out." << endl;
 
     if (!opts->noappledouble_set)
-      fprintf(stderr, "You are *strongly* advised to pass \"-o noappledouble\" to disable the creation/checking/etc. of .DS_Store files.\n");
+      cerr << "You are *strongly* advised to pass \"-o noappledouble\" to disable the creation/checking/etc. of .DS_Store files." << endl;
   #endif
 }
 
