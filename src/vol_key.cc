@@ -261,24 +261,7 @@ void print_usage(const char *arg0)
     "                            exists at this path (only valid with \"generate\" and\n"
     "                            \"change\").\n"
     "\n"
-    "Examples:\n"
-    "\n"
-    "  Switching from prompting for a password when mounting a volume to using a saved\n"
-    "  key file:\n"
-    "\n"
-    "    " << base_name << " change --out-key path-to-new-key-file\n"
-    "\n"
-    "  Switching from saved keys to password prompts:\n"
-    "\n"
-    "    " << base_name << " change --in-key path-to-current-key-file\n"
-    "\n"
-    "  Generating a new volume key, with password prompting:\n"
-    "\n"
-    "    " << base_name << " generate\n"
-    "\n"
-    "  Generating a new volume key, with saved key file:\n"
-    "\n"
-    "    " << base_name << " generate --out-key path-to-new-key-file" << endl;
+    "See " << base_name << "(1) for examples and a more detailed explanation." << endl;
 
   exit(1);
 }
