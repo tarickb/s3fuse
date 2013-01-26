@@ -1,5 +1,4 @@
 #include "base/request.h"
-#include "crypto/aes_cbc_256.h"
 #include "crypto/buffer.h"
 #include "crypto/cipher.h"
 #include "crypto/symmetric_key.h"
@@ -12,8 +11,6 @@ using std::string;
 
 using s3::base::http_method;
 using s3::base::request;
-using s3::crypto::aes_cbc_256;
-using s3::crypto::aes_cbc_256_with_pkcs;
 using s3::crypto::buffer;
 using s3::crypto::cipher;
 using s3::crypto::hex;
@@ -44,8 +41,8 @@ namespace
   {
     string bucket_meta;
 
-    bucket_meta = cipher::encrypt<aes_cbc_256_with_pkcs, hex>(
-      symmetric_key::create(password_key, buffer::zero(aes_cbc_256::IV_LEN)),
+    bucket_meta = cipher::encrypt<bucket_volume_key::key_cipher, hex>(
+      symmetric_key::create(password_key, buffer::zero(bucket_volume_key::key_cipher::IV_LEN)),
       VOLUME_KEY_PREFIX + volume_key->to_string());
 
     return bucket_meta;
@@ -81,8 +78,8 @@ buffer::ptr bucket_volume_key::read(const buffer::ptr &key)
     throw runtime_error("error while fetching bucket encryption key. try re-creating one with s3fuse_gen_key.");
 
   try {
-    bucket_meta = cipher::decrypt<aes_cbc_256_with_pkcs, hex>(
-      symmetric_key::create(key, buffer::zero(aes_cbc_256::IV_LEN)), 
+    bucket_meta = cipher::decrypt<key_cipher, hex>(
+      symmetric_key::create(key, buffer::zero(key_cipher::IV_LEN)), 
       req->get_output_string());
   } catch (...) {
     throw runtime_error("incorrect password.");
@@ -99,7 +96,7 @@ void bucket_volume_key::generate(const buffer::ptr &key)
   buffer::ptr volume_key;
   request::ptr req;
 
-  volume_key = buffer::generate(aes_cbc_256::DEFAULT_KEY_LEN);
+  volume_key = buffer::generate(key_cipher::DEFAULT_KEY_LEN);
   req = build_request(s3::base::HTTP_PUT);
 
   req->set_input_buffer(build_bucket_meta(volume_key, key));
