@@ -35,7 +35,7 @@ test-header-guards:
 
 test-using-decls:
 	@for FILE in `find . ! -path \*/.svn/\* \( -name \*.cc -or -name \*.h \)`; do \
-	  for CLASS in `grep '^using ' $$FILE | sed -e 's/^using.*:://' -e 's/;//'`; do \
+	  for CLASS in `grep '^using ' $$FILE | grep -v '^using namespace' | sed -e 's/^using.*:://' -e 's/;//'`; do \
 	    REF_COUNT=`grep "\<$$CLASS\>" $$FILE | grep -v "^#" | grep -v "\"[^\"]*\<$$CLASS\>[^\"]*\"" | wc -l`; \
 			\
 	    if [ $$REF_COUNT -eq 1 ]; then \
