@@ -21,7 +21,6 @@
 
 #include "base/config.h"
 #include "base/logger.h"
-#include "crypto/aes_cbc_256.h"
 #include "crypto/buffer.h"
 #include "crypto/passwords.h"
 #include "crypto/pbkdf2_sha1.h"
@@ -34,7 +33,6 @@ using std::runtime_error;
 using std::string;
 
 using s3::base::config;
-using s3::crypto::aes_cbc_256;
 using s3::crypto::buffer;
 using s3::crypto::passwords;
 using s3::crypto::pbkdf2_sha1;
@@ -110,7 +108,7 @@ buffer::ptr encryption::get_volume_key()
 
 buffer::ptr encryption::derive_key_from_password(const string &password)
 {
-  return pbkdf2_sha1::derive<aes_cbc_256>(
+  return pbkdf2_sha1::derive<bucket_volume_key::key_cipher>(
     password,
     config::get_bucket_name(),
     DERIVATION_ROUNDS);
