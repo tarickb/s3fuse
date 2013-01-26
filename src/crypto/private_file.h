@@ -32,8 +32,14 @@ namespace s3
     class private_file
     {
     public:
+      enum open_mode
+      {
+        OM_DEFAULT = 0,
+        OM_TRUNCATE
+      };
+
       static void open(const std::string &file, std::ifstream *f);
-      static void open(const std::string &file, std::ofstream *f);
+      static void open(const std::string &file, std::ofstream *f, open_mode mode = OM_DEFAULT);
     };
   }
 }
