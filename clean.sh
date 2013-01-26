@@ -6,7 +6,6 @@ if [ ! -d src ]; then
 fi
 
 for D in \
-  man \
   src \
   src/base \
   src/base/tests \
