@@ -19,15 +19,13 @@
  * limitations under the License.
  */
 
-#include <errno.h>
-#include <string.h>
-
 #include <fstream>
 #include <stdexcept>
 #include <boost/lexical_cast.hpp>
 
 #include "base/config.h"
 #include "base/logger.h"
+#include "base/paths.h"
 
 using boost::lexical_cast;
 using std::ifstream;
@@ -35,11 +33,12 @@ using std::runtime_error;
 using std::string;
 
 using s3::base::config;
+using s3::base::paths;
 
 namespace
 {
   const string DEFAULT_CONFIG_FILES[] = {
-    string(getenv("HOME")) + "/.s3fuse/s3fuse.conf",
+    "~/.s3fuse/s3fuse.conf",
     "/etc/s3fuse.conf" };
 
   const int DEFAULT_CONFIG_FILE_COUNT = sizeof(DEFAULT_CONFIG_FILES) / sizeof(DEFAULT_CONFIG_FILES[0]);
@@ -119,18 +118,20 @@ void config::init(const string &file)
 
   if (file.empty()) {
     for (int i = 0; i < DEFAULT_CONFIG_FILE_COUNT; i++) {
-      ifs.open(DEFAULT_CONFIG_FILES[i].c_str());
+      ifs.open(paths::transform(DEFAULT_CONFIG_FILES[i]).c_str());
 
       if (ifs.good())
         break;
     }
 
     if (ifs.fail()) {
-      S3_LOG(LOG_ERR, "config::init", "cannot open any default config files.\n");
+      for (int i = 0; i < DEFAULT_CONFIG_FILE_COUNT; i++)
+        S3_LOG(LOG_ERR, "config::init", "unable to open configuration in [%s]\n", DEFAULT_CONFIG_FILES[i].c_str());
+
       throw runtime_error("cannot open any default config files");
     }
   } else {
-    ifs.open(file.c_str());
+    ifs.open(paths::transform(file).c_str());
 
     if (ifs.fail()) {
       S3_LOG(LOG_ERR, "config::init", "cannot open file [%s].\n", file.c_str());
