@@ -40,42 +40,25 @@ Edit /etc/s3fuse.conf after installing.  The following keys must be defined:
 
   - service: This must be either "aws" or "google-storage".
   - bucket_name: This is the name of your S3 bucket.
-  - auth_data: Authentication data (service-specific, see below).
 
-auth_data for Amazon Web Services:
+You'll then have to define some service-specific keys.
 
-  For Amazon S3, set auth_data to the full path of a file containing your AWS 
-  Access Key ID followed by a space, followed by the AWS Secret Access Key, 
-  e.g.:
+Amazon Web Services
+-------------------
 
-    auth_data=/home/user/.s3fuse/aws.key
+For Amazon S3, set aws_secret_file to the full path of a file containing your 
+AWS Access Key ID followed by a space, followed by the AWS Secret Access Key, 
+e.g.:
 
-  Where aws.key contains:
+  aws_secret_file=~/.s3fuse/aws.key
 
-    <aws-access-key-id> <aws-secret-access-key>
+Where aws.key contains:
 
-  AWS credentials can be obtained using Amazon's AWS console.  The console 
-  can also be used to create an S3 bucket.  s3fuse will fail to start if the 
-  key file is group- or world-readable or -writable.
+  <aws-access-key-id> <aws-secret-access-key>
 
-auth_data for Google Storage:
-
-  To use Google Storage with OAuth, run s3fuse_gs_get_token to obtain a token:
-
-    s3fuse_gs_get_token <path-to-token-file>
-
-  This utility will generate a URL that must be copied and pasted into the 
-  address bar of a browser.  You will then be asked to sign into your Google
-  account (if not already signed in), and then asked to grant Google Storage
-  access rights to s3fuse.  After accepting, return to s3fuse_gs_get_token and
-  enter the authentication code.
-
-  Next, set auth_data in s3fuse.conf to the location of the token file, e.g.:
-
-    auth_data=/home/user/.s3fuse/gs.token
-
-  s3fuse will fail to start if the token file is group- or world-readable or 
-  -writable.
+AWS credentials can be obtained using Amazon's AWS console.  The console 
+can also be used to create an S3 bucket.  s3fuse will fail to start if the 
+key file is group- or world-readable or -writable.
 
 Non-US AWS Buckets
 ------------------
@@ -85,6 +68,26 @@ support non-US buckets.  For instance, the following line in s3fuse.conf
 enables use of EU buckets:
  
   aws_service_endpoint=s3-eu-west-1.amazonaws.com
+
+Google Storage
+--------------
+
+To use Google Storage with OAuth, run s3fuse_gs_get_token to obtain a token:
+
+  s3fuse_gs_get_token <path-to-token-file>
+
+This utility will generate a URL that must be copied and pasted into the 
+address bar of a browser.  You will then be asked to sign into your Google
+account (if not already signed in), and then asked to grant Google Storage
+access rights to s3fuse.  After accepting, return to s3fuse_gs_get_token and
+enter the authentication code.
+
+Next, set gs_token_file in s3fuse.conf to the location of the token file, e.g.:
+
+  gs_token_file=~/.s3fuse/gs.token
+
+s3fuse will fail to start if the token file is group- or world-readable or 
+-writable.
 
 File Encryption
 ---------------
@@ -138,6 +141,12 @@ to the file.  The unique file key, a nonce, and a hash of the plaintext are
 then encrypted with AES in CBC mode using the volume key and a random IV.  
 The encrypted key/nonce/hash combination and the IV are stored out of band as 
 file metadata attributes.
+
+The volume key is itself encrypted using either a password (which then must be 
+supplied by the user when mounting the bucket) or a key file (specified by
+the "volume_key_file" configuration option).  This indirection makes it 
+possible to change the password (or key file) without having to reencrypt
+every file in the bucket).
 
 OS X
 ----
@@ -274,25 +283,12 @@ s3fuse can be launched from the command line:
 
   s3fuse [options] <mountpoint>
 
-Some (potentially useful) command line options:
+See s3fuse(1) or "s3fuse --help" for information on command-line options.
 
-  -f                Keeps s3fuse in the foreground (i.e., prevents it from 
-                    daemonizing).  Useful when debugging.
-  -v                Enable verbose logging to stderr (repeat for added 
-                    verbosity).
-  -o <fuse-options> Pass additional options, separated by commas.
-    options:
-      allow_other         Allow other users to access the mounted file system.
-      allow_root          Allow root to access the mounted file system.
-      config=<file>       Use <file> rather than the default configuration file.
-      stats=<file>        Write statistics to <file>
-      daemon_timeout=<n>  Set FUSE timeout to <n> seconds (OS X only).
-      noappledouble       Disable testing for/creating .DS_Store files (OS X only).
+Adding to fstab
+---------------
 
-This is not intended to be an exhaustive listing of FUSE options.
-
-Alternatively, s3fuse can be launched by mount if an appropriate entry exists
-in /etc/fstab:
+s3fuse can be launched by mount if an appropriate entry exists in /etc/fstab:
 
   s3fuse <mountpount> fuse defaults,noauto,user,allow_other 0 0
 
