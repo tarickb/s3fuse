@@ -83,7 +83,7 @@ void encryption::init()
     return;
 
   if (!bucket_volume_key::is_present())
-    throw runtime_error("encryption enabled but bucket has no key. run s3fuse_gen_key.");
+    throw runtime_error("encryption enabled but bucket has no key. run s3fuse_vol_key.");
 
   if (!config::get_volume_key_file().empty())
     password_key = init_from_file(config::get_volume_key_file());

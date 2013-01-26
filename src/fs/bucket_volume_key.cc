@@ -72,10 +72,10 @@ buffer::ptr bucket_volume_key::read(const buffer::ptr &key)
   req->run();
 
   if (req->get_response_code() == s3::base::HTTP_SC_NOT_FOUND)
-    throw runtime_error("bucket does not contain an encryption key. create one with s3fuse_gen_key.");
+    throw runtime_error("bucket does not contain an encryption key. create one with s3fuse_vol_key.");
 
   if (req->get_response_code() != s3::base::HTTP_SC_OK)
-    throw runtime_error("error while fetching bucket encryption key. try re-creating one with s3fuse_gen_key.");
+    throw runtime_error("error while fetching bucket encryption key. try re-creating one with s3fuse_vol_key.");
 
   try {
     bucket_meta = cipher::decrypt<key_cipher, hex>(
