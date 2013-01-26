@@ -7,6 +7,7 @@
 #include "base/xml.h"
 #include "crypto/buffer.h"
 #include "crypto/passwords.h"
+#include "fs/bucket_volume_key.h"
 #include "fs/encryption.h"
 #include "services/service.h"
 
@@ -23,6 +24,7 @@ using s3::base::logger;
 using s3::base::xml;
 using s3::crypto::buffer;
 using s3::crypto::passwords;
+using s3::fs::bucket_volume_key;
 using s3::fs::encryption;
 using s3::services::service;
 
@@ -160,19 +162,19 @@ int main(int argc, char **argv)
       throw runtime_error("encryption not enabled in config file");
 
     if (delete_key) {
-      if (!encryption::is_volume_key_present_in_bucket())
+      if (!bucket_volume_key::is_present())
         throw runtime_error("bucket does not contain a volume key");
 
       confirm_key_delete();
 
       cout << "Deleting key..." << endl;
-      encryption::delete_volume_key_from_bucket();
+      bucket_volume_key::remove();
 
       cout << "Done." << endl;
       return 0;
     }
 
-    if (encryption::is_volume_key_present_in_bucket()) {
+    if (bucket_volume_key::is_present()) {
       buffer::ptr current_password_key, new_password_key;
 
       cout << 
@@ -187,7 +189,7 @@ int main(int argc, char **argv)
       new_password_key = get_new_password_key();
 
       cout << "Changing key..." << endl;
-      encryption::reencrypt_volume_key_in_bucket(current_password_key, new_password_key);
+      bucket_volume_key::reencrypt(current_password_key, new_password_key);
 
       cout << "Done." << endl;
       return 0;
@@ -202,7 +204,7 @@ int main(int argc, char **argv)
       new_password_key = get_new_password_key();
 
       cout << "Generating volume key..." << endl;
-      encryption::write_new_volume_key_to_bucket(new_password_key);
+      bucket_volume_key::write(new_password_key);
 
       cout << "Done." << endl;
       return 0;

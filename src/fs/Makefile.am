@@ -8,6 +8,8 @@ endif
 noinst_LIBRARIES = libs3fuse_fs.a
 
 libs3fuse_fs_a_SOURCES = \
+	bucket_volume_key.cc \
+	bucket_volume_key.h \
 	cache.cc \
 	cache.h \
 	callback_xattr.cc \
