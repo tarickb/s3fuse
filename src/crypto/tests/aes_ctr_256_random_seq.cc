@@ -1,14 +1,12 @@
 #include <gtest/gtest.h>
 
 #include "crypto/aes_ctr_256.h"
-#include "crypto/cipher.h"
 #include "crypto/symmetric_key.h"
 #include "crypto/tests/random.h"
 
 using std::vector;
 
 using s3::crypto::aes_ctr_256;
-using s3::crypto::cipher;
 using s3::crypto::symmetric_key;
 using s3::crypto::tests::random;
 

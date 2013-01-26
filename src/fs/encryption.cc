@@ -21,39 +21,26 @@
 
 #include "base/config.h"
 #include "base/logger.h"
-#include "base/request.h"
 #include "crypto/aes_cbc_256.h"
 #include "crypto/buffer.h"
-#include "crypto/cipher.h"
 #include "crypto/passwords.h"
 #include "crypto/pbkdf2_sha1.h"
 #include "crypto/private_file.h"
-#include "crypto/symmetric_key.h"
 #include "fs/bucket_volume_key.h"
 #include "fs/encryption.h"
-#include "fs/object.h"
-#include "services/service.h"
 
 using std::ifstream;
 using std::runtime_error;
 using std::string;
 
 using s3::base::config;
-using s3::base::http_method;
-using s3::base::request;
 using s3::crypto::aes_cbc_256;
-using s3::crypto::aes_cbc_256_with_pkcs;
 using s3::crypto::buffer;
-using s3::crypto::cipher;
-using s3::crypto::hex;
 using s3::crypto::passwords;
 using s3::crypto::pbkdf2_sha1;
 using s3::crypto::private_file;
-using s3::crypto::symmetric_key;
 using s3::fs::bucket_volume_key;
 using s3::fs::encryption;
-using s3::fs::object;
-using s3::services::service;
 
 namespace
 {

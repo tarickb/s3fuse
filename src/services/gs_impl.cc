@@ -19,7 +19,6 @@
  * limitations under the License.
  */
 
-#include <boost/bind.hpp>
 #include <boost/detail/atomic_count.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
@@ -31,7 +30,6 @@
 #include "crypto/private_file.h"
 #include "services/gs_impl.h"
 
-using boost::bind;
 using boost::mutex;
 using boost::detail::atomic_count;
 using boost::property_tree::ptree;

@@ -20,7 +20,6 @@
  */
 
 #include <list>
-#include <boost/lexical_cast.hpp>
 
 #include "base/logger.h"
 #include "base/statistics.h"
@@ -30,7 +29,6 @@
 #include "threads/worker.h"
 
 using boost::bind;
-using boost::lexical_cast;
 using boost::scoped_ptr;
 using boost::thread;
 using std::string;

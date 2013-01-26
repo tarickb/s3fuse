@@ -1,15 +1,11 @@
 #include <gtest/gtest.h>
 
 #include "crypto/aes_ctr_256.h"
-#include "crypto/cipher.h"
-#include "crypto/hex.h"
 #include "crypto/symmetric_key.h"
 
 using std::runtime_error;
 
 using s3::crypto::aes_ctr_256;
-using s3::crypto::cipher;
-using s3::crypto::hex;
 using s3::crypto::symmetric_key;
 
 TEST(aes_ctr_256, invalid_iv_len)

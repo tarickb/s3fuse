@@ -20,7 +20,6 @@
  */
 
 #include <vector>
-#include <boost/bind.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 
@@ -34,7 +33,6 @@
 #include "crypto/private_file.h"
 #include "services/aws_impl.h"
 
-using boost::bind;
 using boost::is_any_of;
 using boost::token_compress_on;
 using std::ifstream;

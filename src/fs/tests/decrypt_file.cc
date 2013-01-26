@@ -9,7 +9,6 @@
 
 #include "crypto/aes_cbc_256.h"
 #include "crypto/aes_ctr_256.h"
-#include "crypto/base64.h"
 #include "crypto/cipher.h"
 #include "crypto/hash_list.h"
 #include "crypto/sha256.h"
@@ -23,7 +22,6 @@ using std::string;
 
 using s3::crypto::aes_cbc_256_with_pkcs;
 using s3::crypto::aes_ctr_256;
-using s3::crypto::base64;
 using s3::crypto::buffer;
 using s3::crypto::cipher;
 using s3::crypto::hash_list;
