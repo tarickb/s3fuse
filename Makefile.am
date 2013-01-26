@@ -1,6 +1,6 @@
 ACLOCAL_AMFLAGS = -I .
 
-SUBDIRS = man src
+SUBDIRS = src
 
 coverage-report:
 	@grep 'ac_cs_config=.*code-coverage' config.status 2>&1 >/dev/null \

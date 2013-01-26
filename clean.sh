@@ -5,7 +5,9 @@ if [ ! -d src ]; then
   exit 1
 fi
 
+
 for D in \
+  man \
   src \
   src/base \
   src/base/tests \
@@ -29,6 +31,9 @@ done
 
 rm -rf autom4te.cache
 rm -rf coverage-report 
+rm -rf osx-build
+rm -rf rpm-build
+rm -rf dmg-build
 
 find . -maxdepth 1 -type f -name \*.m4 ! -name boost.m4 | xargs rm -f
 
@@ -42,3 +47,4 @@ rm -f *.tar.gz
 rm -f libtool
 rm -f ltmain.sh
 rm -f *.info
+rm -f *.dmg
