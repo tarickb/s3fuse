@@ -35,8 +35,9 @@ using std::string;
 
 using s3::crypto::private_file;
 
-void private_file::open(const string &file, ofstream *f, open_mode mode)
+void private_file::open(const string &file_, ofstream *f, open_mode mode)
 {
+  string file = paths::transform(file_);
   ifstream test_open(file.c_str(), ios::in);
 
   if (test_open.good() && mode != OM_OVERWRITE)
@@ -55,7 +56,7 @@ void private_file::open(const string &file, ifstream *f)
 {
   struct stat s;
 
-  f->open(file.c_str(), ios::in);
+  f->open(paths::transform(file).c_str(), ios::in);
 
   if (!f->good())
     throw runtime_error("unable to open private file.");
