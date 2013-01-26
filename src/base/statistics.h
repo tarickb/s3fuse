@@ -32,6 +32,7 @@
 #include <boost/smart_ptr.hpp>
 #include <boost/thread.hpp>
 
+#include "base/paths.h"
 #include "base/static_list.h"
 
 namespace s3
@@ -59,7 +60,7 @@ namespace s3
       {
         boost::shared_ptr<std::ofstream> f(new std::ofstream());
 
-        f->open(output_file.c_str(), std::ofstream::trunc);
+        f->open(paths::transform(output_file).c_str(), std::ofstream::trunc);
 
         if (!f->good())
           throw std::runtime_error("cannot open statistics target file for write");
