@@ -144,7 +144,7 @@ void gs_impl::write_token(const string &file, const string &token)
 {
   ofstream f;
 
-  private_file::open(file, &f, private_file::OM_TRUNCATE);
+  private_file::open(file, &f, private_file::OM_OVERWRITE);
   f << token << endl;
 }
 

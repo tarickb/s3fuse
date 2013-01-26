@@ -35,7 +35,7 @@ namespace s3
       enum open_mode
       {
         OM_DEFAULT = 0,
-        OM_TRUNCATE
+        OM_OVERWRITE
       };
 
       static void open(const std::string &file, std::ifstream *f);

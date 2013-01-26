@@ -37,7 +37,12 @@ using s3::crypto::private_file;
 
 void private_file::open(const string &file, ofstream *f, open_mode mode)
 {
-  f->open(file.c_str(), ios::out | static_cast<ios::openmode>(mode == OM_TRUNCATE ? ios::trunc : 0));
+  ifstream test_open(file.c_str(), ios::in);
+
+  if (test_open.good() && mode != OM_OVERWRITE)
+    throw runtime_error("file already exists");
+
+  f->open(file.c_str(), ios::out | ios::trunc);
 
   if (!f->good())
     throw runtime_error("unable to open/create private file.");
