@@ -4,6 +4,12 @@ s3fuse (0.13) unstable; urgency=low
   * NEW: Glacier restore requests. See README.
   * NEW: Add least-recently-used eviction to object cache, controlled by the
     max_objects_in_cache configuration option.
+  * NEW: OS X binaries.
+  * IMPORTANT: Removed "auth_data" configuration option. For AWS, use
+    "aws_secret_file" instead. For Google Storage, use "gs_token_file".
+  * IMPORTANT: Search for configuration file in ~/.s3fuse/s3fuse.conf before
+    trying %sysconfdir/s3fuse.conf (this is usually /etc/s3fuse.conf or
+    /usr/local/s3fuse.conf).
   * Switched to SHA256 for file integrity check. File hash, if available, will 
     be in the "s3fuse_sha256" extended attribute.
   * Added standalone SHA256 hash generator ("s3fuse_sha256_hash") that uses the
@@ -18,7 +24,9 @@ s3fuse (0.13) unstable; urgency=low
   * Removed xattr_prefix configuration option and made "user." standard (Linux
     only).
   * Added event counters/statistics. Set "-o stats=/path/to/output.file".
+  * Made "noappledouble" and "daemon_timeout=3600" default options on OS X.
   * Various robustness fixes.
+  * Add manual pages.
 
  -- Tarick Bedeir <tarick@bedeir.com>  Sun, 20 Jan 2013 17:20:39 -0600
 
