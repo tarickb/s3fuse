@@ -155,7 +155,7 @@ gs_impl::gs_impl()
 
   _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
 
-  _refresh_token = gs_impl::read_token(config::get_auth_data());
+  _refresh_token = gs_impl::read_token(config::get_gs_token_file());
   refresh(lock);
 }
 

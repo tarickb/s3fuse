@@ -73,7 +73,7 @@ aws_impl::aws_impl()
   string line;
   vector<string> fields;
 
-  private_file::open(config::get_auth_data(), &f);
+  private_file::open(config::get_aws_secret_file(), &f);
   getline(f, line);
 
   split(fields, line, is_any_of(string(" \t")), token_compress_on);
@@ -82,7 +82,7 @@ aws_impl::aws_impl()
     S3_LOG(
       LOG_ERR, 
       "aws_impl::aws_impl", 
-      "expected 2 fields for auth_data, found %i.\n",
+      "expected 2 fields for aws_secret_file, found %i.\n",
       fields.size());
 
     throw runtime_error("error while parsing auth data for AWS.");
