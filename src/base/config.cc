@@ -100,8 +100,8 @@ namespace
   };
 }
 
-#define CONFIG(type, name, def) type config::s_ ## name = (def);
-#define CONFIG_REQUIRED(type, name, def) CONFIG(type, name, def)
+#define CONFIG(type, name, def, desc) type config::s_ ## name = (def);
+#define CONFIG_REQUIRED(type, name, def, desc) CONFIG(type, name, def, desc)
 #define CONFIG_CONSTRAINT(x, y)
 #define CONFIG_KEY(x)
 
@@ -162,7 +162,7 @@ void config::init(const string &file)
     key = line.substr(0, pos);
     value = line.substr(pos + 1);
 
-    #define CONFIG(type, name, def) \
+    #define CONFIG(type, name, def, desc) \
       if (key == #name) { \
         option_parser<type>::parse( \
           line_number, \
@@ -174,7 +174,7 @@ void config::init(const string &file)
         continue; \
       }
 
-    #define CONFIG_REQUIRED(type, name, def) CONFIG(type, name, def)
+    #define CONFIG_REQUIRED(type, name, def, desc) CONFIG(type, name, def, desc)
 
     #define CONFIG_CONSTRAINT(x, y)
     #define CONFIG_KEY(x)
@@ -190,9 +190,9 @@ void config::init(const string &file)
     throw runtime_error("malformed config file");
   }
 
-  #define CONFIG(type, name, def)
+  #define CONFIG(type, name, def, desc)
 
-  #define CONFIG_REQUIRED(type, name, def) \
+  #define CONFIG_REQUIRED(type, name, def, desc) \
     if (s_ ## name == (def)) { \
       S3_LOG(LOG_ERR, "config::init", "required key '%s' not defined.\n", #name); \
       throw runtime_error("malformed config file"); \

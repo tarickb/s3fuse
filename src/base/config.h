@@ -45,14 +45,14 @@ namespace s3
     public:
       static void init(const std::string &file = "");
 
-      #define CONFIG(type, name, def) \
+      #define CONFIG(type, name, def, desc) \
         private: \
           static type s_ ## name; \
         \
         public: \
           inline static const type & get_ ## name () { return s_ ## name; }
 
-      #define CONFIG_REQUIRED(type, name, def) CONFIG(type, name, def)
+      #define CONFIG_REQUIRED(type, name, def, desc) CONFIG(type, name, def, desc)
 
       #define CONFIG_CONSTRAINT(x, y)
       #define CONFIG_KEY(x)
