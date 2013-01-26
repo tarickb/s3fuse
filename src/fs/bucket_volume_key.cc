@@ -82,11 +82,11 @@ buffer::ptr bucket_volume_key::read(const buffer::ptr &key)
       symmetric_key::create(key, buffer::zero(key_cipher::IV_LEN)), 
       req->get_output_string());
   } catch (...) {
-    throw runtime_error("incorrect password.");
+    throw runtime_error("incorrect key.");
   }
 
   if (bucket_meta.substr(0, VOLUME_KEY_PREFIX.size()) != VOLUME_KEY_PREFIX)
-    throw runtime_error("incorrect password.");
+    throw runtime_error("incorrect key.");
 
   return buffer::from_string(bucket_meta.substr(VOLUME_KEY_PREFIX.size()));
 }
