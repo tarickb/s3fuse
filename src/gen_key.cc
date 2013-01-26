@@ -204,7 +204,7 @@ int main(int argc, char **argv)
       new_password_key = get_new_password_key();
 
       cout << "Generating volume key..." << endl;
-      bucket_volume_key::write(new_password_key);
+      bucket_volume_key::generate(new_password_key);
 
       cout << "Done." << endl;
       return 0;

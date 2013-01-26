@@ -12,7 +12,7 @@ namespace s3
 
       static boost::shared_ptr<crypto::buffer> read(const boost::shared_ptr<crypto::buffer> &key);
 
-      static void write(const boost::shared_ptr<crypto::buffer> &key);
+      static void generate(const boost::shared_ptr<crypto::buffer> &key);
       static void reencrypt(const boost::shared_ptr<crypto::buffer> &old_key, const boost::shared_ptr<crypto::buffer> &new_key);
       static void remove();
     };

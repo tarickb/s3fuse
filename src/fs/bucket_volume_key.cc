@@ -94,7 +94,7 @@ buffer::ptr bucket_volume_key::read(const buffer::ptr &key)
   return buffer::from_string(bucket_meta.substr(VOLUME_KEY_PREFIX.size()));
 }
 
-void bucket_volume_key::write(const buffer::ptr &key)
+void bucket_volume_key::generate(const buffer::ptr &key)
 {
   buffer::ptr volume_key;
   request::ptr req;
