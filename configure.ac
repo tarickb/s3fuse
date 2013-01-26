@@ -116,6 +116,7 @@ AC_FUNC_MALLOC
 AC_CHECK_FUNCS([ftruncate gettimeofday memset strchr strerror strstr strtol])
 
 AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([man/Makefile])
 AC_CONFIG_FILES([src/Makefile src/base/Makefile src/crypto/Makefile src/fs/Makefile src/services/Makefile src/threads/Makefile])
 AC_CONFIG_FILES([src/base/tests/Makefile src/crypto/tests/Makefile src/fs/tests/Makefile src/threads/tests/Makefile src/tests/Makefile])
 

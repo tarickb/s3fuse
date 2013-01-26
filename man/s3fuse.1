@@ -1,0 +1,85 @@
+.\" man page for s3fuse
+
+.TH S3FUSE 1 2013-01-26 "s3fuse 0.13" "s3fuse"
+
+.SH NAME
+\fBs3fuse\fR - FUSE driver for Amazon S3 buckets
+
+.SH SYNOPSIS
+.B  s3fuse
+.RB [ \-f "] [" "\-h | \-\-help" "] [" \-o
+.IR options ]
+.RB [ "\-v | \-\-verbose" "] [" "\-V | \-\-version" ]
+.I  mountpoint
+
+.SH DESCRIPTION
+\fBs3fuse\fR is a FUSE (Filesystem in Userspace) driver for Amazon S3 and 
+Google Storage buckets with support for multipart transfers, file integrity
+checks, transparent file encryption, and Glacier restores.
+
+.SH OPTIONS
+.TP
+.B -f
+Stay in the foreground -- don't daemonize/detach from the current session.
+
+.TP
+.B "-h | --help"
+Display a summary of command line options.
+
+.TP
+.B "-v | --verbose"
+Increase output verbosity. Can be repeated for more verbosity. Should be used 
+with \fB-f\fR.
+
+.TP
+.B "-V | --version"
+Print \fBs3fuse\fR version.
+
+.TP
+.BI -o " options"
+Pass a comma-separated list of options to FUSE. \fIoptions\fR can be 
+\fBs3fuse\fR-specific or generic FUSE options.  The \fBs3fuse\fR-specific 
+options are:
+
+.RS
+.TP
+.BI "config=" "file"
+Read configuration from \fIfile\fR rather than the default locations
+(~/.s3fuse/s3fuse.conf and /etc/s3fuse.conf).
+
+.TP
+.BI "stats=" "file"
+Write statistics on various operations and exceptions to \fIfile\fR.
+
+.RE
+.RS
+Some generic FUSE options that may be useful are:
+
+.TP
+.BI "allow_other"
+Allow users besides the one launching \fBs3fuse\fR to access the mounted file
+system.
+
+.TP
+.BI "allow_root"
+Allow root to access the mounted file system.
+
+.TP
+.BI "gid=" "group id"
+Set apparent group ID for all files in the mounted bucket to \fIgroup id\fR.
+
+.TP
+.BI "uid=" "user id"
+Set apparent user ID for all files in the mounted bucket to \fIuser id\fR.
+
+.RE
+
+.SH CONFIGURATION
+See \fBs3fuse.conf\fR(5).
+
+.SH AUTHORS
+Tarick Bedeir <tarick@bedeir.com>
+
+.SH SEE ALSO
+\fBs3fuse.conf\fR(5), \fBs3fuse_gs_get_token\fR(1), \fBs3fuse_sha256_sum\fR(1),
+\fBs3fuse_vol_key\fR(1)

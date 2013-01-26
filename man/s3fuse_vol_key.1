@@ -1,0 +1,109 @@
+.\" man page for s3fuse
+
+.TH S3FUSE_VOL_KEY 1 2013-01-26 "s3fuse 0.13" "s3fuse_vol_key"
+
+.SH NAME
+\fBs3fuse_vol_key\fR - Manage s3fuse volume keys
+
+.SH SYNOPSIS
+\fBs3fuse_vol_key\fR
+[\fB-c | --config-file\fR \fIpath\fR]
+[\fB-i | --in-key\fR \fIpath\fR]
+[\fB-o | --out-key\fR \fIpath\fR]
+\fIcommand\fR
+
+.SH DESCRIPTION
+\fBs3fuse_vol_key\fR manages volume keys used for \fBs3fuse\fR file encryption.
+Operations will take place on the bucket specified by the default configuration
+file (or the configuration file specified by \fB--config-file\fR) -- see
+\fBs3fuse.conf\fR(5).
+
+.SH COMMANDS
+.TP
+.B generate
+Generate a volume key. This key will be encrypted with a user-supplied 
+password (read from standard input).  If \fB--out-key\fR is specified, no
+password prompt will be presented, and the key will be stored in the path
+specified by \fIpath\fR (this key file can then be used to mount the 
+encrypted bucket without prompting for a password). This operation will fail if 
+the bucket already contains a volume key. The \fB--in-key\fR option is not 
+valid with this command.
+
+.TP
+.B change
+Change the password or key used to access the bucket. This does not change the
+underlying volume key; it only changes the key file or password used to unlock
+it. With no options, the user will be prompted for the current bucket password
+and a new bucket password. With both \fB--in-key\fR and \fB--out-key\fR
+specified, a new key file will be generated. If \fB--in-key\fR is specified but
+\fB--out-key\fR is not, the user will be prompted for a new password. This will
+become the new bucket password (i.e., key file access will no longer be
+possible). If \fB--out-key\fR is specified but \fB--in-key\fR is not, the user
+will be prompted for the current password but not a new password -- the bucket
+key will be written to \fIpath\fR, and the bucket switches from password-based
+access to key file access.
+
+.TP
+.B delete
+Delete the bucket volume key. This will render any encrypted objects in the
+bucket permanently inaccessible. The \fB--in-key\fR and \fB--out-key\fR
+options are not valid with this command.
+
+.SH OPTIONS
+.TP
+.BI "-c | --config-file " path
+Read configuration from \fIpath\fR rather than the default paths. This file is
+described in \fBs3fuse.conf\fR(5).
+
+.TP
+.BI "-i | --in-key " path
+Read volume key from \fIpath\fR instead of prompting for a password.
+
+.TP
+.BI "-o | --out-key " path
+Write volume key to \fIpath\fR instead of prompting for a password.
+
+.SH EXAMPLES
+Generating a new volume key, using password-prompt mode:
+
+.RS
+\fBs3fuse_vol_key\fR generate
+.RE
+
+Generating a new volume key, using key file access:
+
+.RS
+\fBs3fuse_vol_key\fR --out-key ~/.s3fuse/bucket-0.vk generate
+.RE
+
+Switching from password prompting to key files:
+
+.RS
+\fBs3fuse_vol_key\fR --out-key ~/.s3fuse/bucket-0.vk change
+.RE
+
+Switching from key files to password prompts:
+
+.RS
+\fBs3fuse_vol_key\fR --in-key ~/.s3fuse/bucket-0.vk change
+.RE
+
+Regenerating a key file:
+
+.RS
+mv ~/.s3fuse/bucket-0.vk ~/.s3fuse/bucket-0.vk.old # save a copy in case the change fails
+
+\fBs3fuse_vol_key\fR --in-key ~/.s3fuse/bucket-0.vk.old --out-key ~/.s3fuse/bucket-0.vk change
+.RE
+
+Changing passwords:
+
+.RS
+\fBs3fuse_vol_key\fR change
+.RE
+
+.SH AUTHORS
+Tarick Bedeir <tarick@bedeir.com>
+
+.SH SEE ALSO
+\fBs3fuse\fR(1), \fBs3fuse.conf\fR(5)
