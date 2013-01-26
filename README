@@ -36,7 +36,17 @@ Known Issues
 Configuration
 -------------
 
-Edit /etc/s3fuse.conf after installing.  The following keys must be defined:
+s3fuse looks for a configuration file in the following locations:
+
+  1. Whatever path is passed on the command line with "-o config=path", if any.
+
+  2. ~/.s3fuse/s3fuse.conf
+
+  3. $sysconfdir/s3fuse.conf, where $sysconfdir is the system configuration
+     path (such as /etc, /usr/local/etc, /opt/local/etc).
+
+Edit the template in $sysconfdir/s3fuse.conf after installing.  The following 
+keys must be defined:
 
   - service: This must be either "aws" or "google-storage".
   - bucket_name: This is the name of your S3 bucket.
@@ -92,39 +102,43 @@ s3fuse will fail to start if the token file is group- or world-readable or
 File Encryption
 ---------------
 
-s3fuse-0.13 adds early support for transparent file content encryption.
+s3fuse-0.13 adds early support for transparent file content encryption.  
+Enabling encryption requires two steps:
 
-Three configuration options are relevant:
+  1. Enable encryption in s3fuse.conf.
 
-  - use_encryption: Defaults to "false", set to "true" to enable encryption.
-  - encrypt_new_files: Defaults to "true", set to "false" to disable encryption
-    of newly-created files (i.e., allow decryption of existing, encrypted
-    files, but don't encrypt new files).
-  - volume_key_file: See below.
+  2. Generate a volume key.
 
-If "use_encryption" is set to "true", s3fuse will prompt for a password during
-initialization.  If "volume_key_file" is not empty, s3fuse will skip the 
-password prompt and read the volume key from the specified file.  The file 
-should contain a hex-encoded key 128, 192, or 256 bits long.  OpenSSL can be 
-used to generate the key.  For instance ("32" below refers to the key size in 
-bytes):
+The first step is easy -- add "use_encryption=yes" to s3fuse.conf.  The second
+step will differ depending on whether you want to be prompted for a volume 
+password every time you mount a bucket or if you want to store the key in a 
+file (thereby allowing unattended mounts).  This decision need not be permanent
+-- it is possible to change between modes after the volume key has been
+created (see s3fuse_vol_key(1)).
 
-  openssl rand -hex 32 > /home/user/.s3fuse/bucket.vk
+Using Passwords:
 
-Set the permissions on the key file such that only the owner can read/write
-(s3fuse will abort otherwise):
+  Generate a password-protected volume key using s3fuse_vol_key:
 
-  chmod 0600 /home/user/.s3fuse/bucket.vk
+    s3fuse_vol_key generate
+  
+  You will be prompted to enter a password for the new volume key.
 
-And set volume_key accordingly:
+Using Key Files:
 
-  volume_key_file=/home/user/.s3fuse/bucket.vk
+  Generate a volume key using s3fuse_vol_key, storing the key accessor in a
+  local file:
 
-s3fuse will not immediately report an error if the password or volume key 
-specified is not valid.  Instead, when accessing a file encrypted with a
-different password/volume key, operations will fail with -EACCES ("Access 
-denied").  The file can still be deleted or renamed (as these operations do 
-not read or modify the contents).
+    s3fuse_vol_key --out-key ~/.s3fuse/bucket-0.vk generate
+
+  Update s3fuse.conf to point to the key file:
+
+    volume_key_file=~/.s3fuse/bucket-0.vk
+
+Once encryption is enabled, all files created by s3fuse will encrypted.  To
+disable this behavior, set "encrypt_new_files=no" in s3fuse.conf.  Doing this
+will permit access to existing encrypted files, but new files will be 
+unencrypted.
 
 Note that only file contents are encrypted.  Names are not.  Object metadata 
 is not.  Symlink targets are not.  Directory contents are not.
@@ -156,10 +170,7 @@ fuse4x, which can be installed with MacPorts:
 
   sudo port install fuse4x
 
-Run s3fuse the same way you would on a Linux system.  Passing the 
-"noappledouble" option to FUSE is strongly suggested -- this will prevent
-MacOS (the Finder?) from trying to open or create .DS_Store files in every 
-directory you browse through.
+Run s3fuse the same way you would on a Linux system.
 
 OS X Precompiled Binaries
 -------------------------
@@ -179,7 +190,8 @@ Method 1: Default options, configuration in ~/.s3fuse/s3fuse.conf
   messages will be logged to syslog (in /var/log/system.log, by default) rather
   than to the console.
 
-Method 2: Command line, default configuration in /etc/s3fuse.conf
+Method 2: Command line, default configuration in ~/.s3fuse/s3fuse.conf or 
+/etc/s3fuse.conf
 
   s3fuse can be launched from the command line just as it would be if it were
   built from source.  In a Terminal window:
