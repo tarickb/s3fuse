@@ -84,7 +84,7 @@ Google Storage
 
 To use Google Storage with OAuth, run s3fuse_gs_get_token to obtain a token:
 
-  s3fuse_gs_get_token <path-to-token-file>
+  $ s3fuse_gs_get_token <path-to-token-file>
 
 This utility will generate a URL that must be copied and pasted into the 
 address bar of a browser.  You will then be asked to sign into your Google
@@ -120,7 +120,7 @@ Using Passwords:
 
   Generate a password-protected volume key using s3fuse_vol_key:
 
-    s3fuse_vol_key generate
+    $ s3fuse_vol_key generate
   
   You will be prompted to enter a password for the new volume key.
 
@@ -129,7 +129,7 @@ Using Key Files:
   Generate a volume key using s3fuse_vol_key, storing the key accessor in a
   local file:
 
-    s3fuse_vol_key --out-key ~/.s3fuse/bucket-0.vk generate
+    $ s3fuse_vol_key --out-key ~/.s3fuse/bucket-0.vk generate
 
   Update s3fuse.conf to point to the key file:
 
@@ -168,7 +168,7 @@ OS X
 Early OS X support is available as of s3fuse-0.12.  This support is built on
 fuse4x, which can be installed with MacPorts:
 
-  sudo port install fuse4x
+  $ sudo port install fuse4x
 
 Run s3fuse the same way you would on a Linux system.
 
@@ -179,7 +179,7 @@ As of s3fuse-0.13, precompiled binaries are available for OS X.  s3fuse can be
 installed in the usual manner (by dragging the app bundle into the Applications
 folder).  You can then run s3fuse one of two ways:
 
-Method 1: Default options, configuration in ~/.s3fuse/s3fuse.conf
+Method 1: Default options
 
   This is how s3fuse runs if you double-click the "s3fuse" icon.  Before 
   launching s3fuse, create a directory named ".s3fuse" in your home directory.
@@ -190,15 +190,14 @@ Method 1: Default options, configuration in ~/.s3fuse/s3fuse.conf
   messages will be logged to syslog (in /var/log/system.log, by default) rather
   than to the console.
 
-Method 2: Command line, default configuration in ~/.s3fuse/s3fuse.conf or 
-/etc/s3fuse.conf
+Method 2: Command line
 
-  s3fuse can be launched from the command line just as it would be if it were
+  s3fuse can be launched from the command line just as it could be if it were
   built from source.  In a Terminal window:
 
-  /Applications/s3fuse.app/Contents/Resources/bin/s3fuse [options] <mountpoint>
+  $ /Applications/s3fuse.app/Contents/Resources/bin/s3fuse [options] <mountpoint>
 
-  will launch s3fuse.  Command line options are described in "Running" below.
+  will launch s3fuse.  Command line options are described in s3fuse(1).
 
 The "easy" option, method 1, is very much a work in progress.
 
@@ -229,11 +228,11 @@ attribute to the number of days to retain the retrieved copy.  For instance,
 to restore "some_path/some_file" for four days, assuming the bucket is mounted 
 at /mnt, on OS X:
 
-  xattr -w s3fuse_request_restore 4 /mnt/some_path/some_file
+  $ xattr -w s3fuse_request_restore 4 /mnt/some_path/some_file
 
 And on Linux:
 
-  setfattr -n user.s3fuse_request_restore -v 4 /mnt/some_path/some_file
+  $ setfattr -n user.s3fuse_request_restore -v 4 /mnt/some_path/some_file
 
 The status of a pending restore operation can be checked using xattr/getfattr:
 
@@ -300,7 +299,7 @@ See s3fuse(1) or "s3fuse --help" for information on command-line options.
 Adding to fstab
 ---------------
 
-s3fuse can be launched by mount if an appropriate entry exists in /etc/fstab:
+s3fuse can be launched by mount(8) if an appropriate entry exists in /etc/fstab:
 
   s3fuse <mountpount> fuse defaults,noauto,user,allow_other 0 0
 
