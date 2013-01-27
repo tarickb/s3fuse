@@ -212,14 +212,14 @@ int main(int argc, char **argv)
   fuse_opt_parse(&args, &opts, NULL, process_argument);
 
   #if defined(__APPLE__) && defined(OSX_BUNDLE)
-    if (opts->mountpoint.empty() && argc == 1) {
-      opts->mountpoint = OSX_MOUNTPOINT_PREFIX + config::get_bucket_name();
+    if (opts.mountpoint.empty() && argc == 1) {
+      opts.mountpoint = OSX_MOUNTPOINT_PREFIX + config::get_bucket_name();
 
-      mkdir(opts->mountpoint.c_str(), 0777);
+      mkdir(opts.mountpoint.c_str(), 0777);
 
-      fuse_opt_add_arg(args, opts->mountpoint.c_str());
+      fuse_opt_add_arg(&args, opts.mountpoint.c_str());
     } else {
-      print_usage(opts->base_name);
+      print_usage(opts.base_name);
       return 1;
     }
   #else
