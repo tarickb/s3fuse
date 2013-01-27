@@ -8,9 +8,17 @@ dist_man1_MANS = \
 # (otherwise it won't pick up on changes to sysconfdir)
 nodist_man5_MANS = s3fuse.conf.5
 
+PDF_MANS = $(dist_man1_MANS) $(nodist_man5_MANS)
+PDFS = $(PDF_MANS:%=%.pdf)
+
 EXTRA_DIST = s3fuse.conf.5.sh
 
-CLEANFILES = s3fuse.conf.5
+CLEANFILES = $(nodist_man5_MANS) $(PDFS)
 
 s3fuse.conf.5: s3fuse.conf.5.sh ../src/base/config.inc
 	export SYSCONFDIR=$(sysconfdir); ./$^ > $@
+
+%.pdf: %
+	groff -mandoc $^ -t | pstopdf -i -o $@
+
+pdfs: $(PDFS)
