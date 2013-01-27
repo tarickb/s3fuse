@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#include <strings.h>
+
 #include <fstream>
 #include <stdexcept>
 #include <boost/lexical_cast.hpp>
