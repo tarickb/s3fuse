@@ -56,6 +56,7 @@ namespace s3
 
       #define CONFIG_CONSTRAINT(x, y)
       #define CONFIG_KEY(x)
+      #define CONFIG_SECTION(x)
 
       #include "base/config.inc"
 
@@ -63,6 +64,7 @@ namespace s3
       #undef CONFIG_REQUIRED
       #undef CONFIG_CONSTRAINT
       #undef CONFIG_KEY
+      #undef CONFIG_SECTION
     };
   }
 }

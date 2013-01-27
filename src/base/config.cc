@@ -103,6 +103,7 @@ namespace
 #define CONFIG_REQUIRED(type, name, def, desc) CONFIG(type, name, def, desc)
 #define CONFIG_CONSTRAINT(x, y)
 #define CONFIG_KEY(x)
+#define CONFIG_SECTION(x)
 
 #include "base/config.inc"
 
@@ -110,6 +111,7 @@ namespace
 #undef CONFIG_REQUIRED
 #undef CONFIG_CONSTRAINT
 #undef CONFIG_KEY
+#undef CONFIG_SECTION
 
 void config::init(const string &file)
 {
@@ -179,6 +181,7 @@ void config::init(const string &file)
 
     #define CONFIG_CONSTRAINT(x, y)
     #define CONFIG_KEY(x)
+    #define CONFIG_SECTION(x)
 
     #include "base/config.inc"
 
@@ -186,6 +189,7 @@ void config::init(const string &file)
     #undef CONFIG_REQUIRED
     #undef CONFIG_CONSTRAINT
     #undef CONFIG_KEY
+    #undef CONFIG_SECTION
 
     S3_LOG(LOG_ERR, "config::init", "error at line %i: unknown directive '%s'\n", line_number, key.c_str());
     throw runtime_error("malformed config file");
@@ -206,6 +210,7 @@ void config::init(const string &file)
     }
 
   #define CONFIG_KEY(key) s_ ## key
+  #define CONFIG_SECTION(x)
 
   #include "base/config.inc"
 
@@ -213,4 +218,5 @@ void config::init(const string &file)
   #undef CONFIG_REQUIRED
   #undef CONFIG_CONSTRAINT
   #undef CONFIG_KEY
+  #undef CONFIG_SECTION
 }
