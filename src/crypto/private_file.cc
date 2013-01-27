@@ -25,6 +25,7 @@
 
 #include <stdexcept>
 
+#include "base/paths.h"
 #include "crypto/private_file.h"
 
 using std::ifstream;
@@ -33,6 +34,7 @@ using std::ofstream;
 using std::runtime_error;
 using std::string;
 
+using s3::base::paths;
 using s3::crypto::private_file;
 
 void private_file::open(const string &file_, ofstream *f, open_mode mode)
@@ -52,11 +54,12 @@ void private_file::open(const string &file_, ofstream *f, open_mode mode)
     throw runtime_error("failed to set permissions on private file.");
 }
 
-void private_file::open(const string &file, ifstream *f)
+void private_file::open(const string &file_, ifstream *f)
 {
+  string file = paths::transform(file_);
   struct stat s;
 
-  f->open(paths::transform(file).c_str(), ios::in);
+  f->open(file.c_str(), ios::in);
 
   if (!f->good())
     throw runtime_error("unable to open private file.");
