@@ -62,7 +62,7 @@ namespace
     { "config-file", required_argument, NULL, 'c'  },
     { "in-key",      required_argument, NULL, 'i'  },
     { "out-key",     required_argument, NULL, 'o'  },
-    { NULL,          NULL,              NULL, NULL }};
+    { NULL,          0,                 NULL, '\0' } };
 }
 
 void init(const string &config_file)
