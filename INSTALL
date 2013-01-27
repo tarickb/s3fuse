@@ -16,26 +16,24 @@ Working Copies
 To build a working copy in the source directory:
 
   ./build.sh
+  make
 
 build.sh will invoke "autoreconf" to build the configure scripts, then call 
-"./configure", then call "make".
+"./configure".
 
 Debian Packages
 ---------------
 
-To build a Debian package (.deb):
+To build a Debian package (.deb), from the packages directory:
 
-  ./make-deb.sh <output-directory>
+  scripts/build-debian.sh <dist-tarball>
 
 RPMs
 ----
 
-To build an RPM:
+To build an RPM, from the packages directory:
 
-  ./make-rpm.sh <rpm-top-level-dir>
-
-The top-level directory should contain directories named RPMS, SRPMS, SOURCES, 
-SPECS, and BUILD.
+  scripts/build-redhat.sh <dist-tarball>
 
 Installing s3fuse
 =================
