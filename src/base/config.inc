@@ -42,6 +42,9 @@ CONFIG(std::string, volume_key_file, "", "name of file containing hex-encoded vo
 CONFIG_SECTION("Glacier");
 CONFIG(bool, allow_glacier_restores, false, "set to 'true'/'yes' to enable glacier object restores");
 
+CONFIG_SECTION("Statistics");
+CONFIG(std::string, stats_file, "", "write statistics on various operations and exceptions to specified file if set");
+
 CONFIG_SECTION("Default Object Attributes");
 CONFIG(int, default_uid, UID_MAX, "UID for files in S3 that don't have a UID set (defaults to process effective UID)");
 CONFIG(int, default_gid, GID_MAX, "GID for files in S3 that don't have a GID set (defaults to process effective GID)");

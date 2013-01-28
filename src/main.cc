@@ -62,7 +62,6 @@ namespace
     const char *base_name;
     string config;
     string mountpoint;
-    string stats;
     int verbosity;
 
     #ifdef __APPLE__
@@ -102,7 +101,6 @@ int print_usage(const char *base_name)
     "     allow_root          allow root to access the mounted file system\n"
     "     gid=<id>            force group ID for all files to <id>\n"
     "     config=<file>       use <file> rather than the default configuration file\n"
-    "     stats=<file>        write statistics to <file>\n"
     "     uid=<id>            force user ID for all files to <id>\n"
     "  -v, --verbose        enable logging to stderr (can be repeated for more verbosity)\n"
     "  -V, --version        print version and exit\n"
@@ -139,11 +137,6 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
 
   if (strstr(arg, "config=") == arg) {
     opts->config = arg + 7;
-    return 0;
-  }
-
-  if (strstr(arg, "stats=") == arg) {
-    opts->stats = arg + 6;
     return 0;
   }
 
@@ -233,8 +226,8 @@ int main(int argc, char **argv)
     logger::init(opts.verbosity);
     config::init(opts.config);
 
-    if (!opts.stats.empty())
-      statistics::init(opts.stats);
+    if (!config::get_stats_file().empty())
+      statistics::init(config::get_stats_file());
 
     service::init(config::get_service());
     xml::init(service::get_xml_namespace());
