@@ -40,6 +40,8 @@ using std::runtime_error;
 using std::string;
 using std::vector;
 
+using s3::base::char_vector;
+using s3::base::char_vector_ptr;
 using s3::base::request;
 using s3::base::statistics;
 using s3::crypto::aes_cbc_256_with_pkcs;
@@ -244,23 +246,23 @@ int encrypted_file::finalize_upload(const string &returned_etag)
   return 0;
 }
 
-int encrypted_file::read_chunk(size_t size, off_t offset, vector<char> *buffer)
+int encrypted_file::read_chunk(size_t size, off_t offset, const char_vector_ptr &buffer)
 {
-  vector<char> temp;
+  char_vector_ptr temp(new char_vector());
   int r;
 
-  r = file::read_chunk(size, offset, &temp);
+  r = file::read_chunk(size, offset, temp);
 
   if (r)
     return r;
 
-  buffer->resize(temp.size());
+  buffer->resize(temp->size());
 
   aes_ctr_256::encrypt_with_byte_offset(
     _data_key, 
     offset,
-    reinterpret_cast<const uint8_t *>(&temp[0]), 
-    temp.size(), 
+    reinterpret_cast<const uint8_t *>(&(*temp)[0]), 
+    temp->size(), 
     reinterpret_cast<uint8_t *>(&(*buffer)[0]));
 
   return 0;

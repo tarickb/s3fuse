@@ -63,6 +63,8 @@ namespace s3
     };
 
     typedef std::map<std::string, std::string> header_map;
+    typedef std::vector<char> char_vector;
+    typedef boost::shared_ptr<char_vector> char_vector_ptr;
 
     class request_hook;
 
@@ -111,16 +113,18 @@ namespace s3
       inline const header_map & get_headers() { return _headers; }
       inline void set_header(const std::string &name, const std::string &value) { _headers[name] = value; }
 
-      void set_input_buffer(const char *buffer, size_t size);
+      inline void set_input_buffer(const char_vector_ptr &buffer = char_vector_ptr())
+      {
+        _input_buffer = buffer;
+      }
 
-      inline void set_input_buffer(const std::string &buffer)
+      inline void set_input_buffer(const std::string &str)
       { 
-        // make a copy so that we're not holding a pointer to a parameter that
-        // was passed to us as a const reference -- that would not be cool
+        char_vector_ptr buffer(new char_vector(str.size()));
 
-        _input_string_copy = buffer;
+        str.copy(&(*buffer)[0], str.size());
 
-        set_input_buffer(_input_string_copy.c_str(), _input_string_copy.size());
+        set_input_buffer(buffer);
       }
 
       inline const std::vector<char> & get_output_buffer() { return _output_buffer; }
@@ -146,14 +150,25 @@ namespace s3
 
       bool check_timeout();
 
-      void use_fresh_connection();
+      // TODO: is this still necessary?
+      inline void use_fresh_connection()
+      {
+        _use_fresh_conn = true;
+      }
 
       void run(int timeout_in_s = DEFAULT_REQUEST_TIMEOUT);
 
     private:
-      static size_t process_header(char *data, size_t size, size_t items, void *context);
-      static size_t process_output(char *data, size_t size, size_t items, void *context);
-      static size_t process_input(char *data, size_t size, size_t items, void *context);
+      static size_t header_process(char *data, size_t size, size_t items, void *context);
+      static size_t output_write(char *data, size_t size, size_t items, void *context);
+      static size_t input_read(char *data, size_t size, size_t items, void *context);
+      static int input_seek(void *context, curl_off_t offset, int origin);
+
+      inline void rewind()
+      {
+        _input_pos = (_input_buffer ? &(*_input_buffer)[0] : NULL);
+        _input_remaining = (_input_buffer ? _input_buffer->size() : 0);
+      }
 
       // not reset by init()
       CURL *_curl;
@@ -173,7 +188,7 @@ namespace s3
       char _curl_error[CURL_ERROR_SIZE];
 
       std::string _method;
-      std::string _url;
+      std::string _url, _curl_url;
       header_map _response_headers;
 
       std::vector<char> _output_buffer;
@@ -183,9 +198,11 @@ namespace s3
 
       header_map _headers; // assumptions: no duplicates, all header names are always lower-case
 
-      const char *_input_buffer;
-      size_t _input_size;
-      std::string _input_string_copy;
+      bool _use_fresh_conn;
+
+      char_vector_ptr _input_buffer;
+      const char *_input_pos;
+      size_t _input_remaining;
     };
   }
 }

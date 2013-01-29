@@ -22,6 +22,7 @@
 #ifndef S3_FS_FILE_H
 #define S3_FS_FILE_H
 
+#include "base/request.h"
 #include "crypto/hash_list.h"
 #include "crypto/sha256.h"
 #include "fs/object.h"
@@ -74,7 +75,7 @@ namespace s3
       virtual int is_downloadable();
 
       virtual int write_chunk(const char *buffer, size_t size, off_t offset);
-      virtual int read_chunk(size_t size, off_t offset, std::vector<char> *buffer);
+      virtual int read_chunk(size_t size, off_t offset, const base::char_vector_ptr &buffer);
 
       virtual int prepare_download();
       virtual int finalize_download();

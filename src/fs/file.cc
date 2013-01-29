@@ -49,6 +49,8 @@ using std::runtime_error;
 using std::string;
 using std::vector;
 
+using s3::base::char_vector;
+using s3::base::char_vector_ptr;
 using s3::base::config;
 using s3::base::request;
 using s3::base::statistics;
@@ -394,7 +396,7 @@ int file::write_chunk(const char *buffer, size_t size, off_t offset)
   return 0;
 }
 
-int file::read_chunk(size_t size, off_t offset, vector<char> *buffer)
+int file::read_chunk(size_t size, off_t offset, const char_vector_ptr &buffer)
 {
   ssize_t r;
 
@@ -672,16 +674,16 @@ int file::finalize_upload(const string &returned_etag)
 int file::upload_single(const request::ptr &req, string *returned_etag)
 {
   int r = 0;
-  vector<char> buffer;
+  char_vector_ptr buffer(new char_vector());
   string expected_md5_b64, expected_md5_hex, etag;
   uint8_t read_hash[md5::HASH_LEN];
 
-  r = read_chunk(get_transfer_size(), 0, &buffer);
+  r = read_chunk(get_transfer_size(), 0, buffer);
 
   if (r)
     return r;
 
-  hash::compute<md5>(buffer, read_hash);
+  hash::compute<md5>(*buffer, read_hash);
 
   expected_md5_b64 = encoder::encode<base64>(read_hash, md5::HASH_LEN);
   expected_md5_hex = encoder::encode<hex_with_quotes>(read_hash, md5::HASH_LEN);
@@ -692,7 +694,7 @@ int file::upload_single(const request::ptr &req, string *returned_etag)
   set_request_headers(req);
 
   req->set_header("Content-MD5", expected_md5_b64);
-  req->set_input_buffer(&buffer[0], buffer.size());
+  req->set_input_buffer(buffer);
 
   req->run(config::get_transfer_timeout_in_s());
 
@@ -899,20 +901,20 @@ int file::upload_part(const request::ptr &req, const string &upload_id, transfer
 {
   int r = 0;
   long rc = 0;
-  vector<char> buffer;
+  char_vector_ptr buffer(new char_vector());
 
-  r = read_chunk(part->size, part->offset, &buffer);
+  r = read_chunk(part->size, part->offset, buffer);
 
   if (r)
     return r;
 
-  part->etag = hash::compute<md5, hex_with_quotes>(buffer);
+  part->etag = hash::compute<md5, hex_with_quotes>(*buffer);
 
   req->init(base::HTTP_PUT);
 
   // part numbers are 1-based
   req->set_url(get_url() + "?partNumber=" + lexical_cast<string>(part->id + 1) + "&uploadId=" + upload_id);
-  req->set_input_buffer(&buffer[0], buffer.size());
+  req->set_input_buffer(buffer);
 
   req->run(config::get_transfer_timeout_in_s());
   rc = req->get_response_code();

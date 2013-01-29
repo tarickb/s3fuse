@@ -34,6 +34,7 @@
 
 using boost::mutex;
 using boost::detail::atomic_count;
+using std::min;
 using std::ostream;
 using std::runtime_error;
 using std::setprecision;
@@ -102,100 +103,7 @@ namespace
   statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
-request::request()
-  : _hook(NULL),
-    _current_run_time(0.0),
-    _total_run_time(0.0),
-    _run_count(0),
-    _total_bytes_transferred(0),
-    _canceled(false),
-    _timeout(0)
-{
-  _curl = curl_easy_init();
-
-  if (!_curl)
-    throw runtime_error("curl_easy_init() failed.");
-
-  ssl_locks::init();
-
-  // stuff that's set in the ctor shouldn't be modified elsewhere, since the call to init() won't reset it
-
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_VERBOSE, config::get_verbose_requests()));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOPROGRESS, true));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_FOLLOWLOCATION, true));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_ERRORBUFFER, _curl_error));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_FILETIME, true));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOSIGNAL, true));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_HEADERFUNCTION, &request::process_header));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_HEADERDATA, this));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_WRITEFUNCTION, &request::process_output));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_WRITEDATA, this));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_READFUNCTION, &request::process_input));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_READDATA, this));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_FRESH_CONNECT, false));
-}
-
-request::~request()
-{
-  curl_easy_cleanup(_curl);
-
-  if (_total_bytes_transferred > 0) {
-    mutex::scoped_lock lock(s_stats_mutex);
-
-    s_run_count += _run_count;
-    s_run_time += _total_run_time;
-    s_total_bytes += _total_bytes_transferred;
-  }
-
-  ssl_locks::release();
-}
-
-void request::init(http_method method)
-{
-  if (_canceled)
-    throw runtime_error("cannot reuse a canceled request.");
-
-  _curl_error[0] = '\0';
-  _url.clear();
-  _output_buffer.clear();
-  _response_headers.clear();
-  _response_code = 0;
-  _last_modified = 0;
-  _headers.clear();
-
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_UPLOAD, false));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOBODY, false));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_POST, false));
-
-  if (method == HTTP_DELETE) {
-    _method = "DELETE";
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, "DELETE"));
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOBODY, true));
-
-  } else if (method == HTTP_GET) {
-    _method = "GET";
-
-  } else if (method == HTTP_HEAD) {
-    _method = "HEAD";
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOBODY, true));
-
-  } else if (method == HTTP_POST) {
-    _method = "POST";
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_POST, true));
-
-  } else if (method == HTTP_PUT) {
-    _method = "PUT";
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_UPLOAD, true));
-
-  } else
-    throw runtime_error("unsupported HTTP method.");
-
-  // set this last because it depends on the value of _method
-  set_input_buffer(NULL, 0);
-}
-
-size_t request::process_header(char *data, size_t size, size_t items, void *context)
+size_t request::header_process(char *data, size_t size, size_t items, void *context)
 {
   request *req = static_cast<request *>(context);
   char *pos;
@@ -234,7 +142,7 @@ size_t request::process_header(char *data, size_t size, size_t items, void *cont
   return size;
 }
 
-size_t request::process_output(char *data, size_t size, size_t items, void *context)
+size_t request::output_write(char *data, size_t size, size_t items, void *context)
 {
   request *req = static_cast<request *>(context);
   size_t old_size;
@@ -252,7 +160,7 @@ size_t request::process_output(char *data, size_t size, size_t items, void *cont
   return size;
 }
 
-size_t request::process_input(char *data, size_t size, size_t items, void *context)
+size_t request::input_read(char *data, size_t size, size_t items, void *context)
 {
   size_t remaining;
   request *req = static_cast<request *>(context);
@@ -262,40 +170,136 @@ size_t request::process_input(char *data, size_t size, size_t items, void *conte
   if (req->_canceled)
     return 0; // abort!
 
-  remaining = (size > req->_input_size) ? req->_input_size : size;
+  remaining = min(req->_input_remaining, size);
 
-  memcpy(data, req->_input_buffer, remaining);
+  memcpy(data, req->_input_pos, remaining);
   
-  req->_input_buffer += remaining;
-  req->_input_size -= remaining;
+  req->_input_pos += remaining;
+  req->_input_remaining -= remaining;
 
   return remaining;
 }
 
-void request::set_url(const string &url, const string &query_string)
+int request::input_seek(void *context, curl_off_t offset, int origin)
 {
-  string curl_url = _hook ? _hook->adjust_url(url) : url;
+  request *req = static_cast<request *>(context);
 
-  if (!query_string.empty()) {
-    curl_url += ((curl_url.find('?') == string::npos) ? "?" : "&");
-    curl_url += query_string;
-  }
+  S3_LOG(LOG_DEBUG, "request::input_seek", "seek to [%" CURL_FORMAT_CURL_OFF_T "] from [%i] for [%s]\n", offset, origin, req->_url.c_str());
 
-  _url = url;
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_URL, curl_url.c_str()));
+  if (origin != SEEK_SET || offset != 0)
+    return CURL_SEEKFUNC_FAIL;
+
+  req->rewind();
+
+  return CURL_SEEKFUNC_OK;
 }
 
-void request::set_input_buffer(const char *buffer, size_t size)
+request::request()
+  : _hook(NULL),
+    _current_run_time(0.0),
+    _total_run_time(0.0),
+    _run_count(0),
+    _total_bytes_transferred(0),
+    _canceled(false),
+    _timeout(0)
 {
-  _input_buffer = buffer;
-  _input_size = size;
+  _curl = curl_easy_init();
 
-  if (_method == "PUT")
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(size)));
-  else if (_method == "POST")
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(size)));
-  else if (size)
-    throw runtime_error("can't set input data for non-POST/non-PUT request.");
+  if (!_curl)
+    throw runtime_error("curl_easy_init() failed.");
+
+  ssl_locks::init();
+
+  // stuff that's set in the ctor shouldn't be modified elsewhere, since the call to init() won't reset it
+
+  // TODO: restore the verbose flag
+  // TEST_OK(curl_easy_setopt(_curl, CURLOPT_VERBOSE, config::get_verbose_requests()));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOPROGRESS, true));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_FOLLOWLOCATION, true));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_ERRORBUFFER, _curl_error));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_FILETIME, true));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOSIGNAL, true));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_HEADERFUNCTION, &request::header_process));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_HEADERDATA, this));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_WRITEFUNCTION, &request::output_write));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_WRITEDATA, this));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_READFUNCTION, &request::input_read));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_READDATA, this));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_SEEKFUNCTION, &request::input_seek));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_SEEKDATA, this));
+}
+
+request::~request()
+{
+  curl_easy_cleanup(_curl);
+
+  if (_total_bytes_transferred > 0) {
+    mutex::scoped_lock lock(s_stats_mutex);
+
+    s_run_count += _run_count;
+    s_run_time += _total_run_time;
+    s_total_bytes += _total_bytes_transferred;
+  }
+
+  ssl_locks::release();
+}
+
+void request::init(http_method method)
+{
+  if (_canceled)
+    throw runtime_error("cannot reuse a canceled request.");
+
+  _curl_error[0] = '\0';
+  _url.clear();
+  _curl_url.clear();
+  _output_buffer.clear();
+  _response_headers.clear();
+  _response_code = 0;
+  _last_modified = 0;
+  _headers.clear();
+  _use_fresh_conn = false;
+  _input_buffer.reset();
+
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_VERBOSE, false));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_UPLOAD, false));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOBODY, false));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_POST, false));
+
+  if (method == HTTP_DELETE) {
+    _method = "DELETE";
+    TEST_OK(curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, "DELETE"));
+    TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOBODY, true));
+
+  } else if (method == HTTP_GET) {
+    _method = "GET";
+
+  } else if (method == HTTP_HEAD) {
+    _method = "HEAD";
+    TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOBODY, true));
+
+  } else if (method == HTTP_POST) {
+    _method = "POST";
+    TEST_OK(curl_easy_setopt(_curl, CURLOPT_VERBOSE, true));
+    TEST_OK(curl_easy_setopt(_curl, CURLOPT_POST, true));
+
+  } else if (method == HTTP_PUT) {
+    _method = "PUT";
+    TEST_OK(curl_easy_setopt(_curl, CURLOPT_UPLOAD, true));
+
+  } else
+    throw runtime_error("unsupported HTTP method.");
+}
+
+void request::set_url(const string &url, const string &query_string)
+{
+  _url = url;
+  _curl_url = _hook ? _hook->adjust_url(url) : url;
+
+  if (!query_string.empty()) {
+    _curl_url += ((_curl_url.find('?') == string::npos) ? "?" : "&");
+    _curl_url += query_string;
+  }
 }
 
 bool request::check_timeout()
@@ -308,11 +312,6 @@ bool request::check_timeout()
   }
 
   return false;
-}
-
-void request::use_fresh_connection()
-{
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_FRESH_CONNECT, true));
 }
 
 void request::run(int timeout_in_s)
@@ -332,6 +331,17 @@ void request::run(int timeout_in_s)
   if (_canceled)
     throw runtime_error("cannot reuse a canceled request.");
 
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_URL, _curl_url.c_str()));
+
+  if (_input_buffer) {
+    if (_method == "PUT")
+      TEST_OK(curl_easy_setopt(_curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(_input_buffer->size())));
+    else if (_method == "POST")
+      TEST_OK(curl_easy_setopt(_curl, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(_input_buffer->size())));
+    else if (!_input_buffer->empty())
+      throw runtime_error("can't set input data for non-POST/non-PUT request.");
+  }
+
   for (iter = 0; iter < config::get_max_transfer_retries(); iter++) {
     curl_slist_wrapper headers;
     uint64_t request_size = 0;
@@ -350,10 +360,12 @@ void request::run(int timeout_in_s)
     }
 
     TEST_OK(curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers.get()));
+    TEST_OK(curl_easy_setopt(_curl, CURLOPT_FRESH_CONNECT, _use_fresh_conn));
 
-    // we need _input_size before calling curl_easy_perform(), because the input-
-    // reading callbacks will wind _input_size down to zero as the input is read
-    request_size += _input_size;
+    if (_input_buffer)
+      request_size += _input_buffer->size();
+
+    rewind();
 
     _timeout = time(NULL) + ((timeout_in_s == DEFAULT_REQUEST_TIMEOUT) ? config::get_request_timeout_in_s() : timeout_in_s);
     r = curl_easy_perform(_curl);

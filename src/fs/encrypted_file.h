@@ -64,7 +64,7 @@ namespace s3
       virtual int prepare_upload();
       virtual int finalize_upload(const std::string &returned_etag);
 
-      virtual int read_chunk(size_t size, off_t offset, std::vector<char> *buffer);
+      virtual int read_chunk(size_t size, off_t offset, const base::char_vector_ptr &buffer);
       virtual int write_chunk(const char *buffer, size_t size, off_t offset);
 
     private:
