@@ -150,12 +150,6 @@ namespace s3
 
       bool check_timeout();
 
-      // TODO: is this still necessary?
-      inline void use_fresh_connection()
-      {
-        _use_fresh_conn = true;
-      }
-
       void run(int timeout_in_s = DEFAULT_REQUEST_TIMEOUT);
 
     private:
@@ -197,8 +191,6 @@ namespace s3
       time_t _last_modified;
 
       header_map _headers; // assumptions: no duplicates, all header names are always lower-case
-
-      bool _use_fresh_conn;
 
       char_vector_ptr _input_buffer;
       const char *_input_pos;

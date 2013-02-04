@@ -31,6 +31,7 @@
 #include "request_hook.h"
 #include "ssl_locks.h"
 #include "statistics.h"
+#include "timer.h"
 
 using boost::mutex;
 using boost::detail::atomic_count;
@@ -42,6 +43,7 @@ using std::string;
 
 using s3::base::request;
 using s3::base::statistics;
+using s3::base::timer;
 
 #define TEST_OK(x) do { if ((x) != CURLE_OK) throw runtime_error("call to " #x " failed."); } while (0)
 
@@ -78,7 +80,9 @@ namespace
   uint64_t s_run_count = 0;
   uint64_t s_total_bytes = 0;
   double s_run_time = 0.0;
-  atomic_count s_curl_failures(0), s_request_failures(0), s_timeouts(0), s_aborts(0), s_hook_retries(0);
+  atomic_count s_curl_failures(0), s_request_failures(0);
+  atomic_count s_timeouts(0), s_aborts(0), s_hook_retries(0);
+  atomic_count s_rewinds(0);
 
   mutex s_stats_mutex;
 
@@ -97,7 +101,8 @@ namespace
       "  request failures: " << s_request_failures << "\n"
       "  timeouts: " << s_timeouts << "\n"
       "  aborts: " << s_aborts << "\n"
-      "  hook retries: " << s_hook_retries << "\n";
+      "  hook retries: " << s_hook_retries << "\n"
+      "  rewinds: " << s_rewinds << "\n";
   }
 
   statistics::writers::entry s_writer(statistics_writer, 0);
@@ -190,6 +195,7 @@ int request::input_seek(void *context, curl_off_t offset, int origin)
     return CURL_SEEKFUNC_FAIL;
 
   req->rewind();
+  ++s_rewinds;
 
   return CURL_SEEKFUNC_OK;
 }
@@ -212,8 +218,7 @@ request::request()
 
   // stuff that's set in the ctor shouldn't be modified elsewhere, since the call to init() won't reset it
 
-  // TODO: restore the verbose flag
-  // TEST_OK(curl_easy_setopt(_curl, CURLOPT_VERBOSE, config::get_verbose_requests()));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_VERBOSE, config::get_verbose_requests()));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOPROGRESS, true));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_FOLLOWLOCATION, true));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_ERRORBUFFER, _curl_error));
@@ -257,10 +262,8 @@ void request::init(http_method method)
   _response_code = 0;
   _last_modified = 0;
   _headers.clear();
-  _use_fresh_conn = false;
   _input_buffer.reset();
 
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_VERBOSE, false));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_UPLOAD, false));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOBODY, false));
@@ -280,7 +283,6 @@ void request::init(http_method method)
 
   } else if (method == HTTP_POST) {
     _method = "POST";
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_VERBOSE, true));
     TEST_OK(curl_easy_setopt(_curl, CURLOPT_POST, true));
 
   } else if (method == HTTP_PUT) {
@@ -360,7 +362,6 @@ void request::run(int timeout_in_s)
     }
 
     TEST_OK(curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers.get()));
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_FRESH_CONNECT, _use_fresh_conn));
 
     if (_input_buffer)
       request_size += _input_buffer->size();
@@ -391,6 +392,8 @@ void request::run(int timeout_in_s)
     {
       ++s_curl_failures;
       S3_LOG(LOG_WARNING, "request::run", "got error [%s]. retrying.\n", _curl_error);
+      timer::sleep(1);
+
       continue;
     }
 
