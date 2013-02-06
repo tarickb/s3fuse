@@ -24,6 +24,7 @@
 
 #include <boost/smart_ptr.hpp>
 
+#include "base/request.h"
 #include "crypto/aes_cbc_256.h"
 
 namespace s3
@@ -40,13 +41,31 @@ namespace s3
     public:
       typedef crypto::aes_cbc_256_with_pkcs key_cipher;
 
-      static bool is_present();
+      typedef boost::shared_ptr<bucket_volume_key> ptr;
 
-      static boost::shared_ptr<crypto::buffer> read(const boost::shared_ptr<crypto::buffer> &key);
+      static ptr fetch(const base::request::ptr &req, const std::string &id);
+      static ptr generate(const base::request::ptr &req, const std::string &id);
+      static void get_keys(const base::request::ptr &req, std::vector<std::string> *keys);
 
-      static void generate(const boost::shared_ptr<crypto::buffer> &key);
-      static void reencrypt(const boost::shared_ptr<crypto::buffer> &old_key, const boost::shared_ptr<crypto::buffer> &new_key);
-      static void remove();
+      inline const boost::shared_ptr<crypto::buffer> & get_volume_key() { return _volume_key; }
+      inline const std::string & get_id() { return _id; }
+
+      void unlock(const boost::shared_ptr<crypto::buffer> &key);
+      void remove(const base::request::ptr &req);
+      void commit(const base::request::ptr &req, const boost::shared_ptr<crypto::buffer> &key);
+
+      ptr clone(const std::string &new_id);
+
+    private:
+      bucket_volume_key(const std::string &id);
+
+      inline bool is_present() { return !_encrypted_key.empty(); }
+
+      void download(const base::request::ptr &req);
+      void generate();
+
+      std::string _id, _encrypted_key;
+      boost::shared_ptr<crypto::buffer> _volume_key;
     };
   }
 }

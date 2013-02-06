@@ -21,24 +21,28 @@
 
 #include "base/config.h"
 #include "base/logger.h"
+#include "base/request.h"
 #include "crypto/buffer.h"
 #include "crypto/passwords.h"
 #include "crypto/pbkdf2_sha1.h"
 #include "crypto/private_file.h"
 #include "fs/bucket_volume_key.h"
 #include "fs/encryption.h"
+#include "services/service.h"
 
 using std::ifstream;
 using std::runtime_error;
 using std::string;
 
 using s3::base::config;
+using s3::base::request;
 using s3::crypto::buffer;
 using s3::crypto::passwords;
 using s3::crypto::pbkdf2_sha1;
 using s3::crypto::private_file;
 using s3::fs::bucket_volume_key;
 using s3::fs::encryption;
+using s3::services::service;
 
 namespace
 {
@@ -72,30 +76,39 @@ namespace
     return encryption::derive_key_from_password(password);
   }
 
-  buffer::ptr s_volume_key;
+  bucket_volume_key::ptr s_volume_key;
 }
 
 void encryption::init()
 {
   buffer::ptr password_key;
+  request::ptr req;
 
   if (!config::get_use_encryption())
     return;
 
-  if (!bucket_volume_key::is_present())
-    throw runtime_error("encryption enabled but bucket has no key. run s3fuse_vol_key.");
+  if (config::get_volume_key_id().empty())
+    throw runtime_error("volume key id must be set if encryption is enabled.");
+
+  req.reset(new request());
+  req->set_hook(service::get_request_hook());
+
+  s_volume_key = bucket_volume_key::fetch(req, config::get_volume_key_id());
+
+  if (!s_volume_key)
+    throw runtime_error("encryption enabled but specified volume key could not be found. check the configuration and/or run s3fuse_vol_key.");
 
   if (!config::get_volume_key_file().empty())
     password_key = init_from_file(config::get_volume_key_file());
   else
     password_key = init_from_password();
 
-  s_volume_key = bucket_volume_key::read(password_key);
+  s_volume_key->unlock(password_key);
 
   S3_LOG(
     LOG_DEBUG,
     "encryption::init",
-    "encryption enabled\n");
+    "encryption enabled with id [%s]\n", config::get_volume_key_id().c_str());
 }
 
 buffer::ptr encryption::get_volume_key()
@@ -103,7 +116,7 @@ buffer::ptr encryption::get_volume_key()
   if (!s_volume_key)
     throw runtime_error("volume key not available.");
 
-  return s_volume_key;
+  return s_volume_key->get_volume_key();
 }
 
 buffer::ptr encryption::derive_key_from_password(const string &password)

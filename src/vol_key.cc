@@ -43,9 +43,11 @@ using std::ifstream;
 using std::ofstream;
 using std::runtime_error;
 using std::string;
+using std::vector;
 
 using s3::base::config;
 using s3::base::logger;
+using s3::base::request;
 using s3::base::xml;
 using s3::crypto::buffer;
 using s3::crypto::passwords;
@@ -56,6 +58,8 @@ using s3::services::service;
 
 namespace
 {
+  typedef vector<string> string_vector;
+
   const char *SHORT_OPTIONS = ":c:i:o:";
 
   const option LONG_OPTIONS[] = {
@@ -63,6 +67,19 @@ namespace
     { "in-key",      required_argument, NULL, 'i'  },
     { "out-key",     required_argument, NULL, 'o'  },
     { NULL,          0,                 NULL, '\0' } };
+
+  request::ptr s_request;
+
+  const request::ptr & get_request()
+  {
+    if (!s_request) {
+      s_request.reset(new request());
+
+      s_request->set_hook(service::get_request_hook());
+    }
+
+    return s_request;
+  }
 }
 
 void init(const string &config_file)
@@ -86,12 +103,27 @@ string to_lower(string in)
   return out;
 }
 
-void confirm_key_delete()
+void confirm_key_delete(const string &key_id)
 {
   string line;
 
   cout <<
-    "You are going to delete the volume encryption key for bucket:\n"
+    "You are going to delete volume encryption key [" << key_id << "] "
+    "for bucket [" << config::get_bucket_name() << "]. Are you sure?\n"
+    "Enter \"yes\": ";
+
+  getline(cin, line);
+
+  if (to_lower(line) != "yes")
+    throw runtime_error("aborted");
+}
+
+void confirm_last_key_delete()
+{
+  string line;
+
+  cout <<
+    "You are going to delete the last remaining volume encryption key for bucket:\n"
     "  " << config::get_bucket_name() << "\n"
     "\n"
     "To confirm, enter the name of the bucket (case sensitive): ";
@@ -128,11 +160,11 @@ void confirm_key_delete()
     throw runtime_error("aborted");
 }
 
-buffer::ptr prompt_for_current_password()
+buffer::ptr prompt_for_current_password(const string &key_id)
 {
   string current_password;
 
-  current_password = passwords::read_from_stdin("Enter current bucket password: ");
+  current_password = passwords::read_from_stdin(string("Enter current password for [") + key_id + "]: ");
 
   if (current_password.empty())
     throw runtime_error("current password not specified");
@@ -140,16 +172,16 @@ buffer::ptr prompt_for_current_password()
   return encryption::derive_key_from_password(current_password);
 }
 
-buffer::ptr prompt_for_new_password()
+buffer::ptr prompt_for_new_password(const string &key_id)
 {
   string new_password, confirm;
 
-  new_password = passwords::read_from_stdin("Enter new bucket password: ");
+  new_password = passwords::read_from_stdin(string("Enter new password for [") + key_id + "]: ");
 
   if (new_password.empty())
     throw runtime_error("password cannot be empty");
 
-  confirm = passwords::read_from_stdin("Confirm new bucket password: ");
+  confirm = passwords::read_from_stdin(string("Confirm new password for [") + key_id + "]: ");
 
   if (confirm != new_password)
     throw runtime_error("passwords do not match");
@@ -184,74 +216,141 @@ buffer::ptr generate_and_write(const string &file)
   return key;
 }
 
-void generate_new_key(const string &config_file, const string &out_key_file)
+void list_keys(const string &config_file)
 {
-  buffer::ptr password_key;
+  string_vector keys;
 
   init(config_file);
 
-  if (bucket_volume_key::is_present())
-    throw runtime_error("bucket already contains a volume key");
+  bucket_volume_key::get_keys(get_request(), &keys);
+
+  if (keys.empty()) {
+    cout << "No keys found for bucket [" << config::get_bucket_name() << "]." << endl;
+    return;
+  }
+
+  cout << "Keys for bucket [" << config::get_bucket_name() << "]:" << endl;
+
+  for (string_vector::const_iterator itor = keys.begin(); itor != keys.end(); ++itor)
+    cout << "  " << *itor << endl;
+}
+
+void generate_new_key(const string &config_file, const string &key_id, const string &out_key_file)
+{
+  buffer::ptr password_key;
+  string_vector keys;
+  bucket_volume_key::ptr volume_key;
+
+  init(config_file);
+
+  bucket_volume_key::get_keys(get_request(), &keys);
+
+  if (!keys.empty())
+    throw runtime_error("bucket already contains one or more keys. clone an existing key.");
 
   cout <<
     "This bucket does not currently have an encryption key. We'll create one.\n"
     "\n";
 
   if (out_key_file.empty())
-    password_key = prompt_for_new_password();
+    password_key = prompt_for_new_password(key_id);
   else
     password_key = generate_and_write(out_key_file);
 
-  cout << "Generating volume key..." << endl;
-  bucket_volume_key::generate(password_key);
+  cout << "Generating volume key [" << key_id << "] for bucket [" << config::get_bucket_name() << "]..." << endl;
+
+  volume_key = bucket_volume_key::generate(get_request(), key_id);
+  volume_key->commit(get_request(), password_key);
 
   cout << "Done." << endl;
 }
 
-void reencrypt_key(const string &config_file, const string &in_key_file, const string &out_key_file)
+void clone_key(const string &config_file, const string &key_id, const string &in_key_file, const string &new_id, const string &out_key_file)
 {
   buffer::ptr current_key, new_key;
+  bucket_volume_key::ptr volume_key, new_volume_key;
 
   init(config_file);
 
-  if (!bucket_volume_key::is_present())
-    throw runtime_error("bucket does not contain a volume key");
+  volume_key = bucket_volume_key::fetch(get_request(), key_id);
+  new_volume_key = bucket_volume_key::fetch(get_request(), new_id);
 
-  cout << 
-    "Bucket already contains an encryption key.\n"
-    "\n"
-    "If you've forgotten the password for this bucket, or lost the local password\n"
-    "key, use the \"delete\" option to delete the volume key (and permanently lose\n"
-    "any files that are currently encrypted).\n"
-    "\n";
+  if (!volume_key)
+    throw runtime_error("specified key does not exist.");
+
+  if (new_volume_key)
+    throw runtime_error("a key already exists with that id. delete it first.");
 
   if (in_key_file.empty())
-    current_key = prompt_for_current_password();
+    current_key = prompt_for_current_password(key_id);
   else
     current_key = read_key_from_file(in_key_file);
 
+  volume_key->unlock(current_key);
+  new_volume_key = volume_key->clone(new_id);
+
   if (out_key_file.empty())
-    new_key = prompt_for_new_password();
+    new_key = prompt_for_new_password(new_id);
+  else
+    new_key = generate_and_write(out_key_file);
+
+  cout << "Cloning key..." << endl;
+  new_volume_key->commit(get_request(), new_key);
+
+  cout << "Done." << endl;
+}
+
+void reencrypt_key(const string &config_file, const string &key_id, const string &in_key_file, const string &out_key_file)
+{
+  buffer::ptr current_key, new_key;
+  bucket_volume_key::ptr volume_key;
+
+  init(config_file);
+
+  volume_key = bucket_volume_key::fetch(get_request(), key_id);
+
+  if (!volume_key)
+    throw runtime_error("specified key does not exist.");
+
+  if (in_key_file.empty())
+    current_key = prompt_for_current_password(key_id);
+  else
+    current_key = read_key_from_file(in_key_file);
+
+  volume_key->unlock(current_key);
+
+  if (out_key_file.empty())
+    new_key = prompt_for_new_password(key_id);
   else
     new_key = generate_and_write(out_key_file);
 
   cout << "Changing key..." << endl;
-  bucket_volume_key::reencrypt(current_key, new_key);
+  volume_key->commit(get_request(), new_key);
 
   cout << "Done." << endl;
 }
 
-void delete_key(const string &config_file)
+void delete_key(const string &config_file, const string &key_id)
 {
+  bucket_volume_key::ptr volume_key;
+  string_vector keys; 
+
   init(config_file);
 
-  if (!bucket_volume_key::is_present())
-    throw runtime_error("bucket does not contain a volume key");
+  volume_key = bucket_volume_key::fetch(get_request(), key_id);
 
-  confirm_key_delete();
+  if (!volume_key)
+    throw runtime_error("specified volume key does not exist");
+
+  bucket_volume_key::get_keys(get_request(), &keys);
+
+  if (keys.size() == 1)
+    confirm_last_key_delete();
+  else
+    confirm_key_delete(key_id);
 
   cout << "Deleting key..." << endl;
-  bucket_volume_key::remove();
+  volume_key->remove(get_request());
 
   cout << "Done." << endl;
 }
@@ -263,14 +362,16 @@ void print_usage(const char *arg0)
   base_name = base_name ? base_name + 1 : arg0;
 
   cerr << 
-    "Usage: " << base_name << " <command> [options]\n"
+    "Usage: " << base_name << " [options] <command> [...]\n"
     "\n"
     "Where <command> is one of:\n"
     "\n"
-    "  generate                  Generate a new volume key and write it to the bucket.\n"
-    "  change                    Change the password or key file used to access the\n"
+    "  list                      List all bucket keys.\n"
+    "  generate [key-id]         Generate a new volume key and write it to the bucket.\n"
+    "  change [key-id]           Change the password or key file used to access the\n"
     "                            volume key stored in the bucket.\n"
-    "  delete                    Erase the bucket volume key.\n"
+    "  clone [key-id] [new-id]   Make a copy of a key.\n"
+    "  delete [key-id]           Erase the specified volume key.\n"
     "\n"
     "[options] can be:\n"
     "\n"
@@ -289,9 +390,9 @@ void print_usage(const char *arg0)
 
 int main(int argc, char **argv)
 {
-  int opt = 0;
+  int opt = 0, ret = 0;
   string config_file, in_key_file, out_key_file;
-  string command;
+  string command, key_id, new_id;
 
   while ((opt = getopt_long(argc, argv, SHORT_OPTIONS, LONG_OPTIONS, NULL)) != -1) {
     switch (opt) {
@@ -312,34 +413,60 @@ int main(int argc, char **argv)
     }
   }
 
-  if (optind < argc)
-    command = argv[optind];
+  #define GET_NEXT_ARG(arg) do { if (optind < argc) { arg = argv[optind++]; } } while (0)
+
+  GET_NEXT_ARG(command);
+  GET_NEXT_ARG(key_id);
+  GET_NEXT_ARG(new_id);
 
   try {
-    if (command == "generate") {
+    if (command == "list") {
+      list_keys(config_file);
+
+    } else if (command == "generate") {
       if (!in_key_file.empty())
         print_usage(argv[0]);
 
-      generate_new_key(config_file, out_key_file);
+      if (key_id.empty())
+        throw runtime_error("need key id to generate a new key.");
+
+      generate_new_key(config_file, key_id, out_key_file);
+
+    } else if (command == "clone") {
+      if (key_id.empty())
+        throw runtime_error("need existing key id.");
+
+      if (new_id.empty())
+        throw runtime_error("need new key id.");
+
+      clone_key(config_file, key_id, in_key_file, new_id, out_key_file);
 
     } else if (command == "change") {
-      reencrypt_key(config_file, in_key_file, out_key_file);
+      if (key_id.empty())
+        throw runtime_error("need key id.");
+
+      reencrypt_key(config_file, key_id, in_key_file, out_key_file);
 
     } else if (command == "delete") {
       if (!in_key_file.empty() || !out_key_file.empty())
         print_usage(argv[0]);
 
-      delete_key(config_file);
+      if (key_id.empty())
+        throw runtime_error("specify which key id to delete.");
+
+      delete_key(config_file, key_id);
 
     } else {
       print_usage(argv[0]);
     }
 
-    return 0;
-
   } catch (const std::exception &e) {
     cout << "Caught exception: " << e.what() << endl;
+    ret = 1;
   }
 
-  return 1;
+  // do this here because request's dtor has dependencies on other static variables
+  s_request.reset();
+
+  return ret;
 }
