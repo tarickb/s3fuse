@@ -88,9 +88,6 @@ void init(const string &config_file)
   config::init(config_file);
   service::init(config::get_service());
   xml::init(service::get_xml_namespace());
-
-  if (!config::get_use_encryption())
-    throw runtime_error("encryption not enabled in config file");
 }
 
 string to_lower(string in)
