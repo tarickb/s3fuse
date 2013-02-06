@@ -335,14 +335,12 @@ void request::run(int timeout_in_s)
 
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_URL, _curl_url.c_str()));
 
-  if (_input_buffer) {
-    if (_method == "PUT")
-      TEST_OK(curl_easy_setopt(_curl, CURLOPT_INFILESIZE_LARGE, static_cast<curl_off_t>(_input_buffer->size())));
-    else if (_method == "POST")
-      TEST_OK(curl_easy_setopt(_curl, CURLOPT_POSTFIELDSIZE_LARGE, static_cast<curl_off_t>(_input_buffer->size())));
-    else if (!_input_buffer->empty())
-      throw runtime_error("can't set input data for non-POST/non-PUT request.");
-  }
+  if (_method == "PUT")
+    TEST_OK(curl_easy_setopt(_curl, CURLOPT_INFILESIZE_LARGE, _input_buffer ? static_cast<curl_off_t>(_input_buffer->size()) : 0));
+  else if (_method == "POST")
+    TEST_OK(curl_easy_setopt(_curl, CURLOPT_POSTFIELDSIZE_LARGE, _input_buffer ? static_cast<curl_off_t>(_input_buffer->size()) : 0));
+  else if (_input_buffer && !_input_buffer->empty())
+    throw runtime_error("can't set input data for non-POST/non-PUT request.");
 
   for (iter = 0; iter < config::get_max_transfer_retries(); iter++) {
     curl_slist_wrapper headers;
