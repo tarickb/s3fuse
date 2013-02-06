@@ -102,50 +102,99 @@ s3fuse will fail to start if the token file is group- or world-readable or
 File Encryption
 ---------------
 
-s3fuse-0.13 adds early support for transparent file content encryption.  
-Enabling encryption requires two steps:
+s3fuse-0.13 adds early support for transparent file content encryption, with 
+access controlled by passwords, local key files, or a combination of both.
 
-  1. Enable encryption in s3fuse.conf.
+Before enabling encryption in s3fuse, consider the following:
 
-  2. Generate a volume key.
+  - If you forget your password or lose your key file, you will lose access
+    to your encrypted files.  There is no recovery mechanism.
 
-The first step is easy -- add "use_encryption=yes" to s3fuse.conf.  The second
-step will differ depending on whether you want to be prompted for a volume 
-password every time you mount a bucket or if you want to store the key in a 
-file (thereby allowing unattended mounts).  This decision need not be permanent
--- it is possible to change between modes after the volume key has been
-created (see s3fuse_vol_key(1)).
+  - Using s3fuse encryption will break compatibility with other S3 tools.  
+    Files will remain visible to other applications, but their contents will
+    be, unsurprisingly, encrypted.
 
-Using Passwords:
+  - Once encryption is enabled, all files created by s3fuse will encrypted.  To
+    disable this behavior, set "encrypt_new_files=no" in s3fuse.conf.  Doing
+    this will permit access to existing encrypted files, but new files will be
+    unencrypted.
 
-  Generate a password-protected volume key using s3fuse_vol_key:
+  - Only file contents are encrypted.  Names are not.  Object metadata is not.  
+    Symlink targets are not.  Directory contents are not.
 
-    $ s3fuse_vol_key generate
-  
-  You will be prompted to enter a password for the new volume key.
+  - s3fuse encrypts contents during upload and decrypts during download.  The 
+    locally-cached copy of an open file (which is generally kept in /tmp) 
+    remains unencrypted.
 
-Using Key Files:
+Setting Up File Encryption
+--------------------------
 
-  Generate a volume key using s3fuse_vol_key, storing the key accessor in a
-  local file:
+Step 1: Get basic s3fuse functionality working
 
-    $ s3fuse_vol_key --out-key ~/.s3fuse/bucket-0.vk generate
+  Edit s3fuse.conf to set the name of your bucket, endpoint details, etc. and
+  verify that you can mount your bucket.
 
-  Update s3fuse.conf to point to the key file:
+Step 2: Passwords vs. key files
 
+  Decide how you want to secure access to the bucket.  If you use passwords,
+  you will have to enter the password you choose every time you mount the 
+  bucket.  If you use key files, you can mount the bucket unattended, but 
+  anyone who gains access to your key file will also be able to decrypt your
+  files.  It is possible, by creating multiple keys, to use both passwords
+  and key files, or to use several passwords, or several key files, etc.  This
+  permits the use of the same bucket, for instance, by multiple users or on
+  multiple machines.
+
+  Note that this decision need not be permanent -- it is possible to change 
+  between modes after the volume key has been created (see s3fuse_vol_key(1)).
+
+  Each key is uniquely identified by a key ID which you will specify when you
+  create a key in step 3.
+
+Step 3: Generate a key
+
+  Using s3fuse_vol_key, generate a new key for your bucket:
+
+  $ s3fuse_vol_key generate my_password_key_id
+
+  You will be prompted for a password, and then prompted to confirm your 
+  password.  If instead of passwords you want to use key files:
+
+  $ s3fuse_vol_key --out-key ~/.s3fuse/bucket-0.vk generate my_key_file_id
+
+  (If your bucket already contains a key, this step will fail.)
+
+Step 4: Enable encryption in s3fuse.conf
+
+  Edit s3fuse.conf to add the following lines:
+
+    use_encryption=yes
+    volume_key_id=my_new_key_id
+
+  (where "my_new_key_id" is the key ID used in step 2).
+
+  If you're using key files, you'll have to specify the location of your key:
+
+    use_encryption=yes
+    volume_key_id=my_key_file_id
     volume_key_file=~/.s3fuse/bucket-0.vk
 
-Once encryption is enabled, all files created by s3fuse will encrypted.  To
-disable this behavior, set "encrypt_new_files=no" in s3fuse.conf.  Doing this
-will permit access to existing encrypted files, but new files will be 
-unencrypted.
+Step 5: Mount the bucket
 
-Note that only file contents are encrypted.  Names are not.  Object metadata 
-is not.  Symlink targets are not.  Directory contents are not.
+  If "volume_key_file" is not set in s3fuse.conf, s3fuse will prompt for a 
+  password when mounting the bucket.  During the mount process, It verifies 
+  that the password (or key contained in the specified key file) is valid.
 
-Also note that s3fuse encrypts contents during upload and decrypts during 
-download.  The locally-cached copy of an open file (which is generally kept in 
-/tmp) remains unencrypted.
+Step 6: Add other keys (optional)
+
+  If you'd like to add other passwords or key files, clone the existing key
+  with s3fuse_vol_key:
+
+  $ s3fuse_vol_key clone my_new_key_id my_second_key_id
+
+  (where "my_new_key_id" is the key ID used in step 2).
+
+  Be sure to adjust s3fuse.conf to use the second key ID.
 
 File Encryption Details
 -----------------------

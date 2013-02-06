@@ -19,34 +19,46 @@ file (or the configuration file specified by \fB--config-file\fR) -- see
 
 .SH COMMANDS
 .TP
-.B generate
-Generate a volume key. This key will be encrypted with a user-supplied 
-password (read from standard input).  If \fB--out-key\fR is specified, no
-password prompt will be presented, and the key will be stored in the path
-specified by \fIpath\fR (this key file can then be used to mount the 
-encrypted bucket without prompting for a password). This operation will fail if 
-the bucket already contains a volume key. The \fB--in-key\fR option is not 
-valid with this command.
+.B list
+List all bucket volume keys.
 
 .TP
-.B change
-Change the password or key used to access the bucket. This does not change the
-underlying volume key; it only changes the key file or password used to unlock
-it. With no options, the user will be prompted for the current bucket password
-and a new bucket password. With both \fB--in-key\fR and \fB--out-key\fR
-specified, a new key file will be generated. If \fB--in-key\fR is specified but
-\fB--out-key\fR is not, the user will be prompted for a new password. This will
-become the new bucket password (i.e., key file access will no longer be
-possible). If \fB--out-key\fR is specified but \fB--in-key\fR is not, the user
-will be prompted for the current password but not a new password -- the bucket
-key will be written to \fIpath\fR, and the bucket switches from password-based
+.BI "generate " "key-id"
+Generate a volume key with the specified key identifier. This key will be
+encrypted with a user-supplied password (read from standard input).  If
+\fB--out-key\fR is specified, no password prompt will be presented, and the key
+will be stored in the path specified by \fIpath\fR (this key file can then be
+used to mount the encrypted bucket without prompting for a password). This
+operation will fail if the bucket contains any volume keys. The \fB--in-key\fR
+option is not valid with this command.
+
+.TP
+\fBclone\fR \fIcurrent-key-id\fR \fInew-key-id\fR
+Copy \fIcurrent-key-id\fR to \fInew-key-id\fR. This permits access to encrypted
+files in the bucket with more than one key. If \fIcurrent-key-id\fR is a file-
+based key, \fB--in-key\fR must be specified. Otherwise, the user will be 
+prompted for a password. The newly-generated key for \fInew-key-id\fR will be 
+stored in a file if \fB--out-key\fR is specified.
+
+.TP
+.BI "change " "key-id"
+Change the password or file key used to access the specified volume key. This
+does not change the underlying volume key; it only changes the key file or
+password used to unlock it. With no options, the user will be prompted for the
+current key password and a new key password. With both \fB--in-key\fR and
+\fB--out-key\fR specified, a new key file will be generated. If \fB--in-key\fR
+is specified but \fB--out-key\fR is not, the user will be prompted for a new
+password. This will become the new key password (i.e., key file access will no
+longer be possible). If \fB--out-key\fR is specified but \fB--in-key\fR is not,
+the user will be prompted for the current password but not a new password --
+the key will be written to \fIpath\fR, and the key switches from password-based
 access to key file access.
 
 .TP
-.B delete
-Delete the bucket volume key. This will render any encrypted objects in the
-bucket permanently inaccessible. The \fB--in-key\fR and \fB--out-key\fR
-options are not valid with this command.
+.BI "delete " "key-id"
+Delete the specified volume key. If \fIkey-id\fR refers to the last key, any
+encrypted objects in the bucket will become permanently inaccessible. The
+\fB--in-key\fR and \fB--out-key\fR options are not valid with this command.
 
 .SH OPTIONS
 .TP
@@ -66,39 +78,51 @@ Write volume key to \fIpath\fR instead of prompting for a password.
 Generating a new volume key, using password-prompt mode:
 
 .RS
-\fBs3fuse_vol_key\fR generate
+\fBs3fuse_vol_key\fR generate main_key
 .RE
 
 Generating a new volume key, using key file access:
 
 .RS
-\fBs3fuse_vol_key\fR --out-key ~/.s3fuse/bucket-0.vk generate
+\fBs3fuse_vol_key\fR --out-key ~/.s3fuse/bucket-0.vk generate main_key
 .RE
 
-Switching from password prompting to key files:
+Switching "main_key" from password prompting to key files:
 
 .RS
-\fBs3fuse_vol_key\fR --out-key ~/.s3fuse/bucket-0.vk change
+\fBs3fuse_vol_key\fR --out-key ~/.s3fuse/bucket-0.vk change main_key
 .RE
 
-Switching from key files to password prompts:
+Switching "main_key" from key files to password prompts:
 
 .RS
-\fBs3fuse_vol_key\fR --in-key ~/.s3fuse/bucket-0.vk change
+\fBs3fuse_vol_key\fR --in-key ~/.s3fuse/bucket-0.vk change main_key
 .RE
 
-Regenerating a key file:
+Regenerating a key file for "main_key":
 
 .RS
 mv ~/.s3fuse/bucket-0.vk ~/.s3fuse/bucket-0.vk.old # save a copy in case the change fails
 
-\fBs3fuse_vol_key\fR --in-key ~/.s3fuse/bucket-0.vk.old --out-key ~/.s3fuse/bucket-0.vk change
+\fBs3fuse_vol_key\fR --in-key ~/.s3fuse/bucket-0.vk.old --out-key ~/.s3fuse/bucket-0.vk change main_key
 .RE
 
-Changing passwords:
+Changing passwords for "main_key":
 
 .RS
-\fBs3fuse_vol_key\fR change
+\fBs3fuse_vol_key\fR change main_key
+.RE
+
+Granting access with a second password-based key:
+
+.RS
+\fBs3fuse_vol_key\fR clone main_key new_pw_key
+.RE
+
+Granting access with a file-based key:
+
+.RS
+\fBs3fuse_vol_key\fR --out-key ~/.s3fuse/bucket-0-new.vk clone main_key new_file_key
 .RE
 
 .SH AUTHORS
