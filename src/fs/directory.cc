@@ -44,6 +44,7 @@ using s3::base::config;
 using s3::base::request;
 using s3::base::statistics;
 using s3::base::xml;
+using s3::fs::cache;
 using s3::fs::directory;
 using s3::fs::object;
 using s3::services::service;
@@ -83,6 +84,16 @@ namespace
       return r;
 
     *truncated = (temp == "true");
+    return 0;
+  }
+
+  int precache_object(const request::ptr &req, const string &path, int hints)
+  {
+    // we need to wrap cache::get because it doesn't return anything, and the
+    // thread pool expects a function that returns an int
+
+    cache::get(req, path, hints);
+
     return 0;
   }
 
@@ -221,6 +232,9 @@ int directory::read(const request::ptr &req, const filler_function &filler)
 
       filler(relative_path);
 
+      if (config::get_precache_on_readdir())
+        pool::call_async(threads::PR_REQ_1, bind(precache_object, _1, path + relative_path, HINT_IS_DIR));
+
       if (cache)
         cache->push_back(relative_path);
     }
@@ -235,6 +249,9 @@ int directory::read(const request::ptr &req, const filler_function &filler)
         }
 
         filler(relative_path);
+
+        if (config::get_precache_on_readdir())
+          pool::call_async(threads::PR_REQ_1, bind(precache_object, _1, path + relative_path, HINT_IS_FILE));
 
         if (cache)
           cache->push_back(relative_path);

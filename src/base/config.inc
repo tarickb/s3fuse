@@ -55,6 +55,7 @@ CONFIG_SECTION("Cache Parameters");
 CONFIG(int, cache_expiry_in_s, 3 * 60, "time in seconds before objects in stats cache expire");
 CONFIG(bool, cache_directories, false, "cache directory listings ('true'/'yes' or 'false'/'no')");
 CONFIG(int, max_objects_in_cache, 1000, "maximum number of objects to hold in cache");
+CONFIG(bool, precache_on_readdir, false, "precache object attributes when listing directory contents (improves performance in interactive use)");
 CONFIG_CONSTRAINT(CONFIG_KEY(max_objects_in_cache) > 0, "max_objects_in_cache must be greater than zero");
 
 CONFIG_SECTION("MIME");
