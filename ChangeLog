@@ -16,7 +16,7 @@ s3fuse (0.13) unstable; urgency=low
     same hash-list method as s3fuse.
   * Changed handling of last-modified times. Some timestamps may be inaccurate 
     (but will be correct when updated).
-  * Removed precache_on_readdir configuration option (and feature).
+  * Made precache_on_readdir false by default.
   * Renamed built-in extended attributes "__content_type__" and "__etag__" to 
     "s3fuse_content_type" and "s3fuse_etag", respectively.
   * Removed "__md5__" extended attribute.
@@ -28,7 +28,7 @@ s3fuse (0.13) unstable; urgency=low
   * Various robustness fixes.
   * Add manual pages.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Sun, 27 Jan 2013 20:29:02 -0600
+ -- Tarick Bedeir <tarick@bedeir.com>  Wed, 06 Feb 2013 17:48:09 -0600
 
 s3fuse (0.12) unstable; urgency=low
 
