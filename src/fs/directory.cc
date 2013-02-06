@@ -36,7 +36,9 @@ using boost::shared_ptr;
 using boost::detail::atomic_count;
 using std::list;
 using std::ostream;
+using std::runtime_error;
 using std::string;
+using std::vector;
 
 using s3::base::config;
 using s3::base::request;
@@ -101,6 +103,57 @@ namespace
 string directory::build_url(const string &path)
 {
   return object::build_url(path) + "/";
+}
+
+void directory::invalidate_parent(const string &path)
+{
+  if (config::get_cache_directories()) {
+    string parent_path;
+    size_t last_slash = path.rfind('/');
+
+    parent_path = (last_slash == string::npos) ? "" : path.substr(0, last_slash);
+
+    S3_LOG(LOG_DEBUG, "directory::invalidate_parent", "invalidating parent directory [%s] for [%s].\n", parent_path.c_str(), path.c_str());
+    cache::remove(parent_path);
+  }
+}
+
+void directory::get_internal_objects(const request::ptr &req, vector<string> *objects)
+{
+  const string &PREFIX = object::get_internal_prefix();
+
+  string marker = "";
+  bool truncated = true;
+
+  req->init(base::HTTP_GET);
+
+  while (truncated) {
+    xml::document doc;
+    xml::element_list keys;
+
+    req->set_url(service::get_bucket_url(), string("delimiter=/&prefix=") + request::url_encode(PREFIX) + "&marker=" + marker);
+    req->run();
+
+    if (req->get_response_code() != base::HTTP_SC_OK)
+      throw runtime_error("failed to list objects.");
+
+    doc = xml::parse(req->get_output_string());
+
+    if (!doc)
+      throw runtime_error("failed to parse object list.");
+
+    if (check_if_truncated(doc, &truncated))
+      throw runtime_error("list truncation check failed.");
+
+    if (truncated && xml::find(doc, NEXT_MARKER_XPATH, &marker))
+      throw runtime_error("unable to find list marker.");
+
+    if (xml::find(doc, KEY_XPATH, &keys))
+      throw runtime_error("unable to find list keys.");
+
+    for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor)
+      objects->push_back(itor->substr(PREFIX.size()));
+  }
 }
 
 directory::directory(const string &path)
@@ -237,19 +290,6 @@ int directory::remove(const request::ptr &req)
     return -ENOTEMPTY;
 
   return object::remove(req);
-}
-
-void directory::invalidate_parent(const string &path)
-{
-  if (config::get_cache_directories()) {
-    string parent_path;
-    size_t last_slash = path.rfind('/');
-
-    parent_path = (last_slash == string::npos) ? "" : path.substr(0, last_slash);
-
-    S3_LOG(LOG_DEBUG, "directory::invalidate_parent", "invalidating parent directory [%s] for [%s].\n", parent_path.c_str(), path.c_str());
-    cache::remove(parent_path);
-  }
 }
 
 int directory::rename(const request::ptr &req, const string &to_)

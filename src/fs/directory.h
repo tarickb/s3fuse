@@ -37,6 +37,7 @@ namespace s3
 
       static std::string build_url(const std::string &path);
       static void invalidate_parent(const std::string &path);
+      static void get_internal_objects(const boost::shared_ptr<base::request> &req, std::vector<std::string> *objects);
 
       directory(const std::string &path);
       virtual ~directory();
