@@ -59,6 +59,7 @@ namespace s3
       static std::string build_url(const std::string &path);
       static std::string build_internal_url(const std::string &key);
       static bool is_internal_path(const std::string &key);
+      static const std::string & get_internal_prefix();
 
       static ptr create(const std::string &path, const boost::shared_ptr<base::request> &req);
 

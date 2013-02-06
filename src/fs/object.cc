@@ -137,6 +137,11 @@ string object::build_internal_url(const string &key)
   return build_url_no_internal_check(INTERNAL_OBJECT_PREFIX + key);
 }
 
+const string & object::get_internal_prefix()
+{
+  return INTERNAL_OBJECT_PREFIX;
+}
+
 object::ptr object::create(const string &path, const request::ptr &req)
 {
   ptr obj;
