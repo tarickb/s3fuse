@@ -30,6 +30,8 @@
 #include "fs/encryption.h"
 #include "services/service.h"
 
+using std::cout;
+using std::endl;
 using std::ifstream;
 using std::runtime_error;
 using std::string;
@@ -47,13 +49,14 @@ using s3::services::service;
 namespace
 {
   const int DERIVATION_ROUNDS = 8192;
+  const int PASSWORD_ATTEMPTS = 5;
 
-  buffer::ptr init_from_file(const string &key_file)
+  buffer::ptr init_from_file()
   {
     ifstream f;
     string key;
 
-    private_file::open(key_file, &f);
+    private_file::open(config::get_volume_key_file(), &f);
     getline(f, key);
 
     return buffer::from_string(key);
@@ -64,7 +67,9 @@ namespace
     string password;
     string prompt;
 
-    prompt = "password for bucket \"";
+    prompt = "password for key \"";
+    prompt += config::get_volume_key_id();
+    prompt += "\" in bucket \"";
     prompt += config::get_bucket_name();
     prompt += "\": ";
 
@@ -98,12 +103,29 @@ void encryption::init()
   if (!s_volume_key)
     throw runtime_error("encryption enabled but specified volume key could not be found. check the configuration and/or run s3fuse_vol_key.");
 
-  if (!config::get_volume_key_file().empty())
-    password_key = init_from_file(config::get_volume_key_file());
-  else
-    password_key = init_from_password();
+  if (config::get_volume_key_file().empty()) {
+    int retry_count = 0;
 
-  s_volume_key->unlock(password_key);
+    while (true) {
+      try {
+        s_volume_key->unlock(init_from_password());
+
+        break;
+      
+      } catch (...) {
+        retry_count++;
+
+        if (retry_count < PASSWORD_ATTEMPTS) {
+          cout << "incorrect password. please try again." << endl;
+        } else {
+          throw;
+        }
+      }
+    }
+
+  } else {
+    s_volume_key->unlock(init_from_file());
+  }
 
   S3_LOG(
     LOG_DEBUG,
