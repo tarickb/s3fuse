@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#include <iostream>
+
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
