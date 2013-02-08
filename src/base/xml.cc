@@ -50,6 +50,7 @@ namespace
 
   transform_pair TRANSFORMS[] = {
     { regex(" xmlns(:\\w*)?=\"[^\"]*\""), "" },
+    { regex(" xmlns(:\\w*)?='[^']*'"), "" },
     { regex("<\\w*:"), "<" },
     { regex("</\\w*:"), "</" } };
 
