@@ -25,6 +25,8 @@
 #include <boost/smart_ptr.hpp>
 #include <boost/thread.hpp>
 
+#include "threads/work_item.h"
+
 namespace s3
 {
   namespace base
@@ -68,7 +70,7 @@ namespace s3
 
       // access controlled by _mutex
       boost::weak_ptr<work_item_queue> _queue;
-      boost::shared_ptr<async_handle> _current_ah;
+      work_item _current_item;
     };
   }
 }

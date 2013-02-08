@@ -21,6 +21,7 @@
 
 #include <list>
 
+#include "base/config.h"
 #include "base/logger.h"
 #include "base/statistics.h"
 #include "threads/request_worker.h"
@@ -33,6 +34,7 @@ using boost::scoped_ptr;
 using boost::thread;
 using std::string;
 
+using s3::base::config;
 using s3::base::statistics;
 using s3::threads::async_handle;
 using s3::threads::pool;
@@ -65,7 +67,7 @@ namespace
     {
     }
 
-    virtual void post(const work_item::worker_function &fn, const async_handle::ptr &ah) = 0;
+    virtual void post(const work_item::worker_function &fn, const async_handle::ptr &ah, int timeout_retries) = 0;
   };
 
   template <class worker_type, bool use_watchdog>
@@ -108,9 +110,9 @@ namespace
           _respawn_counter);
     }
 
-    virtual void post(const work_item::worker_function &fn, const async_handle::ptr &ah)
+    virtual void post(const work_item::worker_function &fn, const async_handle::ptr &ah, int timeout_retries)
     {
-      _queue->post(work_item(fn, ah));
+      _queue->post(work_item(fn, ah, timeout_retries));
     }
 
   private:
@@ -165,9 +167,13 @@ void pool::terminate()
 void pool::internal_post(
   pool_id p,
   const work_item::worker_function &fn,
-  const async_handle::ptr &ah)
+  const async_handle::ptr &ah,
+  int timeout_retries)
 {
   assert(p < POOL_COUNT);
 
-  s_pools[p]->post(fn, ah);
+  s_pools[p]->post(
+    fn, 
+    ah,
+    (timeout_retries == DEFAULT_TIMEOUT_RETRIES) ? config::get_timeout_retries() : timeout_retries);
 }

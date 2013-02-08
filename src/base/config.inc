@@ -73,5 +73,7 @@ CONFIG(bool, verbose_requests, false, "set CURLOPT_VERBOSE (enable verbosity in 
 
 CONFIG_SECTION("Timeouts");
 CONFIG(int, request_timeout_in_s, 30, "request timeout in seconds (for all HTTP requests besides transfers)");
+CONFIG(int, timeout_retries, 5, "number of times to retry a request that times out (if zero, don't retry)");
 CONFIG(int, max_inconsistent_state_retries, 10, "number of times to retry an operation if an inconsistent state is encountered (must be >= 2)");
+CONFIG_CONSTRAINT(CONFIG_KEY(timeout_retries) >= 0, "timeout_retries must be greater than or equal to 0");
 CONFIG_CONSTRAINT(CONFIG_KEY(max_inconsistent_state_retries) >= 2, "max_inconsistent_state_retries must be greater than or equal to 2");

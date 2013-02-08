@@ -41,16 +41,19 @@ namespace s3
     public:
       typedef work_item::worker_function worker_function;
 
+      static const int DEFAULT_TIMEOUT_RETRIES = -1;
+
       static void init();
       static void terminate();
 
       inline static wait_async_handle::ptr post(
         pool_id p,
-        const worker_function &fn)
+        const worker_function &fn,
+        int timeout_retries = DEFAULT_TIMEOUT_RETRIES)
       {
         wait_async_handle::ptr ah(new wait_async_handle());
 
-        internal_post(p, fn, ah);
+        internal_post(p, fn, ah, timeout_retries);
 
         return ah;
       }
@@ -58,29 +61,38 @@ namespace s3
       inline static void post(
         pool_id p,
         const worker_function &fn, 
-        const callback_async_handle::callback_function &cb)
+        const callback_async_handle::callback_function &cb,
+        int timeout_retries = DEFAULT_TIMEOUT_RETRIES)
       {
         internal_post(
           p,
           fn,
-          async_handle::ptr(new callback_async_handle(cb)));
+          async_handle::ptr(new callback_async_handle(cb)),
+          timeout_retries);
       }
 
-      inline static int call(pool_id p, const worker_function &fn)
+      inline static int call(
+        pool_id p, 
+        const worker_function &fn, 
+        int timeout_retries = DEFAULT_TIMEOUT_RETRIES)
       {
-        return post(p, fn)->wait();
+        return post(p, fn, timeout_retries)->wait();
       }
 
-      inline static void call_async(pool_id p, const worker_function &fn)
+      inline static void call_async(
+        pool_id p, 
+        const worker_function &fn, 
+        int timeout_retries = DEFAULT_TIMEOUT_RETRIES)
       {
-        post(p, fn);
+        post(p, fn, timeout_retries);
       }
 
     private:
       static void internal_post(
         pool_id p, 
         const worker_function &fn, 
-        const async_handle::ptr &ah);
+        const async_handle::ptr &ah,
+        int timeout_retries);
     };
   }
 }

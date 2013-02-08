@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#include <boost/detail/atomic_count.hpp>
+
 #include "base/logger.h"
 #include "base/request.h"
 #include "base/statistics.h"
@@ -29,6 +31,7 @@
 #include "threads/work_item_queue.h"
 
 using boost::mutex;
+using boost::detail::atomic_count;
 using std::ostream;
 using std::setprecision;
 
@@ -46,6 +49,7 @@ namespace
   double s_total_fn_time = 0.0;
 
   mutex s_stats_mutex;
+  atomic_count s_reposted_items(0);
 
   void statistics_writer(ostream *o)
   {
@@ -55,7 +59,8 @@ namespace
       "request_worker:\n"
       "  total request time: " << setprecision(3) << s_total_req_time << " s\n"
       "  total function time: " << s_total_fn_time << " s\n"
-      "  request wait: " << setprecision(2) << s_total_req_time / s_total_fn_time * 100.0 << " %\n";
+      "  request wait: " << setprecision(2) << s_total_req_time / s_total_fn_time * 100.0 << " %\n"
+      "  reposted items: " << s_reposted_items << "\n";
   }
 
   statistics::writers::entry s_writer(statistics_writer, 0);
@@ -85,11 +90,18 @@ bool request_worker::check_timeout()
   mutex::scoped_lock lock(_mutex);
 
   if (_request->check_timeout()) {
-    _current_ah->complete(-ETIMEDOUT);
+    work_item_queue::ptr queue = _queue.lock();
+
+    if (queue && _current_item.has_retries_left()) {
+      ++s_reposted_items;
+      queue->post(_current_item.decrement_retry_counter());
+    } else {
+      _current_item.get_ah()->complete(-ETIMEDOUT);
+    }
 
     // prevent worker() from continuing
     _queue.reset();
-    _current_ah.reset();
+    _current_item = work_item();
 
     return true;
   }
@@ -124,7 +136,7 @@ void request_worker::work()
       break;
 
     lock.lock();
-    _current_ah = item.get_ah();
+    _current_item = item;
     lock.unlock();
 
     try {
@@ -150,10 +162,10 @@ void request_worker::work()
 
     lock.lock();
 
-    if (_current_ah) {
-      _current_ah->complete(r);
+    if (_current_item.is_valid()) {
+      _current_item.get_ah()->complete(r);
 
-      _current_ah.reset();
+      _current_item = work_item();
     }
   }
 

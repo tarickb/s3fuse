@@ -45,19 +45,28 @@ namespace s3
       {
       }
 
-      inline work_item(const worker_function &function, const boost::shared_ptr<async_handle> &ah)
+      inline work_item(const worker_function &function, const boost::shared_ptr<async_handle> &ah, int retries)
         : _function(function), 
-          _ah(ah)
+          _ah(ah),
+          _retries(retries)
       {
       }
 
       inline bool is_valid() const { return _ah; }
+      inline bool has_retries_left() const { return _retries > 0; }
+
       inline const boost::shared_ptr<async_handle> & get_ah() const { return _ah; }
       inline const worker_function & get_function() const { return _function; }
+
+      inline work_item decrement_retry_counter() const
+      {
+        return work_item(_function, _ah, _retries - 1);
+      }
 
     private:
       worker_function _function;
       boost::shared_ptr<async_handle> _ah;
+      int _retries;
     };
   }
 }
