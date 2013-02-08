@@ -230,7 +230,7 @@ int main(int argc, char **argv)
       statistics::init(config::get_stats_file());
 
     service::init(config::get_service());
-    xml::init(service::get_xml_namespace());
+    xml::init();
 
     cache::init();
     file::test_transfer_chunk_sizes();

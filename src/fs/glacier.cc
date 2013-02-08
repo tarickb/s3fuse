@@ -40,7 +40,7 @@ using s3::services::service;
 
 namespace
 {
-  const char *STORAGE_CLASS_XPATH = "/s3:ListBucketResult/s3:Contents/s3:StorageClass";
+  const char *STORAGE_CLASS_XPATH = "/ListBucketResult/Contents/StorageClass";
 
   string unformat(const string &s)
   {

@@ -43,7 +43,6 @@ namespace s3
 
       inline static const std::string & get_header_prefix() { return s_impl->get_header_prefix(); }
       inline static const std::string & get_header_meta_prefix() { return s_impl->get_header_meta_prefix(); }
-      inline static const std::string & get_xml_namespace() { return s_impl->get_xml_namespace(); }
 
       inline static bool is_multipart_download_supported() { return s_impl->is_multipart_download_supported(); }
       inline static bool is_multipart_upload_supported() { return s_impl->is_multipart_upload_supported(); }

@@ -55,7 +55,6 @@ namespace
 {
   const string AWS_HEADER_PREFIX = "x-amz-";
   const string AWS_HEADER_META_PREFIX = "x-amz-meta-";
-  const string AWS_XML_NAMESPACE = "http://s3.amazonaws.com/doc/2006-03-01/";
 
   const string EMPTY = "";
 
@@ -105,11 +104,6 @@ const string & aws_impl::get_header_prefix()
 const string & aws_impl::get_header_meta_prefix()
 {
   return AWS_HEADER_META_PREFIX;
-}
-
-const string & aws_impl::get_xml_namespace()
-{
-  return AWS_XML_NAMESPACE;
 }
 
 bool aws_impl::is_multipart_download_supported()

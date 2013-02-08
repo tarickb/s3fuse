@@ -21,7 +21,7 @@ namespace
     if (s_is_init)
       return;
 
-    xml::init("uri:something");
+    xml::init();
     s_is_init = true;
   }
 }
@@ -51,5 +51,5 @@ TEST(xml, match_with_namespace)
 {
   init();
 
-  EXPECT_EQ(true, xml::match(XML_3, strlen(XML_3), "/s3:a/s3:b"));
+  EXPECT_EQ(true, xml::match(XML_3, strlen(XML_3), "/a/b"));
 }

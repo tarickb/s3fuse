@@ -53,10 +53,10 @@ using s3::threads::wait_async_handle;
 
 namespace
 {
-  const char *IS_TRUNCATED_XPATH = "/s3:ListBucketResult/s3:IsTruncated";
-  const char *         KEY_XPATH = "/s3:ListBucketResult/s3:Contents/s3:Key";
-  const char * NEXT_MARKER_XPATH = "/s3:ListBucketResult/s3:NextMarker";
-  const char *      PREFIX_XPATH = "/s3:ListBucketResult/s3:CommonPrefixes/s3:Prefix";
+  const char *IS_TRUNCATED_XPATH = "/ListBucketResult/IsTruncated";
+  const char *         KEY_XPATH = "/ListBucketResult/Contents/Key";
+  const char * NEXT_MARKER_XPATH = "/ListBucketResult/NextMarker";
+  const char *      PREFIX_XPATH = "/ListBucketResult/CommonPrefixes/Prefix";
 
   struct rename_operation
   {

@@ -52,7 +52,6 @@ namespace
   const string GS_HEADER_PREFIX = "x-goog-";
   const string GS_HEADER_META_PREFIX = "x-goog-meta-";
   const string GS_URL_PREFIX = "https://commondatastorage.googleapis.com";
-  const string GS_XML_NAMESPACE = "http://doc.s3.amazonaws.com/2006-03-01"; // "http://doc.commondatastorage.googleapis.com/2010-04-03";
 
   const string GS_EP_TOKEN = "https://accounts.google.com/o/oauth2/token";
   const string GS_OAUTH_SCOPE = "https%3a%2f%2fwww.googleapis.com%2fauth%2fdevstorage.read_write";
@@ -167,11 +166,6 @@ const string & gs_impl::get_header_prefix()
 const string & gs_impl::get_header_meta_prefix()
 {
   return GS_HEADER_META_PREFIX;
-}
-
-const string & gs_impl::get_xml_namespace()
-{
-  return GS_XML_NAMESPACE;
 }
 
 bool gs_impl::is_multipart_download_supported()

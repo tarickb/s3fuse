@@ -23,11 +23,13 @@
 #include <libxml/tree.h>
 
 #include <stdexcept>
+#include <boost/regex.hpp>
 #include <libxml++/libxml++.h>
 
 #include "logger.h"
 #include "xml.h"
 
+using boost::regex;
 using std::runtime_error;
 using std::string;
 using xmlpp::DomParser;
@@ -40,16 +42,32 @@ using s3::base::xml;
 
 namespace
 {
-  Node::PrefixNsMap s_ns_map;
+  struct transform_pair
+  {
+    const regex expr;
+    const string subst;
+  };
+
+  transform_pair TRANSFORMS[] = {
+    { regex(" xmlns(:\\w*)?=\"[^\"]*\""), "" },
+    { regex("<\\w*:"), "<" },
+    { regex("</\\w*:"), "</" } };
+
+  const int TRANSFORM_COUNT = sizeof(TRANSFORMS) / sizeof(TRANSFORMS[0]);
+
+  string transform(string in)
+  {
+    for (int i = 0; i < TRANSFORM_COUNT; i++)
+      in = regex_replace(in, TRANSFORMS[i].expr, TRANSFORMS[i].subst);
+
+    return in;
+  }
 }
 
-void xml::init(const string &ns)
+void xml::init()
 {
   xmlInitParser();
   LIBXML_TEST_VERSION;
-
-  if (!ns.empty())
-    s_ns_map["s3"] = ns;
 }
 
 xml::document xml::parse(const string &data)
@@ -57,7 +75,7 @@ xml::document xml::parse(const string &data)
   try {
     document doc(new DomParser());
 
-    doc->parse_memory(data);
+    doc->parse_memory(transform(data));
 
     if (!doc)
       throw runtime_error("error while parsing xml.");
@@ -86,7 +104,7 @@ int xml::find(const xml::document &doc, const char *xpath, string *element)
     if (!doc)
       throw runtime_error("got null document pointer.");
 
-    nodes = doc->get_document()->get_root_node()->find(xpath, s_ns_map);
+    nodes = doc->get_document()->get_root_node()->find(xpath);
 
     if (nodes.empty())
       throw runtime_error("no matching nodes.");
@@ -114,7 +132,7 @@ int xml::find(const xml::document &doc, const char *xpath, xml::element_list *li
     if (!doc)
       throw runtime_error("got null document pointer.");
 
-    nodes = doc->get_document()->get_root_node()->find(xpath, s_ns_map);
+    nodes = doc->get_document()->get_root_node()->find(xpath);
 
     for (NodeSet::const_iterator itor = nodes.begin(); itor != nodes.end(); ++itor) {
       TextNode *text = dynamic_cast<Element *>(*itor)->get_child_text();
@@ -132,13 +150,13 @@ int xml::find(const xml::document &doc, const char *xpath, xml::element_list *li
   return -EIO;
 }
 
-bool xml::match(const char *in, size_t len, const char *xpath)
+bool xml::match(const string &data, const char *xpath)
 {
   try {
     DomParser dom;
     Element *root = NULL;
 
-    dom.parse_memory_raw(reinterpret_cast<const uint8_t *>(in), len);
+    dom.parse_memory(transform(data));
 
     if (!dom)
       return false;
@@ -151,7 +169,7 @@ bool xml::match(const char *in, size_t len, const char *xpath)
     if (!root)
       return false;
 
-    return !root->find(xpath, s_ns_map).empty();
+    return !root->find(xpath).empty();
 
   } catch (...) {}
 

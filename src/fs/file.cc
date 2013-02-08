@@ -75,8 +75,8 @@ using s3::threads::pool;
 namespace
 {
   const size_t MAX_PARTS_IN_PROGRESS = 4;
-  const char *MULTIPART_ETAG_XPATH = "/s3:CompleteMultipartUploadResult/s3:ETag";
-  const char *MULTIPART_UPLOAD_ID_XPATH = "/s3:InitiateMultipartUploadResult/s3:UploadId";
+  const char *MULTIPART_ETAG_XPATH = "/CompleteMultipartUploadResult/ETag";
+  const char *MULTIPART_UPLOAD_ID_XPATH = "/InitiateMultipartUploadResult/UploadId";
 
   atomic_count s_downloads(0), s_downloads_failed(0), s_download_chunks_failed(0);
   atomic_count s_uploads(0), s_uploads_failed(0), s_upload_chunks_failed(0);

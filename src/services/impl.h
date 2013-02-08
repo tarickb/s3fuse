@@ -44,7 +44,6 @@ namespace s3
 
       virtual const std::string & get_header_prefix() = 0;
       virtual const std::string & get_header_meta_prefix() = 0;
-      virtual const std::string & get_xml_namespace() = 0;
 
       virtual bool is_multipart_download_supported() = 0;
       virtual bool is_multipart_upload_supported() = 0;

@@ -69,7 +69,7 @@ using s3::services::service;
 namespace
 {
   const int BLOCK_SIZE = 512;
-  const char *COMMIT_ETAG_XPATH = "/s3:CopyObjectResult/s3:ETag";
+  const char *COMMIT_ETAG_XPATH = "/CopyObjectResult/ETag";
 
   const string INTERNAL_OBJECT_PREFIX = "$s3fuse$_";
   const char *INTERNAL_OBJECT_PREFIX_CSTR = INTERNAL_OBJECT_PREFIX.c_str();

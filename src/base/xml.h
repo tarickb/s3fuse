@@ -42,18 +42,27 @@ namespace s3
       typedef boost::shared_ptr<xmlpp::DomParser> document;
       typedef std::list<std::string> element_list;
 
-      static void init(const std::string &ns = "");
+      static void init();
 
       static document parse(const std::string &data);
 
       static int find(const document &doc, const char *xpath, std::string *element);
       static int find(const document &doc, const char *xpath, element_list *elements);
 
-      static bool match(const char *in, size_t len, const char *xpath);
+      static bool match(const std::string &data, const char *xpath);
 
       inline static bool match(const std::vector<char> &in, const char *xpath)
       {
         return match(&in[0], in.size(), xpath);
+      }
+
+      inline static bool match(const char *in, size_t len, const char *xpath)
+      {
+        std::string s;
+
+        s.assign(in, len);
+
+        return match(s, xpath);
       }
     };
   }

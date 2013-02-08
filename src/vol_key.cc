@@ -87,7 +87,7 @@ void init(const string &config_file)
   logger::init(LOG_ERR);
   config::init(config_file);
   service::init(config::get_service());
-  xml::init(service::get_xml_namespace());
+  xml::init();
 }
 
 string to_lower(string in)
