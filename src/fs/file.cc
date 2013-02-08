@@ -555,7 +555,8 @@ int file::download_multi()
 
     part->handle = pool::post(
       threads::PR_REQ_1, 
-      bind(&file::download_part, shared_from_this(), _1, part));
+      bind(&file::download_part, shared_from_this(), _1, part),
+      0 /* don't retry on timeout since we handle that here */);
 
     parts_in_progress.push_back(part);
   }
@@ -581,7 +582,8 @@ int file::download_multi()
       } else {
         part->handle = pool::post(
           threads::PR_REQ_1, 
-          bind(&file::download_part, shared_from_this(), _1, part));
+          bind(&file::download_part, shared_from_this(), _1, part),
+          0);
 
         parts_in_progress.push_back(part);
       }
@@ -598,7 +600,8 @@ int file::download_multi()
 
       part->handle = pool::post(
         threads::PR_REQ_1, 
-        bind(&file::download_part, shared_from_this(), _1, part));
+        bind(&file::download_part, shared_from_this(), _1, part),
+        0);
 
       parts_in_progress.push_back(part);
     }
@@ -824,7 +827,8 @@ int file::upload_multi(string *returned_etag)
 
     part->handle = pool::post(
       threads::PR_REQ_1, 
-      bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
+      bind(&file::upload_part, shared_from_this(), _1, upload_id, part),
+      0 /* don't retry on timeout since we handle that case here */);
 
     parts_in_progress.push_back(part);
   }
@@ -852,7 +856,8 @@ int file::upload_multi(string *returned_etag)
 
         part->handle = pool::post(
           threads::PR_REQ_1, 
-          bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
+          bind(&file::upload_part, shared_from_this(), _1, upload_id, part),
+          0);
 
         parts_in_progress.push_back(part);
       }
@@ -863,7 +868,8 @@ int file::upload_multi(string *returned_etag)
       if (part->retry_count <= config::get_max_transfer_retries()) {
         part->handle = pool::post(
           threads::PR_REQ_1, 
-          bind(&file::upload_part, shared_from_this(), _1, upload_id, part));
+          bind(&file::upload_part, shared_from_this(), _1, upload_id, part),
+          0);
 
         parts_in_progress.push_back(part);
       }
