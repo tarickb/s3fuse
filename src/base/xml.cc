@@ -34,7 +34,6 @@ using std::runtime_error;
 using std::string;
 using xmlpp::DomParser;
 using xmlpp::Element;
-using xmlpp::Node;
 using xmlpp::NodeSet;
 using xmlpp::TextNode;
 

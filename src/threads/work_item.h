@@ -42,6 +42,7 @@ namespace s3
       typedef boost::function1<int, boost::shared_ptr<base::request> > worker_function;
 
       inline work_item()
+        : _retries(-1)
       {
       }
 

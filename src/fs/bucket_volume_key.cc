@@ -32,7 +32,6 @@ using std::runtime_error;
 using std::string;
 using std::vector;
 
-using s3::base::http_method;
 using s3::base::request;
 using s3::crypto::buffer;
 using s3::crypto::cipher;
