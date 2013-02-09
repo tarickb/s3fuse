@@ -6,7 +6,10 @@ AC_INIT([s3fuse], [cl_version])
 AM_INIT_AUTOMAKE([no-define foreign])
 AC_CONFIG_SRCDIR([src/main.cc])
 
+AC_PROG_AWK
 AC_PROG_CXX
+AC_PROG_CC
+AC_PROG_INSTALL
 AC_PROG_RANLIB
 
 AC_C_BIGENDIAN([AC_MSG_ERROR([big endian systems are not supported])])
@@ -100,7 +103,7 @@ if test "x$have_gnutls" = xtrue; then
   CPPFLAGS="$CPPFLAGS -DHAVE_GNUTLS"
 fi
 
-AC_CHECK_HEADERS([inttypes.h stdint.h stdlib.h string.h sys/time.h syslog.h])
+AC_CHECK_HEADERS([fcntl.h inttypes.h limits.h stddef.h stdint.h stdlib.h string.h strings.h sys/time.h syslog.h termios.h unistd.h])
 
 AC_HEADER_STDBOOL
 AC_TYPE_UID_T
@@ -109,12 +112,15 @@ AC_TYPE_MODE_T
 AC_TYPE_OFF_T
 AC_TYPE_SIZE_T
 AC_TYPE_SSIZE_T
+AC_CHECK_MEMBERS([struct stat.st_blksize])
 AC_STRUCT_ST_BLOCKS
+AC_TYPE_UINT32_T
 AC_TYPE_UINT64_T
 AC_TYPE_UINT8_T
 
+AC_FUNC_CHOWN
 AC_FUNC_MALLOC
-AC_CHECK_FUNCS([ftruncate gettimeofday memset strchr strerror strstr strtol])
+AC_CHECK_FUNCS([ftruncate gettimeofday memset mkdir strcasecmp strchr strerror strrchr strstr strtol])
 
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([man/Makefile])
