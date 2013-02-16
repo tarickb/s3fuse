@@ -1,3 +1,9 @@
+s3fuse (0.13.1) unstable; urgency=low
+
+  * OS X: Fixed bug that resulted in command-line arguments being ignored.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Fri, 15 Feb 2013 20:06:26 -0600
+
 s3fuse (0.13) unstable; urgency=low
 
   * NEW: File encryption. See README.
