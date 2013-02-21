@@ -55,23 +55,21 @@ using s3::threads::pool;
 
 namespace
 {
-  // TODO: remove GS_ prefix
+  const string HEADER_PREFIX = "x-goog-";
+  const string HEADER_META_PREFIX = "x-goog-meta-";
+  const string URL_PREFIX = "https://commondatastorage.googleapis.com";
 
-  const string GS_HEADER_PREFIX = "x-goog-";
-  const string GS_HEADER_META_PREFIX = "x-goog-meta-";
-  const string GS_URL_PREFIX = "https://commondatastorage.googleapis.com";
+  const string EP_TOKEN = "https://accounts.google.com/o/oauth2/token";
+  const string OAUTH_SCOPE = "https%3a%2f%2fwww.googleapis.com%2fauth%2fdevstorage.read_write";
 
-  const string GS_EP_TOKEN = "https://accounts.google.com/o/oauth2/token";
-  const string GS_OAUTH_SCOPE = "https%3a%2f%2fwww.googleapis.com%2fauth%2fdevstorage.read_write";
+  const string CLIENT_ID = "591551582755.apps.googleusercontent.com";
+  const string CLIENT_SECRET = "CQAaXZWfWJKdy_IV7TNZfO1P";
 
-  const string GS_CLIENT_ID = "591551582755.apps.googleusercontent.com";
-  const string GS_CLIENT_SECRET = "CQAaXZWfWJKdy_IV7TNZfO1P";
-
-  const string GS_NEW_TOKEN_URL = 
+  const string NEW_TOKEN_URL = 
     "https://accounts.google.com/o/oauth2/auth?"
-    "client_id=" + GS_CLIENT_ID + "&"
+    "client_id=" + CLIENT_ID + "&"
     "redirect_uri=urn%3aietf%3awg%3aoauth%3a2.0%3aoob&"
-    "scope=" + GS_OAUTH_SCOPE + "&"
+    "scope=" + OAUTH_SCOPE + "&"
     "response_type=code";
 
   atomic_count s_refresh_on_fail(0), s_refresh_on_timeout(0);
@@ -91,7 +89,7 @@ namespace
 
 const string & gs_impl::get_new_token_url()
 {
-  return GS_NEW_TOKEN_URL;
+  return NEW_TOKEN_URL;
 }
 
 void gs_impl::get_tokens(get_tokens_mode mode, const string &key, string *access_token, time_t *expiry, string *refresh_token)
@@ -102,8 +100,8 @@ void gs_impl::get_tokens(get_tokens_mode mode, const string &key, string *access
   ptree tree;
 
   data =
-    "client_id=" + GS_CLIENT_ID + "&"
-    "client_secret=" + GS_CLIENT_SECRET + "&";
+    "client_id=" + CLIENT_ID + "&"
+    "client_secret=" + CLIENT_SECRET + "&";
 
   if (mode == GT_AUTH_CODE)
     data += 
@@ -118,7 +116,7 @@ void gs_impl::get_tokens(get_tokens_mode mode, const string &key, string *access
     throw runtime_error("unrecognized get_tokens mode.");
 
   req.init(base::HTTP_POST);
-  req.set_url(GS_EP_TOKEN);
+  req.set_url(EP_TOKEN);
   req.set_input_buffer(data);
 
   req.run();
@@ -170,12 +168,12 @@ gs_impl::gs_impl()
 
 const string & gs_impl::get_header_prefix()
 {
-  return GS_HEADER_PREFIX;
+  return HEADER_PREFIX;
 }
 
 const string & gs_impl::get_header_meta_prefix()
 {
-  return GS_HEADER_META_PREFIX;
+  return HEADER_META_PREFIX;
 }
 
 const string & gs_impl::get_bucket_url()
@@ -222,7 +220,7 @@ void gs_impl::refresh(const mutex::scoped_lock &lock)
 
 string gs_impl::adjust_url(const string &url)
 {
-  return GS_URL_PREFIX + url;
+  return URL_PREFIX + url;
 }
 
 void gs_impl::pre_run(request *r, int iter)
