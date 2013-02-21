@@ -5,8 +5,6 @@ if BUILD_TESTS
 SUBDIRS += tests
 endif
 
-bin_PROGRAMS = s3fuse s3fuse_gs_get_token s3fuse_sha256_sum s3fuse_vol_key
-
 # the order of archives in s3fuse_libs matters -- they must be listed such that if A
 # requires symbols provided by B, then A must appear before B
 
@@ -19,14 +17,11 @@ s3fuse_libs = \
 	threads/libs3fuse_threads.a \
 	base/libs3fuse_base.a
 
+LDADD += $(s3fuse_libs)
+
+bin_PROGRAMS = s3fuse s3fuse_gs_get_token s3fuse_sha256_sum s3fuse_vol_key
+
 s3fuse_SOURCES = main.cc operations.cc operations.h
-s3fuse_LDADD = $(s3fuse_libs) $(LDADD)
-
 s3fuse_gs_get_token_SOURCES = gs_get_token.cc
-s3fuse_gs_get_token_LDADD = $(s3fuse_libs) $(LDADD)
-
 s3fuse_sha256_sum_SOURCES = sha256_sum.cc
-s3fuse_sha256_sum_LDADD = $(s3fuse_libs) $(LDADD)
-
 s3fuse_vol_key_SOURCES = vol_key.cc
-s3fuse_vol_key_LDADD = $(s3fuse_libs) $(LDADD)
