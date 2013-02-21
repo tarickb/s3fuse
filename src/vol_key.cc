@@ -33,6 +33,8 @@
 #include "fs/bucket_volume_key.h"
 #include "fs/encryption.h"
 #include "services/service.h"
+#include "services/aws/impl.h"
+#include "services/gs/impl.h"
 
 using std::cerr;
 using std::cin;
@@ -86,8 +88,14 @@ void init(const string &config_file)
 {
   logger::init(LOG_ERR);
   config::init(config_file);
-  service::init(config::get_service());
   xml::init();
+
+  if (config::get_service() == "aws")
+    service::init(new s3::services::aws::impl());
+  else if (config::get_service() == "google-storage")
+    service::init(new s3::services::gs::impl());
+  else
+    throw runtime_error("unrecognized service.");
 }
 
 string to_lower(string in)

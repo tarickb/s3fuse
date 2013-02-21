@@ -24,8 +24,6 @@
 #include "base/request.h"
 #include "base/request_hook.h"
 #include "services/service.h"
-#include "services/aws/impl.h"
-#include "services/gs/impl.h"
 
 using boost::shared_ptr;
 using std::runtime_error;
@@ -75,17 +73,9 @@ namespace
   };
 }
 
-void service::init(const string &service)
+void service::init(impl *svc)
 {
-  if (service == "aws")
-    s_impl.reset(new aws::impl());
-
-  else if (service == "google-storage")
-    s_impl.reset(new gs::impl());
-
-  else
-    throw runtime_error("unrecognized service.");
-
+  s_impl.reset(svc);
   s_hook.reset(new service_hook(s_impl));
   s_file_transfer = s_impl->build_file_transfer();
 }
