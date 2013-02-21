@@ -431,7 +431,7 @@ void request::run(int timeout_in_s)
 
   _run_count += iter + 1;
 
-  if (_response_code >= HTTP_SC_MULTIPLE_CHOICES && _response_code != HTTP_SC_NOT_FOUND) {
+  if (_response_code >= HTTP_SC_BAD_REQUEST && _response_code != HTTP_SC_NOT_FOUND) {
     ++s_request_failures;
 
     S3_LOG(
