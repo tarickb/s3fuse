@@ -96,7 +96,7 @@ int file_transfer::upload_multi(const string &url, size_t size, const read_chunk
   scoped_ptr<multipart_upload> upload;
   int r;
 
-  r = pool::call(s3::threads::PR_REQ_0, bind(&file_transfer::upload_multi_init, this, _1, url, &upload_id));
+  r = pool::call(threads::PR_REQ_0, bind(&file_transfer::upload_multi_init, this, _1, url, &upload_id));
 
   if (r)
     return r;
@@ -118,7 +118,7 @@ int file_transfer::upload_multi(const string &url, size_t size, const read_chunk
 
   if (r) {
     pool::call(
-      s3::threads::PR_REQ_0, 
+      threads::PR_REQ_0, 
       bind(&file_transfer::upload_multi_cancel, this, _1, url, upload_id));
 
     return r;
@@ -134,7 +134,7 @@ int file_transfer::upload_multi(const string &url, size_t size, const read_chunk
   complete_upload += "</CompleteMultipartUpload>";
 
   return pool::call(
-    s3::threads::PR_REQ_0, 
+    threads::PR_REQ_0, 
     bind(&file_transfer::upload_multi_complete, this, _1, url, upload_id, complete_upload, returned_etag));
 }
 
@@ -147,7 +147,6 @@ int file_transfer::upload_part(
   bool is_retry)
 {
   int r = 0;
-  long rc = 0;
   char_vector_ptr buffer(new char_vector());
 
   if (is_retry)
@@ -160,16 +159,15 @@ int file_transfer::upload_part(
 
   range->etag = hash::compute<md5, hex_with_quotes>(*buffer);
 
-  req->init(s3::base::HTTP_PUT);
+  req->init(base::HTTP_PUT);
 
   // part numbers are 1-based
   req->set_url(url + "?partNumber=" + lexical_cast<string>(range->id + 1) + "&uploadId=" + upload_id);
   req->set_input_buffer(buffer);
 
   req->run(config::get_transfer_timeout_in_s());
-  rc = req->get_response_code();
 
-  if (rc != s3::base::HTTP_SC_OK)
+  if (req->get_response_code() != base::HTTP_SC_OK)
     return -EIO;
 
   if (req->get_response_header("ETag") != range->etag) {
@@ -185,12 +183,12 @@ int file_transfer::upload_multi_init(const request::ptr &req, const string &url,
   xml::document doc;
   int r;
 
-  req->init(s3::base::HTTP_POST);
+  req->init(base::HTTP_POST);
   req->set_url(url + "?uploads");
 
   req->run();
 
-  if (req->get_response_code() != s3::base::HTTP_SC_OK)
+  if (req->get_response_code() != base::HTTP_SC_OK)
     return -EIO;
 
   doc = xml::parse(req->get_output_string());
@@ -213,7 +211,7 @@ int file_transfer::upload_multi_cancel(const request::ptr &req, const string &ur
 {
   S3_LOG(LOG_WARNING, "file_transfer::upload_multi_cancel", "one or more parts failed to upload for [%s].\n", url.c_str());
 
-  req->init(s3::base::HTTP_DELETE);
+  req->init(base::HTTP_DELETE);
   req->set_url(url + "?uploadId=" + upload_id);
 
   req->run();
@@ -231,7 +229,7 @@ int file_transfer::upload_multi_complete(
   xml::document doc;
   int r;
 
-  req->init(s3::base::HTTP_POST);
+  req->init(base::HTTP_POST);
   req->set_url(url + "?uploadId=" + upload_id);
   req->set_input_buffer(upload_metadata);
   req->set_header("Content-Type", "");
@@ -240,7 +238,7 @@ int file_transfer::upload_multi_complete(
   // see http://docs.amazonwebservices.com/AmazonS3/latest/API/index.html?mpUploadComplete.html
   req->run(config::get_transfer_timeout_in_s());
 
-  if (req->get_response_code() != s3::base::HTTP_SC_OK) {
+  if (req->get_response_code() != base::HTTP_SC_OK) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_multi_complete", "failed to complete multipart upload for [%s] with error %li.\n", url.c_str(), req->get_response_code());
     return -EIO;
   }
