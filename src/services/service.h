@@ -44,16 +44,16 @@ namespace s3
       inline static const std::string & get_header_prefix() { return s_impl->get_header_prefix(); }
       inline static const std::string & get_header_meta_prefix() { return s_impl->get_header_meta_prefix(); }
 
-      inline static bool is_multipart_download_supported() { return s_impl->is_multipart_download_supported(); }
-      inline static bool is_multipart_upload_supported() { return s_impl->is_multipart_upload_supported(); }
-
       inline static const std::string & get_bucket_url() { return s_impl->get_bucket_url(); }
 
       inline static base::request_hook * get_request_hook() { return s_hook.get(); }
 
+      inline static const boost::shared_ptr<file_transfer> & get_file_transfer() { return s_file_transfer; }
+
     private:
       static impl::ptr s_impl;
       static boost::shared_ptr<base::request_hook> s_hook;
+      static boost::shared_ptr<file_transfer> s_file_transfer;
     };
   }
 }

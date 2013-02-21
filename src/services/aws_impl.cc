@@ -31,12 +31,13 @@
 #include "crypto/encoder.h"
 #include "crypto/hmac_sha1.h"
 #include "crypto/private_file.h"
+#include "services/aws_file_transfer.h"
 #include "services/aws_impl.h"
 
 using boost::is_any_of;
+using boost::shared_ptr;
 using boost::token_compress_on;
 using std::ifstream;
-using std::map;
 using std::runtime_error;
 using std::string;
 using std::vector;
@@ -49,12 +50,14 @@ using s3::crypto::base64;
 using s3::crypto::encoder;
 using s3::crypto::hmac_sha1;
 using s3::crypto::private_file;
+using s3::services::aws_file_transfer;
 using s3::services::aws_impl;
+using s3::services::file_transfer;
 
 namespace
 {
-  const string AWS_HEADER_PREFIX = "x-amz-";
-  const string AWS_HEADER_META_PREFIX = "x-amz-meta-";
+  const string HEADER_PREFIX = "x-amz-";
+  const string HEADER_META_PREFIX = "x-amz-meta-";
 
   const string EMPTY = "";
 
@@ -98,22 +101,12 @@ aws_impl::aws_impl()
 
 const string & aws_impl::get_header_prefix()
 {
-  return AWS_HEADER_PREFIX;
+  return HEADER_PREFIX;
 }
 
 const string & aws_impl::get_header_meta_prefix()
 {
-  return AWS_HEADER_META_PREFIX;
-}
-
-bool aws_impl::is_multipart_download_supported()
-{
-  return true;
-}
-
-bool aws_impl::is_multipart_upload_supported()
-{
-  return true;
+  return HEADER_META_PREFIX;
 }
 
 const string & aws_impl::get_bucket_url()
@@ -138,7 +131,7 @@ void aws_impl::sign(request *req)
     date + "\n";
 
   for (header_map::const_iterator itor = headers.begin(); itor != headers.end(); ++itor)
-    if (!itor->second.empty() && itor->first.substr(0, AWS_HEADER_PREFIX.size()) == AWS_HEADER_PREFIX)
+    if (!itor->second.empty() && itor->first.substr(0, HEADER_PREFIX.size()) == HEADER_PREFIX)
       to_sign += itor->first + ":" + itor->second + "\n";
 
   to_sign += req->get_url();
@@ -157,7 +150,7 @@ void aws_impl::pre_run(request *r, int iter)
   sign(r);
 }
 
-bool aws_impl::should_retry(request *r, int iter)
+shared_ptr<file_transfer> aws_impl::build_file_transfer()
 {
-  return false;
+  return shared_ptr<file_transfer>(new aws_file_transfer());
 }

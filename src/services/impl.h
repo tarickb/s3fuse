@@ -23,7 +23,6 @@
 #define S3_SERVICES_IMPL_H
 
 #include <string>
-#include <boost/function.hpp>
 #include <boost/smart_ptr.hpp>
 
 namespace s3
@@ -35,24 +34,25 @@ namespace s3
 
   namespace services
   {
+    class file_transfer;
+
     class impl
     {
     public:
       typedef boost::shared_ptr<impl> ptr;
 
-      virtual ~impl() { }
+      virtual ~impl();
 
       virtual const std::string & get_header_prefix() = 0;
       virtual const std::string & get_header_meta_prefix() = 0;
-
-      virtual bool is_multipart_download_supported() = 0;
-      virtual bool is_multipart_upload_supported() = 0;
 
       virtual const std::string & get_bucket_url() = 0;
 
       virtual std::string adjust_url(const std::string &url) = 0;
       virtual void pre_run(base::request *r, int iter) = 0;
-      virtual bool should_retry(base::request *r, int iter) = 0;
+      virtual bool should_retry(base::request *r, int iter);
+
+      virtual boost::shared_ptr<file_transfer> build_file_transfer() = 0;
     };
   }
 }

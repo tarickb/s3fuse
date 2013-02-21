@@ -28,6 +28,8 @@ namespace s3
 {
   namespace services
   {
+    class file_transfer;
+
     class aws_impl : public impl
     {
     public:
@@ -38,14 +40,12 @@ namespace s3
       virtual const std::string & get_header_prefix();
       virtual const std::string & get_header_meta_prefix();
 
-      virtual bool is_multipart_download_supported();
-      virtual bool is_multipart_upload_supported();
-
       virtual const std::string & get_bucket_url();
 
       virtual std::string adjust_url(const std::string &url);
       virtual void pre_run(base::request *r, int iter);
-      virtual bool should_retry(base::request *r, int iter);
+
+      virtual boost::shared_ptr<file_transfer> build_file_transfer();
 
     private:
       void sign(base::request *req);

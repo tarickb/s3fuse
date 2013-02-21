@@ -23,6 +23,7 @@ s3fuse_gs_get_token_SOURCES = gs_get_token.cc
 s3fuse_gs_get_token_LDADD = \
 	services/libs3fuse_services.a \
 	crypto/libs3fuse_crypto.a \
+	threads/libs3fuse_threads.a \
 	base/libs3fuse_base.a \
 	$(LDADD)
 

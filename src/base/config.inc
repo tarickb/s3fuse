@@ -63,10 +63,12 @@ CONFIG(std::string, default_content_type, "binary/octet-stream", "MIME type for 
 
 CONFIG_SECTION("Uploads/Downloads");
 CONFIG(size_t, download_chunk_size, 128 * 1024, "download chunk size in bytes");
-CONFIG(size_t, upload_chunk_size, 5 * 1024 * 1024, "upload chunk size in bytes (5 MB is the S3 minimum)");
+CONFIG(int, upload_chunk_size, -1, "override default upload chunk size (in bytes) (-1: use service default, 0: disable multipart uploads)");
 CONFIG(int, max_transfer_retries, 5, "maximum number of times a chunk transfer will be retried before failing");
 CONFIG(int, transfer_timeout_in_s, 5 * 60, "transfer timeout in seconds; should be long enough to transfer download_chunk_size/upload_chunk_size");
+CONFIG(int, max_parts_in_progress, 4, "maximum number of file chunks that should be transferred at a time");
 CONFIG_CONSTRAINT(CONFIG_KEY(max_transfer_retries) > 0, "max_transfer_retries must be greater than zero");
+CONFIG_CONSTRAINT(CONFIG_KEY(max_parts_in_progress) > 0, "max_parts_in_progress must be greater than zero");
 
 CONFIG_SECTION("Debug");
 CONFIG(bool, verbose_requests, false, "set CURLOPT_VERBOSE (enable verbosity in libcurl) if 'yes'/'true'");

@@ -28,11 +28,14 @@
 #include "base/request.h"
 #include "base/statistics.h"
 #include "crypto/private_file.h"
+#include "services/gs_file_transfer.h"
 #include "services/gs_impl.h"
+#include "threads/pool.h"
 
 using boost::mutex;
 using boost::detail::atomic_count;
 using boost::property_tree::ptree;
+using boost::shared_ptr;
 using std::endl;
 using std::ifstream;
 using std::ofstream;
@@ -45,10 +48,15 @@ using s3::base::config;
 using s3::base::request;
 using s3::base::statistics;
 using s3::crypto::private_file;
+using s3::services::file_transfer;
+using s3::services::gs_file_transfer;
 using s3::services::gs_impl;
+using s3::threads::pool;
 
 namespace
 {
+  // TODO: remove GS_ prefix
+
   const string GS_HEADER_PREFIX = "x-goog-";
   const string GS_HEADER_META_PREFIX = "x-goog-meta-";
   const string GS_URL_PREFIX = "https://commondatastorage.googleapis.com";
@@ -70,6 +78,8 @@ namespace
 
   void statistics_writer(ostream *o)
   {
+    // TODO: make statistics titles more .. legible?
+
     *o <<
       "gs_impl:\n"
       "  token refreshes due to request failure: " << s_refresh_on_fail << "\n"
@@ -168,16 +178,6 @@ const string & gs_impl::get_header_meta_prefix()
   return GS_HEADER_META_PREFIX;
 }
 
-bool gs_impl::is_multipart_download_supported()
-{
-  return true;
-}
-
-bool gs_impl::is_multipart_upload_supported()
-{
-  return false;
-}
-
 const string & gs_impl::get_bucket_url()
 {
   return _bucket_url;
@@ -232,6 +232,14 @@ void gs_impl::pre_run(request *r, int iter)
 
 bool gs_impl::should_retry(request *r, int iter)
 {
+  if (impl::should_retry(r, iter))
+    return true;
+
   // retry only on first unauthorized response
   return (r->get_response_code() == base::HTTP_SC_UNAUTHORIZED && iter == 0);
+}
+
+shared_ptr<file_transfer> gs_impl::build_file_transfer()
+{
+  return shared_ptr<file_transfer>(new gs_file_transfer());
 }
