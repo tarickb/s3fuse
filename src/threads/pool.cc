@@ -104,7 +104,7 @@ namespace
 
       if (use_watchdog)
         statistics::write(
-          "pool",
+          "thread pool",
           _id,
           "\n  respawn_counter: %i",
           _respawn_counter);

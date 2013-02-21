@@ -72,17 +72,17 @@ namespace
   void statistics_writer(ostream *o)
   {
     *o <<
-      "file_transfer single-part downloads:\n"
+      "common single-part downloads:\n"
       "  succeeded: " << s_downloads_single << "\n"
       "  failed: " << s_downloads_single_failed << "\n"
-      "file_transfer multi-part downloads:\n"
+      "common multi-part downloads:\n"
       "  succeeded: " << s_downloads_multi << "\n"
       "  failed: " << s_downloads_multi_failed << "\n"
       "  chunks failed: " << s_downloads_multi_chunks_failed << "\n"
-      "file_transfer single-part uploads:\n"
+      "common single-part uploads:\n"
       "  succeeded: " << s_uploads_single << "\n"
       "  failed: " << s_uploads_single_failed << "\n"
-      "file_transfer multi-part uploads:\n"
+      "common multi-part uploads:\n"
       "  succeeded: " << s_uploads_multi << "\n"
       "  failed: " << s_uploads_multi_failed << "\n";
   }

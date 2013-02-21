@@ -91,7 +91,7 @@ namespace
     o->setf(ostream::fixed);
 
     *o << 
-      "request:\n"
+      "http requests:\n"
       "  count: " << s_run_count << "\n"
       "  total time: " << setprecision(2) << s_run_time << " s\n"
       "  avg time per request: " << setprecision(3) << s_run_time / static_cast<double>(s_run_count) * 1.0e3 << " ms\n"

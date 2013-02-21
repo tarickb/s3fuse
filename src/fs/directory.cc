@@ -69,7 +69,7 @@ namespace
   void statistics_writer(ostream *o)
   {
     *o << 
-      "directory:\n"
+      "directories:\n"
       "  internal objects skipped in list: " << s_internal_objects_skipped_in_list << "\n";
   }
 

@@ -73,7 +73,7 @@ namespace
   void statistics_writer(ostream *o)
   {
     *o <<
-      "file:\n"
+      "files:\n"
       "  sha256 mismatches: " << s_sha256_mismatches << ", md5 mismatches: " << s_md5_mismatches << ", no hash checks: " << s_no_hash_checks << "\n"
       "  non-dirty flushes: " << s_non_dirty_flushes << "\n"
       "  reopens: " << s_reopens << "\n";

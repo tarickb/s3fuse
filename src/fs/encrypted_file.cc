@@ -74,7 +74,7 @@ namespace
   void statistics_writer(ostream *o)
   {
     *o <<
-      "encrypted_file:\n"
+      "encrypted files:\n"
       "  non-empty file that isn't intact: " << s_non_empty_but_not_intact << "\n"
       "  init without iv or metadata: " << s_no_iv_or_meta << "\n"
       "  init errors: " << s_init_errors << "\n"

@@ -56,7 +56,7 @@ namespace
     o->setf(ostream::fixed);
 
     *o <<
-      "request_worker:\n"
+      "thread pool request workers:\n"
       "  total request time: " << setprecision(3) << s_total_req_time << " s\n"
       "  total function time: " << s_total_fn_time << " s\n"
       "  request wait: " << setprecision(2) << s_total_req_time / s_total_fn_time * 100.0 << " %\n"

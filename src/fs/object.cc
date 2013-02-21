@@ -95,7 +95,7 @@ namespace
   void statistics_writer(ostream *o)
   {
     *o <<
-      "object:\n"
+      "objects:\n"
       "  precondition failed during commit: " << s_precon_failed_commits << "\n"
       "  new etag on commit: " << s_new_etag_on_commit << "\n"
       "  commit failures: " << s_commit_failures << "\n"

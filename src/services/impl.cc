@@ -44,7 +44,7 @@ namespace
   void statistics_writer(ostream *o)
   {
     *o <<
-      "service impl base:\n"
+      "common service base:\n"
       "  \"internal server error\": " << s_internal_server_error << "\n"
       "  \"service unavailable\": " << s_service_unavailable << "\n"
       "  \"RequestTimeout\": " << s_req_timeout << "\n"

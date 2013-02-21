@@ -73,10 +73,8 @@ namespace
 
   void statistics_writer(ostream *o)
   {
-    // TODO: make statistics titles more .. legible?
-
     *o <<
-      "gs impl:\n"
+      "google storage service:\n"
       "  token refreshes due to request failure: " << s_refresh_on_fail << "\n"
       "  token refreshes due to timeout: " << s_refresh_on_timeout << "\n";
   }

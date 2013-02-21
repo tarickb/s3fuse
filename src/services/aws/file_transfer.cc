@@ -66,7 +66,7 @@ namespace
   void statistics_writer(ostream *o)
   {
     *o <<
-      "aws file_transfer multi-part uploads:\n"
+      "aws multi-part uploads:\n"
       "  chunks failed: " << s_uploads_multi_chunks_failed << "\n";
   }
 

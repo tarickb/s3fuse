@@ -45,7 +45,7 @@ namespace
   void statistics_writer(ostream *o)
   {
     *o <<
-      "gs file_transfer multi-part uploads:\n"
+      "google storage multi-part uploads:\n"
       "  chunks failed: " << s_uploads_multi_chunks_failed << "\n";
   }
 
