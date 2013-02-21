@@ -12,9 +12,9 @@ s3fuse_libs = \
 	fs/libs3fuse_fs.a \
 	services/aws/libs3fuse_services_aws.a \
 	services/gs/libs3fuse_services_gs.a \
+	threads/libs3fuse_threads.a \
 	services/libs3fuse_services.a \
 	crypto/libs3fuse_crypto.a \
-	threads/libs3fuse_threads.a \
 	base/libs3fuse_base.a
 
 bin_PROGRAMS = s3fuse s3fuse_gs_get_token s3fuse_sha256_sum s3fuse_vol_key
