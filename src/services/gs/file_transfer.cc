@@ -192,8 +192,6 @@ int file_transfer::upload_last_part(
 
   *returned_etag = req->get_response_header("ETag");
 
-  S3_LOG(LOG_DEBUG, "file_transfer::upload_last_part", "etag: %s\n", returned_etag->c_str());
-
   return 0;
 }
 
@@ -218,8 +216,6 @@ int file_transfer::upload_multi_init(const request::ptr &req, const string &url,
     return -EIO;
 
   *location = url + location->substr(pos);
-
-  S3_LOG(LOG_DEBUG, "file_transfer::upload_multi_init", "using: [%s]\n", location->c_str());
 
   return 0;
 }
