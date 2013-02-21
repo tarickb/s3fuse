@@ -137,12 +137,12 @@ void bucket_volume_key::unlock(const buffer::ptr &key)
 
 void bucket_volume_key::remove(const request::ptr &req)
 {
-  req->init(s3::base::HTTP_DELETE);
+  req->init(base::HTTP_DELETE);
   req->set_url(build_url(_id));
 
   req->run();
 
-  if (req->get_response_code() != s3::base::HTTP_SC_NO_CONTENT)
+  if (req->get_response_code() != base::HTTP_SC_NO_CONTENT)
     throw runtime_error("failed to delete volume key.");
 }
 
@@ -173,7 +173,7 @@ void bucket_volume_key::commit(const request::ptr &req, const buffer::ptr &key)
   if (!_volume_key)
     throw runtime_error("unlock key before committing.");
 
-  req->init(s3::base::HTTP_PUT);
+  req->init(base::HTTP_PUT);
   req->set_url(build_url(VOLUME_KEY_OBJECT_TEMP_PREFIX + _id));
 
   req->set_input_buffer(
@@ -183,12 +183,12 @@ void bucket_volume_key::commit(const request::ptr &req, const buffer::ptr &key)
 
   req->run();
 
-  if (req->get_response_code() != s3::base::HTTP_SC_OK)
+  if (req->get_response_code() != base::HTTP_SC_OK)
     throw runtime_error("failed to commit (create) volume key; the old key should remain valid.");
 
   etag = req->get_response_header("ETag");
 
-  req->init(s3::base::HTTP_PUT);
+  req->init(base::HTTP_PUT);
   req->set_url(build_url(_id));
 
   // only overwrite the volume key if our temporary copy is still valid
@@ -198,10 +198,10 @@ void bucket_volume_key::commit(const request::ptr &req, const buffer::ptr &key)
 
   req->run();
 
-  if (req->get_response_code() != s3::base::HTTP_SC_OK)
+  if (req->get_response_code() != base::HTTP_SC_OK)
     throw runtime_error("failed to commit (copy) volume key; the old key should remain valid.");
 
-  req->init(s3::base::HTTP_DELETE);
+  req->init(base::HTTP_DELETE);
   req->set_url(build_url(VOLUME_KEY_OBJECT_TEMP_PREFIX + _id));
 
   req->run();
@@ -209,14 +209,14 @@ void bucket_volume_key::commit(const request::ptr &req, const buffer::ptr &key)
 
 void bucket_volume_key::download(const request::ptr &req)
 {
-  req->init(s3::base::HTTP_GET);
+  req->init(base::HTTP_GET);
   req->set_url(build_url(_id));
 
   req->run();
 
-  if (req->get_response_code() == s3::base::HTTP_SC_OK)
+  if (req->get_response_code() == base::HTTP_SC_OK)
     _encrypted_key = req->get_output_string();
-  else if (req->get_response_code() == s3::base::HTTP_SC_NOT_FOUND)
+  else if (req->get_response_code() == base::HTTP_SC_NOT_FOUND)
     _encrypted_key.clear();
   else
     throw runtime_error("request for volume key object failed.");
