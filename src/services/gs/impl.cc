@@ -225,7 +225,7 @@ void impl::pre_run(request *r, int iter)
 
 bool impl::should_retry(request *r, int iter)
 {
-  if (impl::should_retry(r, iter))
+  if (services::impl::should_retry(r, iter))
     return true;
 
   // retry only on first unauthorized response
