@@ -32,9 +32,6 @@ Known Issues
     regular files named <directory-name>_$folder$.
   - s3fuse cannot list the contents of directories created by Google Storage 
     Manager.
-- Multipart uploads are not supported for Google Cloud Storage buckets.  Large
-  file uploads will time out unless the transfer_timeout_in_s configuration 
-  option is set to a value large enough to allow the transfer of entire files.
 
 Configuration
 -------------
