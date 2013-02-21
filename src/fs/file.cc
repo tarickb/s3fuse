@@ -399,14 +399,12 @@ int file::read_chunk(size_t size, off_t offset, const char_vector_ptr &buffer)
   return 0;
 }
 
-size_t file::get_transfer_size()
+size_t file::get_size()
 {
-  // TODO: remove?
-
   struct stat s;
 
   if (fstat(_fd, &s) == -1) {
-    S3_LOG(LOG_WARNING, "file::get_transfer_size", "failed to stat [%s].\n", get_path().c_str());
+    S3_LOG(LOG_WARNING, "file::get_size", "failed to stat [%s].\n", get_path().c_str());
     return 0;
   }
 
@@ -436,7 +434,7 @@ int file::download(const request::ptr & /* ignored */)
 
   r = service::get_file_transfer()->download(
     get_url(),
-    get_transfer_size(),
+    get_size(),
     bind(&file::write_chunk, shared_from_this(), _1, _2, _3));
 
   if (r)
@@ -448,7 +446,7 @@ int file::download(const request::ptr & /* ignored */)
 int file::prepare_download()
 {
   if (!_sha256_hash.empty())
-    _hash_list.reset(new hash_list<sha256>(get_transfer_size()));
+    _hash_list.reset(new hash_list<sha256>(get_size()));
 
   return 0;
 }
@@ -513,7 +511,7 @@ int file::upload(const request::ptr & /* ignored */)
 
   r = service::get_file_transfer()->upload(
     get_url(),
-    get_transfer_size(),
+    get_size(),
     bind(&file::read_chunk, shared_from_this(), _1, _2, _3),
     &returned_etag);
 
@@ -527,7 +525,7 @@ int file::upload(const request::ptr & /* ignored */)
 
 int file::prepare_upload()
 {
-  _hash_list.reset(new hash_list<sha256>(get_transfer_size()));
+  _hash_list.reset(new hash_list<sha256>(get_size()));
 
   return 0;
 }

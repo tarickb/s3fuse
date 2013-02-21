@@ -134,7 +134,7 @@ namespace s3
         std::string *etag);
       int upload_part(const boost::shared_ptr<base::request> &req, const std::string &upload_id, transfer_part *part);
 
-      size_t get_transfer_size();
+      size_t get_size();
 
       void on_download_complete(int ret);
 
