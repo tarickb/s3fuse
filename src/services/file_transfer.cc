@@ -224,7 +224,7 @@ int file_transfer::upload_single(const request::ptr &req, const string &url, siz
   expected_md5_b64 = encoder::encode<base64>(read_hash, md5::HASH_LEN);
   expected_md5_hex = encoder::encode<hex_with_quotes>(read_hash, md5::HASH_LEN);
 
-  req->init(s3::base::HTTP_PUT);
+  req->init(base::HTTP_PUT);
   req->set_url(url);
 
   req->set_header("Content-MD5", expected_md5_b64);
@@ -232,7 +232,7 @@ int file_transfer::upload_single(const request::ptr &req, const string &url, siz
 
   req->run(config::get_transfer_timeout_in_s());
 
-  if (req->get_response_code() != s3::base::HTTP_SC_OK) {
+  if (req->get_response_code() != base::HTTP_SC_OK) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_single", "failed to upload for [%s].\n", url.c_str());
     return -EIO;
   }
