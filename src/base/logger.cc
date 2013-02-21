@@ -1,7 +1,7 @@
 /*
  * base/logger.cc
  * -------------------------------------------------------------------------
- * Definitions for s3::logger static members and init() method.
+ * Definitions for s3::base::logger static members and init() method.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.

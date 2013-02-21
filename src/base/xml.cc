@@ -1,7 +1,7 @@
 /*
  * base/xml.cc
  * -------------------------------------------------------------------------
- * Implements s3::xml using libxml++.
+ * Implements s3::base::xml using libxml++.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.

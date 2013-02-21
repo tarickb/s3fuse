@@ -1,7 +1,7 @@
 /*
  * base/config.cc
  * -------------------------------------------------------------------------
- * Definitions for s3::config static members and init() method.
+ * Definitions for s3::base::config static members and init() method.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
