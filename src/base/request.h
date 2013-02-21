@@ -49,10 +49,12 @@ namespace s3
     enum http_status_code
     {
       HTTP_SC_OK = 200,
+      HTTP_SC_CREATED = 201,
       HTTP_SC_ACCEPTED = 202,
       HTTP_SC_NO_CONTENT = 204,
       HTTP_SC_PARTIAL_CONTENT = 206,
       HTTP_SC_MULTIPLE_CHOICES = 300,
+      HTTP_SC_RESUME = 308,
       HTTP_SC_BAD_REQUEST = 400,
       HTTP_SC_UNAUTHORIZED = 401,
       HTTP_SC_FORBIDDEN = 403,
