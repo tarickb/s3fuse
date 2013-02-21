@@ -1,5 +1,5 @@
 /*
- * services/gs_file_transfer.h
+ * services/gs/file_transfer.h
  * -------------------------------------------------------------------------
  * Google Storage file transfer class declaration.
  * -------------------------------------------------------------------------
@@ -31,19 +31,22 @@ namespace s3
 {
   namespace services
   {
-    class gs_file_transfer : public file_transfer
+    namespace gs
     {
-    public:
-      gs_file_transfer();
+      class file_transfer : public services::file_transfer
+      {
+      public:
+        file_transfer();
 
-      virtual size_t get_upload_chunk_size();
+        virtual size_t get_upload_chunk_size();
 
-    protected:
-      virtual int upload_multi(const std::string &url, size_t size, const read_chunk_fn &on_read, std::string *returned_etag);
+      protected:
+        virtual int upload_multi(const std::string &url, size_t size, const read_chunk_fn &on_read, std::string *returned_etag);
 
-    private:
-      size_t _upload_chunk_size;
-    };
+      private:
+        size_t _upload_chunk_size;
+      };
+    }
   }
 }
 

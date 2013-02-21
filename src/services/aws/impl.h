@@ -1,5 +1,5 @@
 /*
- * services/aws_impl.h
+ * services/aws/impl.h
  * -------------------------------------------------------------------------
  * Service implementation for Amazon Web Services.
  * -------------------------------------------------------------------------
@@ -30,28 +30,31 @@ namespace s3
   {
     class file_transfer;
 
-    class aws_impl : public impl
+    namespace aws
     {
-    public:
-      aws_impl();
+      class impl : public services::impl
+      {
+      public:
+        impl();
 
-      virtual ~aws_impl() { }
+        virtual ~impl() { }
 
-      virtual const std::string & get_header_prefix();
-      virtual const std::string & get_header_meta_prefix();
+        virtual const std::string & get_header_prefix();
+        virtual const std::string & get_header_meta_prefix();
 
-      virtual const std::string & get_bucket_url();
+        virtual const std::string & get_bucket_url();
 
-      virtual std::string adjust_url(const std::string &url);
-      virtual void pre_run(base::request *r, int iter);
+        virtual std::string adjust_url(const std::string &url);
+        virtual void pre_run(base::request *r, int iter);
 
-      virtual boost::shared_ptr<file_transfer> build_file_transfer();
+        virtual boost::shared_ptr<services::file_transfer> build_file_transfer();
 
-    private:
-      void sign(base::request *req);
+      private:
+        void sign(base::request *req);
 
-      std::string _key, _secret, _endpoint, _bucket_url;
-    };
+        std::string _key, _secret, _endpoint, _bucket_url;
+      };
+    }
   }
 }
 

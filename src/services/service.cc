@@ -24,8 +24,8 @@
 #include "base/request.h"
 #include "base/request_hook.h"
 #include "services/service.h"
-#include "services/aws_impl.h"
-#include "services/gs_impl.h"
+#include "services/aws/impl.h"
+#include "services/gs/impl.h"
 
 using boost::shared_ptr;
 using std::runtime_error;
@@ -33,9 +33,7 @@ using std::string;
 
 using s3::base::request;
 using s3::base::request_hook;
-using s3::services::aws_impl;
 using s3::services::file_transfer;
-using s3::services::gs_impl;
 using s3::services::impl;
 using s3::services::service;
 
@@ -80,10 +78,10 @@ namespace
 void service::init(const string &service)
 {
   if (service == "aws")
-    s_impl.reset(new aws_impl());
+    s_impl.reset(new aws::impl());
 
   else if (service == "google-storage")
-    s_impl.reset(new gs_impl());
+    s_impl.reset(new gs::impl());
 
   else
     throw runtime_error("unrecognized service.");

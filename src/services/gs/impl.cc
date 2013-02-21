@@ -1,5 +1,5 @@
 /*
- * services/gs_impl.cc
+ * services/gs/impl.cc
  * -------------------------------------------------------------------------
  * Definitions for Google Storage implementation.
  * -------------------------------------------------------------------------
@@ -28,8 +28,8 @@
 #include "base/request.h"
 #include "base/statistics.h"
 #include "crypto/private_file.h"
-#include "services/gs_file_transfer.h"
-#include "services/gs_impl.h"
+#include "services/gs/file_transfer.h"
+#include "services/gs/impl.h"
 
 using boost::mutex;
 using boost::detail::atomic_count;
@@ -48,8 +48,7 @@ using s3::base::request;
 using s3::base::statistics;
 using s3::crypto::private_file;
 using s3::services::file_transfer;
-using s3::services::gs_file_transfer;
-using s3::services::gs_impl;
+using s3::services::gs::impl;
 
 namespace
 {
@@ -77,7 +76,7 @@ namespace
     // TODO: make statistics titles more .. legible?
 
     *o <<
-      "gs_impl:\n"
+      "gs impl:\n"
       "  token refreshes due to request failure: " << s_refresh_on_fail << "\n"
       "  token refreshes due to timeout: " << s_refresh_on_timeout << "\n";
   }
@@ -85,12 +84,12 @@ namespace
   statistics::writers::entry s_entry(statistics_writer, 0);
 }
 
-const string & gs_impl::get_new_token_url()
+const string & impl::get_new_token_url()
 {
   return NEW_TOKEN_URL;
 }
 
-void gs_impl::get_tokens(get_tokens_mode mode, const string &key, string *access_token, time_t *expiry, string *refresh_token)
+void impl::get_tokens(get_tokens_mode mode, const string &key, string *access_token, time_t *expiry, string *refresh_token)
 {
   request req;
   string data;
@@ -120,7 +119,7 @@ void gs_impl::get_tokens(get_tokens_mode mode, const string &key, string *access
   req.run();
 
   if (req.get_response_code() != base::HTTP_SC_OK) {
-    S3_LOG(LOG_ERR, "gs_impl::get_tokens", "token endpoint returned %i.\n", req.get_response_code());
+    S3_LOG(LOG_ERR, "impl::get_tokens", "token endpoint returned %i.\n", req.get_response_code());
     throw runtime_error("failed to get tokens.");
   }
 
@@ -134,7 +133,7 @@ void gs_impl::get_tokens(get_tokens_mode mode, const string &key, string *access
     *refresh_token = tree.get<string>("refresh_token");
 }
 
-string gs_impl::read_token(const string &file)
+string impl::read_token(const string &file)
 {
   ifstream f;
   string token;
@@ -145,7 +144,7 @@ string gs_impl::read_token(const string &file)
   return token;
 }
 
-void gs_impl::write_token(const string &file, const string &token)
+void impl::write_token(const string &file, const string &token)
 {
   ofstream f;
 
@@ -153,43 +152,43 @@ void gs_impl::write_token(const string &file, const string &token)
   f << token << endl;
 }
 
-gs_impl::gs_impl()
+impl::impl()
   : _expiry(0)
 {
   mutex::scoped_lock lock(_mutex);
 
   _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
 
-  _refresh_token = gs_impl::read_token(config::get_gs_token_file());
+  _refresh_token = impl::read_token(config::get_gs_token_file());
   refresh(lock);
 }
 
-const string & gs_impl::get_header_prefix()
+const string & impl::get_header_prefix()
 {
   return HEADER_PREFIX;
 }
 
-const string & gs_impl::get_header_meta_prefix()
+const string & impl::get_header_meta_prefix()
 {
   return HEADER_META_PREFIX;
 }
 
-const string & gs_impl::get_bucket_url()
+const string & impl::get_bucket_url()
 {
   return _bucket_url;
 }
 
-void gs_impl::sign(request *req, int iter)
+void impl::sign(request *req, int iter)
 {
   mutex::scoped_lock lock(_mutex);
 
   if (iter > 0) {
     ++s_refresh_on_fail;
-    S3_LOG(LOG_DEBUG, "gs_impl::sign", "last request failed. refreshing token.\n");
+    S3_LOG(LOG_DEBUG, "impl::sign", "last request failed. refreshing token.\n");
     refresh(lock);
   } else if (time(NULL) >= _expiry) {
     ++s_refresh_on_timeout;
-    S3_LOG(LOG_DEBUG, "gs_impl::sign", "token timed out. refreshing.\n");
+    S3_LOG(LOG_DEBUG, "impl::sign", "token timed out. refreshing.\n");
     refresh(lock);
   }
 
@@ -197,9 +196,9 @@ void gs_impl::sign(request *req, int iter)
   req->set_header("x-goog-api-version", "2");
 }
 
-void gs_impl::refresh(const mutex::scoped_lock &lock)
+void impl::refresh(const mutex::scoped_lock &lock)
 {
-  gs_impl::get_tokens(
+  impl::get_tokens(
     GT_REFRESH, 
     _refresh_token, 
     &_access_token,
@@ -208,7 +207,7 @@ void gs_impl::refresh(const mutex::scoped_lock &lock)
 
   S3_LOG(
     LOG_DEBUG, 
-    "gs_impl::refresh", 
+    "impl::refresh", 
     "using refresh token [%s], got access token [%s].\n",
     _refresh_token.c_str(),
     _access_token.c_str());
@@ -216,17 +215,17 @@ void gs_impl::refresh(const mutex::scoped_lock &lock)
   _access_token = "OAuth " + _access_token;
 }
 
-string gs_impl::adjust_url(const string &url)
+string impl::adjust_url(const string &url)
 {
   return URL_PREFIX + url;
 }
 
-void gs_impl::pre_run(request *r, int iter)
+void impl::pre_run(request *r, int iter)
 {
   sign(r, iter);
 }
 
-bool gs_impl::should_retry(request *r, int iter)
+bool impl::should_retry(request *r, int iter)
 {
   if (impl::should_retry(r, iter))
     return true;
@@ -235,7 +234,7 @@ bool gs_impl::should_retry(request *r, int iter)
   return (r->get_response_code() == base::HTTP_SC_UNAUTHORIZED && iter == 0);
 }
 
-shared_ptr<file_transfer> gs_impl::build_file_transfer()
+shared_ptr<file_transfer> impl::build_file_transfer()
 {
-  return shared_ptr<file_transfer>(new gs_file_transfer());
+  return shared_ptr<file_transfer>(new gs::file_transfer());
 }

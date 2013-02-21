@@ -1,5 +1,5 @@
 /*
- * services/aws_file_transfer.cc
+ * services/aws/file_transfer.cc
  * -------------------------------------------------------------------------
  * AWS file transfer implementation.
  * -------------------------------------------------------------------------
@@ -30,7 +30,7 @@
 #include "crypto/hash.h"
 #include "crypto/hex_with_quotes.h"
 #include "crypto/md5.h"
-#include "services/aws_file_transfer.h"
+#include "services/aws/file_transfer.h"
 #include "services/multipart_transfer.h"
 #include "threads/pool.h"
 
@@ -50,8 +50,8 @@ using s3::base::xml;
 using s3::crypto::hash;
 using s3::crypto::hex_with_quotes;
 using s3::crypto::md5;
-using s3::services::aws_file_transfer;
 using s3::services::multipart_transfer;
+using s3::services::aws::file_transfer;
 using s3::threads::pool;
 
 namespace
@@ -66,14 +66,14 @@ namespace
   void statistics_writer(ostream *o)
   {
     *o <<
-      "aws_file_transfer multi-part uploads:\n"
+      "aws file_transfer multi-part uploads:\n"
       "  chunks failed: " << s_uploads_multi_chunks_failed << "\n";
   }
 
   statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
-aws_file_transfer::aws_file_transfer()
+file_transfer::file_transfer()
 {
   _upload_chunk_size = 
     (config::get_upload_chunk_size() == -1)
@@ -81,12 +81,12 @@ aws_file_transfer::aws_file_transfer()
       : config::get_upload_chunk_size();
 }
 
-size_t aws_file_transfer::get_upload_chunk_size()
+size_t file_transfer::get_upload_chunk_size()
 {
   return _upload_chunk_size;
 }
 
-int aws_file_transfer::upload_multi(const string &url, size_t size, const read_chunk_fn &on_read, string *returned_etag)
+int file_transfer::upload_multi(const string &url, size_t size, const read_chunk_fn &on_read, string *returned_etag)
 {
   typedef multipart_transfer<upload_range> multipart_upload;
 
@@ -96,7 +96,7 @@ int aws_file_transfer::upload_multi(const string &url, size_t size, const read_c
   scoped_ptr<multipart_upload> upload;
   int r;
 
-  r = pool::call(s3::threads::PR_REQ_0, bind(&aws_file_transfer::upload_multi_init, this, _1, url, &upload_id));
+  r = pool::call(s3::threads::PR_REQ_0, bind(&file_transfer::upload_multi_init, this, _1, url, &upload_id));
 
   if (r)
     return r;
@@ -111,15 +111,15 @@ int aws_file_transfer::upload_multi(const string &url, size_t size, const read_c
 
   upload.reset(new multipart_upload(
     parts,
-    bind(&aws_file_transfer::upload_part, this, _1, url, upload_id, on_read, _2, false),
-    bind(&aws_file_transfer::upload_part, this, _1, url, upload_id, on_read, _2, true)));
+    bind(&file_transfer::upload_part, this, _1, url, upload_id, on_read, _2, false),
+    bind(&file_transfer::upload_part, this, _1, url, upload_id, on_read, _2, true)));
 
   r = upload->process();
 
   if (r) {
     pool::call(
       s3::threads::PR_REQ_0, 
-      bind(&aws_file_transfer::upload_multi_cancel, this, _1, url, upload_id));
+      bind(&file_transfer::upload_multi_cancel, this, _1, url, upload_id));
 
     return r;
   }
@@ -135,10 +135,10 @@ int aws_file_transfer::upload_multi(const string &url, size_t size, const read_c
 
   return pool::call(
     s3::threads::PR_REQ_0, 
-    bind(&aws_file_transfer::upload_multi_complete, this, _1, url, upload_id, complete_upload, returned_etag));
+    bind(&file_transfer::upload_multi_complete, this, _1, url, upload_id, complete_upload, returned_etag));
 }
 
-int aws_file_transfer::upload_part(
+int file_transfer::upload_part(
   const request::ptr &req, 
   const string &url, 
   const string &upload_id, 
@@ -173,14 +173,14 @@ int aws_file_transfer::upload_part(
     return -EIO;
 
   if (req->get_response_header("ETag") != range->etag) {
-    S3_LOG(LOG_WARNING, "aws_file_transfer::upload_part", "md5 mismatch. expected %s, got %s.\n", range->etag.c_str(), req->get_response_header("ETag").c_str());
+    S3_LOG(LOG_WARNING, "file_transfer::upload_part", "md5 mismatch. expected %s, got %s.\n", range->etag.c_str(), req->get_response_header("ETag").c_str());
     return -EAGAIN; // assume it's a temporary failure
   }
 
   return 0;
 }
 
-int aws_file_transfer::upload_multi_init(const request::ptr &req, const string &url, string *upload_id)
+int file_transfer::upload_multi_init(const request::ptr &req, const string &url, string *upload_id)
 {
   xml::document doc;
   int r;
@@ -196,7 +196,7 @@ int aws_file_transfer::upload_multi_init(const request::ptr &req, const string &
   doc = xml::parse(req->get_output_string());
 
   if (!doc) {
-    S3_LOG(LOG_WARNING, "aws_file_transfer::upload_multi_init", "failed to parse response.\n");
+    S3_LOG(LOG_WARNING, "file_transfer::upload_multi_init", "failed to parse response.\n");
     return -EIO;
   }
 
@@ -209,9 +209,9 @@ int aws_file_transfer::upload_multi_init(const request::ptr &req, const string &
   return r;
 }
 
-int aws_file_transfer::upload_multi_cancel(const request::ptr &req, const string &url, const string &upload_id)
+int file_transfer::upload_multi_cancel(const request::ptr &req, const string &url, const string &upload_id)
 {
-  S3_LOG(LOG_WARNING, "aws_file_transfer::upload_multi_cancel", "one or more parts failed to upload for [%s].\n", url.c_str());
+  S3_LOG(LOG_WARNING, "file_transfer::upload_multi_cancel", "one or more parts failed to upload for [%s].\n", url.c_str());
 
   req->init(s3::base::HTTP_DELETE);
   req->set_url(url + "?uploadId=" + upload_id);
@@ -221,7 +221,7 @@ int aws_file_transfer::upload_multi_cancel(const request::ptr &req, const string
   return 0;
 }
 
-int aws_file_transfer::upload_multi_complete(
+int file_transfer::upload_multi_complete(
   const request::ptr &req, 
   const string &url, 
   const string &upload_id, 
@@ -241,14 +241,14 @@ int aws_file_transfer::upload_multi_complete(
   req->run(config::get_transfer_timeout_in_s());
 
   if (req->get_response_code() != s3::base::HTTP_SC_OK) {
-    S3_LOG(LOG_WARNING, "aws_file_transfer::upload_multi_complete", "failed to complete multipart upload for [%s] with error %li.\n", url.c_str(), req->get_response_code());
+    S3_LOG(LOG_WARNING, "file_transfer::upload_multi_complete", "failed to complete multipart upload for [%s] with error %li.\n", url.c_str(), req->get_response_code());
     return -EIO;
   }
 
   doc = xml::parse(req->get_output_string());
 
   if (!doc) {
-    S3_LOG(LOG_WARNING, "aws_file_transfer::upload_multi_complete", "failed to parse response.\n");
+    S3_LOG(LOG_WARNING, "file_transfer::upload_multi_complete", "failed to parse response.\n");
     return -EIO;
   }
 
@@ -256,7 +256,7 @@ int aws_file_transfer::upload_multi_complete(
     return r;
 
   if (etag->empty()) {
-    S3_LOG(LOG_WARNING, "aws_file_transfer::upload_multi_complete", "no etag on multipart upload of [%s]. response: %s\n", url.c_str(), req->get_output_string().c_str());
+    S3_LOG(LOG_WARNING, "file_transfer::upload_multi_complete", "no etag on multipart upload of [%s]. response: %s\n", url.c_str(), req->get_output_string().c_str());
     return -EIO;
   }
 

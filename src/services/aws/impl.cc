@@ -1,5 +1,5 @@
 /*
- * services/aws_impl.cc
+ * services/aws/impl.cc
  * -------------------------------------------------------------------------
  * Definitions for AWS service implementation.
  * -------------------------------------------------------------------------
@@ -31,8 +31,8 @@
 #include "crypto/encoder.h"
 #include "crypto/hmac_sha1.h"
 #include "crypto/private_file.h"
-#include "services/aws_file_transfer.h"
-#include "services/aws_impl.h"
+#include "services/aws/file_transfer.h"
+#include "services/aws/impl.h"
 
 using boost::is_any_of;
 using boost::shared_ptr;
@@ -50,9 +50,8 @@ using s3::crypto::base64;
 using s3::crypto::encoder;
 using s3::crypto::hmac_sha1;
 using s3::crypto::private_file;
-using s3::services::aws_file_transfer;
-using s3::services::aws_impl;
 using s3::services::file_transfer;
+using s3::services::aws::impl;
 
 namespace
 {
@@ -69,7 +68,7 @@ namespace
   }
 }
 
-aws_impl::aws_impl()
+impl::impl()
 {
   ifstream f;
   string line;
@@ -83,7 +82,7 @@ aws_impl::aws_impl()
   if (fields.size() != 2) {
     S3_LOG(
       LOG_ERR, 
-      "aws_impl::aws_impl", 
+      "impl::impl", 
       "expected 2 fields for aws_secret_file, found %i.\n",
       fields.size());
 
@@ -99,22 +98,22 @@ aws_impl::aws_impl()
   _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
 }
 
-const string & aws_impl::get_header_prefix()
+const string & impl::get_header_prefix()
 {
   return HEADER_PREFIX;
 }
 
-const string & aws_impl::get_header_meta_prefix()
+const string & impl::get_header_meta_prefix()
 {
   return HEADER_META_PREFIX;
 }
 
-const string & aws_impl::get_bucket_url()
+const string & impl::get_bucket_url()
 {
   return _bucket_url;
 }
 
-void aws_impl::sign(request *req)
+void impl::sign(request *req)
 {
   const header_map &headers = req->get_headers();
   string date, to_sign;
@@ -140,17 +139,17 @@ void aws_impl::sign(request *req)
   req->set_header("Authorization", string("AWS ") + _key + ":" + encoder::encode<base64>(mac, hmac_sha1::MAC_LEN));
 }
 
-string aws_impl::adjust_url(const string &url)
+string impl::adjust_url(const string &url)
 {
   return _endpoint + url;
 }
 
-void aws_impl::pre_run(request *r, int iter)
+void impl::pre_run(request *r, int iter)
 {
   sign(r);
 }
 
-shared_ptr<file_transfer> aws_impl::build_file_transfer()
+shared_ptr<file_transfer> impl::build_file_transfer()
 {
-  return shared_ptr<file_transfer>(new aws_file_transfer());
+  return shared_ptr<file_transfer>(new aws::file_transfer());
 }
