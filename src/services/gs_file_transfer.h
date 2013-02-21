@@ -12,17 +12,12 @@ namespace s3
     public:
       gs_file_transfer();
 
-      virtual int upload(const std::string &url, size_t size, const read_chunk_fn &on_read, std::string *returned_etag);
-
       virtual size_t get_upload_chunk_size();
 
-    private:
-      int upload_multi(
-        const std::string &url, 
-        size_t size, 
-        const read_chunk_fn &on_read, 
-        std::string *returned_etag);
+    protected:
+      virtual int upload_multi(const std::string &url, size_t size, const read_chunk_fn &on_read, std::string *returned_etag);
 
+    private:
       size_t _upload_chunk_size;
     };
   }

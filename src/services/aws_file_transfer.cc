@@ -1,17 +1,22 @@
 #include <vector>
 #include <boost/lexical_cast.hpp>
+#include <boost/detail/atomic_count.hpp>
 
 #include "base/config.h"
 #include "base/logger.h"
+#include "base/statistics.h"
 #include "base/xml.h"
 #include "crypto/hash.h"
 #include "crypto/hex_with_quotes.h"
 #include "crypto/md5.h"
 #include "services/aws_file_transfer.h"
+#include "services/multipart_transfer.h"
 #include "threads/pool.h"
 
 using boost::lexical_cast;
 using boost::scoped_ptr;
+using boost::detail::atomic_count;
+using std::ostream;
 using std::string;
 using std::vector;
 
@@ -19,11 +24,13 @@ using s3::base::char_vector;
 using s3::base::char_vector_ptr;
 using s3::base::config;
 using s3::base::request;
+using s3::base::statistics;
 using s3::base::xml;
 using s3::crypto::hash;
 using s3::crypto::hex_with_quotes;
 using s3::crypto::md5;
 using s3::services::aws_file_transfer;
+using s3::services::multipart_transfer;
 using s3::threads::pool;
 
 namespace
@@ -32,6 +39,17 @@ namespace
 
   const char *MULTIPART_ETAG_XPATH = "/CompleteMultipartUploadResult/ETag";
   const char *MULTIPART_UPLOAD_ID_XPATH = "/InitiateMultipartUploadResult/UploadId";
+
+  atomic_count s_uploads_multi_chunks_failed(0);
+
+  void statistics_writer(ostream *o)
+  {
+    *o <<
+      "aws_file_transfer multi-part uploads:\n"
+      "  chunks failed: " << s_uploads_multi_chunks_failed << "\n";
+  }
+
+  statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
 aws_file_transfer::aws_file_transfer()
@@ -42,17 +60,61 @@ aws_file_transfer::aws_file_transfer()
       : config::get_upload_chunk_size();
 }
 
-int aws_file_transfer::upload(const string &url, size_t size, const read_chunk_fn &on_read, string *returned_etag)
-{
-  if (size > _upload_chunk_size)
-    return upload_multi(url, size, on_read, returned_etag);
-  else
-    return pool::call(s3::threads::PR_REQ_1, bind(&file_transfer::upload_single, _1, url, size, on_read, returned_etag));
-}
-
 size_t aws_file_transfer::get_upload_chunk_size()
 {
   return _upload_chunk_size;
+}
+
+int aws_file_transfer::upload_multi(const string &url, size_t size, const read_chunk_fn &on_read, string *returned_etag)
+{
+  typedef multipart_transfer<upload_range> multipart_upload;
+
+  string upload_id, complete_upload;
+  const size_t num_parts = (size + _upload_chunk_size - 1) / _upload_chunk_size;
+  vector<upload_range> parts(num_parts);
+  scoped_ptr<multipart_upload> upload;
+  int r;
+
+  r = pool::call(s3::threads::PR_REQ_0, bind(&aws_file_transfer::upload_multi_init, this, _1, url, &upload_id));
+
+  if (r)
+    return r;
+
+  for (size_t i = 0; i < num_parts; i++) {
+    upload_range *part = &parts[i];
+
+    part->id = i;
+    part->offset = i * _upload_chunk_size;
+    part->size = (i != num_parts - 1) ? _upload_chunk_size : (size - _upload_chunk_size * i);
+  }
+
+  upload.reset(new multipart_upload(
+    parts,
+    bind(&aws_file_transfer::upload_part, this, _1, url, upload_id, on_read, _2, false),
+    bind(&aws_file_transfer::upload_part, this, _1, url, upload_id, on_read, _2, true)));
+
+  r = upload->process();
+
+  if (r) {
+    pool::call(
+      s3::threads::PR_REQ_0, 
+      bind(&aws_file_transfer::upload_multi_cancel, this, _1, url, upload_id));
+
+    return r;
+  }
+
+  complete_upload = "<CompleteMultipartUpload>";
+
+  for (size_t i = 0; i < parts.size(); i++) {
+    // part numbers are 1-based
+    complete_upload += "<Part><PartNumber>" + lexical_cast<string>(i + 1) + "</PartNumber><ETag>" + parts[i].etag + "</ETag></Part>";
+  }
+
+  complete_upload += "</CompleteMultipartUpload>";
+
+  return pool::call(
+    s3::threads::PR_REQ_0, 
+    bind(&aws_file_transfer::upload_multi_complete, this, _1, url, upload_id, complete_upload, returned_etag));
 }
 
 int aws_file_transfer::upload_part(
@@ -66,6 +128,9 @@ int aws_file_transfer::upload_part(
   int r = 0;
   long rc = 0;
   char_vector_ptr buffer(new char_vector());
+
+  if (is_retry)
+    ++s_uploads_multi_chunks_failed;
 
   r = on_read(range->size, range->offset, buffer);
 
@@ -175,54 +240,4 @@ int aws_file_transfer::upload_multi_complete(
   }
 
   return 0;
-}
-
-int aws_file_transfer::upload_multi(const string &url, size_t size, const read_chunk_fn &on_read, string *returned_etag)
-{
-  string upload_id, complete_upload;
-  const size_t num_parts = (size + _upload_chunk_size - 1) / _upload_chunk_size;
-  vector<upload_range> parts(num_parts);
-  scoped_ptr<multipart_upload> upload;
-  int r;
-
-  r = pool::call(s3::threads::PR_REQ_0, bind(&aws_file_transfer::upload_multi_init, this, _1, url, &upload_id));
-
-  if (r)
-    return r;
-
-  for (size_t i = 0; i < num_parts; i++) {
-    upload_range *part = &parts[i];
-
-    part->id = i;
-    part->offset = i * _upload_chunk_size;
-    part->size = (i != num_parts - 1) ? _upload_chunk_size : (size - _upload_chunk_size * i);
-  }
-
-  upload.reset(new multipart_upload(
-    parts,
-    bind(&aws_file_transfer::upload_part, this, _1, url, upload_id, on_read, _2, false),
-    bind(&aws_file_transfer::upload_part, this, _1, url, upload_id, on_read, _2, true)));
-
-  r = upload->process();
-
-  if (r) {
-    pool::call(
-      s3::threads::PR_REQ_0, 
-      bind(&aws_file_transfer::upload_multi_cancel, this, _1, url, upload_id));
-
-    return r;
-  }
-
-  complete_upload = "<CompleteMultipartUpload>";
-
-  for (size_t i = 0; i < parts.size(); i++) {
-    // part numbers are 1-based
-    complete_upload += "<Part><PartNumber>" + lexical_cast<string>(i + 1) + "</PartNumber><ETag>" + parts[i].etag + "</ETag></Part>";
-  }
-
-  complete_upload += "</CompleteMultipartUpload>";
-
-  return pool::call(
-    s3::threads::PR_REQ_0, 
-    bind(&aws_file_transfer::upload_multi_complete, this, _1, url, upload_id, complete_upload, returned_etag));
 }
