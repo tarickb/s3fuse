@@ -30,7 +30,6 @@
 #include "crypto/private_file.h"
 #include "services/gs_file_transfer.h"
 #include "services/gs_impl.h"
-#include "threads/pool.h"
 
 using boost::mutex;
 using boost::detail::atomic_count;
@@ -51,7 +50,6 @@ using s3::crypto::private_file;
 using s3::services::file_transfer;
 using s3::services::gs_file_transfer;
 using s3::services::gs_impl;
-using s3::threads::pool;
 
 namespace
 {

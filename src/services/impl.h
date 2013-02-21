@@ -1,7 +1,7 @@
 /*
  * services/impl.h
  * -------------------------------------------------------------------------
- * Abstract base class for service-specific implementation classes.
+ * Base class for service-specific implementation classes.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.

@@ -19,16 +19,11 @@
  * limitations under the License.
  */
 
-#include <boost/lexical_cast.hpp>
 #include <boost/detail/atomic_count.hpp>
 
-#include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
 #include "base/statistics.h"
-#include "base/xml.h"
-#include "crypto/base64.h"
-#include "crypto/encoder.h"
 #include "crypto/hash.h"
 #include "crypto/hex.h"
 #include "crypto/hex_with_quotes.h"
@@ -41,23 +36,15 @@
 #include "services/service.h"
 #include "threads/pool.h"
 
-using boost::lexical_cast;
 using boost::mutex;
 using boost::detail::atomic_count;
-using std::list;
 using std::ostream;
 using std::runtime_error;
 using std::string;
-using std::vector;
 
-using s3::base::char_vector;
 using s3::base::char_vector_ptr;
-using s3::base::config;
 using s3::base::request;
 using s3::base::statistics;
-using s3::base::xml;
-using s3::crypto::base64;
-using s3::crypto::encoder;
 using s3::crypto::hash;
 using s3::crypto::hash_list;
 using s3::crypto::hex;

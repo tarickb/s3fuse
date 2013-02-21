@@ -1,35 +1,40 @@
-#include <vector>
+/*
+ * services/gs_file_transfer.cc
+ * -------------------------------------------------------------------------
+ * Google Storage file transfer implementation.
+ * -------------------------------------------------------------------------
+ *
+ * Copyright (c) 2012, Tarick Bedeir.
+ * 
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ * 
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ * 
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 #include <boost/lexical_cast.hpp>
 #include <boost/detail/atomic_count.hpp>
 
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/statistics.h"
-#include "base/xml.h"
-#include "crypto/hash.h"
-#include "crypto/hex_with_quotes.h"
-#include "crypto/md5.h"
 #include "services/gs_file_transfer.h"
-#include "threads/pool.h"
 
 using boost::lexical_cast;
-using boost::scoped_ptr;
 using boost::detail::atomic_count;
 using std::ostream;
 using std::string;
-using std::vector;
 
-using s3::base::char_vector;
-using s3::base::char_vector_ptr;
 using s3::base::config;
-using s3::base::request;
 using s3::base::statistics;
-using s3::base::xml;
-using s3::crypto::hash;
-using s3::crypto::hex_with_quotes;
-using s3::crypto::md5;
 using s3::services::gs_file_transfer;
-using s3::threads::pool;
 
 namespace
 {
