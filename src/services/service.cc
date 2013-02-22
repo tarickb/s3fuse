@@ -73,21 +73,9 @@ namespace
   };
 }
 
-void service::init(const string &name)
+void service::init(impl *svc)
 {
-  impl *i = NULL;
-
-  for (service::factories::const_iterator itor = service::factories::begin(); itor != service::factories::end(); ++itor) {
-    i = itor->second(name);
-
-    if (i)
-      break;
-  }
-
-  if (!i)
-    throw runtime_error("invalid service specified.");
-
-  s_impl.reset(i);
+  s_impl.reset(svc);
   s_hook.reset(new service_hook(s_impl));
   s_file_transfer = s_impl->build_file_transfer();
 }

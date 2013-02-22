@@ -31,7 +31,6 @@
 #include "crypto/encoder.h"
 #include "crypto/hmac_sha1.h"
 #include "crypto/private_file.h"
-#include "services/service.h"
 #include "services/aws/file_transfer.h"
 #include "services/aws/impl.h"
 
@@ -52,7 +51,6 @@ using s3::crypto::encoder;
 using s3::crypto::hmac_sha1;
 using s3::crypto::private_file;
 using s3::services::file_transfer;
-using s3::services::service;
 using s3::services::aws::impl;
 
 namespace
@@ -68,13 +66,6 @@ namespace
 
     return (itor == map.end()) ? EMPTY : itor->second;
   }
-
-  s3::services::impl * aws_factory(const string &name)
-  {
-    return (name == "aws") ? new impl() : NULL;
-  }
-
-  service::factories::entry s_factory(aws_factory, 0);
 }
 
 impl::impl()

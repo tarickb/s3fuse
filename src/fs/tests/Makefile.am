@@ -5,7 +5,7 @@ noinst_PROGRAMS = \
 	static_xattr
 
 callback_xattr_SOURCES = callback_xattr.cc
-callback_xattr_LDADD = ../libs3fuse_fs.a ../../crypto/libs3fuse_crypto.a $(LDADD)
+callback_xattr_LDADD = ../libs3fuse_fs.a ../../base/libs3fuse_base.a ../../crypto/libs3fuse_crypto.a $(LDADD)
 
 decrypt_file_SOURCES = decrypt_file.cc
 decrypt_file_LDADD = ../../crypto/libs3fuse_crypto.a $(LDADD)

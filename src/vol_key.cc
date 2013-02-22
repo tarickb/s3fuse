@@ -89,7 +89,13 @@ void init(const string &config_file)
   logger::init(LOG_ERR);
   config::init(config_file);
   xml::init();
-  service::init(config::get_service());
+
+  if (config::get_service() == "aws")
+    service::init(new s3::services::aws::impl());
+  else if (config::get_service() == "google-storage")
+    service::init(new s3::services::gs::impl());
+  else
+    throw runtime_error("unrecognized service.");
 }
 
 string to_lower(string in)
