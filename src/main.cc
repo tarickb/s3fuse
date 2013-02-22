@@ -22,6 +22,7 @@
 #include <iostream>
 #include <string>
 
+#include "init_helper.h"
 #include "operations.h"
 #include "base/config.h"
 #include "base/logger.h"
@@ -41,6 +42,7 @@ using std::endl;
 using std::runtime_error;
 using std::string;
 
+using s3::init_helper;
 using s3::operations;
 using s3::base::config;
 using s3::base::logger;
@@ -232,13 +234,8 @@ int main(int argc, char **argv)
     if (!config::get_stats_file().empty())
       statistics::init(config::get_stats_file());
 
-    if (config::get_service() == "aws")
-      service::init(new s3::services::aws::impl());
-    else if (config::get_service() == "google-storage")
-      service::init(new s3::services::gs::impl());
-    else
-      throw runtime_error("unrecognized service.");
-
+    service::init(init_helper::get_service_impl());
+    
     xml::init();
 
     cache::init();

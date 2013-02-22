@@ -17,9 +17,13 @@ s3fuse_libs = \
 	crypto/libs3fuse_crypto.a \
 	base/libs3fuse_base.a
 
+init_helper_src = \
+	init_helper.cc \
+	init_helper.h
+
 bin_PROGRAMS = s3fuse s3fuse_gs_get_token s3fuse_sha256_sum s3fuse_vol_key
 
-s3fuse_SOURCES = main.cc operations.cc operations.h
+s3fuse_SOURCES = $(init_helper_src) main.cc operations.cc operations.h
 s3fuse_LDADD = $(s3fuse_libs) $(LDADD)
 
 s3fuse_gs_get_token_SOURCES = gs_get_token.cc
@@ -28,5 +32,5 @@ s3fuse_gs_get_token_LDADD = $(s3fuse_libs) $(LDADD)
 s3fuse_sha256_sum_SOURCES = sha256_sum.cc
 s3fuse_sha256_sum_LDADD = $(s3fuse_libs) $(LDADD)
 
-s3fuse_vol_key_SOURCES = vol_key.cc
+s3fuse_vol_key_SOURCES = $(init_helper_src) vol_key.cc
 s3fuse_vol_key_LDADD = $(s3fuse_libs) $(LDADD)

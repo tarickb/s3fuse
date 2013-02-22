@@ -24,6 +24,7 @@
 #include <fstream>
 #include <iostream>
 
+#include "init_helper.h"
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/xml.h"
@@ -47,6 +48,7 @@ using std::runtime_error;
 using std::string;
 using std::vector;
 
+using s3::init_helper;
 using s3::base::config;
 using s3::base::logger;
 using s3::base::request;
@@ -89,13 +91,7 @@ void init(const string &config_file)
   logger::init(LOG_ERR);
   config::init(config_file);
   xml::init();
-
-  if (config::get_service() == "aws")
-    service::init(new s3::services::aws::impl());
-  else if (config::get_service() == "google-storage")
-    service::init(new s3::services::gs::impl());
-  else
-    throw runtime_error("unrecognized service.");
+  service::init(init_helper::get_service_impl());
 }
 
 string to_lower(string in)
