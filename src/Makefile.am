@@ -20,13 +20,16 @@ export s3fuse_libs = \
 bin_PROGRAMS = s3fuse s3fuse_gs_get_token s3fuse_sha256_sum s3fuse_vol_key
 
 s3fuse_SOURCES = main.cc operations.cc operations.h
+s3fuse_LDFLAGS = $(LD_WHOLEARCHIVE)
 s3fuse_LDADD = $(s3fuse_libs) $(LDADD)
 
 s3fuse_gs_get_token_SOURCES = gs_get_token.cc
+s3fuse_gs_get_token_LDFLAGS = $(LD_WHOLEARCHIVE)
 s3fuse_gs_get_token_LDADD = $(s3fuse_libs) $(LDADD)
 
 s3fuse_sha256_sum_SOURCES = sha256_sum.cc
-s3fuse_sha256_sum_LDADD = $(s3fuse_libs) $(LDADD)
+s3fuse_sha256_sum_LDADD = crypto/libs3fuse_crypto.a $(LDADD)
 
 s3fuse_vol_key_SOURCES = vol_key.cc
+s3fuse_vol_key_LDFLAGS = $(LD_WHOLEARCHIVE)
 s3fuse_vol_key_LDADD = $(s3fuse_libs) $(LDADD)
