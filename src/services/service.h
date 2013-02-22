@@ -25,6 +25,7 @@
 #include <string>
 #include <boost/smart_ptr.hpp>
 
+#include "base/static_list.h"
 #include "services/impl.h"
 
 namespace s3
@@ -39,7 +40,10 @@ namespace s3
     class service
     {
     public:
-      static void init(impl *svc);
+      typedef impl * (*factory_fn)(const std::string &);
+      typedef base::static_list<factory_fn> factories;
+
+      static void init(const std::string &name);
 
       inline static const std::string & get_header_prefix() { return s_impl->get_header_prefix(); }
       inline static const std::string & get_header_meta_prefix() { return s_impl->get_header_meta_prefix(); }

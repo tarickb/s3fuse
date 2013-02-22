@@ -232,13 +232,7 @@ int main(int argc, char **argv)
     if (!config::get_stats_file().empty())
       statistics::init(config::get_stats_file());
 
-    if (config::get_service() == "aws")
-      service::init(new s3::services::aws::impl());
-    else if (config::get_service() == "google-storage")
-      service::init(new s3::services::gs::impl());
-    else
-      throw runtime_error("unrecognized service.");
-
+    service::init(config::get_service());
     xml::init();
 
     cache::init();

@@ -8,12 +8,12 @@ endif
 # the order of archives in s3fuse_libs matters -- they must be listed such that if A
 # requires symbols provided by B, then A must appear before B
 
-s3fuse_libs = \
+export s3fuse_libs = \
 	fs/libs3fuse_fs.a \
 	services/aws/libs3fuse_services_aws.a \
 	services/gs/libs3fuse_services_gs.a \
-	threads/libs3fuse_threads.a \
 	services/libs3fuse_services.a \
+	threads/libs3fuse_threads.a \
 	crypto/libs3fuse_crypto.a \
 	base/libs3fuse_base.a
 

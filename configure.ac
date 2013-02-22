@@ -55,10 +55,10 @@ AM_CONDITIONAL([BUILD_TESTS], [test x$build_tests = xtrue])
 # set LDFLAGS rather than AM_LDFLAGS below because we need these flags
 # when using AC_CHECK_LIB
 if test "x$darwin" = xtrue; then
-  LDFLAGS="$LDFLAGS -L/opt/local/lib"
+  LDFLAGS="$LDFLAGS -all_load -L/opt/local/lib"
   LDADD="$LDADD -framework CoreFoundation -framework Security"
 else
-  LDFLAGS="$LDFLAGS -Wl,--as-needed"
+  LDFLAGS="$LDFLAGS -Wl,--as-needed -Wl,--whole-archive"
 fi
 
 if test "x$coverage" = xtrue; then

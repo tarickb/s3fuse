@@ -28,6 +28,7 @@
 #include "base/request.h"
 #include "base/statistics.h"
 #include "crypto/private_file.h"
+#include "services/service.h"
 #include "services/gs/file_transfer.h"
 #include "services/gs/impl.h"
 
@@ -48,6 +49,7 @@ using s3::base::request;
 using s3::base::statistics;
 using s3::crypto::private_file;
 using s3::services::file_transfer;
+using s3::services::service;
 using s3::services::gs::impl;
 
 namespace
@@ -80,6 +82,13 @@ namespace
   }
 
   statistics::writers::entry s_entry(statistics_writer, 0);
+
+  s3::services::impl * gs_factory(const string &name)
+  {
+    return (name == "google-storage") ? new impl() : NULL;
+  }
+
+  service::factories::entry s_factory(gs_factory, 0);
 }
 
 const string & impl::get_new_token_url()
