@@ -89,7 +89,7 @@ namespace
 
   int precache_object(const request::ptr &req, const string &path, int hints)
   {
-    // we need to wrap cache::get because it doesn't return anything, and the
+    // we need to wrap cache::get because it returns an object::ptr, and the
     // thread pool expects a function that returns an int
 
     cache::get(req, path, hints);
