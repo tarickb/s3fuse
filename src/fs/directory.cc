@@ -97,18 +97,28 @@ namespace
     return 0;
   }
 
-  bool ends_with_folder_tag(const string &str)
+  const string FOLDER_TAG = "_$folder$";
+  const string FOLDER_URL_TAG = "_%24folder%24";
+
+  inline bool ends_with(const string &str, const string &suffix)
   {
-    return (str.substr(str.size() - 9) == "_$folder$");
+    if (suffix.size() > str.size())
+      return false;
+
+    return (str.substr(str.size() - suffix.size()) == suffix);
+  }
+
+  inline string remove_substr(const string &str, const string &suffix)
+  {
+    return str.substr(str.size() - suffix.size());
   }
 
   object * checker(const string &path, const request::ptr &req)
   {
     const string &url = req->get_url();
 
-    if (path.empty() || (!url.empty() && ends_with_folder_tag(url))) {
-      string name = path.substr(0, path.size() - 9);
-
+    if (path.empty() || (!url.empty() && ends_with(url, FOLDER_URL_TAG))) {
+      string name = ends_with(path, FOLDER_TAG) ? remove_substr(path, FOLDER_TAG) : path;
       S3_LOG(LOG_DEBUG, "directory::checker", "matched on [%s]\n", name.c_str());
       return new directory(name);
     }
@@ -122,7 +132,7 @@ namespace
 
 string directory::build_url(const string &path)
 {
-  return object::build_url(path) + "_%24folder%24";
+  return object::build_url(path) + FOLDER_URL_TAG;
 }
 
 void directory::invalidate_parent(const string &path)
@@ -181,6 +191,8 @@ directory::directory(const string &path)
 {
   set_url(build_url(path));
   set_object_type(S_IFDIR);
+
+  S3_LOG(LOG_DEBUG, "directory", "url: [%s]\n", get_url().c_str());
 }
 
 directory::~directory()
@@ -249,18 +261,22 @@ int directory::read(const request::ptr &req, const filler_function &filler)
           continue;
         }
 
-        S3_LOG(LOG_DEBUG, "directory::read", "from file: [%s]\n", relative_path.c_str());
-
-        if (ends_with_folder_tag(relative_path))
-          cache->insert(cache_entry(relative_path.substr(0, relative_path.size() - 9), HINT_IS_DIR));
-        else
+        if (ends_with(relative_path, FOLDER_TAG)) {
+          S3_LOG(LOG_DEBUG, "directory::read", "from file as dir: [%s]\n", relative_path.c_str());
+          cache->insert(cache_entry(relative_path.substr(0, relative_path.size() - FOLDER_TAG.size()), HINT_IS_DIR));
+        } else {
+          S3_LOG(LOG_DEBUG, "directory::read", "from file as file: [%s]\n", relative_path.c_str());
           cache->insert(cache_entry(relative_path, HINT_IS_FILE));
+        }
       }
     }
   }
 
   for (cache_list::const_iterator itor = cache->begin(); itor != cache->end(); ++itor) {
     S3_LOG(LOG_DEBUG, "directory::read", "in list: [%s]\n", itor->name.c_str());
+
+    if (itor->name.empty())
+      continue;
 
     if (config::get_precache_on_readdir())
       pool::call_async(threads::PR_REQ_1, bind(precache_object, _1, path + itor->name, itor->hints));
