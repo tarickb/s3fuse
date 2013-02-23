@@ -22,36 +22,23 @@
 #include <iostream>
 #include <string>
 
-#include "init_helper.h"
+#include "init.h"
 #include "operations.h"
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/statistics.h"
 #include "base/version.h"
-#include "base/xml.h"
-#include "fs/cache.h"
-#include "fs/encryption.h"
-#include "fs/file.h"
-#include "services/service.h"
-#include "services/aws/impl.h"
-#include "services/gs/impl.h"
+#include "threads/pool.h"
 
 using std::cerr;
 using std::cout;
 using std::endl;
-using std::runtime_error;
 using std::string;
 
-using s3::init_helper;
+using s3::init;
 using s3::operations;
 using s3::base::config;
-using s3::base::logger;
 using s3::base::statistics;
-using s3::base::xml;
-using s3::fs::cache;
-using s3::fs::encryption;
-using s3::fs::file;
-using s3::services::service;
 using s3::threads::pool;
 
 namespace
@@ -177,9 +164,9 @@ void * init(fuse_conn_info *info)
     S3_LOG(LOG_WARNING, "operations::init", "FUSE_CAP_ATOMIC_O_TRUNC not supported, will revert to truncate-then-open\n");
   }
 
-  // this has to be here, rather than in main(), because the threads init()
-  // creates won't survive the fork in fuse_main().
-  pool::init();
+  // this has to be here, rather than in main(), because the threads created
+  // won't survive the fork in fuse_main().
+  init::threads();
 
   return NULL;
 }
@@ -228,20 +215,9 @@ int main(int argc, char **argv)
   }
 
   try {
-    logger::init(opts.verbosity);
-    config::init(opts.config);
-
-    if (!config::get_stats_file().empty())
-      statistics::init(config::get_stats_file());
-
-    service::init(init_helper::get_service_impl());
-    
-    xml::init();
-
-    cache::init();
-    file::test_transfer_chunk_sizes();
-
-    encryption::init();
+    init::base(init::IB_WITH_STATS, opts.verbosity, opts.config);
+    init::services();
+    init::fs();
 
     operations::init(opts.mountpoint);
     operations::build_fuse_operations(&opers);

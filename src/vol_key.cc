@@ -24,10 +24,8 @@
 #include <fstream>
 #include <iostream>
 
-#include "init_helper.h"
+#include "init.h"
 #include "base/config.h"
-#include "base/logger.h"
-#include "base/xml.h"
 #include "crypto/buffer.h"
 #include "crypto/passwords.h"
 #include "crypto/private_file.h"
@@ -48,11 +46,9 @@ using std::runtime_error;
 using std::string;
 using std::vector;
 
-using s3::init_helper;
+using s3::init;
 using s3::base::config;
-using s3::base::logger;
 using s3::base::request;
-using s3::base::xml;
 using s3::crypto::buffer;
 using s3::crypto::passwords;
 using s3::crypto::private_file;
@@ -88,10 +84,8 @@ namespace
 
 void init(const string &config_file)
 {
-  logger::init(LOG_ERR);
-  config::init(config_file);
-  xml::init();
-  service::init(init_helper::get_service_impl());
+  init::base(init::IB_NONE, LOG_ERR, config_file);
+  init::services();
 }
 
 string to_lower(string in)
