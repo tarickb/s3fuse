@@ -324,6 +324,9 @@ void object::init(const request::ptr &req)
   // isn't shareable) until the request has finished processing
 
   const string &meta_prefix = service::get_header_meta_prefix();
+  mode_t mode;
+  uid_t uid;
+  gid_t gid;
 
   _content_type = req->get_response_header("Content-Type");
   _etag = req->get_response_header("ETag");
@@ -331,10 +334,11 @@ void object::init(const request::ptr &req)
   _intact = (_etag == req->get_response_header(meta_prefix + metadata::LAST_UPDATE_ETAG));
 
   _stat.st_size = strtol(req->get_response_header("Content-Length").c_str(), NULL, 0);
-  _stat.st_mode = (_stat.st_mode & S_IFMT) | (strtol(req->get_response_header(meta_prefix + metadata::MODE).c_str(), NULL, 0) & ~S_IFMT);
-  _stat.st_uid = strtol(req->get_response_header(meta_prefix + metadata::UID).c_str(), NULL, 0);
-  _stat.st_gid = strtol(req->get_response_header(meta_prefix + metadata::GID).c_str(), NULL, 0);
   _stat.st_mtime = strtol(req->get_response_header(meta_prefix + metadata::LAST_MODIFIED_TIME).c_str(), NULL, 0);
+
+  mode = strtol(req->get_response_header(meta_prefix + metadata::MODE).c_str(), NULL, 0) & ~S_IFMT;
+  uid = strtol(req->get_response_header(meta_prefix + metadata::UID).c_str(), NULL, 0);
+  gid = strtol(req->get_response_header(meta_prefix + metadata::GID).c_str(), NULL, 0);
 
   for (header_map::const_iterator itor = req->get_response_headers().begin(); itor != req->get_response_headers().end(); ++itor) {
     const string &key = itor->first;
@@ -357,6 +361,19 @@ void object::init(const request::ptr &req)
   // this workaround is for cases when the file was updated by someone else and the mtime header wasn't set
   if (!is_intact() && req->get_last_modified() > _stat.st_mtime)
     _stat.st_mtime = req->get_last_modified();
+
+  // only accept uid, gid, mode from response if object is intact or if values 
+  // are non-zero (we do this so that objects created by some other mechanism 
+  // don't appear here with uid = 0, gid = 0, mode = 0)
+
+  if (is_intact() || mode)
+    _stat.st_mode = (_stat.st_mode & S_IFMT) | mode;
+
+  if (is_intact() || uid)
+    _stat.st_uid = uid;
+
+  if (is_intact() || gid)
+    _stat.st_gid = gid;
 
   _stat.st_blocks = (_stat.st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
