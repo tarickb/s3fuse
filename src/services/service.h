@@ -39,7 +39,7 @@ namespace s3
     class service
     {
     public:
-      static void init(impl *svc);
+      static void init(const impl::ptr &svc);
 
       inline static const std::string & get_header_prefix() { return s_impl->get_header_prefix(); }
       inline static const std::string & get_header_meta_prefix() { return s_impl->get_header_meta_prefix(); }

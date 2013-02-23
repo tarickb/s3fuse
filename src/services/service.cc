@@ -73,9 +73,9 @@ namespace
   };
 }
 
-void service::init(impl *svc)
+void service::init(const impl::ptr &svc)
 {
-  s_impl.reset(svc);
+  s_impl = svc;
   s_hook.reset(new service_hook(s_impl));
   s_file_transfer = s_impl->build_file_transfer();
 }
