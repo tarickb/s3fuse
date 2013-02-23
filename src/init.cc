@@ -7,6 +7,7 @@
 #include "fs/cache.h"
 #include "fs/encryption.h"
 #include "fs/file.h"
+#include "fs/mime_types.h"
 #include "services/service.h"
 #include "services/aws/impl.h"
 #include "services/gs/impl.h"
@@ -23,6 +24,7 @@ using s3::base::xml;
 using s3::fs::cache;
 using s3::fs::encryption;
 using s3::fs::file;
+using s3::fs::mime_types;
 using s3::services::impl;
 using s3::services::service;
 using s3::threads::pool;
@@ -43,7 +45,7 @@ void init::fs()
 
   cache::init();
   encryption::init();
-  // mime_types::init();
+  mime_types::init();
 }
 
 void init::services()
