@@ -1,6 +1,7 @@
 #include <fstream>
 #include <map>
 #include <vector>
+#include <boost/algorithm/string/case_conv.hpp>
 #include <boost/algorithm/string/classification.hpp>
 #include <boost/algorithm/string/split.hpp>
 
@@ -9,6 +10,7 @@
 
 using boost::is_any_of;
 using boost::token_compress_on;
+using boost::algorithm::to_lower;
 using std::ifstream;
 using std::map;
 using std::string;
@@ -22,6 +24,8 @@ namespace
   typedef map<string, string> type_map;
 
   const char *MAP_FILES[] = {
+    "/etc/httpd/mime.types",
+    "/private/etc/apache2/mime.types", // this just happens to be where I found the mime map on my OS X system
     "/etc/mime.types",
     "~/.mime.types" };
 
@@ -61,7 +65,9 @@ void mime_types::init()
     load_from_file(MAP_FILES[i]);
 }
 
-const string & mime_types::get_type_by_extension(const string &ext)
+const string & mime_types::get_type_by_extension(string ext)
 {
+  to_lower(ext);
+
   return s_map[ext];
 }

@@ -11,7 +11,7 @@ namespace s3
     {
     public:
       static void init();
-      static const std::string & get_type_by_extension(const std::string &ext);
+      static const std::string & get_type_by_extension(std::string ext);
     };
   }
 }
