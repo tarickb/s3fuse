@@ -97,14 +97,23 @@ namespace
     return 0;
   }
 
+  bool ends_with_folder_tag(const string &str)
+  {
+    return (str.substr(str.size() - 9) == "_$folder$");
+  }
+
   object * checker(const string &path, const request::ptr &req)
   {
     const string &url = req->get_url();
 
-    if (!path.empty() && (url.empty() || url[url.size() - 1] != '/'))
-      return NULL;
+    if (path.empty() || (!url.empty() && ends_with_folder_tag(url))) {
+      string name = path.substr(0, path.size() - 9);
 
-    return new directory(path);
+      S3_LOG(LOG_DEBUG, "directory::checker", "matched on [%s]\n", name.c_str());
+      return new directory(name);
+    }
+
+    return NULL;
   }
 
   object::type_checker_list::entry s_checker_reg(checker, 10);
@@ -113,7 +122,7 @@ namespace
 
 string directory::build_url(const string &path)
 {
-  return object::build_url(path) + "/";
+  return object::build_url(path) + "_%24folder%24";
 }
 
 void directory::invalidate_parent(const string &path)
@@ -184,15 +193,12 @@ int directory::read(const request::ptr &req, const filler_function &filler)
   string path = get_path();
   size_t path_len;
   bool truncated = true;
-  cache_list_ptr cache;
+  cache_list_ptr cache(new cache_list());
 
   if (!path.empty())
     path += "/";
 
   path_len = path.size();
-
-  if (config::get_cache_directories())
-    cache.reset(new cache_list());
 
   req->init(base::HTTP_GET);
 
@@ -230,13 +236,8 @@ int directory::read(const request::ptr &req, const filler_function &filler)
       // strip trailing slash
       string relative_path = itor->substr(path_len, itor->size() - path_len - 1);
 
-      filler(relative_path);
-
-      if (config::get_precache_on_readdir())
-        pool::call_async(threads::PR_REQ_1, bind(precache_object, _1, path + relative_path, HINT_IS_DIR));
-
-      if (cache)
-        cache->push_back(relative_path);
+      S3_LOG(LOG_DEBUG, "directory::read", "from prefix: [%s]\n", relative_path.c_str());
+      cache->insert(cache_entry(relative_path, HINT_IS_DIR));
     }
 
     for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
@@ -248,18 +249,26 @@ int directory::read(const request::ptr &req, const filler_function &filler)
           continue;
         }
 
-        filler(relative_path);
+        S3_LOG(LOG_DEBUG, "directory::read", "from file: [%s]\n", relative_path.c_str());
 
-        if (config::get_precache_on_readdir())
-          pool::call_async(threads::PR_REQ_1, bind(precache_object, _1, path + relative_path, HINT_IS_FILE));
-
-        if (cache)
-          cache->push_back(relative_path);
+        if (ends_with_folder_tag(relative_path))
+          cache->insert(cache_entry(relative_path.substr(0, relative_path.size() - 9), HINT_IS_DIR));
+        else
+          cache->insert(cache_entry(relative_path, HINT_IS_FILE));
       }
     }
   }
 
-  if (cache) {
+  for (cache_list::const_iterator itor = cache->begin(); itor != cache->end(); ++itor) {
+    S3_LOG(LOG_DEBUG, "directory::read", "in list: [%s]\n", itor->name.c_str());
+
+    if (config::get_precache_on_readdir())
+      pool::call_async(threads::PR_REQ_1, bind(precache_object, _1, path + itor->name, itor->hints));
+
+    filler(itor->name);
+  }
+
+  if (config::get_cache_directories()) {
     mutex::scoped_lock lock(_mutex);
 
     _cache = cache;

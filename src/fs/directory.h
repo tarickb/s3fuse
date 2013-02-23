@@ -22,6 +22,8 @@
 #ifndef S3_FS_DIRECTORY_H
 #define S3_FS_DIRECTORY_H
 
+#include <set>
+
 #include "fs/object.h"
 #include "threads/pool.h"
 
@@ -57,7 +59,7 @@ namespace s3
 
         if (cache) {
           for (cache_list::const_iterator itor = cache->begin(); itor != cache->end(); ++itor)
-            filler(*itor);
+            filler(itor->name);
 
           return 0;
         } else {
@@ -80,7 +82,30 @@ namespace s3
       virtual int rename(const boost::shared_ptr<base::request> &req, const std::string &to);
 
     private:
-      typedef std::list<std::string> cache_list;
+      struct cache_entry
+      {
+        std::string name;
+        int hints;
+
+        inline cache_entry(const std::string &name_, int hints_)
+          : name(name_),
+            hints(hints_)
+        {
+        }
+
+        class comparator
+        {
+        public:
+          inline bool operator()(const cache_entry &x, const cache_entry &y)
+          {
+            std::less<std::string> l;
+
+            return l(x.name, y.name);
+          }
+        };
+      };
+
+      typedef std::set<cache_entry, cache_entry::comparator> cache_list;
       typedef boost::shared_ptr<cache_list> cache_list_ptr;
 
       int read(const boost::shared_ptr<base::request> &req, const filler_function &filler);
