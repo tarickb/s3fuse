@@ -201,10 +201,10 @@ object::object(const string &path)
   _stat.st_mtime = time(NULL);
 
   if (_stat.st_uid == UID_MAX)
-    _stat.st_uid = geteuid();
+    _stat.st_uid = getuid();
 
   if (_stat.st_gid == GID_MAX)
-    _stat.st_gid = getegid();
+    _stat.st_gid = getgid();
 
   _content_type = config::get_default_content_type();
   _url = build_url(_path);
