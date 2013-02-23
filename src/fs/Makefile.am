@@ -26,6 +26,8 @@ libs3fuse_fs_a_SOURCES = \
 	glacier.h \
 	metadata.cc \
 	metadata.h \
+	mime_types.cc \
+	mime_types.h \
 	object.cc \
 	object.h \
 	static_xattr.cc \
