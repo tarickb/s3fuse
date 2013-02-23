@@ -54,6 +54,10 @@ namespace
 {
   const string HEADER_PREFIX = "x-goog-";
   const string HEADER_META_PREFIX = "x-goog-meta-";
+
+  const string DIRECTORY_SUFFIX = "_$folder$";
+  const string DIRECTORY_URL_SUFFIX = "_%24folder%24";
+
   const string URL_PREFIX = "https://commondatastorage.googleapis.com";
 
   const string EP_TOKEN = "https://accounts.google.com/o/oauth2/token";
@@ -169,6 +173,16 @@ const string & impl::get_header_prefix()
 const string & impl::get_header_meta_prefix()
 {
   return HEADER_META_PREFIX;
+}
+
+const string & impl::get_directory_suffix()
+{
+  return DIRECTORY_SUFFIX;
+}
+
+const string & impl::get_directory_url_suffix()
+{
+  return DIRECTORY_URL_SUFFIX;
 }
 
 const string & impl::get_bucket_url()

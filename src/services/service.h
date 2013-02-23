@@ -44,6 +44,9 @@ namespace s3
       inline static const std::string & get_header_prefix() { return s_impl->get_header_prefix(); }
       inline static const std::string & get_header_meta_prefix() { return s_impl->get_header_meta_prefix(); }
 
+      inline static const std::string & get_directory_suffix() { return s_impl->get_directory_suffix(); }
+      inline static const std::string & get_directory_url_suffix() { return s_impl->get_directory_url_suffix(); }
+
       inline static const std::string & get_bucket_url() { return s_impl->get_bucket_url(); }
 
       inline static base::request_hook * get_request_hook() { return s_hook.get(); }

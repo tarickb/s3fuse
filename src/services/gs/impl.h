@@ -56,6 +56,9 @@ namespace s3
         virtual const std::string & get_header_prefix();
         virtual const std::string & get_header_meta_prefix();
 
+        virtual const std::string & get_directory_suffix();
+        virtual const std::string & get_directory_url_suffix();
+
         virtual const std::string & get_bucket_url();
 
         virtual std::string adjust_url(const std::string &url);
