@@ -69,14 +69,14 @@ namespace
     "scope=" + OAUTH_SCOPE + "&"
     "response_type=code";
 
-  atomic_count s_refresh_on_fail(0), s_refresh_on_timeout(0);
+  atomic_count s_refresh_on_fail(0), s_refresh_on_expiry(0);
 
   void statistics_writer(ostream *o)
   {
     *o <<
       "google storage service:\n"
       "  token refreshes due to request failure: " << s_refresh_on_fail << "\n"
-      "  token refreshes due to timeout: " << s_refresh_on_timeout << "\n";
+      "  token refreshes due to expiry: " << s_refresh_on_expiry << "\n";
   }
 
   statistics::writers::entry s_entry(statistics_writer, 0);
@@ -185,8 +185,8 @@ void impl::sign(request *req, int iter)
     S3_LOG(LOG_DEBUG, "impl::sign", "last request failed. refreshing token.\n");
     refresh(lock);
   } else if (time(NULL) >= _expiry) {
-    ++s_refresh_on_timeout;
-    S3_LOG(LOG_DEBUG, "impl::sign", "token timed out. refreshing.\n");
+    ++s_refresh_on_expiry;
+    S3_LOG(LOG_DEBUG, "impl::sign", "token expired. refreshing.\n");
     refresh(lock);
   }
 
