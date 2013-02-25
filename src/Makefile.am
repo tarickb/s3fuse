@@ -11,6 +11,7 @@ endif
 s3fuse_libs = \
 	fs/libs3fuse_fs.a \
 	services/aws/libs3fuse_services_aws.a \
+	services/fvs/libs3fuse_services_fvs.a \
 	services/gs/libs3fuse_services_gs.a \
 	threads/libs3fuse_threads.a \
 	services/libs3fuse_services.a \

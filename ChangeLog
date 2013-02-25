@@ -1,8 +1,9 @@
 s3fuse (0.14) unstable; urgency=low
 
   * NEW: Multipart (resumable) uploads for Google Cloud Storage.
+  * NEW: Support for FV/S.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Thu, 21 Feb 2013 01:59:21 -0600
+ -- Tarick Bedeir <tarick@bedeir.com>  Sun, 24 Feb 2013 18:23:12 -0600
 
 s3fuse (0.13.1) unstable; urgency=low
 
