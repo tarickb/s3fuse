@@ -53,7 +53,7 @@ void init::services()
 {
   if (config::get_service() == "aws")
     service::init(impl::ptr(new services::aws::impl()));
-  if (config::get_service() == "fvs")
+  else if (config::get_service() == "fvs")
     service::init(impl::ptr(new services::fvs::impl()));
   else if (config::get_service() == "google-storage")
     service::init(impl::ptr(new services::gs::impl()));
