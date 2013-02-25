@@ -21,6 +21,7 @@
 
 #include <boost/detail/atomic_count.hpp>
 
+#include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
 #include "base/statistics.h"
@@ -30,6 +31,7 @@
 #include "crypto/md5.h"
 #include "fs/cache.h"
 #include "fs/metadata.h"
+#include "fs/mime_types.h"
 #include "fs/file.h"
 #include "fs/static_xattr.h"
 #include "services/file_transfer.h"
@@ -43,6 +45,7 @@ using std::runtime_error;
 using std::string;
 
 using s3::base::char_vector_ptr;
+using s3::base::config;
 using s3::base::request;
 using s3::base::statistics;
 using s3::crypto::hash;
@@ -53,6 +56,7 @@ using s3::crypto::md5;
 using s3::crypto::sha256;
 using s3::fs::file;
 using s3::fs::metadata;
+using s3::fs::mime_types;
 using s3::fs::object;
 using s3::fs::static_xattr;
 using s3::services::service;
@@ -130,6 +134,18 @@ file::file(const string &path)
     _ref_count(0)
 {
   set_object_type(S_IFREG);
+
+  if (config::get_auto_detect_mime_type()) {
+    size_t pos = path.find_last_of('.');
+
+    if (pos != string::npos) {
+      string ext = path.substr(pos + 1);
+      string content_type = mime_types::get_type_by_extension(ext);
+
+      if (!content_type.empty())
+        set_content_type(content_type);
+    }
+  }
 }
 
 file::~file()

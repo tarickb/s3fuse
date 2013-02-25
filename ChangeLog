@@ -2,6 +2,7 @@ s3fuse (0.14) unstable; urgency=low
 
   * NEW: Multipart (resumable) uploads for Google Cloud Storage.
   * NEW: Support for FV/S.
+  * NEW: Set file content type by examining extension.
 
  -- Tarick Bedeir <tarick@bedeir.com>  Sun, 24 Feb 2013 18:23:12 -0600
 

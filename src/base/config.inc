@@ -65,6 +65,7 @@ CONFIG_CONSTRAINT(CONFIG_KEY(max_objects_in_cache) > 0, "max_objects_in_cache mu
 
 CONFIG_SECTION("MIME");
 CONFIG(std::string, default_content_type, "binary/octet-stream", "MIME type for newly-created objects");
+CONFIG(bool, auto_detect_mime_type, true, "set file content type based on extension");
 
 CONFIG_SECTION("Uploads/Downloads");
 CONFIG(size_t, download_chunk_size, 128 * 1024, "download chunk size in bytes");
