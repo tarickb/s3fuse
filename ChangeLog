@@ -1,8 +1,11 @@
 s3fuse (0.14) unstable; urgency=low
 
   * NEW: Multipart (resumable) uploads for Google Cloud Storage.
+  * Fix multipart download bug that prevented some transfers from resuming.
+  * Use real user ID/group ID rather than effective IDs.
+  * Only use user ID/group ID/mode in object metadata if values are valid.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Thu, 21 Feb 2013 01:59:21 -0600
+ -- Tarick Bedeir <tarick@bedeir.com>  Sun, 24 Feb 2013 18:58:29 -0600
 
 s3fuse (0.13.1) unstable; urgency=low
 
