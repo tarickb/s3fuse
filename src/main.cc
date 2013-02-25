@@ -95,6 +95,7 @@ int print_usage(const char *base_name)
     "     config=<file>       use <file> rather than the default configuration file\n"
     "     uid=<id>            force user ID for all files to <id>\n"
     "  -v, --verbose        enable logging to stderr (can be repeated for more verbosity)\n"
+    "  -vN, --verbose=N     set verbosity to N\n"
     "  -V, --version        print version and exit\n"
     << endl;
 
@@ -127,8 +128,18 @@ int process_argument(void *data, const char *arg, int key, struct fuse_args *out
     return 0;
   }
 
+  if (strstr(arg, "-v") == arg) {
+    opts->verbosity = atoi(arg + sizeof("-v") - 1); // sizeof counts the trailing null
+    return 0;
+  }
+
+  if (strstr(arg, "--verbose=") == arg) {
+    opts->verbosity = atoi(arg + sizeof("--verbose=") - 1);
+    return 0;
+  }
+
   if (strstr(arg, "config=") == arg) {
-    opts->config = arg + 7;
+    opts->config = arg + sizeof("config=") - 1;
     return 0;
   }
 
