@@ -77,11 +77,20 @@ namespace s3
         return obj;
       }
 
-      inline static void remove(const std::string &path)
+      inline static int remove(const std::string &path)
       {
         boost::mutex::scoped_lock lock(s_mutex);
+        object::ptr o;
+
+        if (!s_cache_map->find(path, &o))
+          return 0;
+
+        if (!o->is_removable())
+          return -EBUSY;
 
         s_cache_map->erase(path);
+
+        return 0;
       }
 
       // this method is intended to ensure that fn() is called on the one and
