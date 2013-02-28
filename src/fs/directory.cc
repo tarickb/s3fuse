@@ -4,7 +4,7 @@
  * Directory class implementation.
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2012, Tarick Bedeir.
+ * Copyright (c) 2013, Tarick Bedeir.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,15 +26,16 @@
 #include "base/request.h"
 #include "base/statistics.h"
 #include "base/xml.h"
+#include "fs/bucket_reader.h"
 #include "fs/cache.h"
 #include "fs/directory.h"
-#include "services/service.h"
+#include "threads/parallel_work_queue.h"
 #include "threads/pool.h"
 
 using boost::mutex;
+using boost::scoped_ptr;
 using boost::shared_ptr;
 using boost::detail::atomic_count;
-using std::list;
 using std::ostream;
 using std::runtime_error;
 using std::string;
@@ -44,47 +45,26 @@ using s3::base::config;
 using s3::base::request;
 using s3::base::statistics;
 using s3::base::xml;
+using s3::fs::bucket_reader;
 using s3::fs::cache;
 using s3::fs::directory;
 using s3::fs::object;
-using s3::services::service;
+using s3::threads::parallel_work_queue;
 using s3::threads::pool;
 using s3::threads::wait_async_handle;
 
 namespace
 {
-  const char *IS_TRUNCATED_XPATH = "/ListBucketResult/IsTruncated";
-  const char *         KEY_XPATH = "/ListBucketResult/Contents/Key";
-  const char * NEXT_MARKER_XPATH = "/ListBucketResult/NextMarker";
-  const char *      PREFIX_XPATH = "/ListBucketResult/CommonPrefixes/Prefix";
-
-  struct rename_operation
-  {
-    shared_ptr<string> old_name;
-    wait_async_handle::ptr handle;
-  };
-
   atomic_count s_internal_objects_skipped_in_list(0);
+  atomic_count s_copy_retries(0), s_delete_retries(0);
 
   void statistics_writer(ostream *o)
   {
     *o << 
       "directories:\n"
-      "  internal objects skipped in list: " << s_internal_objects_skipped_in_list << "\n";
-  }
-
-  int check_if_truncated(const xml::document &doc, bool *truncated)
-  {
-    int r;
-    string temp;
-
-    r = xml::find(doc, IS_TRUNCATED_XPATH, &temp);
-
-    if (r)
-      return r;
-
-    *truncated = (temp == "true");
-    return 0;
+      "  internal objects skipped in list: " << s_internal_objects_skipped_in_list << "\n"
+      "  rename retries (copy step): " << s_copy_retries << "\n"
+      "  rename retries (delete step): " << s_delete_retries << "\n";
   }
 
   int precache_object(const request::ptr &req, const string &path, int hints)
@@ -95,6 +75,31 @@ namespace
     cache::get(req, path, hints);
 
     return 0;
+  }
+
+  int copy_object(const request::ptr &req, string *name, const string &old_base, const string &new_base, bool is_retry)
+  {
+    string old_name = old_base + *name;
+    string new_name = new_base + *name;
+
+    if (is_retry)
+      ++s_copy_retries;
+
+    S3_LOG(LOG_DEBUG, "directory::copy_object", "[%s] -> [%s]\n", old_name.c_str(), new_name.c_str());
+
+    return object::copy_by_path(req, old_name, new_name);
+  }
+
+  int delete_object(const request::ptr &req, string *name, const string &old_base, bool is_retry)
+  {
+    string old_name = old_base + *name;
+
+    if (is_retry)
+      ++s_delete_retries;
+
+    S3_LOG(LOG_DEBUG, "directory::delete_object", "[%s]\n", old_name.c_str());
+
+    return object::remove_by_url(req, object::build_url(old_name));
   }
 
   object * checker(const string &path, const request::ptr &req)
@@ -133,38 +138,19 @@ void directory::get_internal_objects(const request::ptr &req, vector<string> *ob
 {
   const string &PREFIX = object::get_internal_prefix();
 
-  string marker = "";
-  bool truncated = true;
+  bucket_reader::ptr reader;
+  xml::element_list keys;
+  int r;
 
-  req->init(base::HTTP_GET);
+  reader.reset(new bucket_reader(PREFIX));
 
-  while (truncated) {
-    xml::document doc;
-    xml::element_list keys;
-
-    req->set_url(service::get_bucket_url(), string("delimiter=/&prefix=") + request::url_encode(PREFIX) + "&marker=" + marker);
-    req->run();
-
-    if (req->get_response_code() != base::HTTP_SC_OK)
-      throw runtime_error("failed to list objects.");
-
-    doc = xml::parse(req->get_output_string());
-
-    if (!doc)
-      throw runtime_error("failed to parse object list.");
-
-    if (check_if_truncated(doc, &truncated))
-      throw runtime_error("list truncation check failed.");
-
-    if (truncated && xml::find(doc, NEXT_MARKER_XPATH, &marker))
-      throw runtime_error("unable to find list marker.");
-
-    if (xml::find(doc, KEY_XPATH, &keys))
-      throw runtime_error("unable to find list keys.");
-
+  while ((r = reader->read(req, &keys, NULL)) > 0) {
     for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor)
       objects->push_back(itor->substr(PREFIX.size()));
   }
+
+  if (r)
+    throw runtime_error("failed to list bucket objects.");
 }
 
 directory::directory(const string &path)
@@ -180,11 +166,12 @@ directory::~directory()
 
 int directory::read(const request::ptr &req, const filler_function &filler)
 {
-  string marker = "";
   string path = get_path();
   size_t path_len;
-  bool truncated = true;
   cache_list_ptr cache;
+  bucket_reader::ptr reader;
+  xml::element_list prefixes, keys;
+  int r;
 
   if (!path.empty())
     path += "/";
@@ -194,38 +181,9 @@ int directory::read(const request::ptr &req, const filler_function &filler)
   if (config::get_cache_directories())
     cache.reset(new cache_list());
 
-  req->init(base::HTTP_GET);
+  reader.reset(new bucket_reader(path));
 
-  while (truncated) {
-    int r;
-    xml::document doc;
-    xml::element_list prefixes, keys;
-
-    req->set_url(service::get_bucket_url(), string("delimiter=/&prefix=") + request::url_encode(path) + "&marker=" + marker);
-    req->run();
-
-    if (req->get_response_code() != base::HTTP_SC_OK)
-      return -EIO;
-
-    doc = xml::parse(req->get_output_string());
-
-    if (!doc) {
-      S3_LOG(LOG_WARNING, "directory::read", "failed to parse response.\n");
-      return -EIO;
-    }
-
-    if ((r = check_if_truncated(doc, &truncated)))
-      return r;
-
-    if (truncated && (r = xml::find(doc, NEXT_MARKER_XPATH, &marker)))
-      return r;
-
-    if ((r = xml::find(doc, PREFIX_XPATH, &prefixes)))
-      return r;
-
-    if ((r = xml::find(doc, KEY_XPATH, &keys)))
-      return r;
-
+  while ((r = reader->read(req, &keys, &prefixes)) > 0) {
     for (xml::element_list::const_iterator itor = prefixes.begin(); itor != prefixes.end(); ++itor) {
       // strip trailing slash
       string relative_path = itor->substr(path_len, itor->size() - path_len - 1);
@@ -259,6 +217,9 @@ int directory::read(const request::ptr &req, const filler_function &filler)
     }
   }
 
+  if (r)
+    return r;
+
   if (cache) {
     mutex::scoped_lock lock(_mutex);
 
@@ -270,35 +231,17 @@ int directory::read(const request::ptr &req, const filler_function &filler)
 
 bool directory::is_empty(const request::ptr &req)
 {
-  xml::document doc;
+  bucket_reader::ptr reader;
   xml::element_list keys;
 
   // root directory isn't removable
   if (get_path().empty())
     return false;
 
-  req->init(base::HTTP_GET);
+  // set max_keys to two because GET will always return the path we request
+  reader.reset(new bucket_reader(get_path() + "/", false, 2));
 
-  // set max-keys to two because GET will always return the path we request
-  // note the trailing slash on path
-  req->set_url(service::get_bucket_url(), string("prefix=") + request::url_encode(get_path()) + "/&max-keys=2");
-  req->run();
-
-  // if the request fails, assume the directory's not empty
-  if (req->get_response_code() != base::HTTP_SC_OK)
-    return false;
-
-  doc = xml::parse(req->get_output_string());
-
-  if (!doc) {
-    S3_LOG(LOG_WARNING, "directory::is_empty", "failed to parse response.\n");
-    return false;
-  }
-
-  if (xml::find(doc, KEY_XPATH, &keys))
-    return false;
-
-  return (keys.size() == 1);
+  return (reader->read(req, &keys, NULL) == 1);
 }
 
 int directory::remove(const request::ptr &req)
@@ -311,11 +254,15 @@ int directory::remove(const request::ptr &req)
 
 int directory::rename(const request::ptr &req, const string &to_)
 {
+  typedef parallel_work_queue<string> rename_queue;
+
   string from, to;
   size_t from_len;
-  string marker = "";
-  bool truncated = true;
-  list<rename_operation> pending_renames, pending_deletes;
+  bucket_reader::ptr reader;
+  xml::element_list keys;
+  vector<string> relative_paths;
+  scoped_ptr<rename_queue> queue;
+  int r;
 
   // can't do anything with the root directory
   if (get_path().empty())
@@ -325,79 +272,31 @@ int directory::rename(const request::ptr &req, const string &to_)
   to = to_ + "/";
   from_len = from.size();
 
-  req->init(base::HTTP_GET);
+  reader.reset(new bucket_reader(from, false));
 
-  while (truncated) {
-    xml::document doc;
-    xml::element_list keys;
-    int r;
-
-    req->set_url(service::get_bucket_url(), string("prefix=") + request::url_encode(from) + "&marker=" + marker);
-    req->run();
-
-    if (req->get_response_code() != base::HTTP_SC_OK)
-      return -EIO;
-
-    doc = xml::parse(req->get_output_string());
-
-    if (!doc) {
-      S3_LOG(LOG_WARNING, "directory::rename", "failed to parse response.\n");
-      return -EIO;
-    }
-
-    if ((r = check_if_truncated(doc, &truncated)))
-      return r;
-
-    if (truncated && (r = xml::find(doc, NEXT_MARKER_XPATH, &marker)))
-      return r;
-
-    if ((r = xml::find(doc, KEY_XPATH, &keys)))
-      return r;
-
+  while ((r = reader->read(req, &keys, NULL)) > 0) {
     for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
-      rename_operation oper;
-      const char *full_path_cs = itor->c_str();
-      const char *relative_path_cs = full_path_cs + from_len;
-      string new_name = to + relative_path_cs;
+      int rm_r;
 
-      oper.old_name.reset(new string(full_path_cs));
+      if ((rm_r = cache::remove(*itor)))
+        return rm_r;
 
-      cache::remove(*oper.old_name);
-      oper.handle = pool::post(threads::PR_REQ_1, bind(&object::copy_by_path, _1, *oper.old_name, new_name));
-
-      pending_renames.push_back(oper);
-
-      S3_LOG(LOG_DEBUG, "directory::rename", "[%s] -> [%s]\n", full_path_cs, new_name.c_str());
+      relative_paths.push_back(itor->substr(from_len));
     }
   }
 
-  while (!pending_renames.empty()) {
-    int r;
-    rename_operation &oper = pending_renames.front();
+  queue.reset(new rename_queue(
+    relative_paths,
+    bind(&copy_object, _1, _2, from, to, false),
+    bind(&copy_object, _1, _2, from, to, true)));
 
-    r = oper.handle->wait();
+  if ((r = queue->process()))
+    return r;
 
-    if (r)
-      return r;
+  queue.reset(new rename_queue(
+    relative_paths,
+    bind(&delete_object, _1, _2, from, false),
+    bind(&delete_object, _1, _2, from, true)));
 
-    oper.handle.reset();
-    pending_deletes.push_back(oper);
-    pending_renames.pop_front();
-  }
-
-  for (list<rename_operation>::iterator itor = pending_deletes.begin(); itor != pending_deletes.end(); ++itor)
-    itor->handle = pool::post(threads::PR_REQ_1, bind(&object::remove_by_url, _1, object::build_url(*itor->old_name)));
-
-  while (!pending_deletes.empty()) {
-    int r;
-    const rename_operation &oper = pending_deletes.front();
-
-    r = oper.handle->wait();
-    pending_deletes.pop_front();
-
-    if (r)
-      return r;
-  }
-
-  return 0;
+  return queue->process();
 }
