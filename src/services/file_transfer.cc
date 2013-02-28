@@ -32,7 +32,7 @@
 #include "crypto/hex_with_quotes.h"
 #include "crypto/md5.h"
 #include "services/file_transfer.h"
-#include "services/multipart_transfer.h"
+#include "threads/parallel_work_queue.h"
 #include "threads/pool.h"
 
 using boost::lexical_cast;
@@ -53,7 +53,7 @@ using s3::crypto::hash;
 using s3::crypto::hex_with_quotes;
 using s3::crypto::md5;
 using s3::services::file_transfer;
-using s3::services::multipart_transfer;
+using s3::threads::parallel_work_queue;
 using s3::threads::pool;
 
 namespace
@@ -186,7 +186,7 @@ int file_transfer::download_single(const request::ptr &req, const string &url, s
 
 int file_transfer::download_multi(const string &url, size_t size, const file_transfer::write_chunk_fn &on_write)
 {
-  typedef multipart_transfer<download_range> multipart_download;
+  typedef parallel_work_queue<download_range> multipart_download;
 
   scoped_ptr<multipart_download> dl;
   size_t num_parts = (size + get_download_chunk_size() - 1) / get_download_chunk_size();

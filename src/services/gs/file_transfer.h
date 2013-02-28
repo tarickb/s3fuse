@@ -25,7 +25,6 @@
 #include <string>
 
 #include "services/file_transfer.h"
-#include "services/multipart_transfer.h"
 
 namespace s3
 {

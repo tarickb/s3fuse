@@ -1,10 +1,10 @@
 /*
- * services/multipart_transfer.h
+ * threads/parallel_work_queue.h
  * -------------------------------------------------------------------------
- * Multipart transfer queue manager.
+ * Work queue with parallel execution.
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2012, Tarick Bedeir.
+ * Copyright (c) 2013, Tarick Bedeir.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_SERVICES_MULTIPART_TRANSFER_H
-#define S3_SERVICES_MULTIPART_TRANSFER_H
+#ifndef S3_THREADS_PARALLEL_WORK_QUEUE_H
+#define S3_THREADS_PARALLEL_WORK_QUEUE_H
 
 #include <iostream>
 #include <vector>
@@ -36,22 +36,24 @@ namespace s3
     class request;
   }
 
-  namespace services
+  namespace threads
   {
+    // TODO: rewrite this so that it uses just a part ID (so as to not copy vectors and all that shit)
+
     template <class T>
-    class multipart_transfer
+    class parallel_work_queue
     {
     public:
-      typedef boost::function2<int, const boost::shared_ptr<base::request> &, T *> transfer_part_fn;
+      typedef boost::function2<int, const boost::shared_ptr<base::request> &, T *> process_part_fn;
       typedef boost::function2<int, const boost::shared_ptr<base::request> &, T *> retry_part_fn;
 
-      inline multipart_transfer(
+      inline parallel_work_queue(
         const std::vector<T> &parts,
-        const transfer_part_fn &on_transfer_part,
+        const process_part_fn &on_process_part,
         const retry_part_fn &on_retry_part,
         int max_retries = -1,
         int max_parts_in_progress = -1)
-        : _on_transfer_part(on_transfer_part),
+        : _on_process_part(on_process_part),
           _on_retry_part(on_retry_part)
       {
         _parts.resize(parts.size());
@@ -68,29 +70,29 @@ namespace s3
       int process()
       {
         size_t last_part = 0;
-        std::list<transfer_part *> parts_in_progress;
+        std::list<process_part *> parts_in_progress;
         int r = 0;
 
         for (last_part = 0; last_part < std::min(_max_parts_in_progress, _parts.size()); last_part++) {
-          transfer_part *part = &_parts[last_part];
+          process_part *part = &_parts[last_part];
 
           part->handle = threads::pool::post(
             threads::PR_REQ_1, 
-            bind(_on_transfer_part, _1, &part->part),
+            bind(_on_process_part, _1, &part->part),
             0 /* don't retry on timeout since we handle that here */);
 
           parts_in_progress.push_back(part);
         }
 
         while (!parts_in_progress.empty()) {
-          transfer_part *part = parts_in_progress.front();
+          process_part *part = parts_in_progress.front();
           int part_r;
 
           parts_in_progress.pop_front();
           part_r = part->handle->wait();
 
           if (part_r) {
-            S3_LOG(LOG_DEBUG, "multipart_transfer::process", "part %i returned status %i.\n", part->id, part_r);
+            S3_LOG(LOG_DEBUG, "parallel_work_queue::process", "part %i returned status %i.\n", part->id, part_r);
 
             if ((part_r == -EAGAIN || part_r == -ETIMEDOUT) && part->retry_count < _max_retries) {
               part->handle = threads::pool::post(
@@ -115,7 +117,7 @@ namespace s3
 
             part->handle = threads::pool::post(
               threads::PR_REQ_1, 
-              bind(_on_transfer_part, _1, &part->part),
+              bind(_on_process_part, _1, &part->part),
               0);
 
             parts_in_progress.push_back(part);
@@ -126,7 +128,7 @@ namespace s3
       }
 
     private:
-      struct transfer_part
+      struct process_part
       {
         int id;
         int retry_count;
@@ -134,16 +136,16 @@ namespace s3
 
         T part;
 
-        inline transfer_part()
+        inline process_part()
           : id(-1),
             retry_count(0)
         {
         }
       };
 
-      std::vector<transfer_part> _parts;
+      std::vector<process_part> _parts;
 
-      transfer_part_fn _on_transfer_part;
+      process_part_fn _on_process_part;
       retry_part_fn _on_retry_part;
 
       int _max_retries;
