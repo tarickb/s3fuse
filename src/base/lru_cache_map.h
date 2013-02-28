@@ -115,6 +115,18 @@ namespace s3
         return _map.size();
       }
 
+      inline bool find(const key_type &key, value_type *t)
+      {
+        typename map::iterator itor = _map.find(key);
+
+        if (itor == _map.end())
+          return false;
+
+        *t = itor->second.value;
+        
+        return true;
+      }
+
     private:
       struct entry
       {
