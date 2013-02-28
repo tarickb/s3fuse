@@ -44,6 +44,8 @@ namespace s3
 
         virtual const std::string & get_bucket_url();
 
+        virtual bool is_next_marker_supported();
+
         virtual std::string adjust_url(const std::string &url);
         virtual void pre_run(base::request *r, int iter);
 

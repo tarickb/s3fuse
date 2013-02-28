@@ -113,6 +113,11 @@ const string & impl::get_bucket_url()
   return _bucket_url;
 }
 
+bool impl::is_next_marker_supported()
+{
+  return true;
+}
+
 void impl::sign(request *req)
 {
   const header_map &headers = req->get_headers();

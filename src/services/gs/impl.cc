@@ -176,6 +176,11 @@ const string & impl::get_bucket_url()
   return _bucket_url;
 }
 
+bool impl::is_next_marker_supported()
+{
+  return true;
+}
+
 void impl::sign(request *req, int iter)
 {
   mutex::scoped_lock lock(_mutex);
