@@ -185,6 +185,7 @@ int file_transfer::upload_multi_init(const request::ptr &req, const string &url,
 
   req->init(base::HTTP_POST);
   req->set_url(url + "?uploads");
+  req->set_header("Content-Type", "");
 
   req->run();
 
