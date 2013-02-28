@@ -198,6 +198,7 @@ object::object(const string &path)
   _stat.st_mode = config::get_default_mode();
   _stat.st_uid = config::get_default_uid();
   _stat.st_gid = config::get_default_gid();
+  _stat.st_ctime = time(NULL);
   _stat.st_mtime = time(NULL);
 
   if (_stat.st_uid == UID_MAX)
@@ -334,6 +335,7 @@ void object::init(const request::ptr &req)
   _intact = (_etag == req->get_response_header(meta_prefix + metadata::LAST_UPDATE_ETAG));
 
   _stat.st_size = strtol(req->get_response_header("Content-Length").c_str(), NULL, 0);
+  _stat.st_ctime = strtol(req->get_response_header(meta_prefix + metadata::CREATED_TIME).c_str(), NULL, 0);
   _stat.st_mtime = strtol(req->get_response_header(meta_prefix + metadata::LAST_MODIFIED_TIME).c_str(), NULL, 0);
 
   mode = strtol(req->get_response_header(meta_prefix + metadata::MODE).c_str(), NULL, 0) & ~S_IFMT;
@@ -415,6 +417,9 @@ void object::set_request_headers(const request::ptr &req)
 
   snprintf(buf, 16, "%i", _stat.st_gid);
   req->set_header(meta_prefix + metadata::GID, buf);
+
+  snprintf(buf, 16, "%li", _stat.st_ctime);
+  req->set_header(meta_prefix + metadata::CREATED_TIME, buf);
 
   snprintf(buf, 16, "%li", _stat.st_mtime);
   req->set_header(meta_prefix + metadata::LAST_MODIFIED_TIME, buf);

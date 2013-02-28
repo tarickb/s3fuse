@@ -36,6 +36,7 @@ namespace s3
       static const char *MODE;
       static const char *UID;
       static const char *GID;
+      static const char *CREATED_TIME;
       static const char *LAST_MODIFIED_TIME;
 
       static const char *SHA256;

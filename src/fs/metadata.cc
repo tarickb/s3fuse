@@ -32,6 +32,7 @@ const char *metadata::LAST_UPDATE_ETAG   = "s3fuse-lu-etag";
 const char *metadata::MODE               = "s3fuse-mode";
 const char *metadata::UID                = "s3fuse-uid";
 const char *metadata::GID                = "s3fuse-gid";
+const char *metadata::CREATED_TIME       = "s3fuse-ctime";
 const char *metadata::LAST_MODIFIED_TIME = "s3fuse-mtime";
 
 const char *metadata::SHA256             = "s3fuse-sha256";
