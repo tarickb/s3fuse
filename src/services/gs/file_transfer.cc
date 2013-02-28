@@ -103,7 +103,8 @@ int file_transfer::upload_multi(const string &url, size_t size, const read_chunk
   parts.pop_back();
 
   upload.reset(new multipart_upload(
-    parts,
+    parts.begin(),
+    parts.end(),
     bind(&file_transfer::upload_part, this, _1, location, on_read, _2, false),
     bind(&file_transfer::upload_part, this, _1, location, on_read, _2, true),
     -1, // default max_retries

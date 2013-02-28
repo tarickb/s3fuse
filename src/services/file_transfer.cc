@@ -200,7 +200,8 @@ int file_transfer::download_multi(const string &url, size_t size, const file_tra
   }
 
   dl.reset(new multipart_download(
-    parts,
+    parts.begin(),
+    parts.end(),
     bind(&download_part, _1, url, _2, on_write, false),
     bind(&download_part, _1, url, _2, on_write, true)));
 

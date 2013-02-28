@@ -38,8 +38,6 @@ namespace s3
 
   namespace threads
   {
-    // TODO: rewrite this so that it uses just a part ID (so as to not copy vectors and all that shit)
-
     template <class T>
     class parallel_work_queue
     {
@@ -47,8 +45,10 @@ namespace s3
       typedef boost::function2<int, const boost::shared_ptr<base::request> &, T *> process_part_fn;
       typedef boost::function2<int, const boost::shared_ptr<base::request> &, T *> retry_part_fn;
 
+      template <class iterator_type>
       inline parallel_work_queue(
-        const std::vector<T> &parts,
+        iterator_type begin,
+        iterator_type end,
         const process_part_fn &on_process_part,
         const retry_part_fn &on_retry_part,
         int max_retries = -1,
@@ -56,11 +56,15 @@ namespace s3
         : _on_process_part(on_process_part),
           _on_retry_part(on_retry_part)
       {
-        _parts.resize(parts.size());
+        size_t id = 0;
 
-        for (size_t i = 0; i < parts.size(); i++) {
-          _parts[i].part = parts[i];
-          _parts[i].id = i;
+        for (iterator_type itor = begin; itor != end; ++itor) {
+          process_part p;
+
+          p.part = &(*itor);
+          p.id = id++;
+
+          _parts.push_back(p);
         }
 
         _max_retries = (max_retries == -1) ? base::config::get_max_transfer_retries() : max_retries;
@@ -78,7 +82,7 @@ namespace s3
 
           part->handle = threads::pool::post(
             threads::PR_REQ_1, 
-            bind(_on_process_part, _1, &part->part),
+            bind(_on_process_part, _1, part->part),
             0 /* don't retry on timeout since we handle that here */);
 
           parts_in_progress.push_back(part);
@@ -97,7 +101,7 @@ namespace s3
             if ((part_r == -EAGAIN || part_r == -ETIMEDOUT) && part->retry_count < _max_retries) {
               part->handle = threads::pool::post(
                 threads::PR_REQ_1, 
-                bind(_on_retry_part, _1, &part->part),
+                bind(_on_retry_part, _1, part->part),
                 0);
 
               part->retry_count++;
@@ -117,7 +121,7 @@ namespace s3
 
             part->handle = threads::pool::post(
               threads::PR_REQ_1, 
-              bind(_on_process_part, _1, &part->part),
+              bind(_on_process_part, _1, part->part),
               0);
 
             parts_in_progress.push_back(part);
@@ -134,11 +138,12 @@ namespace s3
         int retry_count;
         threads::wait_async_handle::ptr handle;
 
-        T part;
+        T *part;
 
         inline process_part()
           : id(-1),
-            retry_count(0)
+            retry_count(0),
+            part(NULL)
         {
         }
       };

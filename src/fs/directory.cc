@@ -36,6 +36,7 @@ using boost::mutex;
 using boost::scoped_ptr;
 using boost::shared_ptr;
 using boost::detail::atomic_count;
+using std::list;
 using std::ostream;
 using std::runtime_error;
 using std::string;
@@ -260,7 +261,7 @@ int directory::rename(const request::ptr &req, const string &to_)
   size_t from_len;
   bucket_reader::ptr reader;
   xml::element_list keys;
-  vector<string> relative_paths;
+  list<string> relative_paths;
   scoped_ptr<rename_queue> queue;
   int r;
 
@@ -286,7 +287,8 @@ int directory::rename(const request::ptr &req, const string &to_)
   }
 
   queue.reset(new rename_queue(
-    relative_paths,
+    relative_paths.begin(),
+    relative_paths.end(),
     bind(&copy_object, _1, _2, from, to, false),
     bind(&copy_object, _1, _2, from, to, true)));
 
@@ -294,7 +296,8 @@ int directory::rename(const request::ptr &req, const string &to_)
     return r;
 
   queue.reset(new rename_queue(
-    relative_paths,
+    relative_paths.begin(),
+    relative_paths.end(),
     bind(&delete_object, _1, _2, from, false),
     bind(&delete_object, _1, _2, from, true)));
 
