@@ -8,8 +8,6 @@ endif
 noinst_LIBRARIES = libs3fuse_fs.a
 
 libs3fuse_fs_a_SOURCES = \
-	bucket_reader.cc \
-	bucket_reader.h \
 	bucket_volume_key.cc \
 	bucket_volume_key.h \
 	cache.cc \
@@ -26,6 +24,8 @@ libs3fuse_fs_a_SOURCES = \
 	file.h \
 	glacier.cc \
 	glacier.h \
+	list_reader.cc \
+	list_reader.h \
 	metadata.cc \
 	metadata.h \
 	mime_types.cc \

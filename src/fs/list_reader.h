@@ -1,5 +1,5 @@
 /*
- * fs/bucket_reader.h
+ * fs/list_reader.h
  * -------------------------------------------------------------------------
  * Bucket lister declaration.
  * -------------------------------------------------------------------------
@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_FS_BUCKET_READER_H
-#define S3_FS_BUCKET_READER_H
+#ifndef S3_FS_LIST_READER_H
+#define S3_FS_LIST_READER_H
 
 #include <string>
 #include <boost/smart_ptr.hpp>
@@ -36,12 +36,12 @@ namespace s3
 
   namespace fs
   {
-    class bucket_reader
+    class list_reader
     {
     public:
-      typedef boost::shared_ptr<bucket_reader> ptr;
+      typedef boost::shared_ptr<list_reader> ptr;
 
-      bucket_reader(
+      list_reader(
         const std::string &prefix, 
         bool group_common_prefixes = true,
         int max_keys = -1);

@@ -26,9 +26,9 @@
 #include "base/request.h"
 #include "base/statistics.h"
 #include "base/xml.h"
-#include "fs/bucket_reader.h"
 #include "fs/cache.h"
 #include "fs/directory.h"
+#include "fs/list_reader.h"
 #include "threads/parallel_work_queue.h"
 #include "threads/pool.h"
 
@@ -46,9 +46,9 @@ using s3::base::config;
 using s3::base::request;
 using s3::base::statistics;
 using s3::base::xml;
-using s3::fs::bucket_reader;
 using s3::fs::cache;
 using s3::fs::directory;
+using s3::fs::list_reader;
 using s3::fs::object;
 using s3::threads::parallel_work_queue;
 using s3::threads::pool;
@@ -139,11 +139,11 @@ void directory::get_internal_objects(const request::ptr &req, vector<string> *ob
 {
   const string &PREFIX = object::get_internal_prefix();
 
-  bucket_reader::ptr reader;
+  list_reader::ptr reader;
   xml::element_list keys;
   int r;
 
-  reader.reset(new bucket_reader(PREFIX));
+  reader.reset(new list_reader(PREFIX));
 
   while ((r = reader->read(req, &keys, NULL)) > 0) {
     for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor)
@@ -170,7 +170,7 @@ int directory::read(const request::ptr &req, const filler_function &filler)
   string path = get_path();
   size_t path_len;
   cache_list_ptr cache;
-  bucket_reader::ptr reader;
+  list_reader::ptr reader;
   xml::element_list prefixes, keys;
   int r;
 
@@ -182,7 +182,7 @@ int directory::read(const request::ptr &req, const filler_function &filler)
   if (config::get_cache_directories())
     cache.reset(new cache_list());
 
-  reader.reset(new bucket_reader(path));
+  reader.reset(new list_reader(path));
 
   while ((r = reader->read(req, &keys, &prefixes)) > 0) {
     for (xml::element_list::const_iterator itor = prefixes.begin(); itor != prefixes.end(); ++itor) {
@@ -232,7 +232,7 @@ int directory::read(const request::ptr &req, const filler_function &filler)
 
 bool directory::is_empty(const request::ptr &req)
 {
-  bucket_reader::ptr reader;
+  list_reader::ptr reader;
   xml::element_list keys;
 
   // root directory isn't removable
@@ -240,7 +240,7 @@ bool directory::is_empty(const request::ptr &req)
     return false;
 
   // set max_keys to two because GET will always return the path we request
-  reader.reset(new bucket_reader(get_path() + "/", false, 2));
+  reader.reset(new list_reader(get_path() + "/", false, 2));
 
   return (reader->read(req, &keys, NULL) == 1);
 }
@@ -259,7 +259,7 @@ int directory::rename(const request::ptr &req, const string &to_)
 
   string from, to;
   size_t from_len;
-  bucket_reader::ptr reader;
+  list_reader::ptr reader;
   xml::element_list keys;
   list<string> relative_paths;
   scoped_ptr<rename_queue> queue;
@@ -273,7 +273,9 @@ int directory::rename(const request::ptr &req, const string &to_)
   to = to_ + "/";
   from_len = from.size();
 
-  reader.reset(new bucket_reader(from, false));
+  reader.reset(new list_reader(from, false));
+
+  cache::remove(get_path());
 
   while ((r = reader->read(req, &keys, NULL)) > 0) {
     for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {

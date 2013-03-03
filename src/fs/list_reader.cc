@@ -1,5 +1,5 @@
 /*
- * fs/bucket_reader.cc
+ * fs/list_reader.cc
  * -------------------------------------------------------------------------
  * Lists bucket objects.
  * -------------------------------------------------------------------------
@@ -25,7 +25,7 @@
 
 #include "base/logger.h"
 #include "base/request.h"
-#include "fs/bucket_reader.h"
+#include "fs/list_reader.h"
 #include "services/service.h"
 
 using boost::lexical_cast;
@@ -33,7 +33,7 @@ using std::string;
 
 using s3::base::request;
 using s3::base::xml;
-using s3::fs::bucket_reader;
+using s3::fs::list_reader;
 using s3::services::service;
 
 namespace
@@ -44,7 +44,7 @@ namespace
   const char *      PREFIX_XPATH = "/ListBucketResult/CommonPrefixes/Prefix";
 }
 
-bucket_reader::bucket_reader(const string &prefix, bool group_common_prefixes, int max_keys)
+list_reader::list_reader(const string &prefix, bool group_common_prefixes, int max_keys)
   : _truncated(true),
     _prefix(prefix),
     _group_common_prefixes(group_common_prefixes),
@@ -52,7 +52,7 @@ bucket_reader::bucket_reader(const string &prefix, bool group_common_prefixes, i
 {
 }
 
-int bucket_reader::read(const request::ptr &req, xml::element_list *keys, xml::element_list *prefixes)
+int list_reader::read(const request::ptr &req, xml::element_list *keys, xml::element_list *prefixes)
 {
   int r;
   xml::document doc;
@@ -84,7 +84,7 @@ int bucket_reader::read(const request::ptr &req, xml::element_list *keys, xml::e
   doc = xml::parse(req->get_output_string());
 
   if (!doc) {
-    S3_LOG(LOG_WARNING, "bucket_reader::read", "failed to parse response.\n");
+    S3_LOG(LOG_WARNING, "list_reader::read", "failed to parse response.\n");
     return -EIO;
   }
 
