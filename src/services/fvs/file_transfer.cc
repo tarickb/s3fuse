@@ -23,11 +23,6 @@
 
 using s3::services::fvs::file_transfer;
 
-size_t file_transfer::get_download_chunk_size()
-{
-  return 0; // disabled
-}
-
 size_t file_transfer::get_upload_chunk_size()
 {
   return 0; // disabled

@@ -35,7 +35,6 @@ namespace s3
       class file_transfer : public services::file_transfer
       {
       public:
-        virtual size_t get_download_chunk_size();
         virtual size_t get_upload_chunk_size();
       };
     }
