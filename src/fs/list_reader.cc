@@ -62,6 +62,11 @@ int list_reader::read(const request::ptr &req, xml::element_list *keys, xml::ele
   if (!keys)
     return -EINVAL;
 
+  keys->clear();
+
+  if (prefixes)
+    prefixes->clear();
+
   req->init(base::HTTP_GET);
 
   if (!_truncated)
