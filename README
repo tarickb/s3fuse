@@ -24,14 +24,15 @@ Known Issues
 
 - Reduced-redundancy storage (RRS) is not supported.
 - No attempt is made to match MIME types to file extensions.
-- Directory representation is not compatible with Google Storage Manager.  In
-  particular:
+- Directory representation is not compatible with Google Cloud Storage Manager.
+  In particular:
   - Directories created by s3fuse appear to contain an empty, unnamed file in
     Google Storage Manager.
   - s3fuse lists empty directories created by Google Storage Manager as 
     regular files named <directory-name>_$folder$.
   - s3fuse cannot list the contents of directories created by Google Storage 
     Manager.
+- Google is aware of the Cloud Storage Manager issues.
 
 Configuration
 -------------
