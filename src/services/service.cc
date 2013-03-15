@@ -26,7 +26,6 @@
 #include "services/service.h"
 
 using boost::shared_ptr;
-using std::runtime_error;
 using std::string;
 
 using s3::base::request;

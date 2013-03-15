@@ -1,10 +1,10 @@
 /*
- * services/aws/impl.h
+ * services/fvs/impl.h
  * -------------------------------------------------------------------------
- * Service implementation for Amazon Web Services.
+ * Service implementation for FVS.
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2012, Tarick Bedeir.
+ * Copyright (c) 2013, Tarick Bedeir, Hiroyuki Kakine.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_SERVICES_AWS_IMPL_H
-#define S3_SERVICES_AWS_IMPL_H
+#ifndef S3_SERVICES_FVS_IMPL_H
+#define S3_SERVICES_FVS_IMPL_H
 
 #include "services/impl.h"
 
@@ -30,7 +30,7 @@ namespace s3
   {
     class file_transfer;
 
-    namespace aws
+    namespace fvs
     {
       class impl : public services::impl
       {

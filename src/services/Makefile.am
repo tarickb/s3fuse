@@ -1,4 +1,4 @@
-SUBDIRS = . aws gs
+SUBDIRS = . aws fvs gs
 
 noinst_LIBRARIES = libs3fuse_services.a
 

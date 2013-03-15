@@ -31,6 +31,7 @@
 #include "fs/mime_types.h"
 #include "services/service.h"
 #include "services/aws/impl.h"
+#include "services/fvs/impl.h"
 #include "services/gs/impl.h"
 #include "threads/pool.h"
 
@@ -73,6 +74,8 @@ void init::services()
 {
   if (config::get_service() == "aws")
     service::init(impl::ptr(new services::aws::impl()));
+  else if (config::get_service() == "fvs")
+    service::init(impl::ptr(new services::fvs::impl()));
   else if (config::get_service() == "google-storage")
     service::init(impl::ptr(new services::gs::impl()));
   else

@@ -1,10 +1,10 @@
 /*
- * services/impl.h
+ * fs/list_reader.h
  * -------------------------------------------------------------------------
- * Base class for service-specific implementation classes.
+ * Bucket lister declaration.
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2012, Tarick Bedeir.
+ * Copyright (c) 2013, Tarick Bedeir.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,42 +19,43 @@
  * limitations under the License.
  */
 
-#ifndef S3_SERVICES_IMPL_H
-#define S3_SERVICES_IMPL_H
+#ifndef S3_FS_LIST_READER_H
+#define S3_FS_LIST_READER_H
 
 #include <string>
 #include <boost/smart_ptr.hpp>
+
+#include "base/xml.h"
 
 namespace s3
 {
   namespace base
   {
     class request;
-  }
+  };
 
-  namespace services
+  namespace fs
   {
-    class file_transfer;
-
-    class impl
+    class list_reader
     {
     public:
-      typedef boost::shared_ptr<impl> ptr;
+      typedef boost::shared_ptr<list_reader> ptr;
 
-      virtual ~impl();
+      list_reader(
+        const std::string &prefix, 
+        bool group_common_prefixes = true,
+        int max_keys = -1);
 
-      virtual const std::string & get_header_prefix() = 0;
-      virtual const std::string & get_header_meta_prefix() = 0;
+      int read(
+        const boost::shared_ptr<base::request> &req, 
+        base::xml::element_list *keys, 
+        base::xml::element_list *prefixes);
 
-      virtual const std::string & get_bucket_url() = 0;
-
-      virtual bool is_next_marker_supported() = 0;
-
-      virtual std::string adjust_url(const std::string &url) = 0;
-      virtual void pre_run(base::request *r, int iter) = 0;
-      virtual bool should_retry(base::request *r, int iter);
-
-      virtual boost::shared_ptr<file_transfer> build_file_transfer() = 0;
+    private:
+      bool _truncated;
+      std::string _prefix, _marker;
+      bool _group_common_prefixes;
+      int _max_keys;
     };
   }
 }

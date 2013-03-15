@@ -128,7 +128,7 @@ AC_CONFIG_FILES([src/Makefile src/tests/Makefile])
 AC_CONFIG_FILES([src/base/Makefile src/base/tests/Makefile])
 AC_CONFIG_FILES([src/crypto/Makefile src/crypto/tests/Makefile])
 AC_CONFIG_FILES([src/fs/Makefile src/fs/tests/Makefile])
-AC_CONFIG_FILES([src/services/Makefile src/services/aws/Makefile src/services/gs/Makefile])
+AC_CONFIG_FILES([src/services/Makefile src/services/aws/Makefile src/services/fvs/Makefile src/services/gs/Makefile])
 AC_CONFIG_FILES([src/threads/Makefile src/threads/tests/Makefile])
 
 AC_DEFINE(PACKAGE_VERSION_WITH_REV, [m4_format(["%s%s"], cl_version, svn_version)])

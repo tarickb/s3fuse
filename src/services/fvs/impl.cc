@@ -1,10 +1,10 @@
 /*
- * services/aws/impl.cc
+ * services/fvs/impl.cc
  * -------------------------------------------------------------------------
- * Definitions for AWS service implementation.
+ * Definitions for FVS service implementation.
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2012, Tarick Bedeir.
+ * Copyright (c) 2013, Tarick Bedeir, Hiroyuki Kakine.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,8 +31,8 @@
 #include "crypto/encoder.h"
 #include "crypto/hmac_sha1.h"
 #include "crypto/private_file.h"
-#include "services/aws/file_transfer.h"
-#include "services/aws/impl.h"
+#include "services/fvs/file_transfer.h"
+#include "services/fvs/impl.h"
 
 using boost::is_any_of;
 using boost::shared_ptr;
@@ -51,12 +51,12 @@ using s3::crypto::encoder;
 using s3::crypto::hmac_sha1;
 using s3::crypto::private_file;
 using s3::services::file_transfer;
-using s3::services::aws::impl;
+using s3::services::fvs::impl;
 
 namespace
 {
-  const string HEADER_PREFIX = "x-amz-";
-  const string HEADER_META_PREFIX = "x-amz-meta-";
+  const string HEADER_PREFIX = "x-iijgio-";
+  const string HEADER_META_PREFIX = "x-iijgio-meta-";
 
   const string EMPTY = "";
 
@@ -74,7 +74,7 @@ impl::impl()
   string line;
   vector<string> fields;
 
-  private_file::open(config::get_aws_secret_file(), &f);
+  private_file::open(config::get_fvs_secret_file(), &f);
   getline(f, line);
 
   split(fields, line, is_any_of(string(" \t")), token_compress_on);
@@ -83,17 +83,17 @@ impl::impl()
     S3_LOG(
       LOG_ERR, 
       "impl::impl", 
-      "expected 2 fields for aws_secret_file, found %i.\n",
+      "expected 2 fields for fvs_secret_file, found %i.\n",
       fields.size());
 
-    throw runtime_error("error while parsing auth data for AWS.");
+    throw runtime_error("error while parsing auth data for FVS.");
   }
 
   _key = fields[0];
   _secret = fields[1];
 
-  _endpoint = config::get_aws_use_ssl() ? "https://" : "http://";
-  _endpoint += config::get_aws_service_endpoint();
+  _endpoint = config::get_fvs_use_ssl() ? "https://" : "http://";
+  _endpoint += config::get_fvs_service_endpoint();
 
   _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
 }
@@ -115,7 +115,7 @@ const string & impl::get_bucket_url()
 
 bool impl::is_next_marker_supported()
 {
-  return true;
+  return false;
 }
 
 void impl::sign(request *req)
@@ -141,7 +141,7 @@ void impl::sign(request *req)
   to_sign += req->get_url();
 
   hmac_sha1::sign(_secret, to_sign, mac);
-  req->set_header("Authorization", string("AWS ") + _key + ":" + encoder::encode<base64>(mac, hmac_sha1::MAC_LEN));
+  req->set_header("Authorization", string("IIJGIO ") + _key + ":" + encoder::encode<base64>(mac, hmac_sha1::MAC_LEN));
 }
 
 string impl::adjust_url(const string &url)
@@ -156,5 +156,5 @@ void impl::pre_run(request *r, int iter)
 
 shared_ptr<file_transfer> impl::build_file_transfer()
 {
-  return shared_ptr<file_transfer>(new aws::file_transfer());
+  return shared_ptr<file_transfer>(new fvs::file_transfer());
 }

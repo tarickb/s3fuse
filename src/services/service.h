@@ -46,6 +46,8 @@ namespace s3
 
       inline static const std::string & get_bucket_url() { return s_impl->get_bucket_url(); }
 
+      inline static bool is_next_marker_supported() { return s_impl->is_next_marker_supported(); }
+
       inline static base::request_hook * get_request_hook() { return s_hook.get(); }
 
       inline static const boost::shared_ptr<file_transfer> & get_file_transfer() { return s_file_transfer; }
