@@ -317,6 +317,9 @@ void object::set_mode(mode_t mode)
     mode = config::get_default_mode();
 
   _stat.st_mode = (_stat.st_mode & S_IFMT) | mode;
+
+  // successful chmod updates ctime
+  _stat.st_ctime = time(NULL);
 }
 
 void object::init(const request::ptr &req)
