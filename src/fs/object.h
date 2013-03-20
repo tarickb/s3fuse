@@ -91,7 +91,11 @@ namespace s3
 
       void set_mode(mode_t mode);
 
-      virtual void copy_stat(struct stat *s);
+      inline void copy_stat(struct stat *s)
+      {
+        update_stat();
+        memcpy(s, &_stat, sizeof(_stat));
+      }
 
       int commit(const boost::shared_ptr<base::request> &req);
 
@@ -127,13 +131,15 @@ namespace s3
       virtual void set_request_headers(const boost::shared_ptr<base::request> &req);
       virtual void set_request_body(const boost::shared_ptr<base::request> &req);
 
+      virtual void update_stat();
+
       inline void set_url(const std::string &url) { _url = url; }
       inline void set_content_type(const std::string &content_type) { _content_type = content_type; }
       inline void set_object_type(mode_t mode) { _stat.st_mode |= mode & S_IFMT; }
       inline void set_etag(const std::string &etag) { _etag = etag; }
 
       inline xattr_map * get_metadata() { return &_metadata; }
-      inline const struct stat * get_stat() const { return &_stat; }
+      inline struct stat * get_stat() { return &_stat; }
 
       inline void expire() { _expiry = 0; }
       inline void force_zero_size() { _stat.st_size = 0; }

@@ -220,9 +220,8 @@ bool object::is_removable()
   return true;
 }
 
-void object::copy_stat(struct stat *s)
+void object::update_stat()
 {
-  memcpy(s, &_stat, sizeof(_stat));
 }
 
 int object::set_metadata(const string &key, const char *value, size_t size, int flags, bool *needs_commit)

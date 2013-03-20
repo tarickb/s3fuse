@@ -274,7 +274,13 @@ int file::release()
       return -EBUSY;
     }
 
+    // update stat here so that subsequent calls to copy_stat() will get the
+    // correct file size
+    update_stat();
+
     close(_fd);
+    _fd = -1;
+
     expire();
   }
 
@@ -402,28 +408,24 @@ int file::read_chunk(size_t size, off_t offset, const char_vector_ptr &buffer)
   return 0;
 }
 
-size_t file::get_size()
+size_t file::get_local_size()
 {
   struct stat s;
 
   if (fstat(_fd, &s) == -1) {
-    S3_LOG(LOG_WARNING, "file::get_size", "failed to stat [%s].\n", get_path().c_str());
+    S3_LOG(LOG_WARNING, "file::get_local_size", "failed to stat [%s].\n", get_path().c_str());
     return 0;
   }
 
   return s.st_size;
 }
 
-void file::copy_stat(struct stat *s)
+void file::update_stat()
 {
-  object::copy_stat(s);
+  object::update_stat();
 
-  if (_fd != -1) {
-    struct stat real_s;
-
-    if (fstat(_fd, &real_s) != -1)
-      s->st_size = real_s.st_size;
-  }
+  if (_fd != -1)
+    get_stat()->st_size = get_local_size();
 }
 
 int file::download(const request::ptr & /* ignored */)
@@ -437,7 +439,7 @@ int file::download(const request::ptr & /* ignored */)
 
   r = service::get_file_transfer()->download(
     get_url(),
-    get_size(),
+    get_local_size(),
     bind(&file::write_chunk, shared_from_this(), _1, _2, _3));
 
   if (r)
@@ -449,7 +451,7 @@ int file::download(const request::ptr & /* ignored */)
 int file::prepare_download()
 {
   if (!_sha256_hash.empty())
-    _hash_list.reset(new hash_list<sha256>(get_size()));
+    _hash_list.reset(new hash_list<sha256>(get_local_size()));
 
   return 0;
 }
@@ -514,7 +516,7 @@ int file::upload(const request::ptr & /* ignored */)
 
   r = service::get_file_transfer()->upload(
     get_url(),
-    get_size(),
+    get_local_size(),
     bind(&file::read_chunk, shared_from_this(), _1, _2, _3),
     &returned_etag);
 
@@ -528,7 +530,7 @@ int file::upload(const request::ptr & /* ignored */)
 
 int file::prepare_upload()
 {
-  _hash_list.reset(new hash_list<sha256>(get_size()));
+  _hash_list.reset(new hash_list<sha256>(get_local_size()));
 
   return 0;
 }

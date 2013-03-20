@@ -67,8 +67,6 @@ namespace s3
       int read(char *buffer, size_t size, off_t offset);
       int truncate(off_t length);
 
-      virtual void copy_stat(struct stat *s);
-
     protected:
       virtual void init(const boost::shared_ptr<base::request> &req);
 
@@ -84,6 +82,8 @@ namespace s3
       virtual int finalize_upload(const std::string &returned_etag);
 
       virtual void set_request_headers(const boost::shared_ptr<base::request> &req);
+
+      virtual void update_stat();
 
       inline const std::string & get_sha256_hash() { return _sha256_hash; }
 
@@ -134,7 +134,7 @@ namespace s3
         std::string *etag);
       int upload_part(const boost::shared_ptr<base::request> &req, const std::string &upload_id, transfer_part *part);
 
-      size_t get_size();
+      size_t get_local_size();
 
       void on_download_complete(int ret);
 
