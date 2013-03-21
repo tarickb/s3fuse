@@ -414,7 +414,8 @@ size_t file::get_local_size()
 
   if (fstat(_fd, &s) == -1) {
     S3_LOG(LOG_WARNING, "file::get_local_size", "failed to stat [%s].\n", get_path().c_str());
-    return 0;
+
+    throw runtime_error("failed to stat local file");
   }
 
   return s.st_size;
@@ -424,8 +425,12 @@ void file::update_stat()
 {
   object::update_stat();
 
-  if (_fd != -1)
-    get_stat()->st_size = get_local_size();
+  {
+    mutex::scoped_lock lock(_fs_mutex);
+
+    if (_fd != -1)
+      get_stat()->st_size = get_local_size();
+  }
 }
 
 int file::download(const request::ptr & /* ignored */)
