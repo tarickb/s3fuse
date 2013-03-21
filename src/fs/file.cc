@@ -276,7 +276,7 @@ int file::release()
 
     // update stat here so that subsequent calls to copy_stat() will get the
     // correct file size
-    update_stat();
+    update_stat(lock);
 
     close(_fd);
     _fd = -1;
@@ -428,9 +428,14 @@ void file::update_stat()
   {
     mutex::scoped_lock lock(_fs_mutex);
 
-    if (_fd != -1)
-      get_stat()->st_size = get_local_size();
+    update_stat(lock);
   }
+}
+
+void file::update_stat(const mutex::scoped_lock &)
+{
+  if (_fd != -1)
+    get_stat()->st_size = get_local_size();
 }
 
 int file::download(const request::ptr & /* ignored */)

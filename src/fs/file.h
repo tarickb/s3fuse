@@ -138,6 +138,8 @@ namespace s3
 
       void on_download_complete(int ret);
 
+      void update_stat(const boost::mutex::scoped_lock &);
+
       boost::mutex _fs_mutex;
       boost::condition _condition;
       crypto::hash_list<crypto::sha256>::ptr _hash_list;
