@@ -161,6 +161,7 @@ namespace s3
 
       // protected by _mutex
       xattr_map _metadata;
+      xattr::ptr _cache_control;
     };
   }
 }

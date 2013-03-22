@@ -50,6 +50,7 @@
 #endif
 
 using boost::mutex;
+using boost::static_pointer_cast;
 using boost::detail::atomic_count;
 using std::ostream;
 using std::runtime_error;
@@ -82,11 +83,20 @@ namespace
     const size_t XATTR_PREFIX_LEN = 0;
   #endif
 
+  const string CONTENT_TYPE_XATTR = "s3fuse_content_type";
+  const string ETAG_XATTR = "s3fuse_etag";
+  const string CACHE_CONTROL_XATTR = "s3fuse_cache_control";
+
   const int USER_XATTR_FLAGS = 
     s3::fs::xattr::XM_WRITABLE | 
     s3::fs::xattr::XM_SERIALIZABLE | 
     s3::fs::xattr::XM_VISIBLE | 
     s3::fs::xattr::XM_REMOVABLE | 
+    s3::fs::xattr::XM_COMMIT_REQUIRED;
+
+  const int META_XATTR_FLAGS = 
+    s3::fs::xattr::XM_WRITABLE | 
+    s3::fs::xattr::XM_VISIBLE | 
     s3::fs::xattr::XM_COMMIT_REQUIRED;
 
   atomic_count s_precon_failed_commits(0), s_new_etag_on_commit(0);
@@ -208,6 +218,8 @@ object::object(const string &path)
     _stat.st_gid = getgid();
 
   _content_type = config::get_default_content_type();
+  _cache_control = static_xattr::from_string(CACHE_CONTROL_XATTR, config::get_default_cache_control(), META_XATTR_FLAGS);
+
   _url = build_url(_path);
 }
 
@@ -359,8 +371,11 @@ void object::init(const request::ptr &req)
     }
   }
 
-  _metadata.replace(static_xattr::from_string("s3fuse_content_type", _content_type, xattr::XM_VISIBLE));
-  _metadata.replace(static_xattr::from_string("s3fuse_etag", _etag, xattr::XM_VISIBLE));
+  _metadata.replace(static_xattr::from_string(CONTENT_TYPE_XATTR, _content_type, xattr::XM_VISIBLE));
+  _metadata.replace(static_xattr::from_string(ETAG_XATTR, _etag, xattr::XM_VISIBLE));
+
+  _cache_control = static_xattr::from_string(CACHE_CONTROL_XATTR, req->get_response_header("Cache-Control"), META_XATTR_FLAGS);
+  _metadata.replace(_cache_control);
 
   // this workaround is for cases when the file was updated by someone else and the mtime header wasn't set
   if (!is_intact() && req->get_last_modified() > _stat.st_mtime)
@@ -427,7 +442,9 @@ void object::set_request_headers(const request::ptr &req)
   req->set_header(meta_prefix + metadata::LAST_MODIFIED_TIME, buf);
 
   req->set_header(meta_prefix + metadata::LAST_UPDATE_ETAG, _etag);
+
   req->set_header("Content-Type", _content_type);
+  req->set_header("Cache-Control", static_pointer_cast<static_xattr>(_cache_control)->to_string());
 }
 
 void object::set_request_body(const request::ptr &req)
