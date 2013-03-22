@@ -559,11 +559,15 @@ int operations::statfs(const char * /* ignored */, struct statvfs *s)
 
   s->f_bsize = object::get_block_size();
 
-  s->f_blocks = numeric_limits<typeof(s->f_blocks)>::max();
-  s->f_bfree = numeric_limits<typeof(s->f_bfree)>::max();
-  s->f_bavail = numeric_limits<typeof(s->f_bavail)>::max();
-  s->f_files = numeric_limits<typeof(s->f_files)>::max();
-  s->f_ffree = numeric_limits<typeof(s->f_ffree)>::max();
+  // the following members are all 64-bit, but on 32-bit systems we want to 
+  // return values that'll fit in 32 bits, otherwise we screw up tools like
+  // "df". hence "size_t" rather than the type of the member.
+
+  s->f_blocks = numeric_limits<size_t>::max();
+  s->f_bfree = numeric_limits<size_t>::max();
+  s->f_bavail = numeric_limits<size_t>::max();
+  s->f_files = numeric_limits<size_t>::max();
+  s->f_ffree = numeric_limits<size_t>::max();
 
   return 0;
 }
