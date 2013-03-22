@@ -97,6 +97,7 @@ namespace
   const int META_XATTR_FLAGS = 
     s3::fs::xattr::XM_WRITABLE | 
     s3::fs::xattr::XM_VISIBLE | 
+    s3::fs::xattr::XM_REMOVABLE | 
     s3::fs::xattr::XM_COMMIT_REQUIRED;
 
   atomic_count s_precon_failed_commits(0), s_new_etag_on_commit(0);
@@ -218,7 +219,9 @@ object::object(const string &path)
     _stat.st_gid = getgid();
 
   _content_type = config::get_default_content_type();
-  _cache_control = static_xattr::from_string(CACHE_CONTROL_XATTR, config::get_default_cache_control(), META_XATTR_FLAGS);
+
+  if (!config::get_default_cache_control().empty())
+    _metadata.replace(static_xattr::from_string(CACHE_CONTROL_XATTR, config::get_default_cache_control(), META_XATTR_FLAGS));
 
   _url = build_url(_path);
 }
@@ -339,6 +342,7 @@ void object::init(const request::ptr &req)
   // isn't shareable) until the request has finished processing
 
   const string &meta_prefix = service::get_header_meta_prefix();
+  const string &cache_control = req->get_response_header("Cache-Control");
   mode_t mode;
   uid_t uid;
   gid_t gid;
@@ -374,8 +378,10 @@ void object::init(const request::ptr &req)
   _metadata.replace(static_xattr::from_string(CONTENT_TYPE_XATTR, _content_type, xattr::XM_VISIBLE));
   _metadata.replace(static_xattr::from_string(ETAG_XATTR, _etag, xattr::XM_VISIBLE));
 
-  _cache_control = static_xattr::from_string(CACHE_CONTROL_XATTR, req->get_response_header("Cache-Control"), META_XATTR_FLAGS);
-  _metadata.replace(_cache_control);
+  if (cache_control.empty())
+    _metadata.erase(CACHE_CONTROL_XATTR);
+  else
+    _metadata.replace(static_xattr::from_string(CACHE_CONTROL_XATTR, cache_control, META_XATTR_FLAGS));
 
   // this workaround is for cases when the file was updated by someone else and the mtime header wasn't set
   if (!is_intact() && req->get_last_modified() > _stat.st_mtime)
@@ -412,11 +418,12 @@ void object::init(const request::ptr &req)
 void object::set_request_headers(const request::ptr &req)
 {
   mutex::scoped_lock lock(_mutex);
+  xattr_map::const_iterator itor;
   const string &meta_prefix = service::get_header_meta_prefix();
   char buf[16];
 
   // do this first so that we overwrite any keys we care about (i.e., those that start with "META_PREFIX-META_PREFIX_RESERVED-")
-  for (xattr_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor) {
+  for (itor = _metadata.begin(); itor != _metadata.end(); ++itor) {
     string key, value;
 
     if (!itor->second->is_serializable())
@@ -444,7 +451,11 @@ void object::set_request_headers(const request::ptr &req)
   req->set_header(meta_prefix + metadata::LAST_UPDATE_ETAG, _etag);
 
   req->set_header("Content-Type", _content_type);
-  req->set_header("Cache-Control", static_pointer_cast<static_xattr>(_cache_control)->to_string());
+
+  itor = _metadata.find(CACHE_CONTROL_XATTR);
+
+  if (itor != _metadata.end())
+    req->set_header("Cache-Control", static_pointer_cast<static_xattr>(itor->second)->to_string());
 }
 
 void object::set_request_body(const request::ptr &req)
