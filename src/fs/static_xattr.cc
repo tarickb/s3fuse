@@ -70,7 +70,7 @@ namespace
       return false;
 
     for (size_t i = 0; i < size; i++)
-      if (value[i] != '/' && value[i] != '.' && value[i] != '-' && value[i] != '*' && value[i] != '_' && !isalnum(value[i]))
+      if (value[i] < 32 || value[i] == 127) // see http://tools.ietf.org/html/rfc2616#section-2.2
         return false;
 
     return true;
@@ -103,6 +103,9 @@ static_xattr::ptr static_xattr::from_header(const string &header_key, const stri
     memcpy(&val->_value[0], reinterpret_cast<const uint8_t *>(header_value.c_str()), header_value.size());
   }
 
+  if (val->_hide_on_empty && val->_value.empty())
+    val->set_mode(val->get_mode() & ~XM_VISIBLE);
+
   return ret;
 }
 
@@ -127,6 +130,9 @@ int static_xattr::set_value(const char *value, size_t size)
   memcpy(&_value[0], reinterpret_cast<const uint8_t *>(value), size);
 
   _encode_value = !is_value_valid(value, size);
+
+  if (_hide_on_empty)
+    set_mode(size ? (get_mode() | XM_VISIBLE) : (get_mode() & ~XM_VISIBLE));
 
   return 0;
 }
@@ -160,4 +166,16 @@ void static_xattr::to_header(string *header, string *value)
     value->resize(_value.size());
     memcpy(&(*value)[0], &_value[0], _value.size());
   }
+}
+
+string static_xattr::to_string()
+{
+  string s;
+
+  if (_encode_value)
+    throw runtime_error("value cannot be represented as a string");
+
+  s.assign(reinterpret_cast<const char *>(&_value[0]), _value.size());
+
+  return s;
 }

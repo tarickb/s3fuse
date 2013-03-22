@@ -57,17 +57,20 @@ namespace s3
       virtual int get_value(char *buffer, size_t max_size);
 
       virtual void to_header(std::string *header, std::string *value);
+      std::string to_string();
 
     private:
       inline static_xattr(const std::string &key, bool encode_key, bool encode_value, int mode)
         : xattr(key, mode),
           _encode_key(encode_key),
-          _encode_value(encode_value)
+          _encode_value(encode_value),
+          _hide_on_empty(mode & XM_VISIBLE)
       {
       }
 
       std::vector<uint8_t> _value;
       bool _encode_key, _encode_value;
+      bool _hide_on_empty;
     };
   }
 }
