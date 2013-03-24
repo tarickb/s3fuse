@@ -184,6 +184,10 @@ int directory::read(const request::ptr &req, const filler_function &filler)
 
   reader.reset(new list_reader(path));
 
+  // for POSIX compliance
+  filler(".");
+  filler("..");
+
   while ((r = reader->read(req, &keys, &prefixes)) > 0) {
     for (xml::element_list::const_iterator itor = prefixes.begin(); itor != prefixes.end(); ++itor) {
       // strip trailing slash

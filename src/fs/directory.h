@@ -56,6 +56,10 @@ namespace s3
         lock.unlock();
 
         if (cache) {
+          // for POSIX compliance
+          filler(".");
+          filler("..");
+
           for (cache_list::const_iterator itor = cache->begin(); itor != cache->end(); ++itor)
             filler(*itor);
 
