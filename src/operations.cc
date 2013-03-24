@@ -90,9 +90,23 @@ namespace
 // also adjust path by skipping leading slash
 #define ASSERT_VALID_PATH(str) \
   do { \
-    if ((str)[0] != '/' || ((str)[1] != '\0' && (str)[strlen(str) - 1] == '/')) { \
-      S3_LOG(LOG_WARNING, "ASSERT_VALID_PATH", "failed on [%s]\n", static_cast<const char *>(str)); \
+    char *last_slash = NULL; \
+    \
+    if ((str)[0] != '/') { \
+      S3_LOG(LOG_WARNING, "ASSERT_VALID_PATH", "expected leading slash: [%s]\n", (str)); \
       return -EINVAL; \
+    } \
+    \
+    if ((str)[1] != '\0' && (str)[strlen(str) - 1] == '/') { \
+      S3_LOG(LOG_WARNING, "ASSERT_VALID_PATH", "invalid trailing slash: [%s]\n", (str)); \
+      return -EINVAL; \
+    } \
+    \
+    last_slash = strrchr((str), '/'); \
+    \
+    if (last_slash && strlen(last_slash + 1) > NAME_MAX) { \
+      S3_LOG(LOG_DEBUG, "ASSERT_VALID_PATH", "final component [%s] exceeds %i characters\n", last_slash, NAME_MAX); \
+      return -ENAMETOOLONG; \
     } \
     \
     (str)++; \
