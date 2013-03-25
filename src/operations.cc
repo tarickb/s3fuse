@@ -112,6 +112,14 @@ namespace
     (str)++; \
   } while (0)
 
+#define CHECK_OWNER(obj) \
+  do { \
+    uid_t curr_uid = fuse_get_context()->uid; \
+    \
+    if (curr_uid && curr_uid != (obj)->get_uid()) \
+      return -EPERM; \
+  } while (0)
+
 #define BEGIN_TRY \
   try {
 
@@ -201,6 +209,7 @@ int operations::chmod(const char *path, mode_t mode)
 
   BEGIN_TRY;
     GET_OBJECT(obj, path);
+    CHECK_OWNER(obj);
 
     obj->set_mode(mode);
 
@@ -216,6 +225,7 @@ int operations::chown(const char *path, uid_t uid, gid_t gid)
 
   BEGIN_TRY;
     GET_OBJECT(obj, path);
+    CHECK_OWNER(obj);
 
     if (uid != static_cast<uid_t>(-1))
       obj->set_uid(uid);
