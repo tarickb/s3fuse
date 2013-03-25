@@ -79,14 +79,25 @@ namespace s3
       inline const std::string & get_etag() const { return _etag; }
       inline mode_t get_mode() const { return _stat.st_mode; }
       inline mode_t get_type() const { return _stat.st_mode & S_IFMT; }
+      inline uid_t get_uid() const { return _stat.st_uid; }
 
       void get_metadata_keys(std::vector<std::string> *keys);
       int get_metadata(const std::string &key, char *buffer, size_t max_size);
       int set_metadata(const std::string &key, const char *value, size_t size, int flags, bool *needs_commit);
       int remove_metadata(const std::string &key);
 
-      inline void set_uid(uid_t uid) { _stat.st_uid = uid; }
-      inline void set_gid(gid_t gid) { _stat.st_gid = gid; }
+      inline void set_uid(uid_t uid)
+      { 
+        _stat.st_uid = uid;
+        _stat.st_ctime = time(NULL); // successful chown sets ctime
+      }
+
+      inline void set_gid(gid_t gid)
+      { 
+        _stat.st_gid = gid; 
+        _stat.st_ctime = time(NULL); // successful chgrp sets ctime
+      }
+
       inline void set_mtime(time_t mtime) { _stat.st_mtime = mtime; }
 
       void set_mode(mode_t mode);
