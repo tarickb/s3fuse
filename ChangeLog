@@ -10,8 +10,9 @@ s3fuse (0.14) unstable; urgency=low
   * Only use user ID/group ID/mode in object metadata if values are valid.
   * Set and retrieve object creation time (on newly-created objects).
   * Fix inconsistent state bug when reopening file immediately after closing.
+  * Various POSIX compliance fixes.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Thu, 21 Mar 2013 19:24:38 -0600
+ -- Tarick Bedeir <tarick@bedeir.com>  Sun, 24 Mar 2013 09:11:27 -0600
 
 s3fuse (0.13.1) unstable; urgency=low
 
