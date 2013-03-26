@@ -90,7 +90,7 @@ namespace
 // also adjust path by skipping leading slash
 #define ASSERT_VALID_PATH(str) \
   do { \
-    char *last_slash = NULL; \
+    const char *last_slash = NULL; \
     \
     if ((str)[0] != '/') { \
       S3_LOG(LOG_WARNING, "ASSERT_VALID_PATH", "expected leading slash: [%s]\n", (str)); \
