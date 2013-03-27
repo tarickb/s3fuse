@@ -1,8 +1,13 @@
-m4_define([cl_version], [m4_esyscmd([head -n 1 ChangeLog | sed -e 's/.*(//' -e 's/).*//' | tr -d '\n'])])
-m4_define([svn_version], [m4_esyscmd([svnversion 2>/dev/null | sed -e 's/^exported$//' -e 's/^..*$/ (r&)/' | tr -d '\n'])])
+m4_define([pkg_cl_version], [m4_esyscmd([head -n 1 ChangeLog | sed -e 's/.*(//' -e 's/).*//' | tr -d '\n'])])
+m4_define([pkg_svn_version], [m4_esyscmd([svnversion 2>/dev/null | sed -e 's/^exported$//' | tr -d '\n'])])
+
+m4_define([opt_with_rev], [m4_esyscmd([echo $WITH_REV | tr -d '\n'])])
+
+m4_define([pkg_version], ifelse(opt_with_rev, [1], m4_format([%s-r%s], pkg_cl_version, pkg_svn_version), pkg_cl_version))
+m4_define([pkg_pretty_version], ifelse(pkg_svn_version, [], pkg_cl_version, m4_format([%s (r%s)], pkg_cl_version, pkg_svn_version)))
 
 AC_PREREQ([2.63])
-AC_INIT([s3fuse], [cl_version])
+AC_INIT([s3fuse], [pkg_version])
 AM_INIT_AUTOMAKE([no-define foreign])
 AC_CONFIG_SRCDIR([src/main.cc])
 
@@ -131,7 +136,7 @@ AC_CONFIG_FILES([src/fs/Makefile src/fs/tests/Makefile])
 AC_CONFIG_FILES([src/services/Makefile src/services/aws/Makefile src/services/fvs/Makefile src/services/gs/Makefile])
 AC_CONFIG_FILES([src/threads/Makefile src/threads/tests/Makefile])
 
-AC_DEFINE(PACKAGE_VERSION_WITH_REV, [m4_format(["%s%s"], cl_version, svn_version)])
+AC_DEFINE(PACKAGE_VERSION_WITH_REV, [m4_format(["%s"], pkg_pretty_version)])
 
 AC_SUBST([AM_CXXFLAGS], ["$AM_CXXFLAGS -g -Wall -Werror"])
 AC_SUBST([AM_CPPFLAGS], ["-I \$(top_srcdir)/src -DSYSCONFDIR=\"\\\"\$(sysconfdir)\\\"\" $CPPFLAGS $DEPS_XML_CFLAGS $DEPS_CURL_CFLAGS $DEPS_FUSE_CFLAGS $DEPS_OPENSSL_CFLAGS $DEPS_CRYPTO_CFLAGS $DEPS_GNUTLS_CFLAGS $BOOST_CPPFLAGS"])
