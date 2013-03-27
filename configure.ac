@@ -3,7 +3,7 @@ m4_define([pkg_svn_version], [m4_esyscmd([svnversion 2>/dev/null | sed -e 's/^ex
 
 m4_define([opt_with_rev], [m4_esyscmd([echo $WITH_REV | tr -d '\n'])])
 
-m4_define([pkg_version], ifelse(opt_with_rev, [1], m4_format([%s-r%s], pkg_cl_version, pkg_svn_version), pkg_cl_version))
+m4_define([pkg_version], ifelse(opt_with_rev, [1], m4_format([%s-0r%s], pkg_cl_version, pkg_svn_version), pkg_cl_version))
 m4_define([pkg_pretty_version], ifelse(pkg_svn_version, [], pkg_cl_version, m4_format([%s (r%s)], pkg_cl_version, pkg_svn_version)))
 
 AC_PREREQ([2.63])
