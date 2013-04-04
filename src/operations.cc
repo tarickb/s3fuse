@@ -189,6 +189,14 @@ namespace
     return -EINVAL; \
   }
 
+#define RETURN_ON_ERROR(op) \
+  do { \
+    int ret_val = (op); \
+    \
+    if (ret_val) \
+      return ret_val; \
+  } while (0)
+
 void operations::init(const string &mountpoint)
 {
   struct stat mp_stat;
@@ -270,7 +278,7 @@ int operations::chown(const char *path, uid_t uid, gid_t gid)
 
 int operations::create(const char *path, mode_t mode, fuse_file_info *file_info)
 {
-  int r, last_error = 0;
+  int r = 0, last_error = 0;
   const fuse_context *ctx = fuse_get_context();
 
   S3_LOG(LOG_DEBUG, "create", "path: %s, mode: %#o\n", path, mode);
@@ -298,15 +306,8 @@ int operations::create(const char *path, mode_t mode, fuse_file_info *file_info)
     f->set_uid(ctx->uid);
     f->set_gid(ctx->gid);
 
-    r = f->commit();
-
-    if (r)
-      return r;
-
-    r = touch(parent);
-
-    if (r)
-      return r;
+    RETURN_ON_ERROR(f->commit());
+    RETURN_ON_ERROR(touch(parent));
 
     // rarely, the newly created file won't be downloadable right away, so
     // try a few times before giving up.
@@ -441,7 +442,6 @@ int operations::mkdir(const char *path, mode_t mode)
   BEGIN_TRY;
     directory::ptr dir;
     string parent = get_parent(path);
-    int r;
 
     if (cache::get(path)) {
       S3_LOG(LOG_WARNING, "mkdir", "attempt to overwrite object at [%s]\n", path);
@@ -456,10 +456,7 @@ int operations::mkdir(const char *path, mode_t mode)
     dir->set_uid(ctx->uid);
     dir->set_gid(ctx->gid);
 
-    r = dir->commit();
-
-    if (r)
-      return r;
+    RETURN_ON_ERROR(dir->commit());
 
     return touch(parent);
   END_TRY;
@@ -512,10 +509,8 @@ int operations::readlink(const char *path, char *buffer, size_t max_size)
     GET_OBJECT_AS(s3::fs::symlink, S_IFLNK, link, path);
 
     string target;
-    int r = link->read(&target);
 
-    if (r)
-      return r;
+    RETURN_ON_ERROR(link->read(&target));
 
     // leave room for the terminating null
     max_size--;
@@ -550,9 +545,9 @@ int operations::removexattr(const char *path, const char *name)
   BEGIN_TRY;
     GET_OBJECT(obj, path);
 
-    int r = obj->remove_metadata(name);
+    RETURN_ON_ERROR(obj->remove_metadata(name));
 
-    return r ? r : obj->commit();
+    return obj->commit();
   END_TRY;
 }
 
@@ -575,8 +570,6 @@ int operations::rename(const char *from, const char *to)
     invalidate(get_parent(to));
 
     if (to_obj) {
-      int r;
-
       if (to_obj->get_type() == S_IFDIR) {
         if (from_obj->get_type() != S_IFDIR)
           return -EISDIR;
@@ -588,10 +581,7 @@ int operations::rename(const char *from, const char *to)
         return -ENOTDIR;
       }
 
-      r = to_obj->remove();
-
-      if (r)
-        return r;
+      RETURN_ON_ERROR(to_obj->remove());
     }
 
     return from_obj->rename(to);
@@ -612,10 +602,7 @@ int operations::setxattr(const char *path, const char *name, const char *value, 
     bool needs_commit = false;
     GET_OBJECT(obj, path);
 
-    int r = obj->set_metadata(name, value, size, flags, &needs_commit);
-
-    if (r)
-      return r;
+    RETURN_ON_ERROR(obj->set_metadata(name, value, size, flags, &needs_commit));
 
     return needs_commit ? obj->commit() : 0;
   END_TRY;
@@ -652,7 +639,6 @@ int operations::symlink(const char *target, const char *path)
   BEGIN_TRY;
     symlink::ptr link;
     string parent = get_parent(path);
-    int r;
 
     if (cache::get(path)) {
       S3_LOG(LOG_WARNING, "symlink", "attempt to overwrite object at [%s]\n", path);
@@ -668,10 +654,7 @@ int operations::symlink(const char *target, const char *path)
 
     link->set_target(target);
 
-    r = link->commit();
-
-    if (r)
-      return r;
+    RETURN_ON_ERROR(link->commit());
 
     return touch(parent);
   END_TRY;
@@ -686,16 +669,12 @@ int operations::unlink(const char *path)
 
   BEGIN_TRY;
     string parent = get_parent(path);
-    int r;
 
     GET_OBJECT(obj, path);
 
     invalidate(parent);
 
-    r = obj->remove();
-
-    if (r)
-      return r;
+    RETURN_ON_ERROR(obj->remove());
 
     return touch(parent);
   END_TRY;
