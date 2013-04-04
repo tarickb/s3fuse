@@ -99,6 +99,10 @@ namespace s3
       }
 
       inline void set_mtime(time_t mtime) { _stat.st_mtime = mtime; }
+      inline void set_mtime() { set_mtime(time(NULL)); }
+
+      inline void set_ctime(time_t ctime) { _stat.st_ctime = ctime; }
+      inline void set_ctime() { set_ctime(time(NULL)); }
 
       void set_mode(mode_t mode);
 
