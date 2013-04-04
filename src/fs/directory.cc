@@ -122,19 +122,6 @@ string directory::build_url(const string &path)
   return object::build_url(path) + "/";
 }
 
-void directory::invalidate_parent(const string &path)
-{
-  if (config::get_cache_directories()) {
-    string parent_path;
-    size_t last_slash = path.rfind('/');
-
-    parent_path = (last_slash == string::npos) ? "" : path.substr(0, last_slash);
-
-    S3_LOG(LOG_DEBUG, "directory::invalidate_parent", "invalidating parent directory [%s] for [%s].\n", parent_path.c_str(), path.c_str());
-    cache::remove(parent_path);
-  }
-}
-
 void directory::get_internal_objects(const request::ptr &req, vector<string> *objects)
 {
   const string &PREFIX = object::get_internal_prefix();

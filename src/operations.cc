@@ -63,6 +63,37 @@ namespace
     filler(buf, path.c_str(), NULL, 0);
   }
 
+  inline string get_parent(const string &path)
+  {
+    size_t last_slash = path.rfind('/');
+
+    return (last_slash == string::npos) ? "" : path.substr(0, last_slash);
+  }
+
+  inline void invalidate(const string &path)
+  {
+    if (!path.empty())
+      cache::remove(path);
+  }
+
+  int touch(const string &path)
+  {
+    object::ptr obj;
+
+    if (path.empty())
+      return 0; // succeed if path is root
+
+    obj = cache::get(path);
+
+    if (!obj)
+      return -ENOENT;
+
+    obj->set_ctime();
+    obj->set_mtime();
+
+    return obj->commit();
+  }
+
   void statistics_writer(ostream *o)
   {
     *o <<
@@ -249,13 +280,14 @@ int operations::create(const char *path, mode_t mode, fuse_file_info *file_info)
 
   BEGIN_TRY;
     file::ptr f;
+    string parent = get_parent(path);
 
     if (cache::get(path)) {
       S3_LOG(LOG_WARNING, "create", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }
 
-    directory::invalidate_parent(path);
+    invalidate(parent);
 
     if (config::get_use_encryption() && config::get_encrypt_new_files())
       f.reset(new encrypted_file(path));
@@ -267,6 +299,11 @@ int operations::create(const char *path, mode_t mode, fuse_file_info *file_info)
     f->set_gid(ctx->gid);
 
     r = f->commit();
+
+    if (r)
+      return r;
+
+    r = touch(parent);
 
     if (r)
       return r;
@@ -403,13 +440,15 @@ int operations::mkdir(const char *path, mode_t mode)
 
   BEGIN_TRY;
     directory::ptr dir;
+    string parent = get_parent(path);
+    int r;
 
     if (cache::get(path)) {
       S3_LOG(LOG_WARNING, "mkdir", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }
 
-    directory::invalidate_parent(path);
+    invalidate(parent);
 
     dir.reset(new directory(path));
 
@@ -417,7 +456,12 @@ int operations::mkdir(const char *path, mode_t mode)
     dir->set_uid(ctx->uid);
     dir->set_gid(ctx->gid);
 
-    return dir->commit();
+    r = dir->commit();
+
+    if (r)
+      return r;
+
+    return touch(parent);
   END_TRY;
 }
 
@@ -527,8 +571,8 @@ int operations::rename(const char *from, const char *to)
     // doesn't exist
     object::ptr to_obj = cache::get(to);
 
-    directory::invalidate_parent(from);
-    directory::invalidate_parent(to);
+    invalidate(get_parent(from));
+    invalidate(get_parent(to));
 
     if (to_obj) {
       int r;
@@ -607,13 +651,15 @@ int operations::symlink(const char *target, const char *path)
 
   BEGIN_TRY;
     symlink::ptr link;
+    string parent = get_parent(path);
+    int r;
 
     if (cache::get(path)) {
       S3_LOG(LOG_WARNING, "symlink", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }
 
-    directory::invalidate_parent(path);
+    invalidate(parent);
 
     link.reset(new s3::fs::symlink(path));
 
@@ -622,7 +668,12 @@ int operations::symlink(const char *target, const char *path)
 
     link->set_target(target);
 
-    return link->commit();
+    r = link->commit();
+
+    if (r)
+      return r;
+
+    return touch(parent);
   END_TRY;
 }
 
@@ -634,11 +685,19 @@ int operations::unlink(const char *path)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
+    string parent = get_parent(path);
+    int r;
+
     GET_OBJECT(obj, path);
 
-    directory::invalidate_parent(path);
+    invalidate(parent);
 
-    return obj->remove();
+    r = obj->remove();
+
+    if (r)
+      return r;
+
+    return touch(parent);
   END_TRY;
 }
 
