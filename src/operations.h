@@ -52,6 +52,7 @@ namespace s3
 
     static int listxattr(const char *path, char *buffer, size_t size);
     static int mkdir(const char *path, mode_t mode);
+    static int mknod(const char *path, mode_t mode, dev_t dev);
     static int open(const char *path, fuse_file_info *file_info);
     static int read(const char *path, char *buffer, size_t size, off_t offset, fuse_file_info *file_info);
     static int readdir(const char *path, void *buf, fuse_fill_dir_t filler, off_t, fuse_file_info *file_info);

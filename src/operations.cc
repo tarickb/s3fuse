@@ -30,6 +30,7 @@
 #include "fs/cache.h"
 #include "fs/directory.h"
 #include "fs/encrypted_file.h"
+#include "fs/fifo.h"
 #include "fs/file.h"
 #include "fs/symlink.h"
 
@@ -48,6 +49,7 @@ using s3::base::timer;
 using s3::fs::cache;
 using s3::fs::directory;
 using s3::fs::encrypted_file;
+using s3::fs::fifo;
 using s3::fs::file;
 using s3::fs::object;
 using s3::fs::symlink;
@@ -55,7 +57,7 @@ using s3::fs::symlink;
 namespace
 {
   atomic_count s_reopen_attempts(0), s_reopen_rescues(0), s_reopen_fails(0);
-  atomic_count s_create(0), s_mkdir(0), s_open(0), s_rename(0), s_symlink(0), s_unlink(0);
+  atomic_count s_create(0), s_mkdir(0), s_mknod(0), s_open(0), s_rename(0), s_symlink(0), s_unlink(0);
   atomic_count s_getattr(0), s_readdir(0), s_readlink(0);
 
   void dir_filler(fuse_fill_dir_t filler, void *buf, const std::string &path)
@@ -104,6 +106,7 @@ namespace
       "operations (modifiers):\n"
       "  create: " << s_create << "\n"
       "  mkdir: " << s_mkdir << "\n"
+      "  mknod: " << s_mknod << "\n"
       "  open: " << s_open << "\n"
       "  rename: " << s_rename << "\n"
       "  symlink: " << s_symlink << "\n"
@@ -224,6 +227,7 @@ void operations::build_fuse_operations(fuse_operations *ops)
   ops->ftruncate = operations::ftruncate;
   ops->listxattr = operations::listxattr;
   ops->mkdir = operations::mkdir;
+  ops->mknod = operations::mknod;
   ops->open = operations::open;
   ops->read = operations::read;
   ops->readdir = operations::readdir;
@@ -457,6 +461,41 @@ int operations::mkdir(const char *path, mode_t mode)
     dir->set_gid(ctx->gid);
 
     RETURN_ON_ERROR(dir->commit());
+
+    return touch(parent);
+  END_TRY;
+}
+
+int operations::mknod(const char *path, mode_t mode, dev_t dev)
+{
+  const fuse_context *ctx = fuse_get_context();
+
+  S3_LOG(LOG_DEBUG, "mknod", "path: %s, mode: %#o, dev: %i\n", path, mode, dev);
+  ++s_mknod;
+
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    object::ptr obj;
+    string parent = get_parent(path);
+
+    if (cache::get(path)) {
+      S3_LOG(LOG_WARNING, "mknod", "attempt to overwrite object at [%s]\n", path);
+      return -EEXIST;
+    }
+
+    invalidate(parent);
+
+    if (S_ISFIFO(mode))
+      obj.reset(new fifo(path));
+    else
+      return -EINVAL;
+
+    obj->set_mode(mode);
+    obj->set_uid(ctx->uid);
+    obj->set_gid(ctx->gid);
+
+    RETURN_ON_ERROR(obj->commit());
 
     return touch(parent);
   END_TRY;
