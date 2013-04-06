@@ -206,7 +206,7 @@ object::object(const string &path)
 
   _stat.st_nlink = 1; // laziness (see FUSE FAQ re. find)
   _stat.st_blksize = BLOCK_SIZE;
-  _stat.st_mode = config::get_default_mode();
+  _stat.st_mode = config::get_default_mode() & ~S_IFMT;
   _stat.st_uid = config::get_default_uid();
   _stat.st_gid = config::get_default_gid();
   _stat.st_ctime = time(NULL);
@@ -328,7 +328,7 @@ void object::set_mode(mode_t mode)
   mode = mode & ~S_IFMT;
 
   if (mode == 0)
-    mode = config::get_default_mode();
+    mode = config::get_default_mode() & ~S_IFMT;
 
   _stat.st_mode = (_stat.st_mode & S_IFMT) | mode;
 
