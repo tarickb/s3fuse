@@ -70,8 +70,6 @@ namespace s3
     protected:
       virtual void init(const boost::shared_ptr<base::request> &req);
 
-      virtual int open_local_store(int *fd);
-
       virtual int is_downloadable();
 
       virtual int write_chunk(const char *buffer, size_t size, off_t offset);
