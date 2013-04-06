@@ -133,7 +133,7 @@ file::file(const string &path)
     _async_error(0),
     _ref_count(0)
 {
-  set_object_type(S_IFREG);
+  set_type(S_IFREG);
 
   if (config::get_auto_detect_mime_type()) {
     size_t pos = path.find_last_of('.');

@@ -150,8 +150,13 @@ namespace s3
 
       inline void set_url(const std::string &url) { _url = url; }
       inline void set_content_type(const std::string &content_type) { _content_type = content_type; }
-      inline void set_object_type(mode_t mode) { _stat.st_mode |= mode & S_IFMT; }
       inline void set_etag(const std::string &etag) { _etag = etag; }
+
+      inline void set_type(mode_t mode)
+      { 
+        _stat.st_mode &= ~S_IFMT; // clear existing mode
+        _stat.st_mode |= mode & S_IFMT; 
+      }
 
       inline xattr_map * get_metadata() { return &_metadata; }
       inline struct stat * get_stat() { return &_stat; }

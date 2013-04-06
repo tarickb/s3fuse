@@ -145,7 +145,7 @@ directory::directory(const string &path)
   : object(path)
 {
   set_url(build_url(path));
-  set_object_type(S_IFDIR);
+  set_type(S_IFDIR);
 }
 
 directory::~directory()

@@ -54,7 +54,7 @@ symlink::symlink(const string &path)
   : object(path)
 {
   set_content_type(CONTENT_TYPE);
-  set_object_type(S_IFLNK);
+  set_type(S_IFLNK);
 }
 
 symlink::~symlink()
