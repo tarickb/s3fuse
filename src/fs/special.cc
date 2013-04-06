@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#include <inttypes.h>
+
 #include "base/request.h"
 #include "fs/metadata.h"
 #include "fs/special.h"
@@ -66,7 +68,9 @@ void special::init(const request::ptr &req)
   object::init(req);
 
   mode = strtol(req->get_response_header(meta_prefix + metadata::FILE_TYPE).c_str(), NULL, 0);
-  dev = strtol(req->get_response_header(meta_prefix + metadata::DEVICE).c_str(), NULL, 0);
+
+  // see note in set_request_headers()
+  dev = static_cast<dev_t>(strtoull(req->get_response_header(meta_prefix + metadata::DEVICE).c_str(), NULL, 0));
 
   set_type(mode);
   set_device(dev);
@@ -82,6 +86,7 @@ void special::set_request_headers(const request::ptr &req)
   snprintf(buf, 16, "%#o", get_stat()->st_mode & S_IFMT);
   req->set_header(meta_prefix + metadata::FILE_TYPE, buf);
 
-  snprintf(buf, 16, "%i", get_stat()->st_rdev);
+  // dev_t is int32_t on OS X and uint64_t on Linux, so generalize
+  snprintf(buf, 16, "%" PRIu64, static_cast<uint64_t>(get_stat()->st_rdev));
   req->set_header(meta_prefix + metadata::DEVICE, buf);
 }
