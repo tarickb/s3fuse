@@ -35,6 +35,9 @@ const char *metadata::GID                = "s3fuse-gid";
 const char *metadata::CREATED_TIME       = "s3fuse-ctime";
 const char *metadata::LAST_MODIFIED_TIME = "s3fuse-mtime";
 
+const char *metadata::FILE_TYPE          = "s3fuse-file-type";
+const char *metadata::DEVICE             = "s3fuse-device";
+
 const char *metadata::SHA256             = "s3fuse-sha256";
 const char *metadata::ENC_IV             = "s3fuse-e-iv";
 const char *metadata::ENC_METADATA       = "s3fuse-e-meta";

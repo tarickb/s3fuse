@@ -20,8 +20,6 @@ libs3fuse_fs_a_SOURCES = \
 	encrypted_file.h \
 	encryption.cc \
 	encryption.h \
-	fifo.cc \
-	fifo.h \
 	file.cc \
 	file.h \
 	glacier.cc \
@@ -34,6 +32,8 @@ libs3fuse_fs_a_SOURCES = \
 	mime_types.h \
 	object.cc \
 	object.h \
+	special.cc \
+	special.h \
 	static_xattr.cc \
 	static_xattr.h \
 	symlink.cc \

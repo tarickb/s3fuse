@@ -39,6 +39,9 @@ namespace s3
       static const char *CREATED_TIME;
       static const char *LAST_MODIFIED_TIME;
 
+      static const char *FILE_TYPE;
+      static const char *DEVICE;
+
       static const char *SHA256;
       static const char *ENC_IV;
       static const char *ENC_METADATA;

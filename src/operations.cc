@@ -30,8 +30,8 @@
 #include "fs/cache.h"
 #include "fs/directory.h"
 #include "fs/encrypted_file.h"
-#include "fs/fifo.h"
 #include "fs/file.h"
+#include "fs/special.h"
 #include "fs/symlink.h"
 
 using boost::static_pointer_cast;
@@ -49,9 +49,9 @@ using s3::base::timer;
 using s3::fs::cache;
 using s3::fs::directory;
 using s3::fs::encrypted_file;
-using s3::fs::fifo;
 using s3::fs::file;
 using s3::fs::object;
+using s3::fs::special;
 using s3::fs::symlink;
 
 namespace
@@ -476,7 +476,7 @@ int operations::mknod(const char *path, mode_t mode, dev_t dev)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    object::ptr obj;
+    special::ptr obj;
     string parent = get_parent(path);
 
     if (cache::get(path)) {
@@ -486,10 +486,10 @@ int operations::mknod(const char *path, mode_t mode, dev_t dev)
 
     invalidate(parent);
 
-    if (S_ISFIFO(mode))
-      obj.reset(new fifo(path));
-    else
-      return -EINVAL;
+    obj.reset(new special(path));
+
+    obj->set_type(mode);
+    obj->set_device(dev);
 
     obj->set_mode(mode);
     obj->set_uid(ctx->uid);

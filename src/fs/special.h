@@ -1,7 +1,7 @@
 /*
- * fs/fifo.h
+ * fs/special.h
  * -------------------------------------------------------------------------
- * Represents a (fake) FIFO object.
+ * Represents a "special" object (e.g., FIFO, device, etc.).
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2013, Tarick Bedeir.
@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_FS_FIFO_H
-#define S3_FS_FIFO_H
+#ifndef S3_FS_SPECIAL_H
+#define S3_FS_SPECIAL_H
 
 #include <string>
 
@@ -30,18 +30,32 @@ namespace s3
 {
   namespace fs
   {
-    class fifo : public object
+    class special : public object
     {
     public:
-      typedef boost::shared_ptr<fifo> ptr;
+      typedef boost::shared_ptr<special> ptr;
 
-      fifo(const std::string &path);
-      virtual ~fifo();
+      special(const std::string &path);
+      virtual ~special();
 
       inline ptr shared_from_this()
       {
-        return boost::static_pointer_cast<fifo>(object::shared_from_this());
+        return boost::static_pointer_cast<special>(object::shared_from_this());
       }
+
+      inline void set_type(mode_t mode)
+      {
+        object::set_type(mode & S_IFMT);
+      }
+
+      inline void set_device(dev_t dev)
+      {
+        get_stat()->st_rdev = dev;
+      }
+
+    protected:
+      virtual void init(const boost::shared_ptr<base::request> &req);
+      virtual void set_request_headers(const boost::shared_ptr<base::request> &req);
     };
   }
 }
