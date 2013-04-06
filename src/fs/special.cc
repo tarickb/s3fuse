@@ -19,6 +19,7 @@
  * limitations under the License.
  */
 
+#define __STDC_FORMAT_MACROS
 #include <inttypes.h>
 
 #include "base/request.h"
