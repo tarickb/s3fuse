@@ -62,8 +62,6 @@ using s3::fs::static_xattr;
 using s3::services::service;
 using s3::threads::pool;
 
-#define TEMP_NAME_TEMPLATE "/tmp/s3fuse.local-XXXXXX"
-
 namespace
 {
   atomic_count s_sha256_mismatches(0), s_md5_mismatches(0), s_no_hash_checks(0);
@@ -210,20 +208,29 @@ int file::is_downloadable()
   return 0;
 }
 
+int file::open_local_store(int *fd)
+{
+  char temp_name[] = "/tmp/s3fuse.local-XXXXXX";
+
+  *fd = mkstemp(temp_name);
+  unlink(temp_name);
+
+  if (*fd == -1)
+    return -errno;
+
+  S3_LOG(LOG_DEBUG, "file::open_local_store", "opening [%s] in [%s].\n", get_path().c_str(), temp_name);
+  return 0;
+}
+
 int file::open(file_open_mode mode, uint64_t *handle)
 {
   mutex::scoped_lock lock(_fs_mutex);
 
   if (_ref_count == 0) {
-    char temp_name[] = TEMP_NAME_TEMPLATE;
+    int r = open_local_store(&_fd);
 
-    _fd = mkstemp(temp_name);
-    unlink(temp_name);
-
-    S3_LOG(LOG_DEBUG, "file::open", "opening [%s] in [%s].\n", get_path().c_str(), temp_name);
-
-    if (_fd == -1)
-      return -errno;
+    if (r)
+      return r;
 
     if (!(mode & fs::OPEN_TRUNCATE_TO_ZERO)) {
       off_t size = get_stat()->st_size;
