@@ -24,13 +24,13 @@
 
 #include <string>
 
-#include "fs/file.h"
+#include "fs/object.h"
 
 namespace s3
 {
   namespace fs
   {
-    class fifo : public file
+    class fifo : public object
     {
     public:
       typedef boost::shared_ptr<fifo> ptr;
@@ -42,9 +42,6 @@ namespace s3
       {
         return boost::static_pointer_cast<fifo>(object::shared_from_this());
       }
-
-    private:
-      virtual int open_local_store(int *fd);
     };
   }
 }

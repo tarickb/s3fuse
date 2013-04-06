@@ -19,9 +19,6 @@
  * limitations under the License.
  */
 
-#include <fcntl.h>
-
-#include "base/logger.h"
 #include "base/request.h"
 #include "fs/fifo.h"
 
@@ -47,7 +44,7 @@ namespace
 }
 
 fifo::fifo(const string &path)
-  : file(path)
+  : object(path)
 {
   set_content_type(CONTENT_TYPE);
   set_type(S_IFIFO);
@@ -55,24 +52,4 @@ fifo::fifo(const string &path)
 
 fifo::~fifo()
 {
-}
-
-int fifo::open_local_store(int *fd)
-{
-  char temp_name[] = "/tmp/s3fuse.fifo-XXXXXX";
-
-  if (mktemp(temp_name) == NULL)
-    return -errno;
-
-  if (mkfifo(temp_name, 0600) != 0)
-    return -errno;
-
-  *fd = ::open(temp_name, O_RDWR);
-  unlink(temp_name);
-
-  if (*fd == -1)
-    return -errno;
-
-  S3_LOG(LOG_DEBUG, "fifo::open_local_store", "opening [%s] in [%s].\n", get_path().c_str(), temp_name);
-  return 0;
 }
