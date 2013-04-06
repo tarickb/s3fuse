@@ -4,6 +4,7 @@ s3fuse (0.14) unstable; urgency=low
   * NEW: Support for FV/S.
   * NEW: Set file content type by examining extension.
   * NEW: Set Cache-Control header with extended attribute.
+  * NEW: Allow creation of "special" files (FIFOs, devices, etc.).
   * Allow verbosity to be specified explicitly on the command line.
   * Fix multipart download bug that prevented some transfers from resuming.
   * Use real user ID/group ID rather than effective IDs.
