@@ -57,6 +57,7 @@ using s3::fs::symlink;
 namespace
 {
   atomic_count s_reopen_attempts(0), s_reopen_rescues(0), s_reopen_fails(0);
+  atomic_count s_rename_attempts(0), s_rename_fails(0);
   atomic_count s_create(0), s_mkdir(0), s_mknod(0), s_open(0), s_rename(0), s_symlink(0), s_unlink(0);
   atomic_count s_getattr(0), s_readdir(0), s_readlink(0);
 
@@ -103,6 +104,8 @@ namespace
       "  reopen attempts: " << s_reopen_attempts << "\n"
       "  reopens rescued: " << s_reopen_rescues << "\n"
       "  reopens failed: " << s_reopen_fails << "\n"
+      "  rename attempts: " << s_rename_attempts << "\n"
+      "  renames failed: " << s_rename_fails << "\n"
       "operations (modifiers):\n"
       "  create: " << s_create << "\n"
       "  mkdir: " << s_mkdir << "\n"
@@ -623,7 +626,30 @@ int operations::rename(const char *from, const char *to)
       RETURN_ON_ERROR(to_obj->remove());
     }
 
-    return from_obj->rename(to);
+    RETURN_ON_ERROR(from_obj->rename(to));
+
+    for (int i = 0; i < config::get_max_inconsistent_state_retries(); i++) {
+      to_obj = cache::get(to);
+
+      if (to_obj)
+        break;
+
+      S3_LOG(LOG_WARNING, "rename", "newly-renamed object [%s] not available at new path\n", to);
+      ++s_rename_attempts;
+
+      // sleep a bit instead of retrying more times than necessary
+      timer::sleep(i + 1);
+    }
+
+    // TODO: fail if ctime/mtime can't be set? maybe have a strict posix compliance flag?
+    if (!to_obj) {
+      ++s_rename_fails;
+      return -EIO;
+    }
+
+    to_obj->set_ctime();
+
+    return to_obj->commit();
   END_TRY;
 }
 
