@@ -221,7 +221,6 @@ void operations::build_fuse_operations(fuse_operations *ops)
 
   ops->flag_nullpath_ok = 1;
 
-  ops->access = operations::access;
   ops->chmod = operations::chmod;
   ops->chown = operations::chown;
   ops->create = operations::create;
@@ -246,69 +245,6 @@ void operations::build_fuse_operations(fuse_operations *ops)
   ops->unlink = operations::unlink;
   ops->utimens = operations::utimens;
   ops->write = operations::write;
-}
-
-int operations::access(const char *path, int mode)
-{
-  const int ANY_R = S_IRUSR | S_IRGRP | S_IROTH;
-  const int ANY_W = S_IWUSR | S_IWGRP | S_IWOTH;
-  const int ANY_X = S_IXUSR | S_IXGRP | S_IXOTH;
-
-  const fuse_context *ctx = fuse_get_context();
-  struct stat s;
-  int obj_mask = S_IRWXO;
-
-  ASSERT_VALID_PATH(path);
-
-  // TODO: check mountpoint mode!
-  if (path[0] == '\0')
-    return 0;
-
-  BEGIN_TRY;
-    GET_OBJECT(obj, path);
-
-    obj->copy_stat(&s);
-
-    if (mode == F_OK)
-      return 0;
-
-    // access(2):
-    //   "If the calling process is privileged (i.e., its real UID is zero), 
-    //   then an X_OK check is successful for a regular file if execute 
-    //   permission is enabled for any of the file owner, group, or other."
-
-    if (ctx->uid == 0 && mode & X_OK) {
-      if (s.st_mode & ANY_X) {
-        mode &= ~X_OK; // don't check X_OK further down, but check R_OK and W_OK if they're set
-      } else {
-        S3_LOG(LOG_DEBUG, "access", "failed: superuser X_OK on [%s], mode: %o, stat: %o\n", path, mode, s.st_mode);
-        return -EACCES;
-      }
-    }
-
-    if (ctx->uid == s.st_uid)
-      obj_mask |= S_IRWXU;
-
-    if (ctx->gid == s.st_gid)
-      obj_mask |= S_IRWXG;
-
-    if (mode & R_OK && !(s.st_mode & obj_mask & ANY_R)) {
-      S3_LOG(LOG_DEBUG, "access", "failed: R_OK on [%s], mode: %o, mask: %o, stat: %o\n", path, mode, obj_mask, s.st_mode);
-      return -EACCES;
-    }
-
-    if (mode & W_OK && !(s.st_mode & obj_mask & ANY_W)) {
-      S3_LOG(LOG_DEBUG, "access", "failed: W_OK on [%s], mode: %o, mask: %o, stat: %o\n", path, mode, obj_mask, s.st_mode);
-      return -EACCES;
-    }
-
-    if (mode & X_OK && !(s.st_mode & obj_mask & ANY_X)) {
-      S3_LOG(LOG_DEBUG, "access", "failed: X_OK on [%s], mode: %o, mask: %o, stat: %o\n", path, mode, obj_mask, s.st_mode);
-      return -EACCES;
-    }
-
-    return 0;
-  END_TRY;
 }
 
 int operations::chmod(const char *path, mode_t mode)

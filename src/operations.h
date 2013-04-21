@@ -37,7 +37,6 @@ namespace s3
     static void build_fuse_operations(fuse_operations *ops);
 
   private:
-    static int access(const char *path, int mode);
     static int chmod(const char *path, mode_t mode);
     static int chown(const char *path, uid_t uid, gid_t gid);
     static int create(const char *path, mode_t mode, fuse_file_info *file_info);
