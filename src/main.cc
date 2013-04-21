@@ -91,6 +91,7 @@ int print_usage(const char *base_name)
     "  -o OPT...            pass OPT (comma-separated) to FUSE, such as:\n"
     "     allow_other         allow other users to access the mounted file system\n"
     "     allow_root          allow root to access the mounted file system\n"
+    "     default_permissions enforce permissions (useful in multiuser scenarios)\n"
     "     gid=<id>            force group ID for all files to <id>\n"
     "     config=<file>       use <file> rather than the default configuration file\n"
     "     uid=<id>            force user ID for all files to <id>\n"
