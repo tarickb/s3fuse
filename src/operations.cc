@@ -520,10 +520,16 @@ int operations::open(const char *path, fuse_file_info *file_info)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    return file::open(
+    RETURN_ON_ERROR(file::open(
       static_cast<string>(path), 
       (file_info->flags & O_TRUNC) ? s3::fs::OPEN_TRUNCATE_TO_ZERO : s3::fs::OPEN_DEFAULT, 
-      &file_info->fh);
+      &file_info->fh));
+
+    // successful truncate updates ctime
+    if (file_info->flags & O_TRUNC)
+      file::from_handle(file_info->fh)->set_ctime();
+
+    return 0;
   END_TRY;
 }
 
