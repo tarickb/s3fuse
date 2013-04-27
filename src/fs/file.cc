@@ -216,6 +216,7 @@ int file::open(file_open_mode mode, uint64_t *handle)
 
   if (_ref_count == 0) {
     char temp_name[] = TEMP_NAME_TEMPLATE;
+    off_t size = get_stat()->st_size;
 
     _fd = mkstemp(temp_name);
     unlink(temp_name);
@@ -225,9 +226,14 @@ int file::open(file_open_mode mode, uint64_t *handle)
     if (_fd == -1)
       return -errno;
 
-    if (!(mode & fs::OPEN_TRUNCATE_TO_ZERO)) {
-      off_t size = get_stat()->st_size;
+    if (mode & fs::OPEN_TRUNCATE_TO_ZERO) {
+      // if the file had a non-zero size but was opened with O_TRUNC, we need
+      // to write back a zero-length file.
 
+      if (size)
+        _status = FS_DIRTY;
+
+    } else {
       if (ftruncate(_fd, size) != 0)
         return -errno;
 
