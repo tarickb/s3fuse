@@ -86,17 +86,8 @@ namespace s3
       int set_metadata(const std::string &key, const char *value, size_t size, int flags, bool *needs_commit);
       int remove_metadata(const std::string &key);
 
-      inline void set_uid(uid_t uid)
-      { 
-        _stat.st_uid = uid;
-        _stat.st_ctime = time(NULL); // successful chown sets ctime
-      }
-
-      inline void set_gid(gid_t gid)
-      { 
-        _stat.st_gid = gid; 
-        _stat.st_ctime = time(NULL); // successful chgrp sets ctime
-      }
+      inline void set_uid(uid_t uid) { _stat.st_uid = uid; }
+      inline void set_gid(gid_t gid) { _stat.st_gid = gid; }
 
       inline void set_mtime(time_t mtime) { _stat.st_mtime = mtime; }
       inline void set_mtime() { set_mtime(time(NULL)); }

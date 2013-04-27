@@ -279,6 +279,10 @@ int operations::chown(const char *path, uid_t uid, gid_t gid)
     if (gid != static_cast<gid_t>(-1))
       obj->set_gid(gid);
 
+    // chown updates ctime
+    // (even if uid == -1 or gid == -1, in the case of ext3)
+    obj->set_ctime();
+
     return obj->commit();
   END_TRY;
 }
