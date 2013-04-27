@@ -525,9 +525,11 @@ int operations::open(const char *path, fuse_file_info *file_info)
       (file_info->flags & O_TRUNC) ? s3::fs::OPEN_TRUNCATE_TO_ZERO : s3::fs::OPEN_DEFAULT, 
       &file_info->fh));
 
-    // successful truncate updates ctime
-    if (file_info->flags & O_TRUNC)
+    // successful open with O_TRUNC updates ctime and mtime
+    if (file_info->flags & O_TRUNC) {
       file::from_handle(file_info->fh)->set_ctime();
+      file::from_handle(file_info->fh)->set_mtime();
+    }
 
     return 0;
   END_TRY;
