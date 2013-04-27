@@ -360,7 +360,15 @@ int operations::ftruncate(const char *path, off_t offset, fuse_file_info *file_i
   S3_LOG(LOG_DEBUG, "ftruncate", "path: %s, offset: %ji\n", f->get_path().c_str(), static_cast<intmax_t>(offset));
 
   BEGIN_TRY;
-    return f->truncate(offset);
+    RETURN_ON_ERROR(f->truncate(offset));
+
+    // successful truncate updates ctime
+    f->set_ctime();
+
+    // we don't need to flush/commit the ctime update because that'll be done
+    // when we close this file.
+
+    return 0;
   END_TRY;
 }
 
@@ -749,8 +757,12 @@ int operations::truncate(const char *path, off_t size)
 
     r = f->truncate(size);
 
-    if (!r)
+    if (!r) {
+      // successful truncate updates ctime
+      f->set_ctime();
+
       r = f->flush();
+    }
 
     f->release();
 
