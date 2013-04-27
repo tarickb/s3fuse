@@ -69,6 +69,7 @@ namespace s3
 
     static int statfs(const char * /* ignored */, struct statvfs *s);
     static int symlink(const char *target, const char *path);
+    static int truncate(const char *path, off_t size);
     static int unlink(const char *path);
     static int utimens(const char *path, const timespec times[2]);
     static int write(const char *path, const char *buffer, size_t size, off_t offset, fuse_file_info *file_info);

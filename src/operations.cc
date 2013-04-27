@@ -58,7 +58,7 @@ namespace
 {
   atomic_count s_reopen_attempts(0), s_reopen_rescues(0), s_reopen_fails(0);
   atomic_count s_rename_attempts(0), s_rename_fails(0);
-  atomic_count s_create(0), s_mkdir(0), s_mknod(0), s_open(0), s_rename(0), s_symlink(0), s_unlink(0);
+  atomic_count s_create(0), s_mkdir(0), s_mknod(0), s_open(0), s_rename(0), s_symlink(0), s_truncate(0), s_unlink(0);
   atomic_count s_getattr(0), s_readdir(0), s_readlink(0);
 
   void dir_filler(fuse_fill_dir_t filler, void *buf, const std::string &path)
@@ -113,6 +113,7 @@ namespace
       "  open: " << s_open << "\n"
       "  rename: " << s_rename << "\n"
       "  symlink: " << s_symlink << "\n"
+      "  truncate: " << s_truncate << "\n"
       "  unlink: " << s_unlink << "\n"
       "operations (accessors):\n"
       "  getattr: " << s_getattr << "\n"
@@ -217,8 +218,6 @@ void operations::build_fuse_operations(fuse_operations *ops)
 {
   memset(ops, 0, sizeof(*ops));
 
-  // TODO: add truncate()
-
   ops->flag_nullpath_ok = 1;
 
   ops->chmod = operations::chmod;
@@ -242,6 +241,7 @@ void operations::build_fuse_operations(fuse_operations *ops)
   ops->setxattr = operations::setxattr;
   ops->statfs = operations::statfs;
   ops->symlink = operations::symlink;
+  ops->truncate = operations::truncate;
   ops->unlink = operations::unlink;
   ops->utimens = operations::utimens;
   ops->write = operations::write;
@@ -722,6 +722,39 @@ int operations::symlink(const char *target, const char *path)
     RETURN_ON_ERROR(link->commit());
 
     return touch(parent);
+  END_TRY;
+}
+
+int operations::truncate(const char *path, off_t size)
+{
+  file *f;
+  uint64_t handle;
+  int r;
+
+  S3_LOG(LOG_DEBUG, "truncate", "path: %s, size: %ji\n", path, static_cast<intmax_t>(size));
+  ++s_truncate;
+
+  ASSERT_VALID_PATH(path);
+
+  BEGIN_TRY;
+    // passing OPEN_TRUNCATE_TO_ZERO saves us from having to download the 
+    // entire file if we're just going to truncate it to zero anyway.
+
+    RETURN_ON_ERROR(file::open(
+      static_cast<string>(path), 
+      (size == 0) ? s3::fs::OPEN_TRUNCATE_TO_ZERO : s3::fs::OPEN_DEFAULT,
+      &handle));
+
+    f = file::from_handle(handle);
+
+    r = f->truncate(size);
+
+    if (!r)
+      r = f->flush();
+
+    f->release();
+
+    return r;
   END_TRY;
 }
 
