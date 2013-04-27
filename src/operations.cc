@@ -280,7 +280,6 @@ int operations::chown(const char *path, uid_t uid, gid_t gid)
       obj->set_gid(gid);
 
     // chown updates ctime
-    // (even if uid == -1 or gid == -1, in the case of ext3)
     obj->set_ctime();
 
     return obj->commit();
