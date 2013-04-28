@@ -34,6 +34,14 @@ Known Issues
     Manager.
 - Google is aware of the Cloud Storage Manager issues.
 
+POSIX Compliance
+----------------
+
+s3fuse is mostly POSIX compliant, except that:
+
+  - Last-access time (atime) is not recorded.
+  - Hard links are not supported.
+
 Configuration
 -------------
 
