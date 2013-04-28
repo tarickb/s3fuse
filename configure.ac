@@ -80,7 +80,7 @@ if test "x$osx_bundle" = xtrue; then
   AC_DEFINE([OSX_BUNDLE], [])
 fi
 
-BOOST_REQUIRE([1.42])
+BOOST_REQUIRE([1.41])
 BOOST_REGEX()
 BOOST_THREADS()
 
