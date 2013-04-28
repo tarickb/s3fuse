@@ -42,6 +42,27 @@ s3fuse is mostly POSIX compliant, except that:
   - Last-access time (atime) is not recorded.
   - Hard links are not supported.
 
+Some notes on testing:
+
+  - Use pjd-fstest-20080816 from http://www.tuxera.com/community/posix-test-suite/.
+  - Bucket must be mounted as root and with "-o allow_other,default_permissions".
+  - Run tests as root from mount point, not a subdirectory.
+
+All tests should pass, except:
+
+  chown/00.t: 141, 145, 149, 153
+    [FUSE doesn't call chown when uid == -1 and gid == -1]
+
+  mkdir/00.t: 30
+  mkfifo/00.t: 30
+  open/00.t: 30
+    [atime is not recorded]
+
+  link/*.t
+  rename/00.t: 7-9, 11, 13-14, 27-29, 31, 33-34
+  unlink/00.t: 15-17, 20-22, 51-53
+    [hard links are not supported]
+
 Configuration
 -------------
 
