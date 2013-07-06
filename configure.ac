@@ -1,3 +1,4 @@
+m4_define([pkg_cl_name], [m4_esyscmd([head -n 1 ChangeLog | sed -e 's/ .*//' | tr -d '\n'])])
 m4_define([pkg_cl_version], [m4_esyscmd([head -n 1 ChangeLog | sed -e 's/.*(//' -e 's/).*//' | tr -d '\n'])])
 m4_define([pkg_svn_version], [m4_esyscmd([svnversion 2>/dev/null | sed -e 's/^exported$//' | tr -d '\n'])])
 
@@ -7,7 +8,7 @@ m4_define([pkg_version], ifelse(opt_with_rev, [1], m4_format([%s-0r%s], pkg_cl_v
 m4_define([pkg_pretty_version], ifelse(pkg_svn_version, [], pkg_cl_version, m4_format([%s (r%s)], pkg_cl_version, pkg_svn_version)))
 
 AC_PREREQ([2.63])
-AC_INIT([s3fuse], [pkg_version])
+AC_INIT([pkg_cl_name], [pkg_version])
 AM_INIT_AUTOMAKE([no-define foreign])
 AC_CONFIG_SRCDIR([src/main.cc])
 
