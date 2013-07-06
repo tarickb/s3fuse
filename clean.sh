@@ -26,7 +26,7 @@ do
     make clean distclean >& /dev/null
     rm -rf .deps >& /dev/null
     rm -f Makefile Makefile.in
-    rm -f s3fuse.conf
+    rm -f *.conf
     rm -f *.gcda *.gcno *.gcov
   popd >& /dev/null
 done
