@@ -103,7 +103,7 @@ void encryption::init()
   s_volume_key = bucket_volume_key::fetch(req, config::get_volume_key_id());
 
   if (!s_volume_key)
-    throw runtime_error("encryption enabled but specified volume key could not be found. check the configuration and/or run s3fuse_vol_key.");
+    throw runtime_error("encryption enabled but specified volume key could not be found. check the configuration and/or run " PACKAGE_NAME "_vol_key.");
 
   if (config::get_volume_key_file().empty()) {
     int retry_count = 0;

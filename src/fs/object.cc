@@ -83,9 +83,9 @@ namespace
     const size_t XATTR_PREFIX_LEN = 0;
   #endif
 
-  const string CONTENT_TYPE_XATTR = "s3fuse_content_type";
-  const string ETAG_XATTR = "s3fuse_etag";
-  const string CACHE_CONTROL_XATTR = "s3fuse_cache_control";
+  const string CONTENT_TYPE_XATTR = PACKAGE_NAME "_content_type";
+  const string ETAG_XATTR = PACKAGE_NAME "_etag";
+  const string CACHE_CONTROL_XATTR = PACKAGE_NAME "_cache_control";
 
   const int USER_XATTR_FLAGS = 
     s3::fs::xattr::XM_WRITABLE | 
@@ -135,7 +135,7 @@ bool object::is_internal_path(const string &path)
 string object::build_url(const string &path)
 {
   if (is_internal_path(path))
-    throw runtime_error("path cannot start with s3fuse internal object prefix.");
+    throw runtime_error("path cannot start with " PACKAGE_NAME " internal object prefix.");
 
   return build_url_no_internal_check(path);
 }

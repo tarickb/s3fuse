@@ -87,25 +87,25 @@ glacier::glacier(const object *obj)
   : _object(obj)
 {
   _storage_class_xattr = callback_xattr::create(
-    "s3fuse_storage_class",
+    PACKAGE_NAME "_storage_class",
     bind(&glacier::get_storage_class_value, this, _1),
     set_nop_callback,
     xattr::XM_VISIBLE);
 
   _restore_ongoing_xattr = callback_xattr::create(
-    "s3fuse_restore_ongoing",
+    PACKAGE_NAME "_restore_ongoing",
     bind(&glacier::get_restore_ongoing_value, this, _1),
     set_nop_callback,
     xattr::XM_DEFAULT);
 
   _restore_expiry_xattr = callback_xattr::create(
-    "s3fuse_restore_expiry",
+    PACKAGE_NAME "_restore_expiry",
     bind(&glacier::get_restore_expiry_value, this, _1),
     set_nop_callback,
     xattr::XM_DEFAULT);
 
   _request_restore_xattr = callback_xattr::create(
-    "s3fuse_request_restore",
+    PACKAGE_NAME "_request_restore",
     bind(get_nop_callback, "set-to-num-days-for-restore", _1),
     bind(&glacier::set_request_restore_value, this, _1),
     xattr::XM_VISIBLE | xattr::XM_WRITABLE);
