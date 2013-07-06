@@ -22,7 +22,6 @@
 #include <limits.h>
 
 #include "logger.h"
-#include "version.h"
 
 using s3::base::logger;
 
@@ -33,5 +32,5 @@ void logger::init(int max_level)
 {
   s_max_level = max_level;
 
-  openlog(s3::base::APP_NAME, 0, 0);
+  openlog(PACKAGE_NAME, 0, 0);
 }

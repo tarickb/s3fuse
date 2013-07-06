@@ -26,7 +26,6 @@ libs3fuse_base_a_SOURCES = \
 	ssl_locks.cc \
 	ssl_locks.h \
 	timer.h \
-	version.h \
 	xml.cc \
 	xml.h
 

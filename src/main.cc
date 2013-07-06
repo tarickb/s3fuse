@@ -27,7 +27,6 @@
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/statistics.h"
-#include "base/version.h"
 #include "threads/pool.h"
 
 using std::cerr;
@@ -44,6 +43,7 @@ using s3::threads::pool;
 namespace
 {
   const int DEFAULT_VERBOSITY = LOG_WARNING;
+  const char *APP_DESCRIPTION = "FUSE driver for cloud object storage services";
 
   #ifdef __APPLE__
     const string OSX_MOUNTPOINT_PREFIX = "/volumes/" PACKAGE_NAME "_";
@@ -105,7 +105,7 @@ int print_usage(const char *base_name)
 
 int print_version()
 {
-  cout << s3::base::APP_NAME << ", " << s3::base::APP_VERSION << ", " << s3::base::APP_DESCRIPTION << endl;
+  cout << PACKAGE_NAME << ", " << PACKAGE_VERSION_WITH_REV << ", " << APP_DESCRIPTION << endl;
 
   return 0;
 }
@@ -241,7 +241,7 @@ int main(int argc, char **argv)
 
     add_missing_options(&opts, &args);
 
-    S3_LOG(LOG_INFO, "main", "%s version %s, initialized\n", s3::base::APP_NAME, s3::base::APP_VERSION);
+    S3_LOG(LOG_INFO, "main", "%s version %s, initialized\n", PACKAGE_NAME, PACKAGE_VERSION_WITH_REV);
 
   } catch (const std::exception &e) {
     S3_LOG(LOG_ERR, "main", "caught exception while initializing: %s\n", e.what());
