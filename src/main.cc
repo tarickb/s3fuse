@@ -46,7 +46,7 @@ namespace
   const int DEFAULT_VERBOSITY = LOG_WARNING;
 
   #ifdef __APPLE__
-    const string OSX_MOUNTPOINT_PREFIX = "/volumes/s3fuse_";
+    const string OSX_MOUNTPOINT_PREFIX = "/volumes/" PACKAGE_NAME "_";
   #endif
 
   struct options
@@ -105,7 +105,7 @@ int print_usage(const char *base_name)
 
 int print_version()
 {
-  cout << s3::base::APP_FULL_NAME << ", " << s3::base::APP_NAME << ", " << s3::base::APP_VERSION << endl;
+  cout << s3::base::APP_NAME << ", " << s3::base::APP_VERSION << ", " << s3::base::APP_DESCRIPTION << endl;
 
   return 0;
 }
@@ -186,7 +186,7 @@ void * init(fuse_conn_info *info)
 void add_missing_options(options *opts, fuse_args *args)
 {
   #ifdef __APPLE__
-    opts->volname = "-ovolname=s3fuse volume (" + config::get_bucket_name() + ")";
+    opts->volname = "-ovolname=" PACKAGE_NAME " volume (" + config::get_bucket_name() + ")";
 
     if (!opts->daemon_timeout_set)
       fuse_opt_add_arg(args, "-odaemon_timeout=3600");

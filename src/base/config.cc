@@ -40,8 +40,8 @@ using s3::base::paths;
 namespace
 {
   const string DEFAULT_CONFIG_FILES[] = {
-    "~/.s3fuse/s3fuse.conf",
-    SYSCONFDIR "/s3fuse.conf" };
+    "~/." PACKAGE_NAME "/" PACKAGE_NAME ".conf",
+    SYSCONFDIR "/" PACKAGE_NAME ".conf" };
 
   const int DEFAULT_CONFIG_FILE_COUNT = sizeof(DEFAULT_CONFIG_FILES) / sizeof(DEFAULT_CONFIG_FILES[0]);
 
