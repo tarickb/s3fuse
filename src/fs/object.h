@@ -44,7 +44,9 @@ namespace s3
 
   namespace fs
   {
-    class glacier;
+    #ifdef WITH_AWS
+      class glacier;
+    #endif
 
     class object : public boost::enable_shared_from_this<object>
     {
@@ -163,7 +165,10 @@ namespace s3
       std::string _content_type;
       std::string _url;
       bool _intact;
-      boost::shared_ptr<glacier> _glacier;
+
+      #ifdef WITH_AWS
+        boost::shared_ptr<glacier> _glacier;
+      #endif
 
       // unprotected
       std::string _etag;

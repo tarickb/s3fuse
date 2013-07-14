@@ -31,11 +31,14 @@
 #include "base/timer.h"
 #include "base/xml.h"
 #include "fs/cache.h"
-#include "fs/glacier.h"
 #include "fs/metadata.h"
 #include "fs/object.h"
 #include "fs/static_xattr.h"
 #include "services/service.h"
+
+#ifdef WITH_AWS
+  #include "fs/glacier.h"
+#endif
 
 #ifndef ENOATTR
   #ifndef ENODATA
@@ -405,14 +408,16 @@ void object::init(const request::ptr &req)
   // setting _expiry > 0 makes this object valid
   _expiry = time(NULL) + config::get_cache_expiry_in_s();
 
-  if (config::get_allow_glacier_restores()) {
-    _glacier = glacier::create(this, req);
+  #ifdef WITH_AWS
+    if (config::get_allow_glacier_restores()) {
+      _glacier = glacier::create(this, req);
 
-    _metadata.replace(_glacier->get_storage_class_xattr());
-    _metadata.replace(_glacier->get_restore_ongoing_xattr());
-    _metadata.replace(_glacier->get_restore_expiry_xattr());
-    _metadata.replace(_glacier->get_request_restore_xattr());
-  }
+      _metadata.replace(_glacier->get_storage_class_xattr());
+      _metadata.replace(_glacier->get_restore_ongoing_xattr());
+      _metadata.replace(_glacier->get_restore_expiry_xattr());
+      _metadata.replace(_glacier->get_request_restore_xattr());
+    }
+  #endif
 }
 
 void object::set_request_headers(const request::ptr &req)

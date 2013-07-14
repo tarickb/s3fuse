@@ -52,8 +52,10 @@ CONFIG(std::string, volume_key_id, "", "volume key identifier (required if use_e
 CONFIG(bool, encrypt_new_files, true, "all newly-created files will be encrypted if set to 'true'/'yes'");
 CONFIG(std::string, volume_key_file, "", "name of file containing hex-encoded volume key. will prompt for password if blank.");
 
-CONFIG_SECTION("Glacier");
-CONFIG(bool, allow_glacier_restores, false, "set to 'true'/'yes' to enable glacier object restores");
+#ifdef WITH_AWS
+  CONFIG_SECTION("Glacier");
+  CONFIG(bool, allow_glacier_restores, false, "set to 'true'/'yes' to enable glacier object restores");
+#endif
 
 CONFIG_SECTION("Statistics");
 CONFIG(std::string, stats_file, "", "write statistics on various operations and exceptions to specified file if set");
