@@ -102,7 +102,6 @@ namespace
 }
 
 #define CONFIG(type, name, def, desc) type config::s_ ## name = (def);
-#define CONFIG_REQUIRED(type, name, def, desc) CONFIG(type, name, def, desc)
 #define CONFIG_CONSTRAINT(x, y)
 #define CONFIG_KEY(x)
 #define CONFIG_SECTION(x)
@@ -110,7 +109,6 @@ namespace
 #include "base/config.inc"
 
 #undef CONFIG
-#undef CONFIG_REQUIRED
 #undef CONFIG_CONSTRAINT
 #undef CONFIG_KEY
 #undef CONFIG_SECTION
@@ -179,8 +177,6 @@ void config::init(const string &file)
         continue; \
       }
 
-    #define CONFIG_REQUIRED(type, name, def, desc) CONFIG(type, name, def, desc)
-
     #define CONFIG_CONSTRAINT(x, y)
     #define CONFIG_KEY(x)
     #define CONFIG_SECTION(x)
@@ -188,7 +184,6 @@ void config::init(const string &file)
     #include "base/config.inc"
 
     #undef CONFIG
-    #undef CONFIG_REQUIRED
     #undef CONFIG_CONSTRAINT
     #undef CONFIG_KEY
     #undef CONFIG_SECTION
@@ -198,12 +193,6 @@ void config::init(const string &file)
   }
 
   #define CONFIG(type, name, def, desc)
-
-  #define CONFIG_REQUIRED(type, name, def, desc) \
-    if (s_ ## name == (def)) { \
-      S3_LOG(LOG_ERR, "config::init", "required key '%s' not defined.\n", #name); \
-      throw runtime_error("malformed config file"); \
-    }
 
   #define CONFIG_CONSTRAINT(test, message) \
     if (!(test)) { \
@@ -217,7 +206,6 @@ void config::init(const string &file)
   #include "base/config.inc"
 
   #undef CONFIG
-  #undef CONFIG_REQUIRED
   #undef CONFIG_CONSTRAINT
   #undef CONFIG_KEY
   #undef CONFIG_SECTION

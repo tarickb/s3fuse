@@ -106,6 +106,7 @@ int print_usage(const char *base_name)
 int print_version()
 {
   cout << PACKAGE_NAME << ", " << PACKAGE_VERSION_WITH_REV << ", " << APP_DESCRIPTION << endl;
+  cout << "enabled services: " << init::get_enabled_services() << endl;
 
   return 0;
 }

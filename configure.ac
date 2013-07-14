@@ -56,7 +56,37 @@ AC_ARG_ENABLE(
      *) AC_MSG_ERROR([bad value ${enableval} for --enable-osx-bundle]) ;;
    esac], [osx_bundle=false])
 
+AC_ARG_ENABLE(
+  [aws],
+  [  --enable-aws            Enable Amazon S3 support],
+  [case "${enableval}" in
+     yes) aws=true ;;
+     no)  aws=false ;;
+     *) AC_MSG_ERROR([bad value ${enableval} for --enable-aws]) ;;
+   esac], [aws=true])
+
+AC_ARG_ENABLE(
+  [gs],
+  [  --enable-gs             Enable Google Cloud Storage support],
+  [case "${enableval}" in
+     yes) gs=true ;;
+     no)  gs=false ;;
+     *) AC_MSG_ERROR([bad value ${enableval} for --enable-gs]) ;;
+   esac], [gs=true])
+
+AC_ARG_ENABLE(
+  [fvs],
+  [  --enable-fvs            Enable FV/S support],
+  [case "${enableval}" in
+     yes) fvs=true ;;
+     no)  fvs=false ;;
+     *) AC_MSG_ERROR([bad value ${enableval} for --enable-fvs]) ;;
+   esac], [fvs=true])
+
 AM_CONDITIONAL([BUILD_TESTS], [test x$build_tests = xtrue])
+AM_CONDITIONAL([WITH_AWS], [test x$aws = xtrue])
+AM_CONDITIONAL([WITH_GS], [test x$gs = xtrue])
+AM_CONDITIONAL([WITH_FVS], [test x$fvs = xtrue])
 
 # set LDFLAGS rather than AM_LDFLAGS below because we need these flags
 # when using AC_CHECK_LIB
@@ -79,6 +109,31 @@ fi
 
 if test "x$osx_bundle" = xtrue; then
   AC_DEFINE([OSX_BUNDLE], [])
+fi
+
+last_svc_enabled=
+svc_count=0
+
+if test "x$aws" = xtrue; then
+  AC_DEFINE([WITH_AWS], [])
+  last_svc_enabled=aws
+  let svc_count++
+fi
+
+if test "x$gs" = xtrue; then
+  AC_DEFINE([WITH_GS], [])
+  last_svc_enabled=gs
+  let svc_count++
+fi
+
+if test "x$fvs" = xtrue; then
+  AC_DEFINE([WITH_FVS], [])
+  last_svc_enabled=fvs
+  let svc_count++
+fi
+
+if test "$svc_count" -eq "1"; then
+  AC_DEFINE_UNQUOTED([FIXED_SERVICE], [$last_svc_enabled])
 fi
 
 BOOST_REQUIRE([1.41])

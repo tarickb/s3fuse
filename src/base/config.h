@@ -52,8 +52,6 @@ namespace s3
         public: \
           inline static const type & get_ ## name () { return s_ ## name; }
 
-      #define CONFIG_REQUIRED(type, name, def, desc) CONFIG(type, name, def, desc)
-
       #define CONFIG_CONSTRAINT(x, y)
       #define CONFIG_KEY(x)
       #define CONFIG_SECTION(x)
@@ -61,7 +59,6 @@ namespace s3
       #include "base/config.inc"
 
       #undef CONFIG
-      #undef CONFIG_REQUIRED
       #undef CONFIG_CONSTRAINT
       #undef CONFIG_KEY
       #undef CONFIG_SECTION

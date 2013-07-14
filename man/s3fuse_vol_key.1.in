@@ -1,21 +1,21 @@
-.\" man page for s3fuse
-.TH S3FUSE_VOL_KEY 1 2013-01-26 "s3fuse 0.13" "s3fuse_vol_key"
+.\" man page for __PACKAGE_NAME__
+.TH __PACKAGE_NAME_UPPER___VOL_KEY 1 __TODAY__ "__PACKAGE_NAME__ __PACKAGE_VERSION__" "__PACKAGE_NAME___vol_key"
 
 .SH NAME
-\fBs3fuse_vol_key\fR - Manage s3fuse volume keys
+\fB__PACKAGE_NAME___vol_key\fR - Manage __PACKAGE_NAME__ volume keys
 
 .SH SYNOPSIS
-\fBs3fuse_vol_key\fR
+\fB__PACKAGE_NAME___vol_key\fR
 [\fB-c | --config-file\fR \fIpath\fR]
 [\fB-i | --in-key\fR \fIpath\fR]
 [\fB-o | --out-key\fR \fIpath\fR]
 \fIcommand\fR
 
 .SH DESCRIPTION
-\fBs3fuse_vol_key\fR manages volume keys used for \fBs3fuse\fR file encryption.
+\fB__PACKAGE_NAME___vol_key\fR manages volume keys used for \fB__PACKAGE_NAME__\fR file encryption.
 Operations will take place on the bucket specified by the default configuration
 file (or the configuration file specified by \fB--config-file\fR) -- see
-\fBs3fuse.conf\fR(5).
+\fB__PACKAGE_NAME__.conf\fR(5).
 
 .SH COMMANDS
 .TP
@@ -64,7 +64,7 @@ encrypted objects in the bucket will become permanently inaccessible. The
 .TP
 .BI "-c | --config-file " path
 Read configuration from \fIpath\fR rather than the default paths. This file is
-described in \fBs3fuse.conf\fR(5).
+described in \fB__PACKAGE_NAME__.conf\fR(5).
 
 .TP
 .BI "-i | --in-key " path
@@ -78,55 +78,55 @@ Write volume key to \fIpath\fR instead of prompting for a password.
 Generating a new volume key, using password-prompt mode:
 
 .RS
-\fBs3fuse_vol_key\fR generate main_key
+\fB__PACKAGE_NAME___vol_key\fR generate main_key
 .RE
 
 Generating a new volume key, using key file access:
 
 .RS
-\fBs3fuse_vol_key\fR --out-key ~/.s3fuse/bucket-0.vk generate main_key
+\fB__PACKAGE_NAME___vol_key\fR --out-key ~/.__PACKAGE_NAME__/bucket-0.vk generate main_key
 .RE
 
 Switching "main_key" from password prompting to key files:
 
 .RS
-\fBs3fuse_vol_key\fR --out-key ~/.s3fuse/bucket-0.vk change main_key
+\fB__PACKAGE_NAME___vol_key\fR --out-key ~/.__PACKAGE_NAME__/bucket-0.vk change main_key
 .RE
 
 Switching "main_key" from key files to password prompts:
 
 .RS
-\fBs3fuse_vol_key\fR --in-key ~/.s3fuse/bucket-0.vk change main_key
+\fB__PACKAGE_NAME___vol_key\fR --in-key ~/.__PACKAGE_NAME__/bucket-0.vk change main_key
 .RE
 
 Regenerating a key file for "main_key":
 
 .RS
-mv ~/.s3fuse/bucket-0.vk ~/.s3fuse/bucket-0.vk.old # save a copy in case the change fails
+mv ~/.__PACKAGE_NAME__/bucket-0.vk ~/.__PACKAGE_NAME__/bucket-0.vk.old # save a copy in case the change fails
 
-\fBs3fuse_vol_key\fR --in-key ~/.s3fuse/bucket-0.vk.old --out-key ~/.s3fuse/bucket-0.vk change main_key
+\fB__PACKAGE_NAME___vol_key\fR --in-key ~/.__PACKAGE_NAME__/bucket-0.vk.old --out-key ~/.__PACKAGE_NAME__/bucket-0.vk change main_key
 .RE
 
 Changing passwords for "main_key":
 
 .RS
-\fBs3fuse_vol_key\fR change main_key
+\fB__PACKAGE_NAME___vol_key\fR change main_key
 .RE
 
 Granting access with a second password-based key:
 
 .RS
-\fBs3fuse_vol_key\fR clone main_key new_pw_key
+\fB__PACKAGE_NAME___vol_key\fR clone main_key new_pw_key
 .RE
 
 Granting access with a file-based key:
 
 .RS
-\fBs3fuse_vol_key\fR --out-key ~/.s3fuse/bucket-0-new.vk clone main_key new_file_key
+\fB__PACKAGE_NAME___vol_key\fR --out-key ~/.__PACKAGE_NAME__/bucket-0-new.vk clone main_key new_file_key
 .RE
 
 .SH AUTHORS
 Tarick Bedeir <tarick@bedeir.com>
 
 .SH SEE ALSO
-\fBs3fuse\fR(1), \fBs3fuse.conf\fR(5)
+\fB__PACKAGE_NAME__\fR(1), \fB__PACKAGE_NAME__.conf\fR(5)

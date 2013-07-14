@@ -1,0 +1,19 @@
+.\" man page for __PACKAGE_NAME__
+.TH __PACKAGE_NAME_UPPER___GS_GET_TOKEN 1 __TODAY__ "__PACKAGE_NAME__ __PACKAGE_VERSION__" "__PACKAGE_NAME___gs_get_token"
+
+.SH NAME
+\fB__PACKAGE_NAME___gs_get_token\fR - Get and store a Google Storage access token
+
+.SH SYNOPSIS
+.B  __PACKAGE_NAME___gs_get_token
+.I  token-file-name
+
+.SH DESCRIPTION
+\fB__PACKAGE_NAME___gs_get_token\fR requests an OAuth token for access to Google 
+Storage.  The token will be saved in \fItoken-file-name\fR.
+
+.SH AUTHORS
+Tarick Bedeir <tarick@bedeir.com>
+
+.SH SEE ALSO
+\fB__PACKAGE_NAME__\fR(1)

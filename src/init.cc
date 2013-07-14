@@ -30,10 +30,19 @@
 #include "fs/file.h"
 #include "fs/mime_types.h"
 #include "services/service.h"
-#include "services/aws/impl.h"
-#include "services/fvs/impl.h"
-#include "services/gs/impl.h"
 #include "threads/pool.h"
+
+#ifdef WITH_AWS
+#include "services/aws/impl.h"
+#endif
+
+#ifdef WITH_FVS
+#include "services/fvs/impl.h"
+#endif
+
+#ifdef WITH_GS
+#include "services/gs/impl.h"
+#endif
 
 using std::runtime_error;
 using std::string;
@@ -72,17 +81,55 @@ void init::fs()
 
 void init::services()
 {
-  if (config::get_service() == "aws")
-    service::init(impl::ptr(new services::aws::impl()));
-  else if (config::get_service() == "fvs")
-    service::init(impl::ptr(new services::fvs::impl()));
-  else if (config::get_service() == "google-storage")
-    service::init(impl::ptr(new services::gs::impl()));
-  else
+  #ifdef FIXED_SERVICE
+    service::init(impl::ptr(new services::FIXED_SERVICE::impl()));
+  #else
+    #define TEST_SVC(str, ns) \
+      do { \
+        if (config::get_service() == str) { \
+          service::init(impl::ptr(new services::ns::impl())); \
+          return; \
+        } \
+      } while (0)
+
+    #ifdef WITH_AWS
+      TEST_SVC("aws", aws);
+    #endif
+
+    #ifdef WITH_FVS
+      TEST_SVC("fvs", fvs);
+    #endif
+
+    #ifdef WITH_GS
+      TEST_SVC("google-storage", gs);
+    #endif
+
+    #undef TEST_SVC
+
     throw runtime_error("invalid service specified.");
+  #endif
 }
 
 void init::threads()
 {
   pool::init();
+}
+
+string init::get_enabled_services()
+{
+  string svcs;
+
+  #ifdef WITH_AWS
+    svcs += ", aws";
+  #endif
+
+  #ifdef WITH_FVS
+    svcs += ", fvs";
+  #endif
+
+  #ifdef WITH_GS
+    svcs += ", google-storage";
+  #endif
+
+  return svcs.empty() ? string("(none)") : svcs.substr(2); // strip leading ", "
 }

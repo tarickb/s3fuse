@@ -1,18 +1,18 @@
-.\" man page for s3fuse
-.TH S3FUSE 1 2013-01-26 "s3fuse 0.13" "s3fuse"
+.\" man page for __PACKAGE_NAME__
+.TH __PACKAGE_NAME_UPPER__ 1 __TODAY__ "__PACKAGE_NAME__ __PACKAGE_VERSION__" "__PACKAGE_NAME__"
 
 .SH NAME
-\fBs3fuse\fR - FUSE driver for cloud object storage services
+\fB__PACKAGE_NAME__\fR - FUSE driver for cloud object storage services
 
 .SH SYNOPSIS
-.B  s3fuse
+.B  __PACKAGE_NAME__
 .RB [ \-f "] [" "\-h | \-\-help" "] [" \-o
 .IR options ]
 .RB [ "\-v | \-\-verbose" "] [" "\-V | \-\-version" ]
 .I  mountpoint
 
 .SH DESCRIPTION
-\fBs3fuse\fR is a FUSE (Filesystem in Userspace) driver for Amazon S3 and 
+\fB__PACKAGE_NAME__\fR is a FUSE (Filesystem in Userspace) driver for Amazon S3 and 
 Google Storage buckets with support for multipart transfers, file integrity
 checks, transparent file encryption, and Glacier restores.
 
@@ -32,19 +32,19 @@ with \fB-f\fR.
 
 .TP
 .B "-V | --version"
-Print \fBs3fuse\fR version.
+Print \fB__PACKAGE_NAME__\fR version.
 
 .TP
 .BI -o " options"
 Pass a comma-separated list of options to FUSE. \fIoptions\fR can be 
-\fBs3fuse\fR-specific or generic FUSE options.  The \fBs3fuse\fR-specific 
+\fB__PACKAGE_NAME__\fR-specific or generic FUSE options.  The \fB__PACKAGE_NAME__\fR-specific 
 options are:
 
 .RS
 .TP
 .BI "config=" "file"
 Read configuration from \fIfile\fR rather than the default locations
-(~/.s3fuse/s3fuse.conf and /etc/s3fuse.conf).
+(~/.__PACKAGE_NAME__/__PACKAGE_NAME__.conf and /etc/__PACKAGE_NAME__.conf).
 
 .RE
 .RS
@@ -52,7 +52,7 @@ Some generic FUSE options that may be useful are:
 
 .TP
 .BI "allow_other"
-Allow users besides the one launching \fBs3fuse\fR to access the mounted file
+Allow users besides the one launching \fB__PACKAGE_NAME__\fR to access the mounted file
 system.
 
 .TP
@@ -70,11 +70,11 @@ Set apparent user ID for all files in the mounted bucket to \fIuser id\fR.
 .RE
 
 .SH CONFIGURATION
-See \fBs3fuse.conf\fR(5).
+See \fB__PACKAGE_NAME__.conf\fR(5).
 
 .SH AUTHORS
 Tarick Bedeir <tarick@bedeir.com>
 
 .SH SEE ALSO
-\fBs3fuse.conf\fR(5), \fBs3fuse_gs_get_token\fR(1), \fBs3fuse_sha256_sum\fR(1),
-\fBs3fuse_vol_key\fR(1)
+\fB__PACKAGE_NAME__.conf\fR(5), \fB__PACKAGE_NAME___gs_get_token\fR(1), \fB__PACKAGE_NAME___sha256_sum\fR(1),
+\fB__PACKAGE_NAME___vol_key\fR(1)

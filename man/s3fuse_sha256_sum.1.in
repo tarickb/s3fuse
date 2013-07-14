@@ -1,0 +1,21 @@
+.\" man page for __PACKAGE_NAME__
+.TH __PACKAGE_NAME_UPPER___SHA256_SUM 1 __TODAY__ "__PACKAGE_NAME__ __PACKAGE_VERSION__" "__PACKAGE_NAME___sha256_sum"
+
+.SH NAME
+\fB__PACKAGE_NAME___sha256_sum\fR - Generate SHA256 sums
+
+.SH SYNOPSIS
+.B  __PACKAGE_NAME___sha256_sum
+.I  file
+
+.SH DESCRIPTION
+\fB__PACKAGE_NAME___sha256_sum\fR generates SHA256 sums of files using the same
+hash-of-hash-lists method that \fB__PACKAGE_NAME__\fR(1) uses when uploading and 
+downloading files. These sums can be compared against those reported by
+\fB__PACKAGE_NAME__\fR(1) in the \fB__PACKAGE_NAME___sha256\fR extended attribute.
+
+.SH AUTHORS
+Tarick Bedeir <tarick@bedeir.com>
+
+.SH SEE ALSO
+\fB__PACKAGE_NAME__\fR(1)
