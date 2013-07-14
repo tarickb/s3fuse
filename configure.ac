@@ -56,6 +56,10 @@ AC_ARG_ENABLE(
      *) AC_MSG_ERROR([bad value ${enableval} for --enable-osx-bundle]) ;;
    esac], [osx_bundle=false])
 
+service_default_aws=true
+service_default_gs=true
+service_default_fvs=true
+
 AC_ARG_ENABLE(
   [aws],
   [  --enable-aws            Enable Amazon S3 support],
@@ -63,7 +67,7 @@ AC_ARG_ENABLE(
      yes) aws=true ;;
      no)  aws=false ;;
      *) AC_MSG_ERROR([bad value ${enableval} for --enable-aws]) ;;
-   esac], [aws=true])
+   esac], [aws=$service_default_aws])
 
 AC_ARG_ENABLE(
   [gs],
@@ -72,7 +76,7 @@ AC_ARG_ENABLE(
      yes) gs=true ;;
      no)  gs=false ;;
      *) AC_MSG_ERROR([bad value ${enableval} for --enable-gs]) ;;
-   esac], [gs=true])
+   esac], [gs=$service_default_gs])
 
 AC_ARG_ENABLE(
   [fvs],
@@ -81,7 +85,7 @@ AC_ARG_ENABLE(
      yes) fvs=true ;;
      no)  fvs=false ;;
      *) AC_MSG_ERROR([bad value ${enableval} for --enable-fvs]) ;;
-   esac], [fvs=true])
+   esac], [fvs=$service_default_fvs])
 
 AM_CONDITIONAL([BUILD_TESTS], [test x$build_tests = xtrue])
 AM_CONDITIONAL([WITH_AWS], [test x$aws = xtrue])
