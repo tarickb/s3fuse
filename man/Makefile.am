@@ -13,7 +13,6 @@ PDFS = $(PDF_MANS:%=%.pdf)
 EXTRA_DIST = \
 	s3fuse.1.in \
 	s3fuse.conf.5.awk \
-	s3fuse.conf.5.pp \
 	s3fuse_gs_get_token.1.in \
 	s3fuse_sha256_sum.1.in \
 	s3fuse_vol_key.1.in
