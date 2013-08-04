@@ -111,6 +111,11 @@ namespace
       }
     #endif
 
+    #ifdef __APPLE__
+      if (strstr(ver->ssl_version, "SecureTransport"))
+        return;
+    #endif
+
     S3_LOG(LOG_ERR, "ssl_locks::init", "unsupported ssl version: %s\n", ver->ssl_version);
 
     throw runtime_error("curl reports an unsupported ssl library/version.");
