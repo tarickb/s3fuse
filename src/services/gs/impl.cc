@@ -225,8 +225,6 @@ string impl::adjust_url(const string &url)
 
 void impl::pre_run(request *r, int iter)
 {
-  r->set_header("Expect", "");
-
   sign(r, iter);
 }
 
