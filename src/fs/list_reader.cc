@@ -55,7 +55,7 @@ list_reader::list_reader(const string &prefix, bool group_common_prefixes, int m
 int list_reader::read(const request::ptr &req, xml::element_list *keys, xml::element_list *prefixes)
 {
   int r;
-  xml::document doc;
+  xml::document_ptr doc;
   string temp;
   string query;
 

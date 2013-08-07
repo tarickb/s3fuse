@@ -1,7 +1,7 @@
 /*
  * base/xml.cc
  * -------------------------------------------------------------------------
- * Implements s3::base::xml using libxml++.
+ * Implements s3::base::xml using libxml2.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
@@ -20,11 +20,13 @@
  */
 
 #include <errno.h>
+#include <libxml/parser.h>
 #include <libxml/tree.h>
+#include <libxml/xpath.h>
 
 #include <stdexcept>
 #include <boost/regex.hpp>
-#include <libxml++/libxml++.h>
+#include <boost/utility.hpp>
 
 #include "logger.h"
 #include "xml.h"
@@ -32,10 +34,6 @@
 using boost::regex;
 using std::runtime_error;
 using std::string;
-using xmlpp::DomParser;
-using xmlpp::Element;
-using xmlpp::NodeSet;
-using xmlpp::TextNode;
 
 using s3::base::xml;
 
@@ -47,6 +45,7 @@ namespace
     const string subst;
   };
 
+  // strip out namespace declarations
   transform_pair TRANSFORMS[] = {
     { regex(" xmlns(:\\w*)?=\"[^\"]*\""), "" },
     { regex(" xmlns(:\\w*)?='[^']*'"), "" },
@@ -62,7 +61,82 @@ namespace
 
     return in;
   }
+
+  template <class T, void (*DTOR)(T *)>
+  class libxml_ptr : boost::noncopyable
+  {
+  public:
+    libxml_ptr()
+      : _ptr(NULL)
+    {
+    }
+
+    explicit libxml_ptr(T *ptr)
+      : _ptr(ptr)
+    {
+    }
+
+    virtual ~libxml_ptr()
+    {
+      if (_ptr)
+        DTOR(_ptr);
+    }
+
+    inline operator T * ()
+    {
+      return _ptr;
+    }
+
+    inline void operator =(T *ptr)
+    {
+      if (_ptr)
+        DTOR(_ptr);
+
+      _ptr = ptr;
+    }
+
+    inline T * operator->()
+    {
+      return _ptr;
+    }
+
+    inline bool is_null()
+    {
+      return (_ptr == NULL);
+    }
+
+  private:
+    T *_ptr;
+  };
+
+  typedef libxml_ptr<xmlDoc, xmlFreeDoc> doc_wrapper;
+  typedef libxml_ptr<xmlXPathContext, xmlXPathFreeContext> xpath_context_wrapper;
+  typedef libxml_ptr<xmlXPathObject, xmlXPathFreeObject> xpath_object_wrapper;
+
+  xmlXPathObject * xpath_find(doc_wrapper *doc, const char *xpath)
+  {
+    xpath_context_wrapper context;
+    xmlNodePtr root;
+
+    root = xmlDocGetRootElement(*doc);
+
+    if (!root)
+      throw runtime_error("cannot find root element");
+
+    context = xmlXPathNewContext(*doc);
+
+    return xmlXPathEvalExpression(reinterpret_cast<const xmlChar *>(xpath), context);
+  }
 }
+
+class xml::document : public doc_wrapper
+{
+public:
+  document(xmlDoc *doc)
+    : doc_wrapper(doc)
+  {
+  }
+};
 
 void xml::init()
 {
@@ -70,20 +144,16 @@ void xml::init()
   LIBXML_TEST_VERSION;
 }
 
-xml::document xml::parse(const string &data)
+xml::document_ptr xml::parse(const string &data_)
 {
   try {
-    document doc(new DomParser());
-
-    doc->parse_memory(transform(data));
+    string data = transform(data_);
+    document_ptr doc(new document(xmlParseMemory(data.c_str(), data.size())));
 
     if (!doc)
       throw runtime_error("error while parsing xml.");
 
-    if (!doc->get_document())
-      throw runtime_error("parser does not contain a document.");
-
-    if (!doc->get_document()->get_root_node())
+    if (!xmlDocGetRootElement(*doc))
       throw runtime_error("document does not contain a root node.");
 
     return doc;
@@ -92,29 +162,33 @@ xml::document xml::parse(const string &data)
     S3_LOG(LOG_WARNING, "xml::parse", "caught exception: %s\n", e.what());
   }
 
-  return document();
+  return document_ptr();
 }
 
-int xml::find(const xml::document &doc, const char *xpath, string *element)
+int xml::find(const xml::document_ptr &doc, const char *xpath, string *element)
 {
   try {
-    NodeSet nodes;
-    TextNode *text;
+    xpath_object_wrapper result;
+    xmlChar *text;
 
     if (!doc)
-      throw runtime_error("got null document pointer.");
+      throw runtime_error("cannot search empty document");
 
-    nodes = doc->get_document()->get_root_node()->find(xpath);
+    result = xpath_find(doc.get(), xpath);
 
-    if (nodes.empty())
+    if (result.is_null())
+      throw runtime_error("invalid xpath expression");
+
+    if (xmlXPathNodeSetIsEmpty(result->nodesetval))
       throw runtime_error("no matching nodes.");
 
-    text = dynamic_cast<Element *>(nodes[0])->get_child_text();
+    text = xmlXPathCastNodeToString(result->nodesetval->nodeTab[0]);
 
-    if (!text)
-      throw runtime_error("node does not contain a text child.");
+    if (text) {
+      *element = reinterpret_cast<const char *>(text);
+      xmlFree(text);
+    }
 
-    *element = text->get_content();
     return 0;
 
   } catch (const std::exception &e) {
@@ -124,21 +198,28 @@ int xml::find(const xml::document &doc, const char *xpath, string *element)
   return -EIO;
 }
 
-int xml::find(const xml::document &doc, const char *xpath, xml::element_list *list)
+int xml::find(const xml::document_ptr &doc, const char *xpath, xml::element_list *list)
 {
   try {
-    NodeSet nodes;
+    xpath_object_wrapper result;
 
     if (!doc)
-      throw runtime_error("got null document pointer.");
+      throw runtime_error("cannot search empty document");
 
-    nodes = doc->get_document()->get_root_node()->find(xpath);
+    result = xpath_find(doc.get(), xpath);
 
-    for (NodeSet::const_iterator itor = nodes.begin(); itor != nodes.end(); ++itor) {
-      TextNode *text = dynamic_cast<Element *>(*itor)->get_child_text();
+    if (result.is_null())
+      throw runtime_error("invalid xpath expression");
 
-      if (text)
-        list->push_back(text->get_content());
+    for (int i = 0; i < result->nodesetval->nodeNr; i++) {
+      xmlChar *text;
+
+      text = xmlXPathCastNodeToString(result->nodesetval->nodeTab[i]);
+
+      if (text) {
+        list->push_back(string(reinterpret_cast<const char *>(text)));
+        xmlFree(text);
+      }
     }
 
     return 0;
@@ -153,23 +234,18 @@ int xml::find(const xml::document &doc, const char *xpath, xml::element_list *li
 bool xml::match(const string &data, const char *xpath)
 {
   try {
-    DomParser dom;
-    Element *root = NULL;
+    document_ptr doc = parse(data);
+    xpath_object_wrapper result;
 
-    dom.parse_memory(transform(data));
+    if (!doc)
+      throw runtime_error("failed to parse xml");
 
-    if (!dom)
-      return false;
+    result = xpath_find(doc.get(), xpath);
 
-    if (!dom.get_document())
-      return false;
+    if (result.is_null())
+      throw runtime_error("invalid xpath expression");
 
-    root = dom.get_document()->get_root_node();
-
-    if (!root)
-      return false;
-
-    return !root->find(xpath).empty();
+    return !xmlXPathNodeSetIsEmpty(result->nodesetval);
 
   } catch (...) {}
 

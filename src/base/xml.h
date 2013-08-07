@@ -27,27 +27,25 @@
 #include <vector>
 #include <boost/smart_ptr.hpp>
 
-namespace xmlpp
-{
-  class DomParser;
-}
-
 namespace s3
 {
   namespace base
   {
     class xml
     {
+    private:
+      class document;
+
     public:
-      typedef boost::shared_ptr<xmlpp::DomParser> document;
+      typedef boost::shared_ptr<document> document_ptr;
       typedef std::list<std::string> element_list;
 
       static void init();
 
-      static document parse(const std::string &data);
+      static document_ptr parse(const std::string &data);
 
-      static int find(const document &doc, const char *xpath, std::string *element);
-      static int find(const document &doc, const char *xpath, element_list *elements);
+      static int find(const document_ptr &doc, const char *xpath, std::string *element);
+      static int find(const document_ptr &doc, const char *xpath, element_list *elements);
 
       static bool match(const std::string &data, const char *xpath);
 

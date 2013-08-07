@@ -181,7 +181,7 @@ int file_transfer::upload_part(
 
 int file_transfer::upload_multi_init(const request::ptr &req, const string &url, string *upload_id)
 {
-  xml::document doc;
+  xml::document_ptr doc;
   int r;
 
   req->init(base::HTTP_POST);
@@ -228,7 +228,7 @@ int file_transfer::upload_multi_complete(
   const string &upload_metadata, 
   string *etag)
 {
-  xml::document doc;
+  xml::document_ptr doc;
   int r;
 
   req->init(base::HTTP_POST);

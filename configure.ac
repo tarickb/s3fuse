@@ -150,7 +150,7 @@ if test "x$build_tests" = xtrue; then
   AC_CHECK_LIB([gtest_main], [main], [], [AC_MSG_ERROR([cannot find gtest])])
 fi
 
-PKG_CHECK_MODULES([DEPS_XML], [libxml-2.0 >= 2.7.6 libxml++-2.6 >= 2.28.0])
+PKG_CHECK_MODULES([DEPS_XML], [libxml-2.0 >= 2.7.6])
 PKG_CHECK_MODULES([DEPS_CURL], [libcurl >= 7.0.0])
 PKG_CHECK_MODULES([DEPS_FUSE], [fuse >= 2.7.3])
 

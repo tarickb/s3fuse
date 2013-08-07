@@ -113,7 +113,7 @@ glacier::glacier(const object *obj)
 
 int glacier::query_storage_class(const request::ptr &req)
 {
-  xml::document doc;
+  xml::document_ptr doc;
 
   req->init(base::HTTP_GET);
   req->set_url(service::get_bucket_url(), string("max-keys=1&prefix=") + request::url_encode(_object->get_path()));

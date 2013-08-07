@@ -477,7 +477,7 @@ int object::commit(const request::ptr &req)
   // 2. we may get intermittent "precondition failed" errors
 
   for (int i = 0; i < config::get_max_inconsistent_state_retries(); i++) {
-    xml::document doc;
+    xml::document_ptr doc;
     string response, new_etag;
 
     // save error from last iteration (so that we can tell if the precondition
