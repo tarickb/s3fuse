@@ -25,10 +25,10 @@
 #include "base/config.h"
 #include "base/statistics.h"
 #include "base/xml.h"
-#include "fs/cache.h"
 #include "fs/encryption.h"
 #include "fs/file.h"
 #include "fs/mime_types.h"
+#include "fs/object_metadata_cache.h"
 #include "services/service.h"
 #include "threads/pool.h"
 
@@ -52,10 +52,10 @@ using s3::base::config;
 using s3::base::logger;
 using s3::base::statistics;
 using s3::base::xml;
-using s3::fs::cache;
 using s3::fs::encryption;
 using s3::fs::file;
 using s3::fs::mime_types;
+using s3::fs::object_metadata_cache;
 using s3::services::impl;
 using s3::services::service;
 using s3::threads::pool;
@@ -74,7 +74,7 @@ void init::fs()
 {
   file::test_transfer_chunk_sizes();
 
-  cache::init();
+  object_metadata_cache::init();
   encryption::init();
   mime_types::init();
 }

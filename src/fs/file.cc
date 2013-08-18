@@ -29,10 +29,10 @@
 #include "crypto/hex.h"
 #include "crypto/hex_with_quotes.h"
 #include "crypto/md5.h"
-#include "fs/cache.h"
+#include "fs/file.h"
 #include "fs/metadata.h"
 #include "fs/mime_types.h"
-#include "fs/file.h"
+#include "fs/object_metadata_cache.h"
 #include "fs/static_xattr.h"
 #include "services/file_transfer.h"
 #include "services/service.h"
@@ -121,7 +121,7 @@ int file::open(const string &path, file_open_mode mode, uint64_t *handle)
 {
   int r = -EINVAL;
 
-  cache::lock_object(path, bind(&file::open_locked_object, _1, mode, handle, &r));
+  object_metadata_cache::lock_object(path, bind(&file::open_locked_object, _1, mode, handle, &r));
 
   return r;
 }

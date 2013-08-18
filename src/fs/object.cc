@@ -30,9 +30,9 @@
 #include "base/statistics.h"
 #include "base/timer.h"
 #include "base/xml.h"
-#include "fs/cache.h"
 #include "fs/metadata.h"
 #include "fs/object.h"
+#include "fs/object_metadata_cache.h"
 #include "fs/static_xattr.h"
 #include "services/service.h"
 
@@ -587,7 +587,7 @@ int object::remove(const request::ptr &req)
   if (!is_removable())
     return -EBUSY;
 
-  cache::remove(get_path());
+  object_metadata_cache::remove(get_path());
 
   return object::remove_by_url(req, _url);
 }
@@ -604,7 +604,7 @@ int object::rename(const request::ptr &req, const string &to)
   if (r)
     return r;
 
-  cache::remove(get_path());
+  object_metadata_cache::remove(get_path());
 
   return remove(req);
 }

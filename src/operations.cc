@@ -27,10 +27,10 @@
 #include "base/logger.h"
 #include "base/statistics.h"
 #include "base/timer.h"
-#include "fs/cache.h"
 #include "fs/directory.h"
 #include "fs/encrypted_file.h"
 #include "fs/file.h"
+#include "fs/object_metadata_cache.h"
 #include "fs/special.h"
 #include "fs/symlink.h"
 
@@ -46,11 +46,11 @@ using s3::operations;
 using s3::base::config;
 using s3::base::statistics;
 using s3::base::timer;
-using s3::fs::cache;
 using s3::fs::directory;
 using s3::fs::encrypted_file;
 using s3::fs::file;
 using s3::fs::object;
+using s3::fs::object_metadata_cache;
 using s3::fs::special;
 using s3::fs::symlink;
 
@@ -76,7 +76,7 @@ namespace
   inline void invalidate(const string &path)
   {
     if (!path.empty())
-      cache::remove(path);
+      object_metadata_cache::remove(path);
   }
 
   int touch(const string &path)
@@ -86,7 +86,7 @@ namespace
     if (path.empty())
       return 0; // succeed if path is root
 
-    obj = cache::get(path);
+    obj = object_metadata_cache::get(path);
 
     if (!obj)
       return -ENOENT;
@@ -171,13 +171,13 @@ namespace
   }
 
 #define GET_OBJECT(var, path) \
-  object::ptr var = cache::get(path); \
+  object::ptr var = object_metadata_cache::get(path); \
   \
   if (!var) \
     return -ENOENT;
 
 #define GET_OBJECT_AS(type, mode, var, path) \
-  type::ptr var = static_pointer_cast<type>(cache::get(path)); \
+  type::ptr var = static_pointer_cast<type>(object_metadata_cache::get(path)); \
   \
   if (!var) \
     return -ENOENT; \
@@ -300,7 +300,7 @@ int operations::create(const char *path, mode_t mode, fuse_file_info *file_info)
     file::ptr f;
     string parent = get_parent(path);
 
-    if (cache::get(path)) {
+    if (object_metadata_cache::get(path)) {
       S3_LOG(LOG_WARNING, "create", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }
@@ -461,7 +461,7 @@ int operations::mkdir(const char *path, mode_t mode)
     directory::ptr dir;
     string parent = get_parent(path);
 
-    if (cache::get(path)) {
+    if (object_metadata_cache::get(path)) {
       S3_LOG(LOG_WARNING, "mkdir", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }
@@ -493,7 +493,7 @@ int operations::mknod(const char *path, mode_t mode, dev_t dev)
     special::ptr obj;
     string parent = get_parent(path);
 
-    if (cache::get(path)) {
+    if (object_metadata_cache::get(path)) {
       S3_LOG(LOG_WARNING, "mknod", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }
@@ -625,7 +625,7 @@ int operations::rename(const char *from, const char *to)
 
     // not using GET_OBJECT() here because we don't want to fail if "to"
     // doesn't exist
-    object::ptr to_obj = cache::get(to);
+    object::ptr to_obj = object_metadata_cache::get(to);
 
     invalidate(get_parent(from));
     invalidate(get_parent(to));
@@ -648,7 +648,7 @@ int operations::rename(const char *from, const char *to)
     RETURN_ON_ERROR(from_obj->rename(to));
 
     for (int i = 0; i < config::get_max_inconsistent_state_retries(); i++) {
-      to_obj = cache::get(to);
+      to_obj = object_metadata_cache::get(to);
 
       if (to_obj)
         break;
@@ -724,7 +724,7 @@ int operations::symlink(const char *target, const char *path)
     symlink::ptr link;
     string parent = get_parent(path);
 
-    if (cache::get(path)) {
+    if (object_metadata_cache::get(path)) {
       S3_LOG(LOG_WARNING, "symlink", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }

@@ -1,5 +1,5 @@
 /*
- * fs/cache.h
+ * fs/object_metadata_cache.h
  * -------------------------------------------------------------------------
  * Caches object (i.e., file, directory, symlink) metadata.
  * -------------------------------------------------------------------------
@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_FS_CACHE_H
-#define S3_FS_CACHE_H
+#ifndef S3_FS_OBJECT_METADATA_CACHE_H
+#define S3_FS_OBJECT_METADATA_CACHE_H
 
 #include <string>
 #include <boost/smart_ptr.hpp>
@@ -48,7 +48,7 @@ namespace s3
       HINT_IS_FILE = 0x2
     };
 
-    class cache
+    class object_metadata_cache
     {
     public:
       typedef boost::function1<void, object::ptr> locked_object_function;
@@ -62,7 +62,7 @@ namespace s3
         if (!obj)
           threads::pool::call(
             threads::PR_REQ_0,
-            boost::bind(&cache::fetch, _1, path, hints, &obj));
+            boost::bind(&object_metadata_cache::fetch, _1, path, hints, &obj));
 
         return obj;
       }

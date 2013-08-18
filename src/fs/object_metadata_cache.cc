@@ -1,5 +1,5 @@
 /*
- * fs/cache.cc
+ * fs/object_metadata_cache.cc
  * -------------------------------------------------------------------------
  * Object fetching (metadata only).
  * -------------------------------------------------------------------------
@@ -24,8 +24,8 @@
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/request.h"
-#include "fs/cache.h"
 #include "fs/directory.h"
+#include "fs/object_metadata_cache.h"
 
 using boost::mutex;
 using boost::scoped_ptr;
@@ -36,12 +36,14 @@ using std::string;
 using s3::base::config;
 using s3::base::request;
 using s3::base::statistics;
-using s3::fs::cache;
+using s3::fs::object_metadata_cache;
 
-boost::mutex cache::s_mutex;
-scoped_ptr<cache::cache_map> cache::s_cache_map;
-uint64_t cache::s_hits(0), cache::s_misses(0), cache::s_expiries(0);
-statistics::writers::entry cache::s_writer(cache::statistics_writer, 0);
+boost::mutex object_metadata_cache::s_mutex;
+scoped_ptr<object_metadata_cache::cache_map> object_metadata_cache::s_cache_map;
+uint64_t object_metadata_cache::s_hits(0);
+uint64_t object_metadata_cache::s_misses(0);
+uint64_t object_metadata_cache::s_expiries(0);
+statistics::writers::entry object_metadata_cache::s_writer(object_metadata_cache::statistics_writer, 0);
 
 namespace
 {
@@ -53,12 +55,12 @@ namespace
   }
 }
 
-void cache::init()
+void object_metadata_cache::init()
 {
   s_cache_map.reset(new cache_map(config::get_max_objects_in_cache()));
 }
 
-void cache::statistics_writer(ostream *o)
+void object_metadata_cache::statistics_writer(ostream *o)
 {
   uint64_t total = s_hits + s_misses + s_expiries;
 
@@ -69,7 +71,7 @@ void cache::statistics_writer(ostream *o)
   o->precision(2);
 
   *o << 
-    "object cache:\n"
+    "object metadata cache:\n"
     "  size: " << s_cache_map->get_size() << "\n"
     "  hits: " << s_hits << " (" << percent(s_hits, total) << " %)\n"
     "  misses: " << s_misses << " (" << percent(s_misses, total) << " %)\n"
@@ -77,7 +79,7 @@ void cache::statistics_writer(ostream *o)
     "  get failures: " << s_get_failures << "\n";
 }
 
-int cache::fetch(const request::ptr &req, const string &path, int hints, object::ptr *obj)
+int object_metadata_cache::fetch(const request::ptr &req, const string &path, int hints, object::ptr *obj)
 {
   if (!path.empty()) {
     req->init(base::HTTP_HEAD);

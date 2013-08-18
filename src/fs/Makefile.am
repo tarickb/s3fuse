@@ -10,8 +10,6 @@ noinst_LIBRARIES = libs3fuse_fs.a
 libs3fuse_fs_a_SOURCES = \
 	bucket_volume_key.cc \
 	bucket_volume_key.h \
-	cache.cc \
-	cache.h \
 	callback_xattr.cc \
 	callback_xattr.h \
 	directory.cc \
@@ -32,6 +30,8 @@ libs3fuse_fs_a_SOURCES = \
 	mime_types.h \
 	object.cc \
 	object.h \
+	object_metadata_cache.cc \
+	object_metadata_cache.h \
 	special.cc \
 	special.h \
 	static_xattr.cc \

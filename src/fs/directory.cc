@@ -26,9 +26,9 @@
 #include "base/request.h"
 #include "base/statistics.h"
 #include "base/xml.h"
-#include "fs/cache.h"
 #include "fs/directory.h"
 #include "fs/list_reader.h"
+#include "fs/object_metadata_cache.h"
 #include "threads/parallel_work_queue.h"
 #include "threads/pool.h"
 
@@ -46,10 +46,10 @@ using s3::base::config;
 using s3::base::request;
 using s3::base::statistics;
 using s3::base::xml;
-using s3::fs::cache;
 using s3::fs::directory;
 using s3::fs::list_reader;
 using s3::fs::object;
+using s3::fs::object_metadata_cache;
 using s3::threads::parallel_work_queue;
 using s3::threads::pool;
 using s3::threads::wait_async_handle;
@@ -70,10 +70,10 @@ namespace
 
   int precache_object(const request::ptr &req, const string &path, int hints)
   {
-    // we need to wrap cache::get because it returns an object::ptr, and the
-    // thread pool expects a function that returns an int
+    // we need to wrap object_metadata_cache::get because it returns an 
+		// object::ptr, and the thread pool expects a function that returns an int
 
-    cache::get(req, path, hints);
+    object_metadata_cache::get(req, path, hints);
 
     return 0;
   }
@@ -266,13 +266,13 @@ int directory::rename(const request::ptr &req, const string &to_)
 
   reader.reset(new list_reader(from, false));
 
-  cache::remove(get_path());
+  object_metadata_cache::remove(get_path());
 
   while ((r = reader->read(req, &keys, NULL)) > 0) {
     for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
       int rm_r;
 
-      if ((rm_r = cache::remove(*itor)))
+      if ((rm_r = object_metadata_cache::remove(*itor)))
         return rm_r;
 
       relative_paths.push_back(itor->substr(from_len));
