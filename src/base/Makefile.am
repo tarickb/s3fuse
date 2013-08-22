@@ -11,6 +11,8 @@ libs3fuse_base_a_SOURCES = \
 	config.cc \
 	config.h \
 	config.inc \
+	curl_easy_handle.cc \
+	curl_easy_handle.h \
 	logger.cc \
 	logger.h \
 	lru_cache_map.h \
@@ -24,8 +26,6 @@ libs3fuse_base_a_SOURCES = \
 	static_list.h \
 	statistics.cc \
 	statistics.h \
-	ssl_locks.cc \
-	ssl_locks.h \
 	timer.h \
 	xml.cc \
 	xml.h

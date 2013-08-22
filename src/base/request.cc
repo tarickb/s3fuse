@@ -29,7 +29,6 @@
 #include "logger.h"
 #include "request.h"
 #include "request_hook.h"
-#include "ssl_locks.h"
 #include "statistics.h"
 #include "timer.h"
 
@@ -83,7 +82,6 @@ namespace
   atomic_count s_curl_failures(0), s_request_failures(0);
   atomic_count s_timeouts(0), s_aborts(0), s_hook_retries(0);
   atomic_count s_rewinds(0);
-
   mutex s_stats_mutex;
 
   void statistics_writer(ostream *o)
@@ -209,13 +207,6 @@ request::request()
     _canceled(false),
     _timeout(0)
 {
-  _curl = curl_easy_init();
-
-  if (!_curl)
-    throw runtime_error("curl_easy_init() failed.");
-
-  ssl_locks::init();
-
   // stuff that's set in the ctor shouldn't be modified elsewhere, since the call to init() won't reset it
 
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_VERBOSE, config::get_verbose_requests()));
@@ -236,8 +227,6 @@ request::request()
 
 request::~request()
 {
-  curl_easy_cleanup(_curl);
-
   if (_total_bytes_transferred > 0) {
     mutex::scoped_lock lock(s_stats_mutex);
 
@@ -245,8 +234,6 @@ request::~request()
     s_run_time += _total_run_time;
     s_total_bytes += _total_bytes_transferred;
   }
-
-  ssl_locks::release();
 }
 
 void request::init(http_method method)

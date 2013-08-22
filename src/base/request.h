@@ -24,7 +24,6 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <curl/curl.h>
 
 #include <map>
 #include <string>
@@ -32,6 +31,8 @@
 #include <boost/function.hpp>
 #include <boost/smart_ptr.hpp>
 #include <boost/utility.hpp>
+
+#include "base/curl_easy_handle.h"
 
 namespace s3
 {
@@ -167,7 +168,7 @@ namespace s3
       }
 
       // not reset by init()
-      CURL *_curl;
+      curl_easy_handle _curl;
 
       request_hook *_hook;
 

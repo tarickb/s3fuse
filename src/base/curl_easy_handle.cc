@@ -1,8 +1,8 @@
 /*
- * base/ssl_locks.cc
+ * base/curl_easy_handle.cc
  * -------------------------------------------------------------------------
- * Provides lock callbacks required to use OpenSSL in a multithreaded
- * application.  See:
+ * Wraps CURL handle, providing init/release tracking, and lock callbacks 
+ * required to use OpenSSL in a multithreaded application.  See:
  * 
  *   http://www.openssl.org/docs/crypto/threads.html
  * -------------------------------------------------------------------------
@@ -23,7 +23,7 @@
  */
 
 #include <pthread.h>
-#include <curl/curl.h>
+#include <string.h>
 
 #if defined(HAVE_OPENSSL) && defined(__APPLE__)
   #undef HAVE_OPENSSL // OpenSSL libraries are deprecated on Mac OS
@@ -40,18 +40,18 @@
 #include <stdexcept>
 #include <boost/thread.hpp>
 
+#include "curl_easy_handle.h"
 #include "logger.h"
-#include "ssl_locks.h"
 
 using boost::mutex;
 using std::runtime_error;
 
-using s3::base::ssl_locks;
+using s3::base::curl_easy_handle;
 
 namespace
 {
-  mutex s_mutex;
-  int s_ref_count = 0;
+  mutex s_init_mutex;
+  int s_init_count = 0;
 
   #ifdef HAVE_OPENSSL
     pthread_mutex_t *s_openssl_locks = NULL;
@@ -70,7 +70,7 @@ namespace
     }
   #endif
 
-  void init()
+  void pre_init()
   {
     curl_version_info_data *ver;
 
@@ -80,7 +80,7 @@ namespace
     if (!ver)
       throw runtime_error("curl_version_info() failed.");
 
-    S3_LOG(LOG_DEBUG, "ssl_locks::init", "ssl version: %s\n", ver->ssl_version);
+    S3_LOG(LOG_DEBUG, "curl_easy_handle::pre_init", "ssl version: %s\n", ver->ssl_version);
 
     if (!ver->ssl_version)
       throw runtime_error("curl does not report an SSL library. cannot continue.");
@@ -116,12 +116,12 @@ namespace
         return;
     #endif
 
-    S3_LOG(LOG_ERR, "ssl_locks::init", "unsupported ssl version: %s\n", ver->ssl_version);
+    S3_LOG(LOG_ERR, "curl_easy_handle::pre_init", "unsupported ssl version: %s\n", ver->ssl_version);
 
     throw runtime_error("curl reports an unsupported ssl library/version.");
   }
 
-  void teardown()
+  void cleanup()
   {
     #ifdef HAVE_OPENSSL
       if (s_openssl_locks) {
@@ -134,25 +134,30 @@ namespace
         OPENSSL_free(s_openssl_locks);
       }
     #endif
+
+    curl_global_cleanup();
   }
 }
 
-void ssl_locks::init()
+curl_easy_handle::curl_easy_handle()
 {
-  mutex::scoped_lock lock(s_mutex);
+  mutex::scoped_lock lock(s_init_mutex);
 
-  if (s_ref_count == 0)
-    ::init();
+  if (s_init_count++ == 0)
+    pre_init();
 
-  s_ref_count++;
+  _handle = curl_easy_init();
+
+  if (!_handle)
+    throw runtime_error("curl_easy_init() failed.");
 }
 
-void ssl_locks::release()
+curl_easy_handle::~curl_easy_handle()
 {
-  mutex::scoped_lock lock(s_mutex);
+  mutex::scoped_lock lock(s_init_mutex);
 
-  s_ref_count--;
+  curl_easy_cleanup(_handle);
 
-  if (s_ref_count == 0)
-    ::teardown();
+  if (--s_init_count == 0)
+    cleanup();
 }

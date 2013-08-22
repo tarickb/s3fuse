@@ -1,7 +1,7 @@
 /*
- * base/ssl_locks.h
+ * base/curl_easy_handle.h
  * -------------------------------------------------------------------------
- * SSL lock interface.
+ * CURL easy handle wrapper
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
@@ -19,18 +19,28 @@
  * limitations under the License.
  */
 
-#ifndef S3_BASE_SSL_LOCKS_H
-#define S3_BASE_SSL_LOCKS_H
+#ifndef S3_BASE_CURL_EASY_HANDLE_H
+#define S3_BASE_CURL_EASY_HANDLE_H
+
+#include <curl/curl.h>
+
+#include <boost/utility.hpp>
 
 namespace s3
 {
   namespace base
   {
-    class ssl_locks
+    class curl_easy_handle : boost::noncopyable
     {
     public:
-      static void init();
-      static void release();
+      curl_easy_handle();
+      ~curl_easy_handle();
+
+      inline operator const CURL * () const { return _handle; }
+      inline operator CURL * () { return _handle; }
+
+    private:
+      CURL *_handle;
     };
   }
 }

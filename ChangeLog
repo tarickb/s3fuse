@@ -3,8 +3,9 @@ s3fuse (0.15) unstable; urgency=low
   * Removed known-issue notes on MIME mapping and Google Cloud Storage
     Manager folder representation incompatibility.
   * Removed libxml++ dependency.
+  * Fixed libcurl init/cleanup bug.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Web, 07 Aug 2013 15:44:59 -0400
+ -- Tarick Bedeir <tarick@bedeir.com>  Wed, 21 Aug 2013 18:41:50 -0500
 
 s3fuse (0.14) unstable; urgency=low
 
