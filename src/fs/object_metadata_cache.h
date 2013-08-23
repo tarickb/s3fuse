@@ -50,6 +50,14 @@ namespace s3
 
     class object_metadata_cache
     {
+    private:
+      inline static bool is_object_removable(const object::ptr &obj)
+      {
+        return !obj || obj->is_removable();
+      }
+
+      typedef base::lru_cache_map<std::string, object::ptr, is_object_removable> cache_map;
+
     public:
       typedef boost::function1<void, object::ptr> locked_object_function;
 
@@ -123,12 +131,14 @@ namespace s3
         fn(obj);
       }
 
-    private:
-      inline static bool is_object_removable(const object::ptr &obj)
+      inline static void for_each_oldest(const cache_map::itor_callback_fn &cb)
       {
-        return !obj || obj->is_removable();
+        boost::mutex::scoped_lock lock(s_mutex);
+
+        s_cache_map->for_each_oldest(cb);
       }
 
+    private:
       inline static object::ptr find(const std::string &path)
       {
         boost::mutex::scoped_lock lock(s_mutex);
@@ -150,8 +160,6 @@ namespace s3
 
       static void statistics_writer(std::ostream *o);
       static int fetch(const boost::shared_ptr<base::request> &req, const std::string &path, int hints, object::ptr *obj);
-
-      typedef base::lru_cache_map<std::string, object::ptr, is_object_removable> cache_map;
 
       static boost::mutex s_mutex;
       static boost::scoped_ptr<cache_map> s_cache_map;
