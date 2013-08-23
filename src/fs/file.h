@@ -54,18 +54,29 @@ namespace s3
       file(const std::string &path);
       virtual ~file();
 
+      virtual bool is_removable();
+
       inline ptr shared_from_this()
       {
         return boost::static_pointer_cast<file>(object::shared_from_this());
       }
 
-      virtual bool is_removable();
+      inline bool is_open()
+      {
+        boost::mutex::scoped_lock lock(_fs_mutex);
+
+        return _ref_count > 0;
+      }
 
       int release();
       int flush();
       int write(const char *buffer, size_t size, off_t offset);
       int read(char *buffer, size_t size, off_t offset);
       int truncate(off_t length);
+
+      size_t get_local_size();
+
+      void purge();
 
     protected:
       virtual void init(const boost::shared_ptr<base::request> &req);
@@ -133,8 +144,6 @@ namespace s3
         const std::string &upload_metadata, 
         std::string *etag);
       int upload_part(const boost::shared_ptr<base::request> &req, const std::string &upload_id, transfer_part *part);
-
-      size_t get_local_size();
 
       void on_download_complete(int ret);
 

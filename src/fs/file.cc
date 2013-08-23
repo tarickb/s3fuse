@@ -30,6 +30,7 @@
 #include "crypto/hex_with_quotes.h"
 #include "crypto/md5.h"
 #include "fs/file.h"
+#include "fs/local_file_store.h"
 #include "fs/metadata.h"
 #include "fs/mime_types.h"
 #include "fs/object_metadata_cache.h"
@@ -43,6 +44,7 @@ using boost::detail::atomic_count;
 using std::ostream;
 using std::runtime_error;
 using std::string;
+using std::vector;
 
 using s3::base::char_vector_ptr;
 using s3::base::config;
@@ -55,6 +57,7 @@ using s3::crypto::hex_with_quotes;
 using s3::crypto::md5;
 using s3::crypto::sha256;
 using s3::fs::file;
+using s3::fs::local_file_store;
 using s3::fs::metadata;
 using s3::fs::mime_types;
 using s3::fs::object;
@@ -62,12 +65,10 @@ using s3::fs::static_xattr;
 using s3::services::service;
 using s3::threads::pool;
 
-#define TEMP_NAME_TEMPLATE "/tmp/s3fuse.local-XXXXXX"
-
 namespace
 {
   atomic_count s_sha256_mismatches(0), s_md5_mismatches(0), s_no_hash_checks(0);
-  atomic_count s_non_dirty_flushes(0), s_reopens(0);
+  atomic_count s_non_dirty_flushes(0), s_reopens(0), s_reopens_from_local_store(0);
 
   object * checker(const string &path, const request::ptr &req)
   {
@@ -80,7 +81,8 @@ namespace
       "files:\n"
       "  sha256 mismatches: " << s_sha256_mismatches << ", md5 mismatches: " << s_md5_mismatches << ", no hash checks: " << s_no_hash_checks << "\n"
       "  non-dirty flushes: " << s_non_dirty_flushes << "\n"
-      "  reopens: " << s_reopens << "\n";
+      "  reopens: " << s_reopens << "\n"
+      "  reopens from local store: " << s_reopens_from_local_store << "\n";
   }
 
   object::type_checker_list::entry s_checker_reg(checker, 1000);
@@ -150,13 +152,12 @@ file::file(const string &path)
 
 file::~file()
 {
+  purge();
 }
 
 bool file::is_removable()
 {
-  mutex::scoped_lock lock(_fs_mutex);
-
-  return _ref_count == 0 && object::is_removable();
+  return !is_open() && object::is_removable();
 }
 
 void file::init(const request::ptr &req)
@@ -200,6 +201,9 @@ void file::on_download_complete(int ret)
     return;
   }
 
+  if (config::get_enable_local_store_persistence())
+    local_file_store::increment_store_size(get_local_size());
+
   _async_error = ret;
   _status = 0;
   _condition.notify_all();
@@ -214,47 +218,72 @@ int file::open(file_open_mode mode, uint64_t *handle)
 {
   mutex::scoped_lock lock(_fs_mutex);
 
-  if (_ref_count == 0) {
-    char temp_name[] = TEMP_NAME_TEMPLATE;
-    off_t size = get_stat()->st_size;
+  if (_ref_count) {
+    ++s_reopens;
 
-    _fd = mkstemp(temp_name);
-    unlink(temp_name);
+  } else {
+    if (_fd != -1) {
+      S3_LOG(LOG_DEBUG, "file::open", "reopening [%s] from local store.\n", get_path().c_str());
 
-    S3_LOG(LOG_DEBUG, "file::open", "opening [%s] in [%s].\n", get_path().c_str(), temp_name);
+      if (mode & fs::OPEN_TRUNCATE_TO_ZERO) {
+        if (get_local_size()) {
+          if (ftruncate(_fd, 0) != 0)
+            return -errno;
 
-    if (_fd == -1)
-      return -errno;
+          _status = FS_DIRTY;
+        }
+      } else {
+        // TODO: check etag and redownload
+      }
 
-    if (mode & fs::OPEN_TRUNCATE_TO_ZERO) {
-      // if the file had a non-zero size but was opened with O_TRUNC, we need
-      // to write back a zero-length file.
-
-      if (size)
-        _status = FS_DIRTY;
+      ++s_reopens_from_local_store;
 
     } else {
-      if (ftruncate(_fd, size) != 0)
+      const string &temp_name_template = local_file_store::get_temp_file_template();
+      vector<char> temp_name;
+      off_t size = get_stat()->st_size;
+
+      temp_name.insert(
+        temp_name.begin(), 
+        temp_name_template.begin(), 
+        temp_name_template.end());
+
+      _fd = mkstemp(&temp_name[0]);
+      unlink(&temp_name[0]);
+
+      S3_LOG(LOG_DEBUG, "file::open", "opening [%s] in [%s].\n", get_path().c_str(), &temp_name[0]);
+
+      if (_fd == -1)
         return -errno;
 
-      if (size > 0) {
-        int r;
+      if (mode & fs::OPEN_TRUNCATE_TO_ZERO) {
+        // if the file had a non-zero size but was opened with O_TRUNC, we need
+        // to write back a zero-length file.
 
-        r = is_downloadable();
+        if (size)
+          _status = FS_DIRTY;
 
-        if (r)
-          return r;
+      } else {
+        if (ftruncate(_fd, size) != 0)
+          return -errno;
 
-        _status = FS_DOWNLOADING;
+        if (size > 0) {
+          int r;
 
-        pool::post(
-          threads::PR_0,
-          bind(&file::download, shared_from_this(), _1),
-          bind(&file::on_download_complete, shared_from_this(), _1));
+          r = is_downloadable();
+
+          if (r)
+            return r;
+
+          _status = FS_DOWNLOADING;
+
+          pool::post(
+            threads::PR_0,
+            bind(&file::download, shared_from_this(), _1),
+            bind(&file::on_download_complete, shared_from_this(), _1));
+        }
       }
     }
-  } else {
-    ++s_reopens;
   }
 
   *handle = reinterpret_cast<uint64_t>(this);
@@ -284,13 +313,24 @@ int file::release()
     // correct file size
     update_stat(lock);
 
-    close(_fd);
-    _fd = -1;
-
-    expire();
+    if (!config::get_enable_local_store_persistence())
+      purge();
   }
 
   return 0;
+}
+
+void file::purge()
+{
+  if (_fd != -1) {
+    if (config::get_enable_local_store_persistence())
+      local_file_store::decrement_store_size(get_local_size());
+
+    close(_fd);
+    _fd = -1;
+  }
+
+  expire();
 }
 
 int file::flush()

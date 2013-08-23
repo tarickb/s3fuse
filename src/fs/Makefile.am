@@ -24,6 +24,8 @@ libs3fuse_fs_a_SOURCES = \
 	glacier.h \
 	list_reader.cc \
 	list_reader.h \
+	local_file_store.cc \
+	local_file_store.h \
 	metadata.cc \
 	metadata.h \
 	mime_types.cc \

@@ -27,6 +27,7 @@
 #include "base/xml.h"
 #include "fs/encryption.h"
 #include "fs/file.h"
+#include "fs/local_file_store.h"
 #include "fs/mime_types.h"
 #include "fs/object_metadata_cache.h"
 #include "services/service.h"
@@ -54,6 +55,7 @@ using s3::base::statistics;
 using s3::base::xml;
 using s3::fs::encryption;
 using s3::fs::file;
+using s3::fs::local_file_store;
 using s3::fs::mime_types;
 using s3::fs::object_metadata_cache;
 using s3::services::impl;
@@ -77,6 +79,7 @@ void init::fs()
   object_metadata_cache::init();
   encryption::init();
   mime_types::init();
+  local_file_store::init();
 }
 
 void init::services()
