@@ -42,7 +42,7 @@ namespace s3
     class lru_cache_map
     {
     public:
-      typedef boost::function2<void, const key_type &, const value_type &> itor_callback_fn;
+      typedef boost::function2<bool, const key_type &, const value_type &> itor_callback_fn;
 
       inline lru_cache_map(size_t max_size)
         : _max_size(max_size),
@@ -93,7 +93,8 @@ namespace s3
         entry *e = _newest;
 
         while (e) {
-          cb(e->key, e->value);
+          if (!cb(e->key, e->value))
+            break;
 
           e = e->older;
         }
@@ -104,7 +105,8 @@ namespace s3
         entry *e = _oldest;
 
         while (e) {
-          cb(e->key, e->value);
+          if (!cb(e->key, e->value))
+            break;
 
           e = e->newer;
         }

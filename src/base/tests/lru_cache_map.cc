@@ -14,10 +14,12 @@ inline bool remove_if_over_100(const int &i)
   return (i > 100);
 }
 
-void append_to_string(const string &key, const int &i, string *str)
+bool append_to_string(const string &key, const int &i, string *str)
 {
   *str += (str->empty() ? "" : ",");
   *str += key;
+
+  return true;
 }
 
 template <class T>
