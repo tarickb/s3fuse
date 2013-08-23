@@ -66,12 +66,18 @@ CONFIG(int, default_gid, GID_MAX, "GID for files in S3 that don't have a GID set
 CONFIG(int, default_mode, 0755, "mode for files in S3 that don't have a mode set");
 CONFIG(std::string, default_cache_control, "", "default Cache-Control header (can be overriden with per-object extended attribute)");
 
-CONFIG_SECTION("Cache Parameters");
+CONFIG_SECTION("Object Metadata Cache Parameters");
 CONFIG(int, cache_expiry_in_s, 3 * 60, "time in seconds before objects in stats cache expire");
 CONFIG(bool, cache_directories, false, "cache directory listings if set to 'true'/'yes'");
 CONFIG(int, max_objects_in_cache, 1000, "maximum number of objects to hold in cache");
 CONFIG(bool, precache_on_readdir, true, "precache object attributes when listing directory contents (improves performance in interactive use); set to 'no'/'false' to disable");
 CONFIG_CONSTRAINT(CONFIG_KEY(max_objects_in_cache) > 0, "max_objects_in_cache must be greater than zero");
+
+CONFIG_SECTION("Local Store Parameters");
+CONFIG(bool, enable_local_store_persistence, false, "keep downloaded files in local store to avoid unnecessary re-download");
+CONFIG(size_t, max_local_store_size, 1000 * 1000 * 1000, "maximum local file store size (in bytes)");
+CONFIG(std::string, local_store_path, "/tmp", "local store path");
+CONFIG(int, local_store_purge_period, 30, "time (in seconds) between local store purge cycles");
 
 CONFIG_SECTION("MIME");
 CONFIG(std::string, default_content_type, "binary/octet-stream", "MIME type for newly-created objects");
