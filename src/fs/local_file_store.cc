@@ -37,20 +37,19 @@ namespace
     PURGE_ALL   = 1
   };
 
-  const string TEMP_FILE_TEMPLATE = "s3fuse.local-XXXXXX";
   const float PURGE_ADJUSTMENT = 0.9; // aim for 90% of max cache size
 
   mutex s_mutex;
   scoped_ptr<thread> s_purger;
   size_t s_store_size = 0;
   size_t s_peak_store_size = 0, s_bytes_purged = 0;
-  string s_temp_file_template;
   bool s_terminating = false;
 
   bool increment_until_target_reached(const string &path, const object::ptr &obj, size_t target, file_list *removal_list, size_t *size)
   {
     try {
       file::ptr f;
+      size_t local_size;
 
       if (!obj || obj->get_type() != S_IFREG)
         return true;
@@ -60,7 +59,12 @@ namespace
       if (f->is_open())
         return true;
 
-      *size += f->get_local_size();
+      local_size = f->get_local_size();
+
+      if (!local_size)
+        return true;
+
+      *size += local_size;
       removal_list->push_back(f);
 
       // keep going until we reach our target
@@ -141,14 +145,8 @@ namespace
 
 void local_file_store::init()
 {
-  s_purger.reset(new thread(periodic_purge));
-
-  s_temp_file_template = config::get_local_store_path();
-
-  if (s_temp_file_template.empty() || s_temp_file_template[s_temp_file_template.size() - 1] != '/')
-    s_temp_file_template += "/";
- 
-  s_temp_file_template += TEMP_FILE_TEMPLATE;
+  if (config::get_enable_local_store_persistence())
+    s_purger.reset(new thread(periodic_purge));
 }
 
 void local_file_store::terminate()
@@ -163,7 +161,7 @@ void local_file_store::terminate()
     S3_LOG(LOG_WARNING, "local_file_store::terminate", "store size is %zu after purging. it should be zero!\n", s_store_size);
 }
 
-void local_file_store::increment_store_size(size_t size)
+void local_file_store::increment(size_t size)
 {
   mutex::scoped_lock lock(s_mutex);
 
@@ -171,14 +169,9 @@ void local_file_store::increment_store_size(size_t size)
   s_peak_store_size = max(s_peak_store_size, s_store_size);
 }
 
-void local_file_store::decrement_store_size(size_t size)
+void local_file_store::decrement(size_t size)
 {
   mutex::scoped_lock lock(s_mutex);
 
   s_store_size -= size;
-}
-
-const string & local_file_store::get_temp_file_template()
-{
-  return s_temp_file_template;
 }

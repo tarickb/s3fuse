@@ -30,6 +30,7 @@
 #include "crypto/hex_with_quotes.h"
 #include "crypto/md5.h"
 #include "fs/file.h"
+#include "fs/local_file.h"
 #include "fs/local_file_store.h"
 #include "fs/metadata.h"
 #include "fs/mime_types.h"
@@ -57,6 +58,7 @@ using s3::crypto::hex_with_quotes;
 using s3::crypto::md5;
 using s3::crypto::sha256;
 using s3::fs::file;
+using s3::fs::local_file;
 using s3::fs::local_file_store;
 using s3::fs::metadata;
 using s3::fs::mime_types;
@@ -69,6 +71,7 @@ namespace
 {
   atomic_count s_sha256_mismatches(0), s_md5_mismatches(0), s_no_hash_checks(0);
   atomic_count s_non_dirty_flushes(0), s_reopens(0), s_reopens_from_local_store(0);
+  atomic_count s_failed_reopens_on_inconsistent_etag(0);
 
   object * checker(const string &path, const request::ptr &req)
   {
@@ -82,7 +85,8 @@ namespace
       "  sha256 mismatches: " << s_sha256_mismatches << ", md5 mismatches: " << s_md5_mismatches << ", no hash checks: " << s_no_hash_checks << "\n"
       "  non-dirty flushes: " << s_non_dirty_flushes << "\n"
       "  reopens: " << s_reopens << "\n"
-      "  reopens from local store: " << s_reopens_from_local_store << "\n";
+      "  reopens from local store: " << s_reopens_from_local_store << "\n"
+      "  failed reopens due to inconsistent etag: " << s_failed_reopens_on_inconsistent_etag << "\n";
   }
 
   object::type_checker_list::entry s_checker_reg(checker, 1000);
@@ -130,7 +134,6 @@ int file::open(const string &path, file_open_mode mode, uint64_t *handle)
 
 file::file(const string &path)
   : object(path),
-    _fd(-1),
     _status(0),
     _async_error(0),
     _ref_count(0)
@@ -201,9 +204,6 @@ void file::on_download_complete(int ret)
     return;
   }
 
-  if (config::get_enable_local_store_persistence())
-    local_file_store::increment_store_size(get_local_size());
-
   _async_error = ret;
   _status = 0;
   _condition.notify_all();
@@ -222,39 +222,36 @@ int file::open(file_open_mode mode, uint64_t *handle)
     ++s_reopens;
 
   } else {
-    if (_fd != -1) {
-      S3_LOG(LOG_DEBUG, "file::open", "reopening [%s] from local store.\n", get_path().c_str());
+    if (_local) {
+      // this is an optimization -- we don't bother checking the remote copy's 
+      // etag if we're just going to truncate the file anyway
 
       if (mode & fs::OPEN_TRUNCATE_TO_ZERO) {
-        if (get_local_size()) {
-          if (ftruncate(_fd, 0) != 0)
+        if (_local->get_size()) {
+          if (ftruncate(_local->get_fd(), 0) != 0)
             return -errno;
 
+          // mark dirty; we're going to have to upload this zero-length file
           _status = FS_DIRTY;
         }
-      } else {
-        // TODO: check etag and redownload
-      }
 
+      } else if (config::get_verify_etag_before_reopening() && verify_consistency()) {
+        // no longer consistent, so ditch our copy
+        _local.reset();
+
+        S3_LOG(LOG_DEBUG, "file::open", "etag for [%s] not consistent. reopening.\n", get_path().c_str());
+        ++s_failed_reopens_on_inconsistent_etag;
+      }
+    }
+
+    if (_local) {
+      S3_LOG(LOG_DEBUG, "file::open", "reopening [%s] from local store.\n", get_path().c_str());
       ++s_reopens_from_local_store;
 
     } else {
-      const string &temp_name_template = local_file_store::get_temp_file_template();
-      vector<char> temp_name;
       off_t size = get_stat()->st_size;
 
-      temp_name.insert(
-        temp_name.begin(), 
-        temp_name_template.begin(), 
-        temp_name_template.end());
-
-      _fd = mkstemp(&temp_name[0]);
-      unlink(&temp_name[0]);
-
-      S3_LOG(LOG_DEBUG, "file::open", "opening [%s] in [%s].\n", get_path().c_str(), &temp_name[0]);
-
-      if (_fd == -1)
-        return -errno;
+      _local.reset(new local_file(size));
 
       if (mode & fs::OPEN_TRUNCATE_TO_ZERO) {
         // if the file had a non-zero size but was opened with O_TRUNC, we need
@@ -263,25 +260,20 @@ int file::open(file_open_mode mode, uint64_t *handle)
         if (size)
           _status = FS_DIRTY;
 
-      } else {
-        if (ftruncate(_fd, size) != 0)
-          return -errno;
+      } else if (size > 0) {
+        int r;
 
-        if (size > 0) {
-          int r;
+        r = is_downloadable();
 
-          r = is_downloadable();
+        if (r)
+          return r;
 
-          if (r)
-            return r;
+        _status = FS_DOWNLOADING;
 
-          _status = FS_DOWNLOADING;
-
-          pool::post(
-            threads::PR_0,
-            bind(&file::download, shared_from_this(), _1),
-            bind(&file::on_download_complete, shared_from_this(), _1));
-        }
+        pool::post(
+          threads::PR_0,
+          bind(&file::download, shared_from_this(), _1),
+          bind(&file::on_download_complete, shared_from_this(), _1));
       }
     }
   }
@@ -322,13 +314,7 @@ int file::release()
 
 void file::purge()
 {
-  if (_fd != -1) {
-    if (config::get_enable_local_store_persistence())
-      local_file_store::decrement_store_size(get_local_size());
-
-    close(_fd);
-    _fd = -1;
-  }
+  _local.reset();
 
   expire();
 }
@@ -342,6 +328,8 @@ int file::flush()
 
   if (_async_error)
     return _async_error;
+
+  _local->refresh_store_size();
 
   if (!(_status & FS_DIRTY)) {
     ++s_non_dirty_flushes;
@@ -376,7 +364,7 @@ int file::write(const char *buffer, size_t size, off_t offset)
   _status |= FS_DIRTY | FS_WRITING;
 
   lock.unlock();
-  r = pwrite(_fd, buffer, size, offset);
+  r = pwrite(_local->get_fd(), buffer, size, offset);
   lock.lock();
 
   _status &= ~FS_WRITING;
@@ -397,7 +385,7 @@ int file::read(char *buffer, size_t size, off_t offset)
 
   lock.unlock();
 
-  return pread(_fd, buffer, size, offset);
+  return pread(_local->get_fd(), buffer, size, offset);
 }
 
 int file::truncate(off_t length)
@@ -414,7 +402,7 @@ int file::truncate(off_t length)
   _status |= FS_DIRTY | FS_WRITING;
 
   lock.unlock();
-  r = ftruncate(_fd, length);
+  r = ftruncate(_local->get_fd(), length);
   lock.lock();
 
   _status &= ~FS_WRITING;
@@ -427,7 +415,7 @@ int file::write_chunk(const char *buffer, size_t size, off_t offset)
 {
   ssize_t r;
   
-  r = pwrite(_fd, buffer, size, offset);
+  r = pwrite(_local->get_fd(), buffer, size, offset);
 
   if (r != static_cast<ssize_t>(size))
     return -errno;
@@ -443,7 +431,7 @@ int file::read_chunk(size_t size, off_t offset, const char_vector_ptr &buffer)
   ssize_t r;
 
   buffer->resize(size);
-  r = pread(_fd, &(*buffer)[0], size, offset);
+  r = pread(_local->get_fd(), &(*buffer)[0], size, offset);
 
   if (r != static_cast<ssize_t>(size))
     return -errno;
@@ -456,15 +444,9 @@ int file::read_chunk(size_t size, off_t offset, const char_vector_ptr &buffer)
 
 size_t file::get_local_size()
 {
-  struct stat s;
+  mutex::scoped_lock lock(_fs_mutex);
 
-  if (fstat(_fd, &s) == -1) {
-    S3_LOG(LOG_WARNING, "file::get_local_size", "failed to stat [%s].\n", get_path().c_str());
-
-    throw runtime_error("failed to stat local file");
-  }
-
-  return s.st_size;
+  return _local ? _local->get_size() : 0;
 }
 
 void file::update_stat()
@@ -480,8 +462,8 @@ void file::update_stat()
 
 void file::update_stat(const mutex::scoped_lock &)
 {
-  if (_fd != -1)
-    get_stat()->st_size = get_local_size();
+  if (_local)
+    get_stat()->st_size = _local->get_size();
 }
 
 int file::download(const request::ptr & /* ignored */)
@@ -495,7 +477,7 @@ int file::download(const request::ptr & /* ignored */)
 
   r = service::get_file_transfer()->download(
     get_url(),
-    get_local_size(),
+    _local->get_size(),
     bind(&file::write_chunk, shared_from_this(), _1, _2, _3));
 
   if (r)
@@ -507,7 +489,7 @@ int file::download(const request::ptr & /* ignored */)
 int file::prepare_download()
 {
   if (!_sha256_hash.empty())
-    _hash_list.reset(new hash_list<sha256>(get_local_size()));
+    _hash_list.reset(new hash_list<sha256>(_local->get_size()));
 
   return 0;
 }
@@ -532,7 +514,7 @@ int file::finalize_download()
     }
   } else if (md5::is_valid_quoted_hex_hash(get_etag())) {
     // as a fallback, use the etag as an md5 hash of the file
-    string computed_hash = hash::compute<md5, hex_with_quotes>(_fd);
+    string computed_hash = hash::compute<md5, hex_with_quotes>(_local->get_fd());
 
     if (computed_hash != get_etag()) {
       ++s_md5_mismatches;
@@ -572,7 +554,7 @@ int file::upload(const request::ptr & /* ignored */)
 
   r = service::get_file_transfer()->upload(
     get_url(),
-    get_local_size(),
+    _local->get_size(),
     bind(&file::read_chunk, shared_from_this(), _1, _2, _3),
     &returned_etag);
 
@@ -586,7 +568,7 @@ int file::upload(const request::ptr & /* ignored */)
 
 int file::prepare_upload()
 {
-  _hash_list.reset(new hash_list<sha256>(get_local_size()));
+  _hash_list.reset(new hash_list<sha256>(_local->get_size()));
 
   return 0;
 }

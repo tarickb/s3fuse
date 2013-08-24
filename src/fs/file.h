@@ -32,6 +32,8 @@ namespace s3
 {
   namespace fs
   {
+    class local_file;
+
     enum file_open_mode
     {
       OPEN_DEFAULT          = 0x0,
@@ -155,7 +157,8 @@ namespace s3
       std::string _sha256_hash;
 
       // protected by _fs_mutex
-      int _fd, _status, _async_error;
+      boost::shared_ptr<local_file> _local;
+      int _status, _async_error;
       uint64_t _ref_count;
     };
   }
