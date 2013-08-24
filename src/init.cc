@@ -136,3 +136,14 @@ string init::get_enabled_services()
 
   return svcs.empty() ? string("(none)") : svcs.substr(2); // strip leading ", "
 }
+
+void init::cleanup()
+{
+  local_file_store::terminate();
+
+  pool::terminate();
+
+  // these won't do anything if statistics::init() wasn't called
+  statistics::collect();
+  statistics::flush();
+}

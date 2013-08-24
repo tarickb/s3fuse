@@ -43,6 +43,8 @@ namespace s3
     static void threads();
 
     static std::string get_enabled_services();
+
+    static void cleanup();
   };
 }
 

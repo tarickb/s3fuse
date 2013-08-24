@@ -254,11 +254,7 @@ int main(int argc, char **argv)
   fuse_opt_free_args(&args);
 
   try {
-    pool::terminate();
-
-    // these won't do anything if statistics::init() wasn't called
-    statistics::collect();
-    statistics::flush();
+    init::cleanup();
 
   } catch (const std::exception &e) {
     S3_LOG(LOG_ERR, "main", "caught exception while cleaning up: %s\n", e.what());
