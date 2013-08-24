@@ -105,15 +105,17 @@ namespace
 
     lock.lock();
 
-    S3_LOG(
-      LOG_DEBUG,
-      "local_file_store::purge",
-      "starting size: %zu, target purge size: %zu, purge set size: %zu, ending size: %zu, real purge size: %zu\n",
-      starting_size,
-      target_purge_size,
-      purge_size,
-      s_store_size,
-      starting_size - s_store_size);
+    // statistics for PURGE_ALL are not going to be interesting
+    if (mode != PURGE_ALL)
+      S3_LOG(
+        LOG_DEBUG,
+        "local_file_store::purge",
+        "starting size: %zu, target purge size: %zu, purge set size: %zu, ending size: %zu, real purge size: %zu\n",
+        starting_size,
+        target_purge_size,
+        purge_size,
+        s_store_size,
+        starting_size - s_store_size);
 
     s_bytes_purged += starting_size - s_store_size;
   }
