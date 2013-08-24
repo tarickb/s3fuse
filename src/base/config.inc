@@ -78,6 +78,7 @@ CONFIG(bool, enable_local_store_persistence, false, "keep downloaded files in lo
 CONFIG(size_t, max_local_store_size, 1000 * 1000 * 1000, "maximum local file store size (in bytes)");
 CONFIG(std::string, local_store_path, "/tmp", "local store path");
 CONFIG(int, local_store_purge_period, 30, "time (in seconds) between local store purge cycles");
+CONFIG(bool, verify_etag_before_reopening, true, "before reopening a locally-cached file, verify that the remote etag has not changed");
 
 CONFIG_SECTION("MIME");
 CONFIG(std::string, default_content_type, "binary/octet-stream", "MIME type for newly-created objects");
