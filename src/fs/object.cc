@@ -582,6 +582,22 @@ int object::commit(const request::ptr &req)
   return current_error;
 }
 
+int object::verify_consistency(const request::ptr &req)
+{
+  req->init(base::HTTP_HEAD);
+  req->set_url(_url);
+
+  req->run();
+
+  if (req->get_response_code() == base::HTTP_SC_NOT_FOUND)
+    return -ENOENT;
+  
+  if (req->get_response_code() != base::HTTP_SC_OK)
+    return -EIO;
+
+  return (req->get_response_header("ETag") == _etag) ? 0 : -EAGAIN;
+}
+
 int object::remove(const request::ptr &req)
 {
   if (!is_removable())

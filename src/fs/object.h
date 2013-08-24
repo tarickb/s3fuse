@@ -106,6 +106,7 @@ namespace s3
       }
 
       int commit(const boost::shared_ptr<base::request> &req);
+      int verify_consistency(const boost::shared_ptr<base::request> &req);
 
       virtual int remove(const boost::shared_ptr<base::request> &req);
       virtual int rename(const boost::shared_ptr<base::request> &req, const std::string &to);
@@ -129,6 +130,13 @@ namespace s3
         return threads::pool::call(
           threads::PR_REQ_0, 
           boost::bind(&object::rename, shared_from_this(), _1, to));
+      }
+
+      inline bool verify_consistency()
+      {
+        return threads::pool::call(
+          threads::PR_REQ_0,
+          boost::bind(&object::verify_consistency, shared_from_this(), _1));
       }
 
     protected:
