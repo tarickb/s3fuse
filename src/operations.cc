@@ -523,19 +523,33 @@ int operations::open(const char *path, fuse_file_info *file_info)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    RETURN_ON_ERROR(file::open(
-      static_cast<string>(path), 
-      (file_info->flags & O_TRUNC) ? s3::fs::OPEN_TRUNCATE_TO_ZERO : s3::fs::OPEN_DEFAULT, 
-      &file_info->fh));
+    // open() will return -EAGAIN if the file has been modified and we need to
+    // re-cache
+    for (int i = 0; i < config::get_max_inconsistent_state_retries(); i++) {
+      int r;
 
-    // successful open with O_TRUNC updates ctime and mtime
-    if (file_info->flags & O_TRUNC) {
-      file::from_handle(file_info->fh)->set_ctime();
-      file::from_handle(file_info->fh)->set_mtime();
+      r = file::open(
+        static_cast<string>(path), 
+        (file_info->flags & O_TRUNC) ? s3::fs::OPEN_TRUNCATE_TO_ZERO : s3::fs::OPEN_DEFAULT, 
+        &file_info->fh);
+
+      if (r == -EAGAIN)
+        continue;
+
+      if (r)
+        return r;
+
+      // successful open with O_TRUNC updates ctime and mtime
+      if (file_info->flags & O_TRUNC) {
+        file::from_handle(file_info->fh)->set_ctime();
+        file::from_handle(file_info->fh)->set_mtime();
+      }
+
+      return 0;
     }
-
-    return 0;
   END_TRY;
+
+  return -EIO;
 }
 
 int operations::read(const char *path, char *buffer, size_t size, off_t offset, fuse_file_info *file_info)

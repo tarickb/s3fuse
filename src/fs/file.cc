@@ -91,6 +91,15 @@ namespace
 
   object::type_checker_list::entry s_checker_reg(checker, 1000);
   statistics::writers::entry s_writer(statistics_writer, 0);
+
+  #define BLOCK_ON(l, st) \
+    do { \
+      while (_status & (st)) \
+        _condition.wait(l); \
+      \
+      if (_async_error) \
+        return _async_error; \
+    } while (0)
 }
 
 void file::test_transfer_chunk_sizes()
@@ -108,7 +117,7 @@ void file::test_transfer_chunk_sizes()
   }
 }
 
-void file::open_locked_object(const object::ptr &obj, file_open_mode mode, uint64_t *handle, int *status)
+void file::add_ref(const object::ptr &obj, uint64_t *handle, int *status)
 {
   if (!obj) {
     *status = -ENOENT;
@@ -120,14 +129,25 @@ void file::open_locked_object(const object::ptr &obj, file_open_mode mode, uint6
     return;
   }
 
-  *status = static_cast<file *>(obj.get())->open(mode, handle);
+  *status = static_cast<file *>(obj.get())->add_ref(handle);
 }
 
 int file::open(const string &path, file_open_mode mode, uint64_t *handle)
 {
   int r = -EINVAL;
+  file *f;
 
-  object_metadata_cache::lock_object(path, bind(&file::open_locked_object, _1, mode, handle, &r));
+  object_metadata_cache::lock_object(path, bind(&file::add_ref, _1, handle, &r));
+
+  if (r)
+    return r;
+
+  f = file::from_handle(*handle);
+
+  r = f->open(mode);
+
+  if (r)
+    f->release();
 
   return r;
 }
@@ -155,7 +175,6 @@ file::file(const string &path)
 
 file::~file()
 {
-  purge();
 }
 
 bool file::is_removable()
@@ -214,72 +233,43 @@ int file::is_downloadable()
   return 0;
 }
 
-int file::open(file_open_mode mode, uint64_t *handle)
+int file::add_ref(uint64_t *handle)
 {
   mutex::scoped_lock lock(_fs_mutex);
 
-  if (_ref_count) {
+  if (_ref_count)
     ++s_reopens;
-
-  } else {
-    if (_local) {
-      // this is an optimization -- we don't bother checking the remote copy's 
-      // etag if we're just going to truncate the file anyway
-
-      if (mode & fs::OPEN_TRUNCATE_TO_ZERO) {
-        if (_local->get_size()) {
-          if (ftruncate(_local->get_fd(), 0) != 0)
-            return -errno;
-
-          // mark dirty; we're going to have to upload this zero-length file
-          _status = FS_DIRTY;
-        }
-
-      } else if (config::get_verify_etag_before_reopening() && verify_consistency()) {
-        // no longer consistent, so ditch our copy
-        _local.reset();
-
-        S3_LOG(LOG_DEBUG, "file::open", "etag for [%s] not consistent. reopening.\n", get_path().c_str());
-        ++s_failed_reopens_on_inconsistent_etag;
-      }
-    }
-
-    if (_local) {
-      S3_LOG(LOG_DEBUG, "file::open", "reopening [%s] from local store.\n", get_path().c_str());
-      ++s_reopens_from_local_store;
-
-    } else {
-      off_t size = get_stat()->st_size;
-
-      _local.reset(new local_file(size));
-
-      if (mode & fs::OPEN_TRUNCATE_TO_ZERO) {
-        // if the file had a non-zero size but was opened with O_TRUNC, we need
-        // to write back a zero-length file.
-
-        if (size)
-          _status = FS_DIRTY;
-
-      } else if (size > 0) {
-        int r;
-
-        r = is_downloadable();
-
-        if (r)
-          return r;
-
-        _status = FS_DOWNLOADING;
-
-        pool::post(
-          threads::PR_0,
-          bind(&file::download, shared_from_this(), _1),
-          bind(&file::on_download_complete, shared_from_this(), _1));
-      }
-    }
-  }
+  else
+    _status = FS_OPENING;
 
   *handle = reinterpret_cast<uint64_t>(this);
   _ref_count++;
+
+  return 0;
+}
+
+int file::open(file_open_mode mode)
+{
+  mutex::scoped_lock lock(_fs_mutex);
+
+  if (_status == FS_OPENING) {
+    _status = FS_DOWNLOADING;
+    
+    pool::post(
+      threads::PR_0,
+      bind(&file::download, shared_from_this(), mode, _1),
+      bind(&file::on_download_complete, shared_from_this(), _1));
+  }
+
+  BLOCK_ON(lock, FS_DOWNLOADING);
+
+  if (mode & fs::OPEN_TRUNCATE_TO_ZERO && _local->get_size()) {
+    if (ftruncate(_local->get_fd(), 0) != 0)
+      return -errno;
+
+    // mark dirty; we're going to have to upload this zero-length file
+    _status = FS_DIRTY;
+  }
 
   return 0;
 }
@@ -323,11 +313,7 @@ int file::flush()
 {
   mutex::scoped_lock lock(_fs_mutex);
 
-  while (_status & (FS_DOWNLOADING | FS_UPLOADING | FS_WRITING))
-    _condition.wait(lock);
-
-  if (_async_error)
-    return _async_error;
+  BLOCK_ON(lock, FS_OPENING | FS_DOWNLOADING | FS_UPLOADING | FS_WRITING);
 
   _local->refresh_store_size();
 
@@ -353,18 +339,16 @@ int file::flush()
 int file::write(const char *buffer, size_t size, off_t offset)
 {
   mutex::scoped_lock lock(_fs_mutex);
+  local_file::ptr local;
   int r;
 
-  while (_status & (FS_DOWNLOADING | FS_UPLOADING))
-    _condition.wait(lock);
-
-  if (_async_error)
-    return _async_error;
+  BLOCK_ON(lock, FS_OPENING | FS_DOWNLOADING | FS_UPLOADING);
 
   _status |= FS_DIRTY | FS_WRITING;
+  local = _local;
 
   lock.unlock();
-  r = pwrite(_local->get_fd(), buffer, size, offset);
+  r = pwrite(local->get_fd(), buffer, size, offset);
   lock.lock();
 
   _status &= ~FS_WRITING;
@@ -376,33 +360,30 @@ int file::write(const char *buffer, size_t size, off_t offset)
 int file::read(char *buffer, size_t size, off_t offset)
 {
   mutex::scoped_lock lock(_fs_mutex);
+  local_file::ptr local;
 
-  while (_status & FS_DOWNLOADING)
-    _condition.wait(lock);
+  BLOCK_ON(lock, FS_OPENING | FS_DOWNLOADING);
 
-  if (_async_error)
-    return _async_error;
+  local = _local;
 
   lock.unlock();
 
-  return pread(_local->get_fd(), buffer, size, offset);
+  return pread(local->get_fd(), buffer, size, offset);
 }
 
 int file::truncate(off_t length)
 {
   mutex::scoped_lock lock(_fs_mutex);
+  local_file::ptr local;
   int r;
 
-  while (_status & (FS_DOWNLOADING | FS_UPLOADING))
-    _condition.wait(lock);
-
-  if (_async_error)
-    return _async_error;
+  BLOCK_ON(lock, FS_OPENING | FS_DOWNLOADING | FS_UPLOADING);
 
   _status |= FS_DIRTY | FS_WRITING;
+  local = _local;
 
   lock.unlock();
-  r = ftruncate(_local->get_fd(), length);
+  r = ftruncate(local->get_fd(), length);
   lock.lock();
 
   _status &= ~FS_WRITING;
@@ -413,9 +394,15 @@ int file::truncate(off_t length)
 
 int file::write_chunk(const char *buffer, size_t size, off_t offset)
 {
+  mutex::scoped_lock lock(_fs_mutex);
+  local_file::ptr local = _local;
   ssize_t r;
+
+  if (_status != FS_DOWNLOADING || !local)
+    return -EINVAL;
   
-  r = pwrite(_local->get_fd(), buffer, size, offset);
+  lock.unlock();
+  r = pwrite(local->get_fd(), buffer, size, offset);
 
   if (r != static_cast<ssize_t>(size))
     return -errno;
@@ -428,10 +415,16 @@ int file::write_chunk(const char *buffer, size_t size, off_t offset)
 
 int file::read_chunk(size_t size, off_t offset, const char_vector_ptr &buffer)
 {
+  mutex::scoped_lock lock(_fs_mutex);
+  local_file::ptr local = _local;
   ssize_t r;
 
+  if (!local)
+    return -EINVAL;
+
+  lock.unlock();
   buffer->resize(size);
-  r = pread(_local->get_fd(), &(*buffer)[0], size, offset);
+  r = pread(local->get_fd(), &(*buffer)[0], size, offset);
 
   if (r != static_cast<ssize_t>(size))
     return -errno;
@@ -466,9 +459,46 @@ void file::update_stat(const mutex::scoped_lock &)
     get_stat()->st_size = _local->get_size();
 }
 
-int file::download(const request::ptr & /* ignored */)
+int file::download(file_open_mode mode, const request::ptr & /* ignored */)
 {
-  int r = 0;
+  off_t size;
+  int r;
+
+  if (_local) {
+    // this is an optimization -- we don't bother checking the remote copy's 
+    // etag if we're just going to truncate the file anyway
+
+    if (
+      !(mode & fs::OPEN_TRUNCATE_TO_ZERO) && 
+      config::get_verify_etag_before_reopening() && 
+      verify_consistency()
+    ) {
+      // no longer consistent, so ditch our copy
+      purge();
+
+      S3_LOG(LOG_DEBUG, "file::download", "etag for [%s] not consistent. reopening.\n", get_path().c_str());
+      ++s_failed_reopens_on_inconsistent_etag;
+
+      return -EAGAIN;
+    }
+
+    S3_LOG(LOG_DEBUG, "file::download", "reopening [%s] from local store.\n", get_path().c_str());
+    ++s_reopens_from_local_store;
+
+    return 0;
+  }
+
+  size = get_stat()->st_size;
+
+  _local.reset(new local_file(size));
+
+  if (mode & fs::OPEN_TRUNCATE_TO_ZERO || size == 0)
+    return 0;
+
+  r = is_downloadable();
+
+  if (r)
+    return r;
 
   r = prepare_download();
 
@@ -477,7 +507,7 @@ int file::download(const request::ptr & /* ignored */)
 
   r = service::get_file_transfer()->download(
     get_url(),
-    _local->get_size(),
+    size,
     bind(&file::write_chunk, shared_from_this(), _1, _2, _3));
 
   if (r)

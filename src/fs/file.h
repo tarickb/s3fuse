@@ -118,17 +118,19 @@ namespace s3
 
       enum status
       {
-        FS_DOWNLOADING = 0x1,
-        FS_UPLOADING   = 0x2,
-        FS_WRITING     = 0x4,
-        FS_DIRTY       = 0x8
+        FS_OPENING     = 0x01,
+        FS_DOWNLOADING = 0x02,
+        FS_UPLOADING   = 0x04,
+        FS_WRITING     = 0x08,
+        FS_DIRTY       = 0x10
       };
 
-      static void open_locked_object(const object::ptr &obj, file_open_mode mode, uint64_t *handle, int *status);
+      static void add_ref(const object::ptr &obj, uint64_t *handle, int *status);
 
-      int open(file_open_mode mode, uint64_t *handle);
+      int add_ref(uint64_t *handle);
+      int open(file_open_mode mode);
 
-      int download(const boost::shared_ptr<base::request> &);
+      int download(file_open_mode mode, const boost::shared_ptr<base::request> &);
 
       int download_single(const boost::shared_ptr<base::request> &req);
       int download_multi();
