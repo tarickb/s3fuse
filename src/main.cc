@@ -189,6 +189,9 @@ void add_missing_options(options *opts, fuse_args *args)
   #ifdef __APPLE__
     opts->volname = "-ovolname=" PACKAGE_NAME " volume (" + config::get_bucket_name() + ")";
 
+    if (config::get_enable_local_store_persistence())
+      fuse_opt_add_arg(args, "-onoubc");
+
     if (!opts->daemon_timeout_set)
       fuse_opt_add_arg(args, "-odaemon_timeout=3600");
 
