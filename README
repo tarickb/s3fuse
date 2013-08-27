@@ -356,6 +356,26 @@ LIST request.  LIST requests are charged at 10x the rate of GET requests:
 
   http://aws.amazon.com/s3/pricing/
 
+Local File Caching
+------------------
+
+If "enable_local_store_persistence" in s3fuse.conf is set to "yes", s3fuse will
+keep downloaded files in a local temporary directory.  This local directory is 
+periodically pruned to as to keep its size at or below a user-specified maximum.
+
+The key configuration options controlling local caching are:
+
+  - max_local_store_size:  Maximum size in bytes of the local file cache.  This
+    is a target, and s3fuse will do its best to stay below it, but this isn't
+    guaranteed.
+  - local_store_path:  Location of the file cache.
+  - local_store_purge_period:  Number of seconds between runs of the periodic
+    cache purging routine.
+  - verify_etag_before_reopening:  If set to "yes", s3fuse will verify that a
+    locally-cached file has not changed before re-opening it.  This involves a
+    metadata request to the storage service (namely, to verify that the local
+    copy's ETag is consistent with the remote copy's).
+
 Running
 -------
 

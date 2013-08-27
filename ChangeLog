@@ -1,5 +1,6 @@
 s3fuse (0.15) unstable; urgency=low
 
+  * NEW: Downloaded files are cached locally. See README.
   * Removed known-issue notes on MIME mapping and Google Cloud Storage
     Manager folder representation incompatibility.
   * Removed libxml++ dependency.
