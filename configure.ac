@@ -95,6 +95,10 @@ AM_CONDITIONAL([WITH_FVS], [test x$fvs = xtrue])
 # set LDFLAGS rather than AM_LDFLAGS below because we need these flags
 # when using AC_CHECK_LIB
 if test "x$darwin" = xtrue; then
+  # mavericks seems to link with clang by default, which doesn't like unused library parameters
+  AM_CXXFLAGS="$AM_CXXFLAGS -Qunused-arguments"
+  AM_LDFLAGS="$AM_LDFLAGS -Qunused-arguments"
+
   LDFLAGS="$LDFLAGS -L/opt/local/lib"
   LDADD="$LDADD -framework CoreFoundation -framework Security"
 else
@@ -103,12 +107,6 @@ fi
 
 if test "x$coverage" = xtrue; then
   AM_CXXFLAGS="$AM_CXXFLAGS -ftest-coverage -fprofile-arcs"
-
-  if test "x$darwin" = xtrue; then
-    # llvm-g++ on Darwin doesn't do code coverage
-    CXX="clang++"
-    AM_CXXFLAGS="$AM_CXXFLAGS -Qunused-arguments"
-  fi
 fi
 
 if test "x$osx_bundle" = xtrue; then

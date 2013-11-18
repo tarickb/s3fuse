@@ -36,13 +36,15 @@ rm -rf coverage-report
 
 find . -maxdepth 1 -type f -name \*.m4 ! -name boost.m4 | xargs rm -f
 
+rm -f compile
 rm -f config.*
 rm -f configure
 rm -f depcomp
 rm -f install-sh
-rm -f Makefile Makefile.in
-rm -f missing
-rm -f *.tar.gz
 rm -f libtool
 rm -f ltmain.sh
+rm -f Makefile Makefile.in
+rm -f missing
+rm -f test-driver
+rm -f *.tar.gz
 rm -f *.info
