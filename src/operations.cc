@@ -288,9 +288,6 @@ int operations::chown(const char *path, uid_t uid, gid_t gid)
 
 int operations::create(const char *path, mode_t mode, fuse_file_info *file_info)
 {
-  int r = 0, last_error = 0;
-  const fuse_context *ctx = fuse_get_context();
-
   S3_LOG(LOG_DEBUG, "create", "path: %s, mode: %#o\n", path, mode);
   ++s_create;
 
@@ -299,6 +296,8 @@ int operations::create(const char *path, mode_t mode, fuse_file_info *file_info)
   BEGIN_TRY;
     file::ptr f;
     string parent = get_parent(path);
+    int r = 0, last_error = 0;
+    const fuse_context *ctx = fuse_get_context();
 
     if (cache::get(path)) {
       S3_LOG(LOG_WARNING, "create", "attempt to overwrite object at [%s]\n", path);
@@ -748,7 +747,6 @@ int operations::truncate(const char *path, off_t size)
 {
   file *f;
   uint64_t handle;
-  int r;
 
   S3_LOG(LOG_DEBUG, "truncate", "path: %s, size: %ji\n", path, static_cast<intmax_t>(size));
   ++s_truncate;
@@ -756,6 +754,8 @@ int operations::truncate(const char *path, off_t size)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
+    int r;
+
     // passing OPEN_TRUNCATE_TO_ZERO saves us from having to download the 
     // entire file if we're just going to truncate it to zero anyway.
 

@@ -34,7 +34,6 @@
 
 using boost::mutex;
 using boost::scoped_ptr;
-using boost::shared_ptr;
 using boost::detail::atomic_count;
 using std::list;
 using std::ostream;
@@ -52,7 +51,6 @@ using s3::fs::list_reader;
 using s3::fs::object;
 using s3::threads::parallel_work_queue;
 using s3::threads::pool;
-using s3::threads::wait_async_handle;
 
 namespace
 {
