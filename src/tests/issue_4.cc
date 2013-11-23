@@ -60,7 +60,7 @@ int main(int argc, char **argv)
   TZ(unlink(file));
   T(stat(file, &st), -1);
 
-  create_fd = open(file, O_CREAT);
+  create_fd = open(file, O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
 
   if (create_fd == -1) {
     perror("create failed with error");
