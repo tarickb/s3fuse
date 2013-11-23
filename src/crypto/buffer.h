@@ -61,6 +61,9 @@ namespace s3
       {
         ptr b(new buffer());
 
+        if (!len)
+          throw std::runtime_error("cannot generate empty buffer");
+
         b->_buf.resize(len);
 
         #ifdef __APPLE__
