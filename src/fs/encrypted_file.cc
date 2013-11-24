@@ -99,7 +99,6 @@ void encrypted_file::init(const request::ptr &req)
 {
   const string &meta_prefix = service::get_header_meta_prefix();
   string meta;
-  size_t pos;
 
   file::init(req);
 
@@ -149,6 +148,8 @@ void encrypted_file::init(const request::ptr &req)
   }
 
   try {
+    size_t pos;
+
     _meta_key = symmetric_key::create(encryption::get_volume_key(), buffer::from_string(_enc_iv));
 
     try {
