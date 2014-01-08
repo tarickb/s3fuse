@@ -41,49 +41,14 @@ void aes_ctr_256::crypt(const symmetric_key::ptr &key, uint64_t starting_block, 
   memcpy(iv, key->get_iv()->get(), IV_LEN);
   memcpy(iv + IV_LEN, &starting_block, sizeof(starting_block));
 
-  #ifdef __APPLE__
-    CCCryptorRef cryptor;
-    CCCryptorStatus r;
+  AES_KEY aes_key;
+  uint8_t ecount_buf[BLOCK_LEN];
+  unsigned int num = 0;
 
-    r = CCCryptorCreateWithMode(
-      kCCEncrypt, // use for both encryption and decryption because ctr is symmetric
-      kCCModeCTR,
-      kCCAlgorithmAES128,
-      ccNoPadding,
-      iv,
-      key->get_key()->get(),
-      key->get_key()->size(),
-      NULL,
-      0,
-      0,
-      kCCModeOptionCTR_BE,
-      &cryptor);
+  memset(ecount_buf, 0, sizeof(ecount_buf));
 
-    if (r != kCCSuccess)
-      throw runtime_error("call to CCCryptorCreateWithMode() failed in aes_ctr_256");
+  if (AES_set_encrypt_key(key->get_key()->get(), key->get_key()->size() * 8 /* in bits */, &aes_key) != 0)
+    throw runtime_error("failed to set encryption key for aes_ctr_256");
 
-    r = CCCryptorUpdate(
-      cryptor,
-      in,
-      size,
-      out,
-      size,
-      NULL);
-
-    CCCryptorRelease(cryptor);
-
-    if (r != kCCSuccess)
-      throw runtime_error("CCCryptorUpdate() failed in aes_ctr_256");
-  #else
-    AES_KEY aes_key;
-    uint8_t ecount_buf[BLOCK_LEN];
-    unsigned int num = 0;
-
-    memset(ecount_buf, 0, sizeof(ecount_buf));
-
-    if (AES_set_encrypt_key(key->get_key()->get(), key->get_key()->size() * 8 /* in bits */, &aes_key) != 0)
-      throw runtime_error("failed to set encryption key for aes_ctr_256");
-
-    AES_ctr128_encrypt(in, out, size, &aes_key, iv, ecount_buf, &num);
-  #endif
+  AES_ctr128_encrypt(in, out, size, &aes_key, iv, ecount_buf, &num);
 }

@@ -100,7 +100,7 @@ if test "x$darwin" = xtrue; then
   AM_LDFLAGS="$AM_LDFLAGS -Qunused-arguments"
 
   LDFLAGS="$LDFLAGS -L/opt/local/lib"
-  LDADD="$LDADD -framework CoreFoundation -framework Security"
+  LDADD="$LDADD -framework CoreFoundation"
 else
   LDFLAGS="$LDFLAGS -Wl,--as-needed"
 fi
@@ -155,9 +155,7 @@ PKG_CHECK_MODULES([DEPS_FUSE], [fuse >= 2.7.3])
 PKG_CHECK_EXISTS([libssl >= 0.9.8], [have_openssl=true], [have_openssl=false])
 PKG_CHECK_EXISTS([gnutls >= 2.12.19], [have_gnutls=true], [have_gnutls=false])
 
-if test "x$darwin" = xfalse; then
-  PKG_CHECK_MODULES([DEPS_CRYPTO], [libcrypto])
-fi
+PKG_CHECK_MODULES([DEPS_CRYPTO], [libcrypto])
 
 if test "x$have_openssl" = xtrue; then
   PKG_CHECK_MODULES([DEPS_OPENSSL], [libssl >= 0.9.8])

@@ -24,11 +24,7 @@
 
 #include <string.h>
 
-#ifdef __APPLE__
-  #include <Security/SecRandom.h>
-#else
-  #include <openssl/rand.h>
-#endif
+#include <openssl/rand.h>
 
 #include <stdexcept>
 #include <string>
@@ -66,13 +62,8 @@ namespace s3
 
         b->_buf.resize(len);
 
-        #ifdef __APPLE__
-          if (SecRandomCopyBytes(kSecRandomDefault, len, &b->_buf[0]) != 0)
-            throw std::runtime_error("failed to generate random key");
-        #else
-          if (RAND_bytes(&b->_buf[0], len) == 0)
-            throw std::runtime_error("failed to generate random key");
-        #endif
+        if (RAND_bytes(&b->_buf[0], len) == 0)
+          throw std::runtime_error("failed to generate random key");
 
         return b;
       }

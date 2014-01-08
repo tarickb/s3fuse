@@ -24,11 +24,7 @@
 
 #include <stdint.h>
 
-#ifdef __APPLE__
-  #include <CommonCrypto/CommonCryptor.h>
-#else
-  #include <openssl/aes.h>
-#endif
+#include <openssl/aes.h>
 
 #include <stdexcept>
 #include <boost/smart_ptr.hpp>
@@ -42,11 +38,7 @@ namespace s3
     class aes_ctr_256
     {
     public:
-      #ifdef __APPLE__
-        enum { BLOCK_LEN = kCCBlockSizeAES128 };
-      #else
-        enum { BLOCK_LEN = AES_BLOCK_SIZE };
-      #endif
+      enum { BLOCK_LEN = AES_BLOCK_SIZE };
 
       enum { IV_LEN = BLOCK_LEN / 2 };
       enum { DEFAULT_KEY_LEN = 32 }; // 256 bits
