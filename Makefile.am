@@ -17,7 +17,7 @@ cppcheck:
 	cd src; cppcheck --enable=all -q * 2>&1 | grep -v -e '^\[[^]]*/tests/[^]]*\]:' -e '^\[[^]]*Makefile*[^]]*\]:'
 
 test-file-headers:
-	@for F in `find src -type f ! -path \*.svn\* ! -path \*/tests/\* \( -name \*.cc -or -name \*.h \) | sort`; do \
+	@for F in `find src -type f ! -path \*/tests/\* \( -name \*.cc -or -name \*.h \) | sort`; do \
 		MODF="$${F##src/}"; \
 		HT=`head -n 2 $$F | tail -n 1 | sed -e 's/^ \* //'`; \
 		\
@@ -25,7 +25,7 @@ test-file-headers:
 	done; true # so make doesn't report an error
 
 test-header-guards:
-	@for F in `find src -type f ! -path \*.svn\* -name \*.h | sort`; do \
+	@for F in `find src -type f -name \*.h | sort`; do \
 		MODF=`echo $$F | sed -e 's/^src\//S3_/' -e 's/\//_/g' -e 's/\./_/g' | tr 'a-z' 'A-Z'`; \
 		\
 		if ! grep "#ifndef $$MODF" $$F >/dev/null || ! grep "#define $$MODF" $$F >/dev/null; then \
@@ -34,7 +34,7 @@ test-header-guards:
 	done; true
 
 test-using-decls:
-	@for FILE in `find . ! -path \*/.svn/\* \( -name \*.cc -or -name \*.h \)`; do \
+	@for FILE in `find src -type f \( -name \*.cc -or -name \*.h \)`; do \
 	  for CLASS in `grep '^using ' $$FILE | grep -v '^using namespace' | sed -e 's/^using.*:://' -e 's/;//'`; do \
 	    REF_COUNT=`grep "\<$$CLASS\>" $$FILE | grep -v "^#" | grep -v "\"[^\"]*\<$$CLASS\>[^\"]*\"" | wc -l`; \
 			\
