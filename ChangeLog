@@ -2,8 +2,9 @@ s3fuse (0.16) unstable; urgency=low
 
   * Fix Google Cloud Storage "Access Denied" bug by requesting token with
     full_control scope instead of just read_write.
+  * Update POSIX testing notes in README to mention attr_timeout option.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Tue, 19 Aug 2014 18:44:01 -0800
+ -- Tarick Bedeir <tarick@bedeir.com>  Tue, 19 Aug 2014 18:48:49 -0800
 
 s3fuse (0.15) unstable; urgency=low
 

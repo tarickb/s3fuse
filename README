@@ -35,7 +35,8 @@ s3fuse is mostly POSIX compliant, except that:
 Some notes on testing:
 
   - Use pjd-fstest-20080816 from http://www.tuxera.com/community/posix-test-suite/.
-  - Bucket must be mounted as root and with "-o allow_other,default_permissions".
+  - Bucket must be mounted as root and with "-o allow_other,default_permissions,
+    attr_timeout=0".
   - Run tests as root from mount point, not a subdirectory.
 
 All tests should pass, except:
