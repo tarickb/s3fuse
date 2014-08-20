@@ -66,6 +66,8 @@ using s3::threads::pool;
 
 namespace
 {
+  const off_t TRUNCATE_LIMIT = 4ULL * 1024 * 1024 * 1024; // 4 GB
+
   atomic_count s_sha256_mismatches(0), s_md5_mismatches(0), s_no_hash_checks(0);
   atomic_count s_non_dirty_flushes(0), s_reopens(0);
 
@@ -364,6 +366,9 @@ int file::truncate(off_t length)
 {
   mutex::scoped_lock lock(_fs_mutex);
   int r;
+
+  if (length > TRUNCATE_LIMIT)
+    return -EINVAL;
 
   while (_status & (FS_DOWNLOADING | FS_UPLOADING))
     _condition.wait(lock);
