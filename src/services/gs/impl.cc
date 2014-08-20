@@ -57,7 +57,7 @@ namespace
   const string URL_PREFIX = "https://commondatastorage.googleapis.com";
 
   const string EP_TOKEN = "https://accounts.google.com/o/oauth2/token";
-  const string OAUTH_SCOPE = "https%3a%2f%2fwww.googleapis.com%2fauth%2fdevstorage.read_write";
+  const string OAUTH_SCOPE = "https%3a%2f%2fwww.googleapis.com%2fauth%2fdevstorage.full_control";
 
   const string CLIENT_ID = "591551582755.apps.googleusercontent.com";
   const string CLIENT_SECRET = "CQAaXZWfWJKdy_IV7TNZfO1P";
