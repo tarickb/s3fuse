@@ -100,6 +100,26 @@ enables use of EU buckets:
  
   aws_service_endpoint=s3-eu-west-1.amazonaws.com
 
+
+Amazon S3 ACL list
+------------------
+
+For Amazon S3, set acl_list_file to the full path of a file containing acl list.
+e.g.:
+
+  object_acls=/etc/acl.list
+
+Where acl.list contains:
+
+  <path> <acl>
+
+<path> is relative path from mount point.
+i.e:
+   <path> => <mount point>/<path>
+<acl> can have one of the following values:
+   private, public-read,  public-read-write, authenticated-read,
+   bucket-owner-read, bucket-owner-full-control.
+  
 Google Storage
 --------------
 
@@ -381,3 +401,4 @@ configuration file and a corresponding entry in /etc/fstab:
 
   s3fuse /media/bucket0 fuse defaults,noauto,user,allow_other,config=/etc/s3fuse.bucket0.conf 0 0
   s3fuse /media/bucket1 fuse defaults,noauto,user,allow_other,config=/etc/s3fuse.bucket1.conf 0 0
+

@@ -1,10 +1,10 @@
 /*
  * services/fvs/file_transfer.h
  * -------------------------------------------------------------------------
- * FVS file transfer class declaration.
+ * AWS file transfer class declaration.
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2013, Tarick Bedeir, Hiroyuki Kakine.
+ * Copyright (c) 2012, Tarick Bedeir.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_SERVICES_FVS_FILE_TRANSFER_H
-#define S3_SERVICES_FVS_FILE_TRANSFER_H
+#ifndef S3_SERVICES_AWS_FILE_TRANSFER_H
+#define S3_SERVICES_AWS_FILE_TRANSFER_H
 
 #include <string>
 
@@ -30,12 +30,57 @@ namespace s3
 {
   namespace services
   {
-    namespace fvs
+    namespace fvs 
     {
       class file_transfer : public services::file_transfer
       {
       public:
+        file_transfer();
+
         virtual size_t get_upload_chunk_size();
+
+      protected:
+        virtual int upload_multi(
+          const std::string &url, 
+          size_t size, 
+          const read_chunk_fn &on_read, 
+          std::string *returned_etag);
+
+      private:
+        struct upload_range
+        {
+          int id;
+          size_t size;
+          off_t offset;
+          std::string etag;
+        };
+
+        int upload_part(
+          const base::request::ptr &req, 
+          const std::string &url, 
+          const std::string &upload_id, 
+          const read_chunk_fn &on_read, 
+          upload_range *range, 
+          bool is_retry);
+
+        int upload_multi_init(
+          const base::request::ptr &req, 
+          const std::string &url, 
+          std::string *upload_id);
+
+        int upload_multi_cancel(
+          const base::request::ptr &req, 
+          const std::string &url, 
+          const std::string &upload_id);
+
+        int upload_multi_complete(
+          const base::request::ptr &req, 
+          const std::string &url, 
+          const std::string &upload_id, 
+          const std::string &upload_metadata, 
+          std::string *etag);
+
+        size_t _upload_chunk_size;
       };
     }
   }

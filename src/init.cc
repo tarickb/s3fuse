@@ -29,6 +29,7 @@
 #include "fs/encryption.h"
 #include "fs/file.h"
 #include "fs/mime_types.h"
+#include "fs/object_acls.h"
 #include "services/service.h"
 #include "threads/pool.h"
 
@@ -56,6 +57,7 @@ using s3::fs::cache;
 using s3::fs::encryption;
 using s3::fs::file;
 using s3::fs::mime_types;
+using s3::fs::object_acls;
 using s3::services::impl;
 using s3::services::service;
 using s3::threads::pool;
@@ -77,6 +79,7 @@ void init::fs()
   cache::init();
   encryption::init();
   mime_types::init();
+  object_acls::init();
 }
 
 void init::services()

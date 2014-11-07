@@ -119,6 +119,11 @@ size_t request::header_process(char *data, size_t size, size_t items, void *cont
   if (data[size] != '\0')
     return size; // we choose not to handle the case where data isn't null-terminated
 
+  // Skip CRLF or LF.
+  // The process of proxy tunnel in libcurl is assumed to no modified CRLF.
+  if ((size == 2 && strncmp(data, "\r\n", 2) == 0) || (size == 1 && data[0] == '\n'))
+        return size;
+
   pos = strchr(data, '\n');
 
   if (pos)

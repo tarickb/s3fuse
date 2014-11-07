@@ -57,6 +57,9 @@ CONFIG(std::string, volume_key_file, "", "name of file containing hex-encoded vo
   CONFIG(bool, allow_glacier_restores, false, "set to 'true'/'yes' to enable glacier object restores");
 #endif
 
+CONFIG_SECTION("Environment");
+CONFIG(std::string, tmp_path, "/tmp", "temporary file path");
+
 CONFIG_SECTION("Statistics");
 CONFIG(std::string, stats_file, "", "write statistics on various operations and exceptions to specified file if set");
 
@@ -65,6 +68,7 @@ CONFIG(int, default_uid, UID_MAX, "UID for files in S3 that don't have a UID set
 CONFIG(int, default_gid, GID_MAX, "GID for files in S3 that don't have a GID set (defaults to process effective GID)");
 CONFIG(int, default_mode, 0755, "mode for files in S3 that don't have a mode set");
 CONFIG(std::string, default_cache_control, "", "default Cache-Control header (can be overriden with per-object extended attribute)");
+CONFIG(std::string, object_acls, "", "path to file containing ACL by object");
 
 CONFIG_SECTION("Cache Parameters");
 CONFIG(int, cache_expiry_in_s, 3 * 60, "time in seconds before objects in stats cache expire");

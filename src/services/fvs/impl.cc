@@ -115,7 +115,7 @@ const string & impl::get_bucket_url()
 
 bool impl::is_next_marker_supported()
 {
-  return false;
+  return true;
 }
 
 void impl::sign(request *req)
