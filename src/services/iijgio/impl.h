@@ -1,7 +1,7 @@
 /*
- * services/fvs/impl.h
+ * services/iijgio/impl.h
  * -------------------------------------------------------------------------
- * Service implementation for FVS.
+ * Service implementation for IIJ GIO storage and analysis.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2013, Tarick Bedeir, Hiroyuki Kakine.
@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_SERVICES_FVS_IMPL_H
-#define S3_SERVICES_FVS_IMPL_H
+#ifndef S3_SERVICES_IIJGIO_IMPL_H
+#define S3_SERVICES_IIJGIO_IMPL_H
 
 #include "services/impl.h"
 
@@ -30,7 +30,7 @@ namespace s3
   {
     class file_transfer;
 
-    namespace fvs
+    namespace iijgio
     {
       class impl : public services::impl
       {

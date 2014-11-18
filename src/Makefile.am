@@ -11,8 +11,8 @@ if WITH_AWS
 service_libs += services/aws/libs3fuse_services_aws.a
 endif
 
-if WITH_FVS
-service_libs += services/fvs/libs3fuse_services_fvs.a
+if WITH_IIJGIO
+service_libs += services/iijgio/libs3fuse_services_iijgio.a
 endif
 
 if WITH_GS

@@ -1,12 +1,12 @@
 SUBDIRS = .
-DIST_SUBDIRS = . aws fvs gs
+DIST_SUBDIRS = . aws iijgio gs
 
 if WITH_AWS
 SUBDIRS += aws
 endif
 
-if WITH_FVS
-SUBDIRS += fvs
+if WITH_IIJGIO
+SUBDIRS += iijgio
 endif
 
 if WITH_GS

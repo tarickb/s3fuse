@@ -1,5 +1,5 @@
 /*
- * services/fvs/file_transfer.cc
+ * services/iijgio/file_transfer.cc
  * -------------------------------------------------------------------------
  * AWS file transfer implementation.
  * -------------------------------------------------------------------------
@@ -30,7 +30,7 @@
 #include "crypto/hash.h"
 #include "crypto/hex_with_quotes.h"
 #include "crypto/md5.h"
-#include "services/fvs/file_transfer.h"
+#include "services/iijgio/file_transfer.h"
 #include "threads/parallel_work_queue.h"
 #include "threads/pool.h"
 
@@ -50,7 +50,7 @@ using s3::base::xml;
 using s3::crypto::hash;
 using s3::crypto::hex_with_quotes;
 using s3::crypto::md5;
-using s3::services::fvs::file_transfer;
+using s3::services::iijgio::file_transfer;
 using s3::threads::parallel_work_queue;
 using s3::threads::pool;
 
@@ -66,7 +66,7 @@ namespace
   void statistics_writer(ostream *o)
   {
     *o <<
-      "fvs multi-part uploads:\n"
+      "iijgio multi-part uploads:\n"
       "  chunks failed: " << s_uploads_multi_chunks_failed << "\n";
   }
 

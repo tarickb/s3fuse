@@ -7,6 +7,7 @@ s3fuse (0.16) unstable; urgency=low
   * Amaxon S3 ACL list support.
   * FV/S supported multipart upload.
   * FV/S supported next marker.
+  * rename FV/S to IIJ GIO storage and analysis.
 
  -- Tarick Bedeir <tarick@bedeir.com>  Tue, 19 Aug 2014 18:49:22 -0800
 

@@ -37,8 +37,8 @@
 #include "services/aws/impl.h"
 #endif
 
-#ifdef WITH_FVS
-#include "services/fvs/impl.h"
+#ifdef WITH_IIJGIO
+#include "services/iijgio/impl.h"
 #endif
 
 #ifdef WITH_GS
@@ -99,8 +99,8 @@ void init::services()
       TEST_SVC("aws", aws);
     #endif
 
-    #ifdef WITH_FVS
-      TEST_SVC("fvs", fvs);
+    #ifdef WITH_IIJGIO
+      TEST_SVC("iijgio", iijgio);
     #endif
 
     #ifdef WITH_GS
@@ -126,8 +126,8 @@ string init::get_enabled_services()
     svcs += ", aws";
   #endif
 
-  #ifdef WITH_FVS
-    svcs += ", fvs";
+  #ifdef WITH_IIJGIO
+    svcs += ", iijgio";
   #endif
 
   #ifdef WITH_GS

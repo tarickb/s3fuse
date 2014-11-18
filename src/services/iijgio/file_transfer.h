@@ -1,7 +1,7 @@
 /*
- * services/fvs/file_transfer.h
+ * services/iijgio/file_transfer.h
  * -------------------------------------------------------------------------
- * AWS file transfer class declaration.
+ * IIJ GIO storage and analysis file transfer class declaration.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2013, Tarick Bedeir, Hiroyuki Kakine.
@@ -30,7 +30,7 @@ namespace s3
 {
   namespace services
   {
-    namespace fvs 
+    namespace iijgio 
     {
       class file_transfer : public services::file_transfer
       {
