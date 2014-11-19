@@ -59,6 +59,7 @@ CONFIG(std::string, volume_key_file, "", "name of file containing hex-encoded vo
 
 CONFIG_SECTION("Environment");
 CONFIG(std::string, tmp_path, "/tmp", "temporary file path");
+CONFIG(bool, fuse_single_thread, false, "single thread mode in fuse if set to 'true'/'yes'");
 
 CONFIG_SECTION("Statistics");
 CONFIG(std::string, stats_file, "", "write statistics on various operations and exceptions to specified file if set");

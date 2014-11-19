@@ -232,6 +232,10 @@ int main(int argc, char **argv)
     init::services();
     init::fs();
 
+    if (config::get_fuse_single_thread()) {
+      fuse_opt_add_arg(&args, "-s");
+    }
+
     operations::init(opts.mountpoint);
     operations::build_fuse_operations(&opers);
 
