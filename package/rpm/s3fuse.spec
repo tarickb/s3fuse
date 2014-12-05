@@ -5,7 +5,7 @@
 Summary: FUSE Driver for AWS S3 and Google Storage and IIJ GIO storage and analysis
 Name: %{name}
 Version: %{version}
-Release: %{release}
+Release: %{release}%{?dist}
 Source: %{name}-%{version}.tar.gz
 BuildRoot: %{_builddir}/%{name}-root
 Group: Applications/System
