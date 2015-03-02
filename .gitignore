@@ -1,0 +1,11 @@
+*.[oa]
+aclocal.m4
+config.*
+configure
+depcomp
+install-sh
+missing
+Makefile
+Makefile.in
+.deps/
+autom4te.cache/
