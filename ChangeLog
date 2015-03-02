@@ -5,8 +5,9 @@ s3fuse (0.16) unstable; urgency=low
   * Update POSIX testing notes in README to mention attr_timeout option.
   * Return EINVAL when truncating if requested size exceeds 4 GB.
   * Fix HTTP header response processing.
+  * Add configuration option for Google Cloud Storage project ID.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Wed, 20 Aug 2014 14:11:32 -0800
+ -- Tarick Bedeir <tarick@bedeir.com>  Sat, 28 Feb 2015 09:30:18 -0800
 
 s3fuse (0.15) unstable; urgency=low
 
