@@ -76,6 +76,8 @@ namespace
     curl_slist *_list;
   };
 
+  const string USER_AGENT = string(PACKAGE_NAME) + " " + PACKAGE_VERSION_WITH_REV;
+
   uint64_t s_run_count = 0;
   uint64_t s_total_bytes = 0;
   double s_run_time = 0.0;
@@ -221,6 +223,7 @@ request::request()
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_READDATA, this));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_SEEKFUNCTION, &request::input_seek));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_SEEKDATA, this));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_USERAGENT, USER_AGENT.c_str()));
 }
 
 request::~request()
