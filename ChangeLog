@@ -7,8 +7,9 @@ s3fuse (0.16) unstable; urgency=low
   * Fix HTTP header response processing.
   * Add configuration option for Google Cloud Storage project ID.
   * Set HTTP user agent.
+  * Test bucket access before daemonizing.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Mon, 02 Mar 2015 07:31:54 -0800
+ -- Tarick Bedeir <tarick@bedeir.com>  Mon, 02 Mar 2015 07:36:12 -0800
 
 s3fuse (0.15) unstable; urgency=low
 
