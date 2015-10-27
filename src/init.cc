@@ -23,12 +23,16 @@
 
 #include "init.h"
 #include "base/config.h"
+#include "base/request.h"
 #include "base/statistics.h"
 #include "base/xml.h"
+#include "crypto/buffer.h"
 #include "fs/cache.h"
 #include "fs/encryption.h"
 #include "fs/file.h"
+#include "fs/list_reader.h"
 #include "fs/mime_types.h"
+#include "fs/object.h"
 #include "fs/object_acls.h"
 #include "services/service.h"
 #include "threads/pool.h"
@@ -51,16 +55,73 @@ using std::string;
 using s3::init;
 using s3::base::config;
 using s3::base::logger;
+using s3::base::request;
 using s3::base::statistics;
 using s3::base::xml;
+using s3::crypto::buffer;
 using s3::fs::cache;
 using s3::fs::encryption;
 using s3::fs::file;
+using s3::fs::list_reader;
 using s3::fs::mime_types;
+using s3::fs::object;
 using s3::fs::object_acls;
 using s3::services::impl;
 using s3::services::service;
 using s3::threads::pool;
+
+namespace
+{
+  const int BUCKET_TEST_MAX_RETRIES = 3;
+  const int BUCKET_TEST_ID_LEN = 16;
+
+  void test_bucket_access()
+  {
+    request::ptr req(new request());
+    list_reader::ptr reader(new list_reader("/", false, 1));
+    xml::element_list list;
+    int r = 0;
+    int retry_count = 0;
+
+    req->set_hook(service::get_request_hook());
+    r = reader->read(req, &list, NULL);
+    if (r)
+      throw runtime_error("unable to list bocket contents. check bucket name and credentials.");
+
+    while (retry_count++ < BUCKET_TEST_MAX_RETRIES) {
+      string rand_url = object::build_internal_url(string("bucket_test_") + buffer::generate(BUCKET_TEST_ID_LEN)->to_string());
+
+      req->init(s3::base::HTTP_HEAD);
+      req->set_url(rand_url);
+      req->run();
+
+      if (req->get_response_code() != s3::base::HTTP_SC_NOT_FOUND) {
+        S3_LOG(LOG_DEBUG, "init::test_bucket_access", "test key exists. that's unusual.\n");
+        continue;
+      }
+
+      req->init(s3::base::HTTP_PUT);
+      req->set_url(rand_url);
+      req->set_input_buffer("this is a test.");
+      req->run();
+
+      if (req->get_response_code() != s3::base::HTTP_SC_OK) {
+        S3_LOG(LOG_WARNING, "init::test_bucket_access", "cannot commit test object to bucket. access to this bucket is likely read-only. continuing anyway, but check permissions if this is unexpected.\n");
+      } else {
+        req->init(s3::base::HTTP_DELETE);
+        req->set_url(rand_url);
+        req->run();
+
+        if (req->get_response_code() != s3::base::HTTP_SC_NO_CONTENT)
+          S3_LOG(LOG_WARNING, "init::test_bucket_access", "unable to clean up test object. might be missing permission to delete objects. continuing anyway.\n");
+      }
+
+      return;
+    }
+
+    throw runtime_error("unable to complete bucket access test.");
+  }
+}
 
 void init::base(int flags, int verbosity, const string &config_file)
 {
@@ -80,6 +141,8 @@ void init::fs()
   encryption::init();
   mime_types::init();
   object_acls::init();
+
+  test_bucket_access();
 }
 
 void init::services()

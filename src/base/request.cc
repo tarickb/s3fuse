@@ -76,6 +76,8 @@ namespace
     curl_slist *_list;
   };
 
+  const string USER_AGENT = string(PACKAGE_NAME) + " " + PACKAGE_VERSION_WITH_REV;
+
   uint64_t s_run_count = 0;
   uint64_t s_total_bytes = 0;
   double s_run_time = 0.0;
@@ -109,7 +111,8 @@ namespace
 size_t request::header_process(char *data, size_t size, size_t items, void *context)
 {
   request *req = static_cast<request *>(context);
-  char *pos;
+  const char *p1, *p2;
+  string name, value;
 
   size *= items;
 
@@ -119,28 +122,25 @@ size_t request::header_process(char *data, size_t size, size_t items, void *cont
   if (data[size] != '\0')
     return size; // we choose not to handle the case where data isn't null-terminated
 
-  pos = strchr(data, '\n');
+  p1 = strchr(data, ':');
 
-  if (pos)
-    *pos = '\0';
-
-  // for some reason the ETag header (among others?) contains a carriage return
-  pos = strchr(data, '\r'); 
-
-  if (pos)
-    *pos = '\0';
-
-  pos = strchr(data, ':');
-
-  if (!pos)
+  if (!p1)
     return size; // no colon means it's not a header we care about
 
-  *pos++ = '\0';
+  name.insert(0, data, p1 - data);
 
-  if (*pos == ' ')
-    pos++;
+  if (*++p1 == ' ')
+    p1++;
 
-  req->_response_headers[data] = pos;
+  // for some reason the ETag header (among others?) contains a carriage return
+  p2 = strpbrk(p1, "\r\n");
+
+  if (!p2)
+    p2 = p1 + strlen(p1);
+
+  value.insert(0, p1, p2 - p1);
+
+  req->_response_headers[name] = value;
 
   return size;
 }
@@ -224,6 +224,7 @@ request::request()
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_SEEKFUNCTION, &request::input_seek));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_SEEKDATA, this));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_DNS_CACHE_TIMEOUT, config::get_dns_cache()));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_USERAGENT, USER_AGENT.c_str()));
 }
 
 request::~request()

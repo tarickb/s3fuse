@@ -4,12 +4,16 @@ s3fuse (0.16) unstable; urgency=low
     full_control scope instead of just read_write.
   * Update POSIX testing notes in README to mention attr_timeout option.
   * Return EINVAL when truncating if requested size exceeds 4 GB.
-  * Amaxon S3 ACL list support.
+  * Fix HTTP header response processing.
+  * Add configuration option for Google Cloud Storage project ID.
+  * Set HTTP user agent.
+  * Test bucket access before daemonizing.
+  * Amazon S3 ACL list support.
   * FV/S supported multipart upload.
   * FV/S supported next marker.
   * rename FV/S to IIJ GIO storage and analysis.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Tue, 19 Aug 2014 18:49:22 -0800
+ -- Tarick Bedeir <tarick@bedeir.com>  Mon, 02 Mar 2015 07:36:12 -0800
 
 s3fuse (0.15) unstable; urgency=low
 

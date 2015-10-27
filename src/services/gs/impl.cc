@@ -197,6 +197,9 @@ void impl::sign(request *req, int iter)
 
   req->set_header("Authorization", _access_token);
   req->set_header("x-goog-api-version", "2");
+
+  if (!config::get_gs_project_id().empty())
+    req->set_header("x-goog-project-id", config::get_gs_project_id());
 }
 
 void impl::refresh(const mutex::scoped_lock &lock)
