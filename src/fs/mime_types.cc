@@ -86,9 +86,10 @@ void mime_types::init()
     load_from_file(MAP_FILES[i]);
 }
 
-const string & mime_types::get_type_by_extension(string ext)
+string mime_types::get_type_by_extension(string ext)
 {
   to_lower(ext);
 
-  return s_map[ext];
+  const type_map::const_iterator &iter = s_map.find(ext);
+  return (iter == s_map.end()) ? "" : iter->second;
 }

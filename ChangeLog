@@ -1,3 +1,9 @@
+s3fuse (0.17) unstable; urgency=low
+
+  * Fix MIME type mapping bug that resulted in the occasional segfault.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Wed, 06 Jan 2016 16:34:12 -0800
+
 s3fuse (0.16) unstable; urgency=low
 
   * Fix Google Cloud Storage "Access Denied" bug by requesting token with
