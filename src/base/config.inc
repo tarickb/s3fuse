@@ -40,11 +40,11 @@ CONFIG_CONSTRAINT(CONFIG_KEY(bucket_name).size() > 0, "bucket_name must be speci
   CONFIG(std::string, gs_project_id, "", "project ID (from Google Developers Console)");
 #endif
 
-#ifdef WITH_FVS
-  CONFIG_SECTION("FV/S");
-  CONFIG(std::string, fvs_secret_file, "", "path to file containing FV/S Access Key ID followed by a space followed by FV/S Secret Access Key; file must not be group- or world-readable or -writable");
-  CONFIG(std::string, fvs_service_endpoint, "gss.iijgio.com", "service endpoint for IIJ FV/S");
-  CONFIG(bool, fvs_use_ssl, true, "set to 'no'/'false' to disable SSL");
+#ifdef WITH_IIJGIO
+  CONFIG_SECTION("IIJGIO");
+  CONFIG(std::string, iijgio_secret_file, "", "path to file containing IIJ GIO storage and analysis Access Key ID followed by a space followed by IIJ GIO storage and analysis Secret Access Key; file must not be group- or world-readable or -writable");
+  CONFIG(std::string, iijgio_service_endpoint, "storage-dag.iijgio.com", "service endpoint for IIJ GIO storage and analysis");
+  CONFIG(bool, iijgio_use_ssl, true, "set to 'no'/'false' to disable SSL");
 #endif
 
 CONFIG_SECTION("Encryption");
@@ -58,6 +58,10 @@ CONFIG(std::string, volume_key_file, "", "name of file containing hex-encoded vo
   CONFIG(bool, allow_glacier_restores, false, "set to 'true'/'yes' to enable glacier object restores");
 #endif
 
+CONFIG_SECTION("Environment");
+CONFIG(std::string, tmp_path, "/tmp", "temporary file path");
+CONFIG(bool, fuse_single_thread, false, "single thread mode in fuse if set to 'true'/'yes'");
+
 CONFIG_SECTION("Statistics");
 CONFIG(std::string, stats_file, "", "write statistics on various operations and exceptions to specified file if set");
 
@@ -66,6 +70,7 @@ CONFIG(int, default_uid, UID_MAX, "UID for files in S3 that don't have a UID set
 CONFIG(int, default_gid, GID_MAX, "GID for files in S3 that don't have a GID set (defaults to process effective GID)");
 CONFIG(int, default_mode, 0755, "mode for files in S3 that don't have a mode set");
 CONFIG(std::string, default_cache_control, "", "default Cache-Control header (can be overriden with per-object extended attribute)");
+CONFIG(std::string, object_acls, "", "path to file containing ACL by object");
 
 CONFIG_SECTION("Cache Parameters");
 CONFIG(int, cache_expiry_in_s, 3 * 60, "time in seconds before objects in stats cache expire");
@@ -73,6 +78,7 @@ CONFIG(bool, cache_directories, false, "cache directory listings if set to 'true
 CONFIG(int, max_objects_in_cache, 1000, "maximum number of objects to hold in cache");
 CONFIG(bool, precache_on_readdir, true, "precache object attributes when listing directory contents (improves performance in interactive use); set to 'no'/'false' to disable");
 CONFIG_CONSTRAINT(CONFIG_KEY(max_objects_in_cache) > 0, "max_objects_in_cache must be greater than zero");
+CONFIG(int, dns_cache, 10, "time in seconds of dns to hold in cache");
 
 CONFIG_SECTION("MIME");
 CONFIG(std::string, default_content_type, "binary/octet-stream", "MIME type for newly-created objects");

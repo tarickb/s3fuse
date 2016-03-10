@@ -1,0 +1,7 @@
+s3fuseのデバッグオプションを有効にして任意のディレクトリにマウントする
+  sudo ./s3fuse -v9 -f -o -oallow_other,config=/etc/s3fuse.conf,debug /mnt/s3
+新たにターミナルを作成し，以下のコマンドでテストを実行する
+*注意：マウントポイントを引数として指定すること
+*    ：マウントポイントのtest/とtest2/以下のオブジェクトは消去されます
+  sudo ./test.sh /mnt/s3
+  sudo ./s3fuse-test.sh /mnt/s3

@@ -223,6 +223,7 @@ request::request()
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_READDATA, this));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_SEEKFUNCTION, &request::input_seek));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_SEEKDATA, this));
+  TEST_OK(curl_easy_setopt(_curl, CURLOPT_DNS_CACHE_TIMEOUT, config::get_dns_cache()));
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_USERAGENT, USER_AGENT.c_str()));
 }
 

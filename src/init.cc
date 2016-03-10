@@ -33,6 +33,7 @@
 #include "fs/list_reader.h"
 #include "fs/mime_types.h"
 #include "fs/object.h"
+#include "fs/object_acls.h"
 #include "services/service.h"
 #include "threads/pool.h"
 
@@ -40,8 +41,8 @@
 #include "services/aws/impl.h"
 #endif
 
-#ifdef WITH_FVS
-#include "services/fvs/impl.h"
+#ifdef WITH_IIJGIO
+#include "services/iijgio/impl.h"
 #endif
 
 #ifdef WITH_GS
@@ -64,6 +65,7 @@ using s3::fs::file;
 using s3::fs::list_reader;
 using s3::fs::mime_types;
 using s3::fs::object;
+using s3::fs::object_acls;
 using s3::services::impl;
 using s3::services::service;
 using s3::threads::pool;
@@ -138,6 +140,7 @@ void init::fs()
   cache::init();
   encryption::init();
   mime_types::init();
+  object_acls::init();
 
   test_bucket_access();
 }
@@ -159,8 +162,8 @@ void init::services()
       TEST_SVC("aws", aws);
     #endif
 
-    #ifdef WITH_FVS
-      TEST_SVC("fvs", fvs);
+    #ifdef WITH_IIJGIO
+      TEST_SVC("iijgio", iijgio);
     #endif
 
     #ifdef WITH_GS
@@ -186,8 +189,8 @@ string init::get_enabled_services()
     svcs += ", aws";
   #endif
 
-  #ifdef WITH_FVS
-    svcs += ", fvs";
+  #ifdef WITH_IIJGIO
+    svcs += ", iijgio";
   #endif
 
   #ifdef WITH_GS

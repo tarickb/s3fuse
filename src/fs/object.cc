@@ -34,6 +34,7 @@
 #include "fs/metadata.h"
 #include "fs/object.h"
 #include "fs/static_xattr.h"
+#include "fs/object_acls.h"
 #include "services/service.h"
 
 #ifdef WITH_AWS
@@ -68,6 +69,7 @@ using s3::base::timer;
 using s3::base::xml;
 using s3::fs::object;
 using s3::fs::static_xattr;
+using s3::fs::object_acls;
 using s3::services::service;
 
 namespace
@@ -184,6 +186,13 @@ int object::copy_by_path(const request::ptr &req, const string &from, const stri
   req->set_url(object::build_url(to));
   req->set_header(service::get_header_prefix() + "copy-source", object::build_url(from));
   req->set_header(service::get_header_prefix() + "metadata-directive", "COPY");
+
+  // set acl
+  string acl = object_acls::get_acl(to);
+  if (!acl.empty()) {
+    S3_LOG(LOG_DEBUG, "object::copy_by_path", "path = %s, acl = %s.\n", to.c_str(), acl.c_str());
+    req->set_header(service::get_header_prefix() + "acl", acl);
+  }
 
   // use transfer timeout because this could take a while
   req->run(config::get_transfer_timeout_in_s());
@@ -488,6 +497,13 @@ int object::commit(const request::ptr &req)
     req->set_url(_url);
 
     set_request_headers(req);
+
+    // set acl 
+    string acl = object_acls::get_acl(get_path());
+    if (!acl.empty()) {
+      S3_LOG(LOG_DEBUG, "object::commit", "acl = %s, path = %s.\n", get_path().c_str(), acl.c_str());
+      req->set_header(service::get_header_prefix() + "acl", acl);
+    }
 
     // if the object already exists (i.e., if we have an etag) then just update
     // the metadata.

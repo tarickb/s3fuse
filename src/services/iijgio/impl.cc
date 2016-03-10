@@ -1,7 +1,7 @@
 /*
- * services/fvs/impl.cc
+ * services/iijgio/impl.cc
  * -------------------------------------------------------------------------
- * Definitions for FVS service implementation.
+ * Definitions for IIJ GIO storage and analysis service implementation.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2013, Tarick Bedeir, Hiroyuki Kakine.
@@ -31,8 +31,8 @@
 #include "crypto/encoder.h"
 #include "crypto/hmac_sha1.h"
 #include "crypto/private_file.h"
-#include "services/fvs/file_transfer.h"
-#include "services/fvs/impl.h"
+#include "services/iijgio/file_transfer.h"
+#include "services/iijgio/impl.h"
 
 using boost::is_any_of;
 using boost::shared_ptr;
@@ -51,7 +51,7 @@ using s3::crypto::encoder;
 using s3::crypto::hmac_sha1;
 using s3::crypto::private_file;
 using s3::services::file_transfer;
-using s3::services::fvs::impl;
+using s3::services::iijgio::impl;
 
 namespace
 {
@@ -74,7 +74,7 @@ impl::impl()
   string line;
   vector<string> fields;
 
-  private_file::open(config::get_fvs_secret_file(), &f);
+  private_file::open(config::get_iijgio_secret_file(), &f);
   getline(f, line);
 
   split(fields, line, is_any_of(string(" \t")), token_compress_on);
@@ -83,17 +83,17 @@ impl::impl()
     S3_LOG(
       LOG_ERR, 
       "impl::impl", 
-      "expected 2 fields for fvs_secret_file, found %i.\n",
+      "expected 2 fields for iijgio_secret_file, found %i.\n",
       fields.size());
 
-    throw runtime_error("error while parsing auth data for FVS.");
+    throw runtime_error("error while parsing auth data for IIJGIO.");
   }
 
   _key = fields[0];
   _secret = fields[1];
 
-  _endpoint = config::get_fvs_use_ssl() ? "https://" : "http://";
-  _endpoint += config::get_fvs_service_endpoint();
+  _endpoint = config::get_iijgio_use_ssl() ? "https://" : "http://";
+  _endpoint += config::get_iijgio_service_endpoint();
 
   _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
 }
@@ -115,7 +115,7 @@ const string & impl::get_bucket_url()
 
 bool impl::is_next_marker_supported()
 {
-  return false;
+  return true;
 }
 
 void impl::sign(request *req)
@@ -156,5 +156,5 @@ void impl::pre_run(request *r, int iter)
 
 shared_ptr<file_transfer> impl::build_file_transfer()
 {
-  return shared_ptr<file_transfer>(new fvs::file_transfer());
+  return shared_ptr<file_transfer>(new iijgio::file_transfer());
 }

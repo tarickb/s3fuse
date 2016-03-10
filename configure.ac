@@ -58,7 +58,7 @@ AC_ARG_ENABLE(
 
 service_default_aws=true
 service_default_gs=true
-service_default_fvs=true
+service_default_iijgio=true
 
 AC_ARG_ENABLE(
   [aws],
@@ -79,18 +79,18 @@ AC_ARG_ENABLE(
    esac], [gs=$service_default_gs])
 
 AC_ARG_ENABLE(
-  [fvs],
-  [  --enable-fvs            Enable FV/S support],
+  [iijgio],
+  [  --enable-iijgio            Enable IIJGIO storage and analysis support],
   [case "${enableval}" in
-     yes) fvs=true ;;
-     no)  fvs=false ;;
-     *) AC_MSG_ERROR([bad value ${enableval} for --enable-fvs]) ;;
-   esac], [fvs=$service_default_fvs])
+     yes) iijgio=true ;;
+     no)  iijgio=false ;;
+     *) AC_MSG_ERROR([bad value ${enableval} for --enable-iijgio]) ;;
+   esac], [iijgio=$service_default_iijgio])
 
 AM_CONDITIONAL([BUILD_TESTS], [test x$build_tests = xtrue])
 AM_CONDITIONAL([WITH_AWS], [test x$aws = xtrue])
 AM_CONDITIONAL([WITH_GS], [test x$gs = xtrue])
-AM_CONDITIONAL([WITH_FVS], [test x$fvs = xtrue])
+AM_CONDITIONAL([WITH_IIJGIO], [test x$iijgio = xtrue])
 
 # set LDFLAGS rather than AM_LDFLAGS below because we need these flags
 # when using AC_CHECK_LIB
@@ -128,9 +128,9 @@ if test "x$gs" = xtrue; then
   let svc_count++
 fi
 
-if test "x$fvs" = xtrue; then
-  AC_DEFINE([WITH_FVS], [])
-  last_svc_enabled=fvs
+if test "x$iijgio" = xtrue; then
+  AC_DEFINE([WITH_IIJGIO], [])
+  last_svc_enabled=iijgio
   let svc_count++
 fi
 
@@ -192,7 +192,7 @@ AC_CONFIG_FILES([src/Makefile src/tests/Makefile])
 AC_CONFIG_FILES([src/base/Makefile src/base/tests/Makefile])
 AC_CONFIG_FILES([src/crypto/Makefile src/crypto/tests/Makefile])
 AC_CONFIG_FILES([src/fs/Makefile src/fs/tests/Makefile])
-AC_CONFIG_FILES([src/services/Makefile src/services/aws/Makefile src/services/fvs/Makefile src/services/gs/Makefile])
+AC_CONFIG_FILES([src/services/Makefile src/services/aws/Makefile src/services/iijgio/Makefile src/services/gs/Makefile])
 AC_CONFIG_FILES([src/threads/Makefile src/threads/tests/Makefile])
 
 AC_DEFINE(PACKAGE_VERSION_WITH_REV, [m4_format(["%s"], pkg_pretty_version)])

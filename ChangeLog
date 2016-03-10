@@ -14,6 +14,10 @@ s3fuse (0.16) unstable; urgency=low
   * Add configuration option for Google Cloud Storage project ID.
   * Set HTTP user agent.
   * Test bucket access before daemonizing.
+  * Amazon S3 ACL list support.
+  * FV/S supported multipart upload.
+  * FV/S supported next marker.
+  * rename FV/S to IIJ GIO storage and analysis.
 
  -- Tarick Bedeir <tarick@bedeir.com>  Mon, 02 Mar 2015 07:36:12 -0800
 

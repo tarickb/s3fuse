@@ -16,7 +16,7 @@ for D in \
   src/fs/tests \
   src/services \
   src/services/aws \
-  src/services/fvs \
+  src/services/iijgio \
   src/services/gs \
   src/tests \
   src/threads \

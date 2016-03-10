@@ -62,7 +62,7 @@ using s3::fs::static_xattr;
 using s3::services::service;
 using s3::threads::pool;
 
-#define TEMP_NAME_TEMPLATE "/tmp/s3fuse.local-XXXXXX"
+#define TEMP_NAME_TEMPLATE "/s3fuse.local-XXXXXX"
 
 namespace
 {
@@ -217,7 +217,8 @@ int file::open(file_open_mode mode, uint64_t *handle)
   mutex::scoped_lock lock(_fs_mutex);
 
   if (_ref_count == 0) {
-    char temp_name[] = TEMP_NAME_TEMPLATE;
+    char temp_name[PATH_MAX];
+    snprintf(temp_name, sizeof(temp_name), "%s%s", config::get_tmp_path().c_str(), TEMP_NAME_TEMPLATE);
     off_t size = get_stat()->st_size;
 
     _fd = mkstemp(temp_name);

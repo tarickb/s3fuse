@@ -1,10 +1,10 @@
 /*
- * services/fvs/file_transfer.cc
+ * fs/object_alcs.h
  * -------------------------------------------------------------------------
- * FVS file transfer implementation.
+ * MIME type lookup declaration.
  * -------------------------------------------------------------------------
  *
- * Copyright (c) 2013, Tarick Bedeir, Hiroyuki Kakine.
+ * Copyright (c) 2014, Hiroyuki Kakine.
  * 
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,22 @@
  * limitations under the License.
  */
 
-#include "services/fvs/file_transfer.h"
+#ifndef S3_FS_OBJECT_ACLS_H
+#define S3_FS_OBJECT_ACLS_H
 
-using s3::services::fvs::file_transfer;
+#include <string>
 
-size_t file_transfer::get_upload_chunk_size()
+namespace s3
 {
-  return 0; // disabled
+  namespace fs
+  {
+    class object_acls
+    {
+    public:
+      static void init();
+      static const std::string & get_acl(std::string path);
+    };
+  }
 }
+
+#endif

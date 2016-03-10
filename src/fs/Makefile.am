@@ -30,6 +30,8 @@ libs3fuse_fs_a_SOURCES = \
 	metadata.h \
 	mime_types.cc \
 	mime_types.h \
+	object_acls.cc \
+	object_acls.h \
 	object.cc \
 	object.h \
 	special.cc \
