@@ -17,6 +17,7 @@ AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_RANLIB
+AC_PROG_LIBTOOL
 
 AC_C_BIGENDIAN([AC_MSG_ERROR([big endian systems are not supported])])
 

@@ -1,3 +1,10 @@
+s3fuse (0.18) unstable; urgency=low
+
+  * Use updated boost.m4.
+  * Fix UID_MAX, GID_MAX-related compile issue.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Mon, 15 Aug 2016 18:23:49 +0200
+
 s3fuse (0.17) unstable; urgency=low
 
   * Fix MIME type mapping bug that resulted in the occasional segfault.

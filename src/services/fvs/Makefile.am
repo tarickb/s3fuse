@@ -1,4 +1,4 @@
-noinst_LIBRARIES = libs3fuse_services_fvs.a
+noinst_LTLIBRARIES = libs3fuse_services_fvs.a
 
 libs3fuse_services_fvs_a_SOURCES = \
 	file_transfer.cc \

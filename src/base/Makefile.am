@@ -5,7 +5,7 @@ if BUILD_TESTS
 SUBDIRS += tests
 endif
 
-noinst_LIBRARIES = libs3fuse_base.a
+noinst_LTLIBRARIES = libs3fuse_base.a
 
 libs3fuse_base_a_SOURCES = \
 	config.cc \

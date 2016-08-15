@@ -13,7 +13,7 @@ if WITH_GS
 SUBDIRS += gs
 endif
 
-noinst_LIBRARIES = libs3fuse_services.a
+noinst_LTLIBRARIES = libs3fuse_services.a
 
 libs3fuse_services_a_SOURCES = \
 	file_transfer.cc \
