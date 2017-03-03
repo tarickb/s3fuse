@@ -29,11 +29,11 @@
 #include <string>
 
 #if !defined(UID_MAX)
-#define UID_MAX UINT32_MAX
+#define UID_MAX std::numeric_limits<uint32_t>::max()
 #endif
 
 #if !defined(GID_MAX)
-#define GID_MAX UINT32_MAX
+#define GID_MAX  std::numeric_limits<uint32_t>::max()
 #endif
 
 namespace s3
