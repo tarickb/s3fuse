@@ -33,7 +33,7 @@
 #endif
 
 #if !defined(GID_MAX)
-#define GID_MAX  std::numeric_limits<uint32_t>::max()
+#define GID_MAX std::numeric_limits<uint32_t>::max()
 #endif
 
 namespace s3
