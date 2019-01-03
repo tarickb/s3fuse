@@ -53,7 +53,7 @@ namespace s3
       {
       }
 
-      inline bool is_valid() const { return _ah; }
+      inline bool is_valid() const { return _ah.get() != nullptr; }
       inline bool has_retries_left() const { return _retries > 0; }
 
       inline const boost::shared_ptr<async_handle> & get_ah() const { return _ah; }
