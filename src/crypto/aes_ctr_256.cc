@@ -20,6 +20,7 @@
  */
 
 #include <string.h>
+#include <openssl/modes.h>
 
 #include "crypto/aes_ctr_256.h"
 #include "crypto/symmetric_key.h"
@@ -50,5 +51,5 @@ void aes_ctr_256::crypt(const symmetric_key::ptr &key, uint64_t starting_block, 
   if (AES_set_encrypt_key(key->get_key()->get(), key->get_key()->size() * 8 /* in bits */, &aes_key) != 0)
     throw runtime_error("failed to set encryption key for aes_ctr_256");
 
-  AES_ctr128_encrypt(in, out, size, &aes_key, iv, ecount_buf, &num);
+  CRYPTO_ctr128_encrypt(in, out, size, &aes_key, iv, ecount_buf, &num, reinterpret_cast<block128_f>(AES_encrypt));
 }

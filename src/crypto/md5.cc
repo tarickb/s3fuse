@@ -43,25 +43,31 @@ void md5::compute(int fd, uint8_t *hash)
   off_t offset = 0;
   char buf[BUF_LEN];
 
-  EVP_MD_CTX md5_ctx;
+  EVP_MD_CTX *md5_ctx = EVP_MD_CTX_new();
+  EVP_DigestInit(md5_ctx, EVP_md5());
 
-  EVP_DigestInit(&md5_ctx, EVP_md5());
+  try {
+    while (true) {
+      ssize_t read_count;
 
-  while (true) {
-    ssize_t read_count;
+      read_count = pread(fd, buf, BUF_LEN, offset);
 
-    read_count = pread(fd, buf, BUF_LEN, offset);
+      if (read_count == -1)
+        throw runtime_error("error while computing md5, in pread().");
 
-    if (read_count == -1)
-      throw runtime_error("error while computing md5, in pread().");
+      EVP_DigestUpdate(md5_ctx, buf, read_count);
 
-    EVP_DigestUpdate(&md5_ctx, buf, read_count);
+      offset += read_count;
 
-    offset += read_count;
+      if (read_count < BUF_LEN)
+        break;
+    }
 
-    if (read_count < BUF_LEN)
-      break;
+  } catch (...) {
+    EVP_MD_CTX_free(md5_ctx);
+    throw;
   }
 
-  EVP_DigestFinal(&md5_ctx, hash, NULL);
+  EVP_DigestFinal(md5_ctx, hash, NULL);
+  EVP_MD_CTX_free(md5_ctx);
 }

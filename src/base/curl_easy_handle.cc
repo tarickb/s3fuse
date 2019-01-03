@@ -53,23 +53,6 @@ namespace
   mutex s_init_mutex;
   int s_init_count = 0;
 
-  #ifdef HAVE_OPENSSL
-    pthread_mutex_t *s_openssl_locks = NULL;
-
-    void openssl_locking_callback(int mode, int n, const char *, int)
-    {
-      if (mode & CRYPTO_LOCK)
-        pthread_mutex_lock(s_openssl_locks + n);
-      else
-        pthread_mutex_unlock(s_openssl_locks + n);
-    }
-
-    unsigned long openssl_get_thread_id()
-    {
-      return pthread_self();
-    }
-  #endif
-
   void pre_init()
   {
     curl_version_info_data *ver;
@@ -97,20 +80,6 @@ namespace
       }
     #endif
 
-    #ifdef HAVE_OPENSSL
-      if (strstr(ver->ssl_version, "OpenSSL")) {
-        s_openssl_locks = static_cast<pthread_mutex_t *>(OPENSSL_malloc(sizeof(*s_openssl_locks) * CRYPTO_num_locks()));
-
-        for (int i = 0; i < CRYPTO_num_locks(); i++)
-          pthread_mutex_init(s_openssl_locks + i, NULL);
-
-        CRYPTO_set_id_callback(openssl_get_thread_id);
-        CRYPTO_set_locking_callback(openssl_locking_callback);
-
-        return;
-      }
-    #endif
-
     #ifdef __APPLE__
       if (strstr(ver->ssl_version, "SecureTransport"))
         return;
@@ -123,18 +92,6 @@ namespace
 
   void cleanup()
   {
-    #ifdef HAVE_OPENSSL
-      if (s_openssl_locks) {
-        CRYPTO_set_id_callback(NULL);
-        CRYPTO_set_locking_callback(NULL);
-
-        for (int i = 0; i < CRYPTO_num_locks(); i++)
-          pthread_mutex_destroy(s_openssl_locks + i);
-
-        OPENSSL_free(s_openssl_locks);
-      }
-    #endif
-
     curl_global_cleanup();
   }
 }

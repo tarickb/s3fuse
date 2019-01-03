@@ -45,7 +45,6 @@ void aes_cbc_256::crypt(int mode, const symmetric_key::ptr &key, const uint8_t *
     out->resize(size);
   }
 
-  EVP_CIPHER_CTX ctx;
   const EVP_CIPHER *cipher = NULL;
 
   switch (key->get_key()->size()) {
@@ -65,43 +64,43 @@ void aes_cbc_256::crypt(int mode, const symmetric_key::ptr &key, const uint8_t *
   if (!cipher)
     throw runtime_error("invalid key length for aes_cbc_256");
   
-  EVP_CIPHER_CTX_init(&ctx);
+  EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 
   try {
     int updated = 0, finalized = 0;
 
     if (mode & M_ENCRYPT) {
-      if (EVP_EncryptInit_ex(&ctx, cipher, NULL, key->get_key()->get(), key->get_iv()->get()) == 0)
+      if (EVP_EncryptInit_ex(ctx, cipher, NULL, key->get_key()->get(), key->get_iv()->get()) == 0)
         throw runtime_error("EVP_EncryptInit_ex() failed in aes_cbc_256");
 
       if (mode & M_NO_PAD)
-        EVP_CIPHER_CTX_set_padding(&ctx, 0);
+        EVP_CIPHER_CTX_set_padding(ctx, 0);
 
-      if (!EVP_EncryptUpdate(&ctx, &(*out)[0], &updated, in, size))
+      if (!EVP_EncryptUpdate(ctx, &(*out)[0], &updated, in, size))
         throw runtime_error("EVP_EncryptUpdate() failed in aes_cbc_256");
 
-      if (!EVP_EncryptFinal_ex(&ctx, &(*out)[updated], &finalized))
+      if (!EVP_EncryptFinal_ex(ctx, &(*out)[updated], &finalized))
         throw runtime_error("EVP_EncryptFinal_ex() failed in aes_cbc_256");
     } else {
-      if (EVP_DecryptInit_ex(&ctx, cipher, NULL, key->get_key()->get(), key->get_iv()->get()) == 0)
+      if (EVP_DecryptInit_ex(ctx, cipher, NULL, key->get_key()->get(), key->get_iv()->get()) == 0)
         throw runtime_error("EVP_DecryptInit_ex() failed in aes_cbc_256");
 
       if (mode & M_NO_PAD)
-        EVP_CIPHER_CTX_set_padding(&ctx, 0);
+        EVP_CIPHER_CTX_set_padding(ctx, 0);
 
-      if (!EVP_DecryptUpdate(&ctx, &(*out)[0], &updated, in, size))
+      if (!EVP_DecryptUpdate(ctx, &(*out)[0], &updated, in, size))
         throw runtime_error("EVP_DecryptUpdate() failed in aes_cbc_256");
 
-      if (!EVP_DecryptFinal_ex(&ctx, &(*out)[updated], &finalized))
+      if (!EVP_DecryptFinal_ex(ctx, &(*out)[updated], &finalized))
         throw runtime_error("EVP_DecryptFinal_ex() failed in aes_cbc_256");
     }
 
     out->resize(updated + finalized);
 
   } catch (...) {
-    EVP_CIPHER_CTX_cleanup(&ctx);
+    EVP_CIPHER_CTX_free(ctx);
     throw;
   }
 
-  EVP_CIPHER_CTX_cleanup(&ctx);
+  EVP_CIPHER_CTX_free(ctx);
 }
