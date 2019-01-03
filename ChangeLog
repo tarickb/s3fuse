@@ -1,3 +1,9 @@
+s3fuse (0.20) unstable; urgency=low
+
+  * Undo overly-aggressive removal of OpenSSL init code.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Wed, 02 Jan 2019 23:35:02 -0800
+
 s3fuse (0.19) unstable; urgency=low
 
   * Fix compile errors with newer versions of Boost.

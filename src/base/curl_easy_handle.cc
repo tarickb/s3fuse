@@ -71,6 +71,9 @@ namespace
     if (strstr(ver->ssl_version, "NSS"))
       return; // NSS doesn't require external locking
 
+    if (strstr(ver->ssl_version, "OpenSSL"))
+      return; // Nothing special required for OpenSSL.
+
     #ifdef HAVE_GNUTLS
       if (strstr(ver->ssl_version, "GnuTLS")) {
         if (gnutls_global_init() != GNUTLS_E_SUCCESS)
