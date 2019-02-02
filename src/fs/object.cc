@@ -31,6 +31,7 @@
 #include "base/timer.h"
 #include "base/xml.h"
 #include "fs/cache.h"
+#include "fs/callback_xattr.h"
 #include "fs/metadata.h"
 #include "fs/object.h"
 #include "fs/static_xattr.h"
@@ -67,6 +68,7 @@ using s3::base::statistics;
 using s3::base::timer;
 using s3::base::xml;
 using s3::fs::object;
+using s3::fs::callback_xattr;
 using s3::fs::static_xattr;
 using s3::services::service;
 
@@ -74,6 +76,7 @@ namespace
 {
   const int BLOCK_SIZE = 512;
   const char *COMMIT_ETAG_XPATH = "/CopyObjectResult/ETag";
+  const char *VERSION_XPATH = "/ListVersionsResult/Version|/ListVersionsResult/DeleteMarker";
 
   const string INTERNAL_OBJECT_PREFIX = "$s3fuse$_";
   const char *INTERNAL_OBJECT_PREFIX_CSTR = INTERNAL_OBJECT_PREFIX.c_str();
@@ -89,6 +92,8 @@ namespace
   const string CONTENT_TYPE_XATTR = PACKAGE_NAME "_content_type";
   const string ETAG_XATTR = PACKAGE_NAME "_etag";
   const string CACHE_CONTROL_XATTR = PACKAGE_NAME "_cache_control";
+  const string CURRENT_VERSION_XATTR = PACKAGE_NAME "_current_version";
+  const string ALL_VERSIONS_XATTR = PACKAGE_NAME "_all_versions";
 
   const int USER_XATTR_FLAGS = 
     s3::fs::xattr::XM_WRITABLE | 
@@ -102,6 +107,8 @@ namespace
     s3::fs::xattr::XM_VISIBLE | 
     s3::fs::xattr::XM_REMOVABLE | 
     s3::fs::xattr::XM_COMMIT_REQUIRED;
+
+  const char VERSION_SEPARATOR = '#';
 
   atomic_count s_precon_failed_commits(0), s_new_etag_on_commit(0);
   atomic_count s_commit_failures(0), s_precon_rescues(0), s_abandoned_commits(0);
@@ -122,6 +129,23 @@ namespace
     return service::get_bucket_url() + "/" + request::url_encode(path);
   }
 
+  inline string build_url_for_versioned_path(const string &path)
+  {
+    string::size_type sep = path.find(VERSION_SEPARATOR);
+    if (sep == string::npos)
+      throw runtime_error("can't build url for non-versioned path.");
+
+    string base_path = path.substr(0, sep);
+    string version = path.substr(sep + 1);
+
+    return service::get_bucket_url() + "/" + request::url_encode(base_path) + "?versionId=" + version;
+  }
+
+  int set_nop_callback(const string & /* ignored */)
+  {
+    return 0;
+  }
+
   statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
@@ -135,10 +159,22 @@ bool object::is_internal_path(const string &path)
   return strncmp(path.c_str(), INTERNAL_OBJECT_PREFIX_CSTR, INTERNAL_OBJECT_PREFIX_SIZE) == 0;
 }
 
+bool object::is_versioned_path(const string &path)
+{
+#ifdef WITH_AWS
+  return config::get_enable_versioning() && (path.find(VERSION_SEPARATOR) != string::npos);
+#else
+  return false;
+#endif
+}
+
 string object::build_url(const string &path)
 {
   if (is_internal_path(path))
     throw runtime_error("path cannot start with " PACKAGE_NAME " internal object prefix.");
+
+  if (is_versioned_path(path))
+    return build_url_for_versioned_path(path);
 
   return build_url_no_internal_check(path);
 }
@@ -381,6 +417,12 @@ void object::init(const request::ptr &req)
   _metadata.replace(static_xattr::from_string(CONTENT_TYPE_XATTR, _content_type, xattr::XM_VISIBLE));
   _metadata.replace(static_xattr::from_string(ETAG_XATTR, _etag, xattr::XM_VISIBLE));
 
+  header_map::const_iterator version_itor = req->get_response_headers().find(service::get_header_prefix() + "version-id");
+  if (version_itor == req->get_response_headers().end())
+    _metadata.erase(CURRENT_VERSION_XATTR);
+  else
+    _metadata.replace(static_xattr::from_string(CURRENT_VERSION_XATTR, version_itor->second, xattr::XM_VISIBLE));
+
   if (cache_control.empty())
     _metadata.erase(CACHE_CONTROL_XATTR);
   else
@@ -416,6 +458,16 @@ void object::init(const request::ptr &req)
       _metadata.replace(_glacier->get_restore_ongoing_xattr());
       _metadata.replace(_glacier->get_restore_expiry_xattr());
       _metadata.replace(_glacier->get_request_restore_xattr());
+    }
+  #endif
+
+  #ifdef WITH_AWS
+    if (config::get_enable_versioning()) {
+      _metadata.replace(callback_xattr::create(
+            ALL_VERSIONS_XATTR,
+            bind(&object::get_all_versions, this, _1),
+            set_nop_callback,
+            xattr::XM_VISIBLE));
     }
   #endif
 }
@@ -607,4 +659,55 @@ int object::rename(const request::ptr &req, const string &to)
   cache::remove(get_path());
 
   return remove(req);
+}
+
+int object::fetch_all_versions(const request::ptr &req, string *out)
+{
+  xml::document_ptr doc;
+
+  req->init(base::HTTP_GET);
+  req->set_url(service::get_bucket_url() + "?versions", string("prefix=") + request::url_encode(get_path()));
+  req->run();
+
+  if (req->get_response_code() != base::HTTP_SC_OK)
+    return -EIO;
+
+  doc = xml::parse(req->get_output_string());
+
+  if (!doc) {
+    S3_LOG(LOG_WARNING, "object::fetch_all_versions", "failed to parse response.\n");
+    return -EIO;
+  }
+
+  xml::element_map_list versions;
+  xml::find(doc, VERSION_XPATH, &versions);
+  string versions_str;
+  string latest_etag;
+
+  for (xml::element_map_list::iterator itor = versions.begin(); itor != versions.end(); ++itor) {
+    xml::element_map &keys = *itor;
+
+    const string &key = keys["Key"];
+    if (key != get_path()) continue;
+
+    const string &etag = keys["ETag"];
+    if (etag == latest_etag) continue;
+    latest_etag = etag;
+
+    if (keys[xml::MAP_NAME_KEY] == "Version") {
+      versions_str += "version=" + keys["VersionId"] + " mtime=" + keys["LastModified"] + " size=" + keys["Size"] + "\n";
+    } else if (keys[xml::MAP_NAME_KEY] == "DeleteMarker") {
+      versions_str += "version=" + keys["VersionId"] + " mtime=" + keys["LastModified"] + " deleted\n";
+    }
+  }
+
+  *out = versions_str;
+  return 0;
+}
+
+int object::get_all_versions(string *out)
+{
+  return threads::pool::call(
+    threads::PR_REQ_1,
+    boost::bind(&object::fetch_all_versions, this, _1, out));
 }

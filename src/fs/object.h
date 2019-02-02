@@ -61,6 +61,7 @@ namespace s3
       static std::string build_url(const std::string &path);
       static std::string build_internal_url(const std::string &key);
       static bool is_internal_path(const std::string &key);
+      static bool is_versioned_path(const std::string &path);
       static const std::string & get_internal_prefix();
 
       static ptr create(const std::string &path, const boost::shared_ptr<base::request> &req);
@@ -158,6 +159,9 @@ namespace s3
       inline void force_zero_size() { _stat.st_size = 0; }
 
     private:
+      int get_all_versions(std::string *out);
+      int fetch_all_versions(const boost::shared_ptr<base::request> &req, std::string *out);
+
       boost::mutex _mutex;
 
       // should only be modified during init()

@@ -147,6 +147,7 @@ namespace s3
 
       // protected by _fs_mutex
       int _fd, _status, _async_error;
+      bool _read_only;
       uint64_t _ref_count;
     };
   }

@@ -82,7 +82,7 @@ int cache::fetch(const request::ptr &req, const string &path, int hints, object:
   if (!path.empty()) {
     req->init(base::HTTP_HEAD);
 
-    if (hints == HINT_NONE || hints & HINT_IS_DIR) {
+    if ((hints == HINT_NONE || hints & HINT_IS_DIR) && !object::is_versioned_path(path)) {
       // see if the path is a directory (trailing /) first
       req->set_url(directory::build_url(path));
       req->run();

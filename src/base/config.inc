@@ -96,3 +96,8 @@ CONFIG(int, timeout_retries, 5, "number of times to retry a request that times o
 CONFIG(int, max_inconsistent_state_retries, 10, "number of times to retry an operation if an inconsistent state is encountered (must be >= 2)");
 CONFIG_CONSTRAINT(CONFIG_KEY(timeout_retries) >= 0, "timeout_retries must be greater than or equal to 0");
 CONFIG_CONSTRAINT(CONFIG_KEY(max_inconsistent_state_retries) >= 2, "max_inconsistent_state_retries must be greater than or equal to 2");
+
+#ifdef WITH_AWS
+  CONFIG_SECTION("Versioning");
+  CONFIG(bool, enable_versioning, false, "set to 'true'/'yes' to enable versioning");
+#endif

@@ -133,6 +133,7 @@ file::file(const string &path)
     _fd(-1),
     _status(0),
     _async_error(0),
+    _read_only(false),
     _ref_count(0)
 {
   set_type(S_IFREG);
@@ -228,7 +229,13 @@ int file::open(file_open_mode mode, uint64_t *handle)
     if (_fd == -1)
       return -errno;
 
+    if (object::is_versioned_path(get_path()))
+      _read_only = true;
+
     if (mode & fs::OPEN_TRUNCATE_TO_ZERO) {
+      if (_read_only)
+        return -EROFS;
+
       // if the file had a non-zero size but was opened with O_TRUNC, we need
       // to write back a zero-length file.
       if (size)
@@ -328,6 +335,9 @@ int file::write(const char *buffer, size_t size, off_t offset)
   mutex::scoped_lock lock(_fs_mutex);
   int r;
 
+  if (_read_only)
+    return -EROFS;
+
   while (_status & (FS_DOWNLOADING | FS_UPLOADING))
     _condition.wait(lock);
 
@@ -370,6 +380,9 @@ int file::truncate(off_t length)
 
   if (length > TRUNCATE_LIMIT)
     return -EINVAL;
+
+  if (_read_only)
+    return -EROFS;
 
   while (_status & (FS_DOWNLOADING | FS_UPLOADING))
     _condition.wait(lock);
