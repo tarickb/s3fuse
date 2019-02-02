@@ -129,6 +129,8 @@ namespace
   }
 }
 
+const char *xml::MAP_NAME_KEY = "__element_name__";
+
 class xml::document : public doc_wrapper
 {
 public:
@@ -220,6 +222,51 @@ int xml::find(const xml::document_ptr &doc, const char *xpath, xml::element_list
         list->push_back(string(reinterpret_cast<const char *>(text)));
         xmlFree(text);
       }
+    }
+
+    return 0;
+
+  } catch (const std::exception &e) {
+    S3_LOG(LOG_WARNING, "xml::find", "caught exception while finding [%s]: %s\n", xpath, e.what());
+  }
+
+  return -EIO;
+}
+
+int xml::find(const xml::document_ptr &doc, const char *xpath, xml::element_map_list *list)
+{
+  try {
+    xpath_object_wrapper result;
+
+    if (!doc)
+      throw runtime_error("cannot search empty document");
+
+    result = xpath_find(doc.get(), xpath);
+
+    if (result.is_null())
+      throw runtime_error("invalid xpath expression");
+
+    for (int i = 0; i < result->nodesetval->nodeNr; i++) {
+      xmlNodePtr node = result->nodesetval->nodeTab[i];
+      element_map elements;
+
+      for (xmlNodePtr child = node->children; child != NULL; child = child->next) {
+        if (child->type != XML_ELEMENT_NODE) continue;
+        xmlChar *text = xmlXPathCastNodeToString(child);
+        if (text) {
+          std::string name = reinterpret_cast<const char *>(child->name);
+          std::string value = reinterpret_cast<const char *>(text);
+          elements[name] = value;
+          xmlFree(text);
+        }
+      }
+
+      if (elements.find(MAP_NAME_KEY) == elements.end())
+        elements[MAP_NAME_KEY] = reinterpret_cast<const char *>(node->name);
+      else
+        S3_LOG(LOG_WARNING, "xml::find", "unable to insert element name key.\n");
+
+      list->push_back(elements);
     }
 
     return 0;

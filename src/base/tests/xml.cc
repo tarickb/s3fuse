@@ -21,6 +21,18 @@ namespace
   const char *XML_3 = "<s3:a xmlns:s3=\"uri:something\"><s3:b><s3:c/></s3:b></s3:a>";
   const char *XML_4 = "<a><b>element_b_0</b><c>element_c_0</c><b>element_b_1</b></a>";
   const char *XML_5 = "<a><b><c>ec0</c><c>ec1</c></b><b><c>ec2</c><c>ec3</c></b><c>ec4</c><d><e><f><c>ec5</c></f></e></d></a>";
+  const char *XML_6 =
+    "<a>"
+    "  <b>"
+    "    <k00>v00</k00><k01>v01</k01><k02>v02</k02>"
+    "  </b>"
+    "  <c>"
+    "    <k10>v10</k10><k11>v11</k11><k12>v12</k12>"
+    "  </c>"
+    "  <b>"
+    "    <k20>v20</k20><k21>v21</k21><k22>v22</k22>"
+    "  </b>"
+    "</a>";
 
   void init()
   {
@@ -192,4 +204,43 @@ TEST(xml, invalid_xpath)
   xml::find(doc, "//().", &list);
 
   EXPECT_EQ(list.size(), static_cast<size_t>(0));
+}
+
+TEST(xml, element_map)
+{
+  xml::document_ptr doc;
+  xml::element_map_list list;
+
+  init();
+
+  doc = xml::parse(XML_6);
+  ASSERT_FALSE(doc.get() == NULL);
+
+  xml::find(doc, "//b|//c", &list);
+
+  EXPECT_EQ(list.size(), 3);
+
+  xml::element_map_list::const_iterator itor = list.begin();
+  xml::element_map first = *itor++;
+  xml::element_map second = *itor++;
+  xml::element_map third = *itor++;
+  EXPECT_EQ(itor, list.end());
+
+  EXPECT_EQ(first.size(), 4);
+  EXPECT_EQ(first[xml::MAP_NAME_KEY], "b");
+  EXPECT_EQ(first["k00"], "v00");
+  EXPECT_EQ(first["k01"], "v01");
+  EXPECT_EQ(first["k02"], "v02");
+
+  EXPECT_EQ(second.size(), 4);
+  EXPECT_EQ(second[xml::MAP_NAME_KEY], "c");
+  EXPECT_EQ(second["k10"], "v10");
+  EXPECT_EQ(second["k11"], "v11");
+  EXPECT_EQ(second["k12"], "v12");
+
+  EXPECT_EQ(third.size(), 4);
+  EXPECT_EQ(third[xml::MAP_NAME_KEY], "b");
+  EXPECT_EQ(third["k20"], "v20");
+  EXPECT_EQ(third["k21"], "v21");
+  EXPECT_EQ(third["k22"], "v22");
 }

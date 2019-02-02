@@ -23,6 +23,7 @@
 #define S3_BASE_XML_H
 
 #include <list>
+#include <map>
 #include <string>
 #include <vector>
 #include <boost/smart_ptr.hpp>
@@ -37,8 +38,12 @@ namespace s3
       class document;
 
     public:
+      static const char *MAP_NAME_KEY;
+
       typedef boost::shared_ptr<document> document_ptr;
       typedef std::list<std::string> element_list;
+      typedef std::map<std::string, std::string> element_map;
+      typedef std::list<element_map> element_map_list;
 
       static void init();
 
@@ -46,6 +51,7 @@ namespace s3
 
       static int find(const document_ptr &doc, const char *xpath, std::string *element);
       static int find(const document_ptr &doc, const char *xpath, element_list *elements);
+      static int find(const document_ptr &doc, const char *xpath, element_map_list *elements);
 
       static bool match(const std::string &data, const char *xpath);
 
