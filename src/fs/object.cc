@@ -23,6 +23,7 @@
 #include <sys/xattr.h>
 
 #include <boost/detail/atomic_count.hpp>
+#include <boost/lexical_cast.hpp>
 
 #include "base/config.h"
 #include "base/logger.h"
@@ -53,6 +54,7 @@
   #define NEED_XATTR_PREFIX
 #endif
 
+using boost::lexical_cast;
 using boost::mutex;
 using boost::static_pointer_cast;
 using boost::detail::atomic_count;
@@ -82,6 +84,9 @@ namespace
   const char *INTERNAL_OBJECT_PREFIX_CSTR = INTERNAL_OBJECT_PREFIX.c_str();
   const size_t INTERNAL_OBJECT_PREFIX_SIZE = INTERNAL_OBJECT_PREFIX.size();
 
+  // echo -n "" | md5sum
+  const char *EMPTY_VERSION_ETAG = "\"d41d8cd98f00b204e9800998ecf8427e\"";
+
   #ifdef NEED_XATTR_PREFIX
     const string XATTR_PREFIX = "user.";
     const size_t XATTR_PREFIX_LEN = XATTR_PREFIX.size();
@@ -94,6 +99,7 @@ namespace
   const string CACHE_CONTROL_XATTR = PACKAGE_NAME "_cache_control";
   const string CURRENT_VERSION_XATTR = PACKAGE_NAME "_current_version";
   const string ALL_VERSIONS_XATTR = PACKAGE_NAME "_all_versions";
+  const string ALL_VERSIONS_INCL_EMPTY_XATTR = PACKAGE_NAME "_all_versions_incl_empty";
 
   const int USER_XATTR_FLAGS = 
     s3::fs::xattr::XM_WRITABLE | 
@@ -465,7 +471,13 @@ void object::init(const request::ptr &req)
     if (config::get_enable_versioning()) {
       _metadata.replace(callback_xattr::create(
             ALL_VERSIONS_XATTR,
-            bind(&object::get_all_versions, this, _1),
+            bind(&object::get_all_versions, this, /* empties= */ false, _1),
+            set_nop_callback,
+            xattr::XM_VISIBLE));
+
+      _metadata.replace(callback_xattr::create(
+            ALL_VERSIONS_INCL_EMPTY_XATTR,
+            bind(&object::get_all_versions, this, /* empties= */ true, _1),
             set_nop_callback,
             xattr::XM_VISIBLE));
     }
@@ -661,7 +673,7 @@ int object::rename(const request::ptr &req, const string &to)
   return remove(req);
 }
 
-int object::fetch_all_versions(const request::ptr &req, string *out)
+int object::fetch_all_versions(const request::ptr &req, bool empties, string *out)
 {
   xml::document_ptr doc;
 
@@ -683,6 +695,7 @@ int object::fetch_all_versions(const request::ptr &req, string *out)
   xml::find(doc, VERSION_XPATH, &versions);
   string versions_str;
   string latest_etag;
+  int empty_count = 0;
 
   for (xml::element_map_list::iterator itor = versions.begin(); itor != versions.end(); ++itor) {
     xml::element_map &keys = *itor;
@@ -692,22 +705,31 @@ int object::fetch_all_versions(const request::ptr &req, string *out)
 
     const string &etag = keys["ETag"];
     if (etag == latest_etag) continue;
+    if (!empties && etag == EMPTY_VERSION_ETAG) {
+      empty_count++;
+      continue;
+    }
     latest_etag = etag;
 
     if (keys[xml::MAP_NAME_KEY] == "Version") {
-      versions_str += "version=" + keys["VersionId"] + " mtime=" + keys["LastModified"] + " size=" + keys["Size"] + "\n";
+      versions_str += "version=" + keys["VersionId"] + " mtime=" + keys["LastModified"] + " etag=" + etag + " size=" + keys["Size"] + "\n";
     } else if (keys[xml::MAP_NAME_KEY] == "DeleteMarker") {
-      versions_str += "version=" + keys["VersionId"] + " mtime=" + keys["LastModified"] + " deleted\n";
+      versions_str += "version=" + keys["VersionId"] + " mtime=" + keys["LastModified"] + " etag=" + etag + " deleted\n";
     }
+  }
+
+  if (empty_count) {
+    if (!versions_str.empty()) versions_str += "\n";
+    versions_str += "(" + lexical_cast<string>(empty_count) + " empty version(s) omitted. Request extended attribute \"" + ALL_VERSIONS_INCL_EMPTY_XATTR + "\" to see empty versions.)\n";
   }
 
   *out = versions_str;
   return 0;
 }
 
-int object::get_all_versions(string *out)
+int object::get_all_versions(bool empties, string *out)
 {
   return threads::pool::call(
     threads::PR_REQ_1,
-    boost::bind(&object::fetch_all_versions, this, _1, out));
+    boost::bind(&object::fetch_all_versions, this, _1, empties, out));
 }

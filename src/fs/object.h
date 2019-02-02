@@ -159,8 +159,8 @@ namespace s3
       inline void force_zero_size() { _stat.st_size = 0; }
 
     private:
-      int get_all_versions(std::string *out);
-      int fetch_all_versions(const boost::shared_ptr<base::request> &req, std::string *out);
+      int get_all_versions(bool empties, std::string *out);
+      int fetch_all_versions(const boost::shared_ptr<base::request> &req, bool empties, std::string *out);
 
       boost::mutex _mutex;
 
