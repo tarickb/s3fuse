@@ -231,7 +231,6 @@ int file::open(file_open_mode mode, uint64_t *handle)
     if (mode & fs::OPEN_TRUNCATE_TO_ZERO) {
       // if the file had a non-zero size but was opened with O_TRUNC, we need
       // to write back a zero-length file.
-
       if (size)
         _status = FS_DIRTY;
 
@@ -344,12 +343,13 @@ int file::write(const char *buffer, size_t size, off_t offset)
   _status &= ~FS_WRITING;
   _condition.notify_all();
 
-  return r;
+  return (r < 0) ? -errno : r;
 }
 
 int file::read(char *buffer, size_t size, off_t offset)
 {
   mutex::scoped_lock lock(_fs_mutex);
+  int r;
 
   while (_status & FS_DOWNLOADING)
     _condition.wait(lock);
@@ -358,8 +358,9 @@ int file::read(char *buffer, size_t size, off_t offset)
     return _async_error;
 
   lock.unlock();
+  r = pread(_fd, buffer, size, offset);
 
-  return pread(_fd, buffer, size, offset);
+  return (r < 0) ? -errno : r;
 }
 
 int file::truncate(off_t length)
