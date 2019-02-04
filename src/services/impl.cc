@@ -26,22 +26,17 @@
 #include "base/xml.h"
 #include "services/impl.h"
 
-using std::atomic_int;
-using std::ostream;
-
-using s3::base::request;
-using s3::base::statistics;
-using s3::base::xml;
-using s3::services::impl;
+namespace s3 {
+  namespace services {
 
 namespace
 {
   const char *REQ_TIMEOUT_XPATH = "/Error/Code[text() = 'RequestTimeout']";
 
-  atomic_int s_internal_server_error(0), s_service_unavailable(0);
-  atomic_int s_req_timeout(0), s_bad_request(0);
+  std::atomic_int s_internal_server_error(0), s_service_unavailable(0);
+  std::atomic_int s_req_timeout(0), s_bad_request(0);
 
-  void statistics_writer(ostream *o)
+  void statistics_writer(std::ostream *o)
   {
     *o <<
       "common service base:\n"
@@ -51,14 +46,14 @@ namespace
       "  \"bad request\": " << s_bad_request << "\n";
   }
 
-  statistics::writers::entry s_writer(statistics_writer, 0);
+  base::statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
 impl::~impl()
 {
 }
 
-bool impl::should_retry(request *r, int iter)
+bool impl::should_retry(base::request *r, int iter)
 {
   long rc = r->get_response_code();
 
@@ -73,7 +68,7 @@ bool impl::should_retry(request *r, int iter)
   }
 
   if (rc == base::HTTP_SC_BAD_REQUEST) {
-    if (xml::match(r->get_output_buffer(), REQ_TIMEOUT_XPATH)) {
+    if (base::xml::match(r->get_output_buffer(), REQ_TIMEOUT_XPATH)) {
       ++s_req_timeout;
       return true;
     }
@@ -84,3 +79,5 @@ bool impl::should_retry(request *r, int iter)
 
   return false;
 }
+
+} }

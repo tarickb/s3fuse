@@ -5,13 +5,8 @@
 #include "crypto/hex.h"
 #include "crypto/md5.h"
 
-using std::string;
-using std::vector;
-
-using s3::crypto::encoder;
-using s3::crypto::hash;
-using s3::crypto::hex;
-using s3::crypto::md5;
+namespace s3 { namespace crypto {
+  namespace tests {
 
 namespace
 {
@@ -44,8 +39,8 @@ TEST(md5, known_answers)
 {
   for (int test = 0; test < TEST_COUNT; test++) {
     const known_answer *kat = TESTS + test;
-    vector<uint8_t> in;
-    string hash;
+    std::vector<uint8_t> in;
+    std::string hash;
 
     encoder::decode<hex>(kat->message, &in);
 
@@ -53,6 +48,8 @@ TEST(md5, known_answers)
 
     hash = hash::compute<md5, hex>(in);
 
-    EXPECT_EQ(string(kat->hash), hash) << "for kat = " << test;
+    EXPECT_EQ(std::string(kat->hash), hash) << "for kat = " << test;
   }
 }
+
+} } }

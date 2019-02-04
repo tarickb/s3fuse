@@ -21,9 +21,13 @@
 
 #include "services/fvs/file_transfer.h"
 
-using s3::services::fvs::file_transfer;
+namespace s3 {
+  namespace services {
+    namespace fvs {
 
 size_t file_transfer::get_upload_chunk_size()
 {
   return 0; // disabled
 }
+
+} } }

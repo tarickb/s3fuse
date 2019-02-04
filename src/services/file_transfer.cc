@@ -35,28 +35,8 @@
 #include "threads/parallel_work_queue.h"
 #include "threads/pool.h"
 
-using std::atomic_int;
-using std::ostream;
-using std::string;
-using std::to_string;
-using std::unique_ptr;
-using std::vector;
-
-using s3::base::char_vector;
-using s3::base::char_vector_ptr;
-using s3::base::config;
-using s3::base::request;
-using s3::base::statistics;
-using s3::crypto::base64;
-using s3::crypto::encoder;
-using s3::crypto::hash;
-using s3::crypto::hex_with_quotes;
-using s3::crypto::md5;
-using s3::services::file_transfer;
-using s3::threads::parallel_work_queue;
-using s3::threads::pool;
-
-using namespace std::placeholders;
+namespace s3 {
+  namespace services {
 
 namespace
 {
@@ -66,12 +46,12 @@ namespace
     off_t offset;
   };
 
-  atomic_int s_downloads_single(0), s_downloads_single_failed(0);
-  atomic_int s_downloads_multi(0), s_downloads_multi_failed(0), s_downloads_multi_chunks_failed(0);
-  atomic_int s_uploads_single(0), s_uploads_single_failed(0);
-  atomic_int s_uploads_multi(0), s_uploads_multi_failed(0);
+  std::atomic_int s_downloads_single(0), s_downloads_single_failed(0);
+  std::atomic_int s_downloads_multi(0), s_downloads_multi_failed(0), s_downloads_multi_chunks_failed(0);
+  std::atomic_int s_uploads_single(0), s_uploads_single_failed(0);
+  std::atomic_int s_uploads_multi(0), s_uploads_multi_failed(0);
 
-  void statistics_writer(ostream *o)
+  void statistics_writer(std::ostream *o)
   {
     *o <<
       "common single-part downloads:\n"
@@ -89,9 +69,9 @@ namespace
       "  failed: " << s_uploads_multi_failed << "\n";
   }
 
-  statistics::writers::entry s_writer(statistics_writer, 0);
+  base::statistics::writers::entry s_writer(statistics_writer, 0);
 
-  int download_part(const request::ptr &req, const string &url, download_range *range, const file_transfer::write_chunk_fn &on_write, bool is_retry)
+  int download_part(const base::request::ptr &req, const std::string &url, download_range *range, const file_transfer::write_chunk_fn &on_write, bool is_retry)
   {
     // yes, relying on is_retry will result in the chunks failed count being off by one, maybe, but we don't care
     if (is_retry)
@@ -100,12 +80,12 @@ namespace
     req->init(s3::base::HTTP_GET);
     req->set_url(url);
     req->set_header("Range", 
-      string("bytes=") + 
-      to_string(range->offset) + 
-      string("-") + 
-      to_string(range->offset + range->size));
+      std::string("bytes=") + 
+      std::to_string(range->offset) + 
+      std::string("-") + 
+      std::to_string(range->offset + range->size));
 
-    req->run(config::get_transfer_timeout_in_s());
+    req->run(base::config::get_transfer_timeout_in_s());
 
     if (req->get_response_code() != s3::base::HTTP_SC_PARTIAL_CONTENT)
       return -EIO;
@@ -115,7 +95,7 @@ namespace
     return on_write(&req->get_output_buffer()[0], range->size, range->offset);
   }
 
-  int increment_on_result(int r, atomic_int *success, atomic_int *failure)
+  int increment_on_result(int r, std::atomic_int *success, std::atomic_int *failure)
   {
     if (r)
       ++(*failure);
@@ -132,7 +112,7 @@ file_transfer::~file_transfer()
 
 size_t file_transfer::get_download_chunk_size()
 {
-  return config::get_download_chunk_size();
+  return base::config::get_download_chunk_size();
 }
 
 size_t file_transfer::get_upload_chunk_size()
@@ -140,7 +120,7 @@ size_t file_transfer::get_upload_chunk_size()
   return 0; // this file_transfer impl doesn't do chunks
 }
 
-int file_transfer::download(const string &url, size_t size, const write_chunk_fn &on_write)
+int file_transfer::download(const std::string &url, size_t size, const write_chunk_fn &on_write)
 {
   if (get_download_chunk_size() > 0 && size > get_download_chunk_size())
     return increment_on_result(
@@ -149,12 +129,14 @@ int file_transfer::download(const string &url, size_t size, const write_chunk_fn
       &s_downloads_multi_failed);
   else
     return increment_on_result(
-      pool::call(threads::PR_REQ_1, bind(&file_transfer::download_single, this, _1, url, size, on_write)),
+      threads::pool::call(threads::PR_REQ_1,
+        bind(&file_transfer::download_single, this, std::placeholders::_1, url, size, on_write)),
       &s_downloads_single, 
       &s_downloads_single_failed);
 }
 
-int file_transfer::upload(const string &url, size_t size, const read_chunk_fn &on_read, string *returned_etag)
+int file_transfer::upload(const std::string &url, size_t size, const
+    read_chunk_fn &on_read, std::string *returned_etag)
 {
   if (get_upload_chunk_size() > 0 && size > get_upload_chunk_size())
     return increment_on_result(
@@ -163,19 +145,20 @@ int file_transfer::upload(const string &url, size_t size, const read_chunk_fn &o
       &s_uploads_multi_failed);
   else
     return increment_on_result(
-      pool::call(threads::PR_REQ_1, bind(&file_transfer::upload_single, this, _1, url, size, on_read, returned_etag)),
+      threads::pool::call(threads::PR_REQ_1, bind(&file_transfer::upload_single,
+          this, std::placeholders::_1, url, size, on_read, returned_etag)),
       &s_uploads_single,
       &s_uploads_single_failed);
 }
 
-int file_transfer::download_single(const request::ptr &req, const string &url, size_t size, const write_chunk_fn &on_write)
+int file_transfer::download_single(const base::request::ptr &req, const std::string &url, size_t size, const write_chunk_fn &on_write)
 {
   long rc = 0;
 
   req->init(base::HTTP_GET);
   req->set_url(url);
 
-  req->run(config::get_transfer_timeout_in_s());
+  req->run(base::config::get_transfer_timeout_in_s());
   rc = req->get_response_code();
 
   if (rc == base::HTTP_SC_NOT_FOUND)
@@ -186,13 +169,13 @@ int file_transfer::download_single(const request::ptr &req, const string &url, s
   return on_write(&req->get_output_buffer()[0], req->get_output_buffer().size(), 0);
 }
 
-int file_transfer::download_multi(const string &url, size_t size, const file_transfer::write_chunk_fn &on_write)
+int file_transfer::download_multi(const std::string &url, size_t size, const file_transfer::write_chunk_fn &on_write)
 {
-  typedef parallel_work_queue<download_range> multipart_download;
+  typedef threads::parallel_work_queue<download_range> multipart_download;
 
-  unique_ptr<multipart_download> dl;
+  std::unique_ptr<multipart_download> dl;
   size_t num_parts = (size + get_download_chunk_size() - 1) / get_download_chunk_size();
-  vector<download_range> parts(num_parts);
+  std::vector<download_range> parts(num_parts);
 
   for (size_t i = 0; i < num_parts; i++) {
     download_range *range = &parts[i];
@@ -204,28 +187,30 @@ int file_transfer::download_multi(const string &url, size_t size, const file_tra
   dl.reset(new multipart_download(
     parts.begin(),
     parts.end(),
-    bind(&download_part, _1, url, _2, on_write, false),
-    bind(&download_part, _1, url, _2, on_write, true)));
+    bind(&download_part, std::placeholders::_1, url, std::placeholders::_2, on_write, false),
+    bind(&download_part, std::placeholders::_1, url, std::placeholders::_2, on_write, true)));
 
   return dl->process();
 }
 
-int file_transfer::upload_single(const request::ptr &req, const string &url, size_t size, const read_chunk_fn &on_read, string *returned_etag)
+int file_transfer::upload_single(const base::request::ptr &req, const std::string
+    &url, size_t size, const read_chunk_fn &on_read, std::string *returned_etag)
 {
   int r = 0;
-  char_vector_ptr buffer(new char_vector());
-  string expected_md5_b64, expected_md5_hex, etag;
-  uint8_t read_hash[md5::HASH_LEN];
+  base::char_vector_ptr buffer(new base::char_vector());
+  std::string expected_md5_b64, expected_md5_hex, etag;
+  uint8_t read_hash[crypto::md5::HASH_LEN];
 
   r = on_read(size, 0, buffer);
 
   if (r)
     return r;
 
-  hash::compute<md5>(*buffer, read_hash);
+  crypto::hash::compute<crypto::md5>(*buffer, read_hash);
 
-  expected_md5_b64 = encoder::encode<base64>(read_hash, md5::HASH_LEN);
-  expected_md5_hex = encoder::encode<hex_with_quotes>(read_hash, md5::HASH_LEN);
+  expected_md5_b64 = crypto::encoder::encode<crypto::base64>(read_hash, crypto::md5::HASH_LEN);
+  expected_md5_hex = crypto::encoder::encode<crypto::hex_with_quotes>(read_hash,
+      crypto::md5::HASH_LEN);
 
   req->init(base::HTTP_PUT);
   req->set_url(url);
@@ -233,7 +218,7 @@ int file_transfer::upload_single(const request::ptr &req, const string &url, siz
   req->set_header("Content-MD5", expected_md5_b64);
   req->set_input_buffer(buffer);
 
-  req->run(config::get_transfer_timeout_in_s());
+  req->run(base::config::get_transfer_timeout_in_s());
 
   if (req->get_response_code() != base::HTTP_SC_OK) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_single", "failed to upload for [%s].\n", url.c_str());
@@ -242,7 +227,7 @@ int file_transfer::upload_single(const request::ptr &req, const string &url, siz
 
   etag = req->get_response_header("ETag");
 
-  if (md5::is_valid_quoted_hex_hash(etag) && etag != expected_md5_hex) {
+  if (crypto::md5::is_valid_quoted_hex_hash(etag) && etag != expected_md5_hex) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_single", "etag [%s] does not match md5 [%s].\n", etag.c_str(), expected_md5_hex.c_str());
     return -EIO;
   }
@@ -252,8 +237,10 @@ int file_transfer::upload_single(const request::ptr &req, const string &url, siz
   return 0;
 }
 
-int file_transfer::upload_multi(const string &url, size_t size, const read_chunk_fn &on_read, string *returned_etag)
+int file_transfer::upload_multi(const std::string &url, size_t size, const
+    read_chunk_fn &on_read, std::string *returned_etag)
 {
   return -ENOTSUP;
 }
 
+} }

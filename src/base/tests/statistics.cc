@@ -4,23 +4,19 @@
 
 #include "base/statistics.h"
 
-using std::ostringstream;
-using std::shared_ptr;
-using std::string;
-using std::to_string;
-
-using s3::base::statistics;
+namespace s3 {
+  namespace base { namespace tests {
 
 TEST(statistics, write_100)
 {
-  shared_ptr<ostringstream> out(new ostringstream());
-  string exp;
+  std::shared_ptr<std::ostringstream> out(new std::ostringstream());
+  std::string exp;
 
   statistics::init(out);
 
   for (int i = 0; i < 10; i++) {
     for (int j = 0; j < 10; j++)
-      statistics::write("object", to_string(i), "%i", j);
+      statistics::write("object", std::to_string(i), "%i", j);
   }
 
   statistics::flush();
@@ -129,3 +125,7 @@ TEST(statistics, write_100)
 
   EXPECT_EQ(exp, out->str());
 }
+
+}
+}  // namespace base
+}  // namespace s3

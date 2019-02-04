@@ -21,11 +21,11 @@
 
 #include "base/statistics.h"
 
-using std::mutex;
-using std::ostream;
-using std::shared_ptr;
+namespace s3 {
+  namespace base {
 
-using s3::base::statistics;
+std::mutex statistics::s_mutex;
+std::shared_ptr<std::ostream> statistics::s_stream;
 
-mutex statistics::s_mutex;
-shared_ptr<ostream> statistics::s_stream;
+  }  // namespace base
+}  // namespace s3

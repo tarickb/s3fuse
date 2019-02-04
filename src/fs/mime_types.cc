@@ -31,21 +31,11 @@
 #include "base/paths.h"
 #include "fs/mime_types.h"
 
-using std::ifstream;
-using std::istream_iterator;
-using std::istringstream;
-using std::map;
-using std::string;
-using std::tolower;
-using std::transform;
-using std::vector;
-
-using s3::base::paths;
-using s3::fs::mime_types;
+namespace s3 { namespace fs {
 
 namespace
 {
-  typedef map<string, string> type_map;
+  typedef std::map<std::string, std::string> type_map;
 
   const char *MAP_FILES[] = {
     "/etc/httpd/mime.types",
@@ -57,22 +47,24 @@ namespace
 
   type_map s_map;
 
-  void load_from_file(const string &path)
+  void load_from_file(const std::string &path)
   {
-    ifstream f(paths::transform(path).c_str(), ifstream::in);
+    std::ifstream f(base::paths::transform(path).c_str(), std::ifstream::in);
 
     while (f.good()) {
-      string line;
+      std::string line;
       getline(f, line);
 
       size_t pos= line.find('#');
       if (pos == 0)
         continue;
-      else if (pos != string::npos)
+      else if (pos != std::string::npos)
         line = line.substr(0, pos);
 
-      istringstream line_stream(line);
-      vector<string> fields{istream_iterator<string>(line_stream), istream_iterator<string>()};
+      std::istringstream line_stream(line);
+      std::vector<std::string>
+        fields{std::istream_iterator<std::string>(line_stream),
+          std::istream_iterator<std::string>()};
 
       for (size_t i = 1; i < fields.size(); i++)
         s_map[fields[i]] = fields[0];
@@ -86,10 +78,12 @@ void mime_types::init()
     load_from_file(MAP_FILES[i]);
 }
 
-string mime_types::get_type_by_extension(string ext)
+std::string mime_types::get_type_by_extension(std::string ext)
 {
-  transform(ext.begin(), ext.end(), ext.begin(), [](char c){ return tolower(c); });
+  std::transform(ext.begin(), ext.end(), ext.begin(), [](char c){ return std::tolower(c); });
 
   const type_map::const_iterator &iter = s_map.find(ext);
   return (iter == s_map.end()) ? "" : iter->second;
 }
+
+} }

@@ -30,34 +30,30 @@
 #include "base/logger.h"
 #include "base/xml.h"
 
-using std::regex;
-using std::regex_replace;
-using std::runtime_error;
-using std::string;
-
-using s3::base::xml;
+namespace s3 {
+  namespace base {
 
 namespace
 {
   struct transform_pair
   {
-    const regex expr;
-    const string subst;
+    const std::regex expr;
+    const std::string subst;
   };
 
   // strip out namespace declarations
   transform_pair TRANSFORMS[] = {
-    { regex(" xmlns(:\\w*)?=\"[^\"]*\""), "" },
-    { regex(" xmlns(:\\w*)?='[^']*'"), "" },
-    { regex("<\\w*:"), "<" },
-    { regex("</\\w*:"), "</" } };
+    { std::regex(" xmlns(:\\w*)?=\"[^\"]*\""), "" },
+    { std::regex(" xmlns(:\\w*)?='[^']*'"), "" },
+    { std::regex("<\\w*:"), "<" },
+    { std::regex("</\\w*:"), "</" } };
 
   const int TRANSFORM_COUNT = sizeof(TRANSFORMS) / sizeof(TRANSFORMS[0]);
 
-  string transform(string in)
+  std::string transform(std::string in)
   {
     for (int i = 0; i < TRANSFORM_COUNT; i++)
-      in = regex_replace(in, TRANSFORMS[i].expr, TRANSFORMS[i].subst);
+      in = std::regex_replace(in, TRANSFORMS[i].expr, TRANSFORMS[i].subst);
 
     return in;
   }
@@ -124,7 +120,7 @@ namespace
     root = xmlDocGetRootElement(*doc);
 
     if (!root)
-      throw runtime_error("cannot find root element");
+      throw std::runtime_error("cannot find root element");
 
     context = xmlXPathNewContext(*doc);
 
@@ -149,17 +145,17 @@ void xml::init()
   LIBXML_TEST_VERSION;
 }
 
-xml::document_ptr xml::parse(const string &data_)
+xml::document_ptr xml::parse(const std::string &data_)
 {
   try {
-    string data = transform(data_);
+    std::string data = transform(data_);
     document_ptr doc(new document(xmlParseMemory(data.c_str(), data.size())));
 
     if (!doc)
-      throw runtime_error("error while parsing xml.");
+      throw std::runtime_error("error while parsing xml.");
 
     if (!xmlDocGetRootElement(*doc))
-      throw runtime_error("document does not contain a root node.");
+      throw std::runtime_error("document does not contain a root node.");
 
     return doc;
 
@@ -170,22 +166,22 @@ xml::document_ptr xml::parse(const string &data_)
   return document_ptr();
 }
 
-int xml::find(const xml::document_ptr &doc, const char *xpath, string *element)
+int xml::find(const xml::document_ptr &doc, const char *xpath, std::string *element)
 {
   try {
     xpath_object_wrapper result;
     xmlChar *text;
 
     if (!doc)
-      throw runtime_error("cannot search empty document");
+      throw std::runtime_error("cannot search empty document");
 
     result = xpath_find(doc.get(), xpath);
 
     if (result.is_null())
-      throw runtime_error("invalid xpath expression");
+      throw std::runtime_error("invalid xpath expression");
 
     if (xmlXPathNodeSetIsEmpty(result->nodesetval))
-      throw runtime_error("no matching nodes.");
+      throw std::runtime_error("no matching nodes.");
 
     text = xmlXPathCastNodeToString(result->nodesetval->nodeTab[0]);
 
@@ -209,12 +205,12 @@ int xml::find(const xml::document_ptr &doc, const char *xpath, xml::element_list
     xpath_object_wrapper result;
 
     if (!doc)
-      throw runtime_error("cannot search empty document");
+      throw std::runtime_error("cannot search empty document");
 
     result = xpath_find(doc.get(), xpath);
 
     if (result.is_null())
-      throw runtime_error("invalid xpath expression");
+      throw std::runtime_error("invalid xpath expression");
 
     for (int i = 0; i < result->nodesetval->nodeNr; i++) {
       xmlChar *text;
@@ -222,7 +218,7 @@ int xml::find(const xml::document_ptr &doc, const char *xpath, xml::element_list
       text = xmlXPathCastNodeToString(result->nodesetval->nodeTab[i]);
 
       if (text) {
-        list->push_back(string(reinterpret_cast<const char *>(text)));
+        list->push_back(std::string(reinterpret_cast<const char *>(text)));
         xmlFree(text);
       }
     }
@@ -242,12 +238,12 @@ int xml::find(const xml::document_ptr &doc, const char *xpath, xml::element_map_
     xpath_object_wrapper result;
 
     if (!doc)
-      throw runtime_error("cannot search empty document");
+      throw std::runtime_error("cannot search empty document");
 
     result = xpath_find(doc.get(), xpath);
 
     if (result.is_null())
-      throw runtime_error("invalid xpath expression");
+      throw std::runtime_error("invalid xpath expression");
 
     for (int i = 0; i < result->nodesetval->nodeNr; i++) {
       xmlNodePtr node = result->nodesetval->nodeTab[i];
@@ -281,19 +277,19 @@ int xml::find(const xml::document_ptr &doc, const char *xpath, xml::element_map_
   return -EIO;
 }
 
-bool xml::match(const string &data, const char *xpath)
+bool xml::match(const std::string &data, const char *xpath)
 {
   try {
     document_ptr doc = parse(data);
     xpath_object_wrapper result;
 
     if (!doc)
-      throw runtime_error("failed to parse xml");
+      throw std::runtime_error("failed to parse xml");
 
     result = xpath_find(doc.get(), xpath);
 
     if (result.is_null())
-      throw runtime_error("invalid xpath expression");
+      throw std::runtime_error("invalid xpath expression");
 
     return !xmlXPathNodeSetIsEmpty(result->nodesetval);
 
@@ -301,3 +297,6 @@ bool xml::match(const string &data, const char *xpath)
 
   return false;
 }
+
+}  // namespace base
+}  // namespace s3

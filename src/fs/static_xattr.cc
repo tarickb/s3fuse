@@ -33,23 +33,13 @@
 #include "fs/metadata.h"
 #include "fs/static_xattr.h"
 
-using std::string;
-using std::runtime_error;
-using std::vector;
-
-using s3::crypto::base64;
-using s3::crypto::encoder;
-using s3::crypto::hash;
-using s3::crypto::hex;
-using s3::crypto::md5;
-using s3::fs::metadata;
-using s3::fs::static_xattr;
+namespace s3 { namespace fs {
 
 namespace
 {
   const size_t MAX_STRING_SCAN_LEN = 128;
 
-  inline bool is_key_valid(const string &key)
+  inline bool is_key_valid(const std::string &key)
   {
     if (strncmp(key.c_str(), metadata::RESERVED_PREFIX, strlen(metadata::RESERVED_PREFIX)) == 0)
       return false;
@@ -77,23 +67,24 @@ namespace
   }
 }
 
-static_xattr::ptr static_xattr::from_header(const string &header_key, const string &header_value, int mode)
+static_xattr::ptr static_xattr::from_header(const std::string &header_key, const
+    std::string &header_value, int mode)
 {
   ptr ret;
   static_xattr *val = NULL;
 
   if (strncmp(header_key.c_str(), metadata::XATTR_PREFIX, strlen(metadata::XATTR_PREFIX)) == 0) {
-    vector<uint8_t> dec_key;
+    std::vector<uint8_t> dec_key;
     size_t separator = header_value.find(' ');
 
-    if (separator == string::npos)
-      throw runtime_error("header string is malformed.");
+    if (separator == std::string::npos)
+      throw std::runtime_error("header string is malformed.");
 
-    encoder::decode<base64>(header_value.substr(0, separator), &dec_key);
+    crypto::encoder::decode<crypto::base64>(header_value.substr(0, separator), &dec_key);
 
     ret.reset(val = new static_xattr(reinterpret_cast<char *>(&dec_key[0]), true, true, mode));
 
-    encoder::decode<base64>(header_value.substr(separator + 1), &val->_value);
+    crypto::encoder::decode<crypto::base64>(header_value.substr(separator + 1), &val->_value);
 
   } else {
     // we know the value doesn't need encoding because it came to us as a valid HTTP string.
@@ -109,7 +100,7 @@ static_xattr::ptr static_xattr::from_header(const string &header_key, const stri
   return ret;
 }
 
-static_xattr::ptr static_xattr::from_string(const string &key, const string &value, int mode)
+static_xattr::ptr static_xattr::from_string(const std::string &key, const std::string &value, int mode)
 {
   ptr ret = create(key, mode);
 
@@ -119,7 +110,7 @@ static_xattr::ptr static_xattr::from_string(const string &key, const string &val
   return ret;
 }
 
-static_xattr::ptr static_xattr::create(const string &key, int mode)
+static_xattr::ptr static_xattr::create(const std::string &key, int mode)
 {
   return ptr(new static_xattr(key, !is_key_valid(key), true, mode));
 }
@@ -155,11 +146,14 @@ int static_xattr::get_value(char *buffer, size_t max_size)
   return (size == _value.size()) ? size : -ERANGE;
 }
 
-void static_xattr::to_header(string *header, string *value)
+void static_xattr::to_header(std::string *header, std::string *value)
 {
   if (_encode_key || _encode_value) {
-    *header = string(metadata::XATTR_PREFIX) + hash::compute<md5, hex>(get_key());
-    *value = encoder::encode<base64>(get_key()) + " " + encoder::encode<base64>(_value);
+    *header = std::string(metadata::XATTR_PREFIX) +
+      crypto::hash::compute<crypto::md5,
+      crypto::hex>(get_key());
+    *value = crypto::encoder::encode<crypto::base64>(get_key()) + " " +
+      crypto::encoder::encode<crypto::base64>(_value);
   } else {
     *header = get_key();
 
@@ -168,14 +162,16 @@ void static_xattr::to_header(string *header, string *value)
   }
 }
 
-string static_xattr::to_string()
+std::string static_xattr::to_string()
 {
-  string s;
+  std::string s;
 
   if (_encode_value)
-    throw runtime_error("value cannot be represented as a string");
+    throw std::runtime_error("value cannot be represented as a string");
 
   s.assign(reinterpret_cast<const char *>(&_value[0]), _value.size());
 
   return s;
 }
+
+} }

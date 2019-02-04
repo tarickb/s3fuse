@@ -23,11 +23,8 @@
 
 #include "crypto/hex.h"
 
-using std::string;
-using std::runtime_error;
-using std::vector;
-
-using s3::crypto::hex;
+namespace s3 {
+  namespace crypto {
 
 namespace
 {
@@ -37,10 +34,10 @@ namespace
   }
 }
 
-string hex::encode(const uint8_t *input, size_t size)
+std::string hex::encode(const uint8_t *input, size_t size)
 {
   const char *HEX = "0123456789abcdef";
-  string ret;
+  std::string ret;
 
   ret.resize(size * 2);
 
@@ -52,10 +49,10 @@ string hex::encode(const uint8_t *input, size_t size)
   return ret;
 }
 
-void hex::decode(const string &input, vector<uint8_t> *output)
+void hex::decode(const std::string &input, std::vector<uint8_t> *output)
 {
   if (input.size() % 2)
-    throw runtime_error("cannot have odd number of hex characters to decode!");
+    throw std::runtime_error("cannot have odd number of hex characters to decode!");
 
   output->resize(input.size() / 2);
 
@@ -64,3 +61,6 @@ void hex::decode(const string &input, vector<uint8_t> *output)
       hex_char_to_int(input[2 * i + 0]) * 16 +
       hex_char_to_int(input[2 * i + 1]);
 }
+
+}  // namespace crypto
+}  // namespace s3

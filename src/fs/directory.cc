@@ -32,35 +32,14 @@
 #include "threads/parallel_work_queue.h"
 #include "threads/pool.h"
 
-using std::atomic_int;
-using std::list;
-using std::lock_guard;
-using std::mutex;
-using std::ostream;
-using std::runtime_error;
-using std::string;
-using std::unique_ptr;
-using std::vector;
-
-using s3::base::config;
-using s3::base::request;
-using s3::base::statistics;
-using s3::base::xml;
-using s3::fs::cache;
-using s3::fs::directory;
-using s3::fs::list_reader;
-using s3::fs::object;
-using s3::threads::parallel_work_queue;
-using s3::threads::pool;
-
-using namespace std::placeholders;
+namespace s3 { namespace fs {
 
 namespace
 {
-  atomic_int s_internal_objects_skipped_in_list(0);
-  atomic_int s_copy_retries(0), s_delete_retries(0);
+  std::atomic_int s_internal_objects_skipped_in_list(0);
+  std::atomic_int s_copy_retries(0), s_delete_retries(0);
 
-  void statistics_writer(ostream *o)
+  void statistics_writer(std::ostream *o)
   {
     *o << 
       "directories:\n"
@@ -69,7 +48,7 @@ namespace
       "  rename retries (delete step): " << s_delete_retries << "\n";
   }
 
-  int precache_object(const request::ptr &req, const string &path, int hints)
+  int precache_object(const base::request::ptr &req, const std::string &path, int hints)
   {
     // we need to wrap cache::get because it returns an object::ptr, and the
     // thread pool expects a function that returns an int
@@ -79,10 +58,11 @@ namespace
     return 0;
   }
 
-  int copy_object(const request::ptr &req, string *name, const string &old_base, const string &new_base, bool is_retry)
+  int copy_object(const base::request::ptr &req, std::string *name, const std::string
+      &old_base, const std::string &new_base, bool is_retry)
   {
-    string old_name = old_base + *name;
-    string new_name = new_base + *name;
+    std::string old_name = old_base + *name;
+    std::string new_name = new_base + *name;
 
     if (is_retry)
       ++s_copy_retries;
@@ -92,9 +72,9 @@ namespace
     return object::copy_by_path(req, old_name, new_name);
   }
 
-  int delete_object(const request::ptr &req, string *name, const string &old_base, bool is_retry)
+  int delete_object(const base::request::ptr &req, std::string *name, const std::string &old_base, bool is_retry)
   {
-    string old_name = old_base + *name;
+    std::string old_name = old_base + *name;
 
     if (is_retry)
       ++s_delete_retries;
@@ -104,9 +84,9 @@ namespace
     return object::remove_by_url(req, object::build_url(old_name));
   }
 
-  object * checker(const string &path, const request::ptr &req)
+  object * checker(const std::string &path, const base::request::ptr &req)
   {
-    const string &url = req->get_url();
+    const std::string &url = req->get_url();
 
     if (!path.empty() && (url.empty() || url[url.size() - 1] != '/'))
       return NULL;
@@ -115,34 +95,34 @@ namespace
   }
 
   object::type_checker_list::entry s_checker_reg(checker, 10);
-  statistics::writers::entry s_writer(statistics_writer, 0);
+  base::statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
-string directory::build_url(const string &path)
+std::string directory::build_url(const std::string &path)
 {
   return object::build_url(path) + "/";
 }
 
-void directory::get_internal_objects(const request::ptr &req, vector<string> *objects)
+void directory::get_internal_objects(const base::request::ptr &req, std::vector<std::string> *objects)
 {
-  const string &PREFIX = object::get_internal_prefix();
+  const std::string &PREFIX = object::get_internal_prefix();
 
   list_reader::ptr reader;
-  xml::element_list keys;
+  base::xml::element_list keys;
   int r;
 
   reader.reset(new list_reader(PREFIX));
 
   while ((r = reader->read(req, &keys, NULL)) > 0) {
-    for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor)
+    for (base::xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor)
       objects->push_back(itor->substr(PREFIX.size()));
   }
 
   if (r)
-    throw runtime_error("failed to list bucket objects.");
+    throw std::runtime_error("failed to list bucket objects.");
 }
 
-directory::directory(const string &path)
+directory::directory(const std::string &path)
   : object(path)
 {
   set_url(build_url(path));
@@ -153,13 +133,13 @@ directory::~directory()
 {
 }
 
-int directory::do_read(const request::ptr &req, const filler_function &filler)
+int directory::do_read(const base::request::ptr &req, const filler_function &filler)
 {
-  string path = get_path();
+  std::string path = get_path();
   size_t path_len;
   cache_list_ptr cache;
   list_reader::ptr reader;
-  xml::element_list prefixes, keys;
+  base::xml::element_list prefixes, keys;
   int r;
 
   if (!path.empty())
@@ -167,7 +147,7 @@ int directory::do_read(const request::ptr &req, const filler_function &filler)
 
   path_len = path.size();
 
-  if (config::get_cache_directories())
+  if (base::config::get_cache_directories())
     cache.reset(new cache_list());
 
   reader.reset(new list_reader(path));
@@ -177,22 +157,23 @@ int directory::do_read(const request::ptr &req, const filler_function &filler)
   filler("..");
 
   while ((r = reader->read(req, &keys, &prefixes)) > 0) {
-    for (xml::element_list::const_iterator itor = prefixes.begin(); itor != prefixes.end(); ++itor) {
+    for (base::xml::element_list::const_iterator itor = prefixes.begin(); itor != prefixes.end(); ++itor) {
       // strip trailing slash
-      string relative_path = itor->substr(path_len, itor->size() - path_len - 1);
+      std::string relative_path = itor->substr(path_len, itor->size() - path_len - 1);
 
       filler(relative_path);
 
-      if (config::get_precache_on_readdir())
-        pool::call_async(threads::PR_REQ_1, bind(precache_object, _1, path + relative_path, HINT_IS_DIR));
+      if (base::config::get_precache_on_readdir())
+        threads::pool::call_async(threads::PR_REQ_1, bind(precache_object,
+              std::placeholders::_1, path + relative_path, HINT_IS_DIR));
 
       if (cache)
         cache->push_back(relative_path);
     }
 
-    for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
+    for (base::xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
       if (path != *itor) {
-        string relative_path = itor->substr(path_len);
+        std::string relative_path = itor->substr(path_len);
 
         if (object::is_internal_path(relative_path)) {
           ++s_internal_objects_skipped_in_list;
@@ -201,8 +182,9 @@ int directory::do_read(const request::ptr &req, const filler_function &filler)
 
         filler(relative_path);
 
-        if (config::get_precache_on_readdir())
-          pool::call_async(threads::PR_REQ_1, bind(precache_object, _1, path + relative_path, HINT_IS_FILE));
+        if (base::config::get_precache_on_readdir())
+          threads::pool::call_async(threads::PR_REQ_1, bind(precache_object,
+                std::placeholders::_1, path + relative_path, HINT_IS_FILE));
 
         if (cache)
           cache->push_back(relative_path);
@@ -214,7 +196,7 @@ int directory::do_read(const request::ptr &req, const filler_function &filler)
     return r;
 
   if (cache) {
-    lock_guard<mutex> lock(_mutex);
+    std::lock_guard<std::mutex> lock(_mutex);
 
     _cache = cache;
   }
@@ -222,10 +204,10 @@ int directory::do_read(const request::ptr &req, const filler_function &filler)
   return 0;
 }
 
-bool directory::is_empty(const request::ptr &req)
+bool directory::is_empty(const base::request::ptr &req)
 {
   list_reader::ptr reader;
-  xml::element_list keys;
+  base::xml::element_list keys;
 
   // root directory isn't removable
   if (get_path().empty())
@@ -237,7 +219,7 @@ bool directory::is_empty(const request::ptr &req)
   return (reader->read(req, &keys, NULL) == 1);
 }
 
-int directory::remove(const request::ptr &req)
+int directory::remove(const base::request::ptr &req)
 {
   if (!is_empty(req))
     return -ENOTEMPTY;
@@ -245,16 +227,16 @@ int directory::remove(const request::ptr &req)
   return object::remove(req);
 }
 
-int directory::rename(const request::ptr &req, const string &to_)
+int directory::rename(const base::request::ptr &req, const std::string &to_)
 {
-  typedef parallel_work_queue<string> rename_queue;
+  typedef threads::parallel_work_queue<std::string> rename_queue;
 
-  string from, to;
+  std::string from, to;
   size_t from_len;
   list_reader::ptr reader;
-  xml::element_list keys;
-  list<string> relative_paths;
-  unique_ptr<rename_queue> queue;
+  base::xml::element_list keys;
+  std::list<std::string> relative_paths;
+  std::unique_ptr<rename_queue> queue;
   int r;
 
   // can't do anything with the root directory
@@ -270,7 +252,7 @@ int directory::rename(const request::ptr &req, const string &to_)
   cache::remove(get_path());
 
   while ((r = reader->read(req, &keys, NULL)) > 0) {
-    for (xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
+    for (base::xml::element_list::const_iterator itor = keys.begin(); itor != keys.end(); ++itor) {
       int rm_r;
 
       if ((rm_r = cache::remove(*itor)))
@@ -283,8 +265,8 @@ int directory::rename(const request::ptr &req, const string &to_)
   queue.reset(new rename_queue(
     relative_paths.begin(),
     relative_paths.end(),
-    bind(&copy_object, _1, _2, from, to, false),
-    bind(&copy_object, _1, _2, from, to, true)));
+    bind(&copy_object, std::placeholders::_1, std::placeholders::_2, from, to, false),
+    bind(&copy_object, std::placeholders::_1, std::placeholders::_2, from, to, true)));
 
   if ((r = queue->process()))
     return r;
@@ -292,8 +274,10 @@ int directory::rename(const request::ptr &req, const string &to_)
   queue.reset(new rename_queue(
     relative_paths.begin(),
     relative_paths.end(),
-    bind(&delete_object, _1, _2, from, false),
-    bind(&delete_object, _1, _2, from, true)));
+    bind(&delete_object, std::placeholders::_1, std::placeholders::_2, from, false),
+    bind(&delete_object, std::placeholders::_1, std::placeholders::_2, from, true)));
 
   return queue->process();
 }
+
+} }

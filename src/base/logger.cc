@@ -23,7 +23,8 @@
 
 #include "base/logger.h"
 
-using s3::base::logger;
+namespace s3 {
+  namespace base {
 
 // log all messages unless instructed otherwise
 int logger::s_max_level = INT_MAX;
@@ -34,3 +35,6 @@ void logger::init(int max_level)
 
   openlog(PACKAGE_NAME, 0, 0);
 }
+
+}  // namespace base
+}  // namespace s3

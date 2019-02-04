@@ -4,24 +4,20 @@
 #include "crypto/aes_ctr_256.h"
 #include "crypto/symmetric_key.h"
 
-using std::runtime_error;
-using std::string;
-
-using s3::crypto::aes_cbc_256;
-using s3::crypto::aes_ctr_256;
-using s3::crypto::symmetric_key;
+namespace s3 { namespace crypto {
+  namespace tests {
 
 namespace
 {
   const int TEST_SIZES[] = { 1, 2, 4, 8, 16, 32, 64 };
   const int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
 
-  void test_string(const string &str, size_t key_len, size_t iv_len)
+  void test_string(const std::string &str, size_t key_len, size_t iv_len)
   {
     size_t colon = str.find(':');
 
     ASSERT_FALSE(str.empty());
-    ASSERT_NE(colon, string::npos);
+    ASSERT_NE(colon, std::string::npos);
     ASSERT_LT(colon, str.size() - 1);
 
     // x2 for hex encoding
@@ -51,23 +47,23 @@ namespace
 
 TEST(symmetric_key, aes_cbc_256_no_zero)
 {
-  EXPECT_THROW(symmetric_key::generate<aes_cbc_256>(0), runtime_error);
+  EXPECT_THROW(symmetric_key::generate<aes_cbc_256>(0), std::runtime_error);
 }
 
 TEST(symmetric_key, aes_ctr_256_no_zero)
 {
-  EXPECT_THROW(symmetric_key::generate<aes_ctr_256>(0), runtime_error);
+  EXPECT_THROW(symmetric_key::generate<aes_ctr_256>(0), std::runtime_error);
 }
 
 TEST(symmetric_key, invalid_string)
 {
-  EXPECT_THROW(symmetric_key::from_string(""), runtime_error);
+  EXPECT_THROW(symmetric_key::from_string(""), std::runtime_error);
 }
 
 TEST(symmetric_key, aes_cbc_256_from_string)
 {
   symmetric_key::ptr sk = symmetric_key::generate<aes_cbc_256>();
-  string str = sk->to_string();
+  std::string str = sk->to_string();
 
   EXPECT_EQ(str, symmetric_key::from_string(str)->to_string());
 }
@@ -75,7 +71,7 @@ TEST(symmetric_key, aes_cbc_256_from_string)
 TEST(symmetric_key, aes_ctr_256_from_string)
 {
   symmetric_key::ptr sk = symmetric_key::generate<aes_ctr_256>();
-  string str = sk->to_string();
+  std::string str = sk->to_string();
 
   EXPECT_EQ(str, symmetric_key::from_string(str)->to_string());
 }
@@ -101,3 +97,5 @@ TEST(symmetric_key, aes_ctr_256_varying)
   for (int i = 0; i < TEST_COUNT; i++)
     test_varying<aes_ctr_256>(TEST_SIZES[i]);
 }
+
+} } }

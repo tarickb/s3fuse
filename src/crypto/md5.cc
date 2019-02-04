@@ -28,9 +28,8 @@
 
 #include "crypto/md5.h"
 
-using std::runtime_error;
-
-using s3::crypto::md5;
+namespace s3 {
+  namespace crypto {
 
 void md5::compute(const uint8_t *input, size_t size, uint8_t *hash)
 {
@@ -53,7 +52,7 @@ void md5::compute(int fd, uint8_t *hash)
       read_count = pread(fd, buf, BUF_LEN, offset);
 
       if (read_count == -1)
-        throw runtime_error("error while computing md5, in pread().");
+        throw std::runtime_error("error while computing md5, in pread().");
 
       EVP_DigestUpdate(md5_ctx, buf, read_count);
 
@@ -71,3 +70,6 @@ void md5::compute(int fd, uint8_t *hash)
   EVP_DigestFinal(md5_ctx, hash, NULL);
   EVP_MD_CTX_free(md5_ctx);
 }
+
+}  // namespace crypto
+}  // namespace s3

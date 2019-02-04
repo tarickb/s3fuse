@@ -29,48 +29,34 @@
 #include "threads/parallel_work_queue.h"
 #include "threads/pool.h"
 
-using std::to_string;
-using std::atomic_int;
-using std::ostream;
-using std::string;
-using std::unique_ptr;
-using std::vector;
-
-using s3::base::char_vector;
-using s3::base::char_vector_ptr;
-using s3::base::config;
-using s3::base::request;
-using s3::base::statistics;
-using s3::services::gs::file_transfer;
-using s3::threads::parallel_work_queue;
-using s3::threads::pool;
-
-using namespace std::placeholders;
+namespace s3 {
+  namespace services {
+    namespace gs {
 
 namespace
 {
   const size_t UPLOAD_CHUNK_SIZE = 256 * 1024;
 
-  const string UPLOAD_ID_DELIM = "?upload_id=";
+  const std::string UPLOAD_ID_DELIM = "?upload_id=";
 
-  atomic_int s_uploads_multi_chunks_failed(0);
+  std::atomic_int s_uploads_multi_chunks_failed(0);
 
-  void statistics_writer(ostream *o)
+  void statistics_writer(std::ostream *o)
   {
     *o <<
       "google storage multi-part uploads:\n"
       "  chunks failed: " << s_uploads_multi_chunks_failed << "\n";
   }
 
-  statistics::writers::entry s_writer(statistics_writer, 0);
+  base::statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
 file_transfer::file_transfer()
 {
   _upload_chunk_size = 
-    (config::get_upload_chunk_size() == -1)
+    (base::config::get_upload_chunk_size() == -1)
       ? UPLOAD_CHUNK_SIZE
-      : config::get_upload_chunk_size();
+      : base::config::get_upload_chunk_size();
 }
 
 size_t file_transfer::get_upload_chunk_size()
@@ -78,18 +64,20 @@ size_t file_transfer::get_upload_chunk_size()
   return _upload_chunk_size;
 }
 
-int file_transfer::upload_multi(const string &url, size_t size, const read_chunk_fn &on_read, string *returned_etag)
+int file_transfer::upload_multi(const std::string &url, size_t size, const
+    read_chunk_fn &on_read, std::string *returned_etag)
 {
-  typedef parallel_work_queue<upload_range> multipart_upload;
+  typedef threads::parallel_work_queue<upload_range> multipart_upload;
 
-  string location;
+  std::string location;
   const size_t num_parts = (size + _upload_chunk_size - 1) / _upload_chunk_size;
-  vector<upload_range> parts(num_parts);
+  std::vector<upload_range> parts(num_parts);
   upload_range last_part;
-  unique_ptr<multipart_upload> upload;
+  std::unique_ptr<multipart_upload> upload;
   int r;
 
-  r = pool::call(threads::PR_REQ_0, bind(&file_transfer::upload_multi_init, this, _1, url, &location));
+  r = threads::pool::call(threads::PR_REQ_0,
+      bind(&file_transfer::upload_multi_init, this, std::placeholders::_1, url, &location));
 
   if (r)
     return r;
@@ -107,8 +95,10 @@ int file_transfer::upload_multi(const string &url, size_t size, const read_chunk
   upload.reset(new multipart_upload(
     parts.begin(),
     parts.end(),
-    bind(&file_transfer::upload_part, this, _1, location, on_read, _2, false),
-    bind(&file_transfer::upload_part, this, _1, location, on_read, _2, true),
+    bind(&file_transfer::upload_part, this, std::placeholders::_1, location,
+      on_read, std::placeholders::_2, false),
+    bind(&file_transfer::upload_part, this, std::placeholders::_1, location,
+      on_read, std::placeholders::_2, true),
     -1, // default max_retries
     1)); // only one part at a time
 
@@ -117,21 +107,21 @@ int file_transfer::upload_multi(const string &url, size_t size, const read_chunk
   if (r)
     return r;
 
-  return pool::call(
+  return threads::pool::call(
     threads::PR_REQ_0, 
-    bind(&file_transfer::upload_last_part, this, _1, location, on_read, &last_part, size, returned_etag));
+    bind(&file_transfer::upload_last_part, this, std::placeholders::_1, location, on_read, &last_part, size, returned_etag));
 }
 
 int file_transfer::read_and_upload(
-  const request::ptr &req,
-  const string &url,
+  const base::request::ptr &req,
+  const std::string &url,
   const read_chunk_fn &on_read,
   upload_range *range,
   size_t total_size)
 {
   int r = 0;
-  char_vector_ptr buffer(new char_vector());
-  string content_range = "bytes ";
+  base::char_vector_ptr buffer(new base::char_vector());
+  std::string content_range = "bytes ";
 
   r = on_read(range->size, range->offset, buffer);
 
@@ -144,22 +134,22 @@ int file_transfer::read_and_upload(
   req->set_input_buffer(buffer);
 
   content_range += 
-    to_string(range->offset) + 
+    std::to_string(range->offset) + 
     "-" +
-    to_string(range->offset + range->size - 1) +
+    std::to_string(range->offset + range->size - 1) +
     "/" +
-    ((total_size == 0) ? string("*") : to_string(total_size));
+    ((total_size == 0) ? std::string("*") : std::to_string(total_size));
 
   req->set_header("Content-Range", content_range);
 
-  req->run(config::get_transfer_timeout_in_s());
+  req->run(base::config::get_transfer_timeout_in_s());
 
   return 0;
 }
 
 int file_transfer::upload_part(
-  const request::ptr &req, 
-  const string &url, 
+  const base::request::ptr &req, 
+  const std::string &url, 
   const read_chunk_fn &on_read, 
   upload_range *range, 
   bool is_retry)
@@ -178,12 +168,12 @@ int file_transfer::upload_part(
 }
 
 int file_transfer::upload_last_part(
-  const request::ptr &req, 
-  const string &url, 
+  const base::request::ptr &req, 
+  const std::string &url, 
   const read_chunk_fn &on_read, 
   upload_range *range, 
   size_t total_size,
-  string *returned_etag)
+  std::string *returned_etag)
 {
   int r = 0;
 
@@ -200,7 +190,8 @@ int file_transfer::upload_last_part(
   return 0;
 }
 
-int file_transfer::upload_multi_init(const request::ptr &req, const string &url, string *location)
+int file_transfer::upload_multi_init(const base::request::ptr &req, const std::string
+    &url, std::string *location)
 {
   size_t pos = 0;
 
@@ -217,10 +208,12 @@ int file_transfer::upload_multi_init(const request::ptr &req, const string &url,
 
   pos = location->find(UPLOAD_ID_DELIM);
 
-  if (pos == string::npos)
+  if (pos == std::string::npos)
     return -EIO;
 
   *location = url + location->substr(pos);
 
   return 0;
 }
+
+} } }

@@ -27,14 +27,11 @@
 #include "base/logger.h"
 #include "fs/callback_xattr.h"
 
-using std::string;
-using std::runtime_error;
-
-using s3::fs::callback_xattr;
+namespace s3 { namespace fs {
 
 int callback_xattr::set_value(const char *value, size_t size)
 {
-  string s;
+  std::string s;
 
   s.assign(value, size);
 
@@ -43,7 +40,7 @@ int callback_xattr::set_value(const char *value, size_t size)
 
 int callback_xattr::get_value(char *buffer, size_t max_size)
 {
-  string value;
+  std::string value;
   size_t size;
   int r;
 
@@ -64,7 +61,9 @@ int callback_xattr::get_value(char *buffer, size_t max_size)
   return (size == value.size()) ? size : -ERANGE;
 }
 
-void callback_xattr::to_header(string *header, string *value)
+void callback_xattr::to_header(std::string *header, std::string *value)
 {
-  throw runtime_error("cannot serialize callback xattr to header");
+  throw std::runtime_error("cannot serialize callback xattr to header");
 }
+
+} }

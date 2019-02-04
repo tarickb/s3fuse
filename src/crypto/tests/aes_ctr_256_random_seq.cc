@@ -4,11 +4,8 @@
 #include "crypto/symmetric_key.h"
 #include "crypto/tests/random.h"
 
-using std::vector;
-
-using s3::crypto::aes_ctr_256;
-using s3::crypto::symmetric_key;
-using s3::crypto::tests::random;
+namespace s3 { namespace crypto {
+  namespace tests {
 
 namespace
 {
@@ -22,7 +19,7 @@ TEST(aes_ctr_256, random_data_sequential)
 {
   for (int test = 0; test < TEST_COUNT; test++) {
     symmetric_key::ptr sk;
-    vector<uint8_t> in, out_enc, out_dec;
+    std::vector<uint8_t> in, out_enc, out_dec;
     bool diff = false;
     size_t size = TEST_SIZES[test];
 
@@ -59,3 +56,5 @@ TEST(aes_ctr_256, random_data_sequential)
     ASSERT_FALSE(diff) << "with size = " << size;
   }
 }
+
+} } }

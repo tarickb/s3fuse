@@ -48,25 +48,8 @@
 #include "services/gs/impl.h"
 #endif
 
-using std::runtime_error;
-using std::string;
-
-using s3::init;
-using s3::base::config;
-using s3::base::logger;
-using s3::base::request;
-using s3::base::statistics;
-using s3::base::xml;
-using s3::crypto::buffer;
-using s3::fs::cache;
-using s3::fs::encryption;
-using s3::fs::file;
-using s3::fs::list_reader;
-using s3::fs::mime_types;
-using s3::fs::object;
-using s3::services::impl;
-using s3::services::service;
-using s3::threads::pool;
+namespace s3
+{
 
 namespace
 {
@@ -75,19 +58,19 @@ namespace
 
   void test_bucket_access()
   {
-    request::ptr req(new request());
-    list_reader::ptr reader(new list_reader("/", false, 1));
-    xml::element_list list;
+    base::request::ptr req(new base::request());
+    fs::list_reader::ptr reader(new fs::list_reader("/", false, 1));
+    base::xml::element_list list;
     int r = 0;
     int retry_count = 0;
 
-    req->set_hook(service::get_request_hook());
+    req->set_hook(services::service::get_request_hook());
     r = reader->read(req, &list, NULL);
     if (r)
-      throw runtime_error("unable to list bocket contents. check bucket name and credentials.");
+      throw std::runtime_error("unable to list bocket contents. check bucket name and credentials.");
 
     while (retry_count++ < BUCKET_TEST_MAX_RETRIES) {
-      string rand_url = object::build_internal_url(string("bucket_test_") + buffer::generate(BUCKET_TEST_ID_LEN)->to_string());
+      std::string rand_url = fs::object::build_internal_url(std::string("bucket_test_") + crypto::buffer::generate(BUCKET_TEST_ID_LEN)->to_string());
 
       req->init(s3::base::HTTP_HEAD);
       req->set_url(rand_url);
@@ -117,27 +100,27 @@ namespace
       return;
     }
 
-    throw runtime_error("unable to complete bucket access test.");
+    throw std::runtime_error("unable to complete bucket access test.");
   }
 }
 
-void init::base(int flags, int verbosity, const string &config_file)
+void init::base(int flags, int verbosity, const std::string &config_file)
 {
-  logger::init(verbosity);
-  config::init(config_file);
-  xml::init();
+  base::logger::init(verbosity);
+  base::config::init(config_file);
+  base::xml::init();
 
-  if ((flags & IB_WITH_STATS) && !config::get_stats_file().empty())
-    statistics::init(config::get_stats_file());
+  if ((flags & IB_WITH_STATS) && !base::config::get_stats_file().empty())
+    base::statistics::init(base::config::get_stats_file());
 }
 
 void init::fs()
 {
-  file::test_transfer_chunk_sizes();
+  fs::file::test_transfer_chunk_sizes();
 
-  cache::init();
-  encryption::init();
-  mime_types::init();
+  fs::cache::init();
+  fs::encryption::init();
+  fs::mime_types::init();
 
   test_bucket_access();
 }
@@ -145,12 +128,12 @@ void init::fs()
 void init::services()
 {
   #ifdef FIXED_SERVICE
-    service::init(impl::ptr(new services::FIXED_SERVICE::impl()));
+  services::service::init(services::impl::ptr(new services::FIXED_SERVICE::impl()));
   #else
     #define TEST_SVC(str, ns) \
       do { \
-        if (config::get_service() == str) { \
-          service::init(impl::ptr(new services::ns::impl())); \
+        if (base::config::get_service() == str) { \
+          services::service::init(services::impl::ptr(new services::ns::impl())); \
           return; \
         } \
       } while (0)
@@ -169,18 +152,18 @@ void init::services()
 
     #undef TEST_SVC
 
-    throw runtime_error("invalid service specified.");
+    throw std::runtime_error("invalid service specified.");
   #endif
 }
 
 void init::threads()
 {
-  pool::init();
+  threads::pool::init();
 }
 
-string init::get_enabled_services()
+std::string init::get_enabled_services()
 {
-  string svcs;
+  std::string svcs;
 
   #ifdef WITH_AWS
     svcs += ", aws";
@@ -194,5 +177,7 @@ string init::get_enabled_services()
     svcs += ", google-storage";
   #endif
 
-  return svcs.empty() ? string("(none)") : svcs.substr(2); // strip leading ", "
+  return svcs.empty() ? std::string("(none)") : svcs.substr(2); // strip leading ", "
 }
+
+}  // namespace s3

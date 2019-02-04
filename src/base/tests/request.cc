@@ -3,9 +3,8 @@
 
 #include "base/request.h"
 
-using std::runtime_error;
-
-using s3::base::request;
+namespace s3 {
+  namespace base { namespace tests {
 
 TEST(request, bad_url)
 {
@@ -14,7 +13,7 @@ TEST(request, bad_url)
   r.init(s3::base::HTTP_GET);
   r.set_url("some:bad:url");
 
-  ASSERT_THROW(r.run(), runtime_error);
+  ASSERT_THROW(r.run(), std::runtime_error);
 }
 
 TEST(request, missing_page)
@@ -39,3 +38,7 @@ TEST(request, valid_page)
   ASSERT_EQ(s3::base::HTTP_SC_OK, r.get_response_code());
   ASSERT_FALSE(r.get_output_string().empty());
 }
+
+}
+}  // namespace base
+}  // namespace s3

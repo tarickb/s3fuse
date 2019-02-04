@@ -6,11 +6,8 @@
 #include "crypto/hex.h"
 #include "crypto/md5.h"
 
-using std::string;
-
-using s3::crypto::hash;
-using s3::crypto::hex;
-using s3::crypto::md5;
+namespace s3 { namespace crypto {
+  namespace tests {
 
 namespace
 {
@@ -1534,7 +1531,7 @@ TEST(md5, random_from_file)
     char file_name[] = "/tmp/hash_test.XXXXXX";
     int fd = mkstemp(file_name);
     int size = TEST_SIZES[test];
-    string computed_hash;
+    std::string computed_hash;
 
     ASSERT_NE(-1, fd) << "with size = " << size;
 
@@ -1545,8 +1542,10 @@ TEST(md5, random_from_file)
 
     computed_hash = hash::compute<md5, hex>(fd);
 
-    EXPECT_EQ(string(MD5[test]), computed_hash) << "with size = " << size;
+    EXPECT_EQ(std::string(MD5[test]), computed_hash) << "with size = " << size;
 
     close(fd);
   }
 }
+
+} } }

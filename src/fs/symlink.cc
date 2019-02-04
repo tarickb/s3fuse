@@ -23,25 +23,17 @@
 #include "base/request.h"
 #include "fs/symlink.h"
 
-using std::defer_lock;
-using std::lock_guard;
-using std::mutex;
-using std::string;
-using std::unique_lock;
-
-using s3::base::request;
-using s3::fs::object;
-using s3::fs::symlink;
+namespace s3 { namespace fs {
 
 namespace
 {
-  const string CONTENT_TYPE = "text/symlink";
+  const std::string CONTENT_TYPE = "text/symlink";
 
-  const string CONTENT_PREFIX = "SYMLINK:";
+  const std::string CONTENT_PREFIX = "SYMLINK:";
   const char * CONTENT_PREFIX_CSTR = CONTENT_PREFIX.c_str();
   const size_t CONTENT_PREFIX_LEN = CONTENT_PREFIX.size();
 
-  object * checker(const string &path, const request::ptr &req)
+  object * checker(const std::string &path, const base::request::ptr &req)
   {
     if (req->get_response_header("Content-Type") != CONTENT_TYPE)
       return NULL;
@@ -52,7 +44,7 @@ namespace
   object::type_checker_list::entry s_checker_reg(checker, 100);
 }
 
-symlink::symlink(const string &path)
+symlink::symlink(const std::string &path)
   : object(path)
 {
   set_content_type(CONTENT_TYPE);
@@ -63,17 +55,17 @@ symlink::~symlink()
 {
 }
 
-void symlink::set_request_body(const request::ptr &req)
+void symlink::set_request_body(const base::request::ptr &req)
 {
-  lock_guard<mutex> lock(_mutex);
+  std::lock_guard<std::mutex> lock(_mutex);
 
   req->set_input_buffer(CONTENT_PREFIX + _target);
 }
 
-int symlink::internal_read(const request::ptr &req)
+int symlink::internal_read(const base::request::ptr &req)
 {
-  unique_lock<mutex> lock(_mutex, defer_lock);
-  string output;
+  std::unique_lock<std::mutex> lock(_mutex, std::defer_lock);
+  std::string output;
 
   req->init(base::HTTP_GET);
   req->set_url(get_url());
@@ -95,3 +87,5 @@ int symlink::internal_read(const request::ptr &req)
 
   return 0;
 }
+
+} }

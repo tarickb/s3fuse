@@ -42,15 +42,12 @@
 #include "base/curl_easy_handle.h"
 #include "base/logger.h"
 
-using std::mutex;
-using std::runtime_error;
-using std::lock_guard;
-
-using s3::base::curl_easy_handle;
+namespace s3 {
+  namespace base {
 
 namespace
 {
-  mutex s_init_mutex;
+  std::mutex s_init_mutex;
   int s_init_count = 0;
 
   void pre_init()
@@ -61,12 +58,12 @@ namespace
     ver = curl_version_info(CURLVERSION_NOW);
 
     if (!ver)
-      throw runtime_error("curl_version_info() failed.");
+      throw std::runtime_error("curl_version_info() failed.");
 
     S3_LOG(LOG_DEBUG, "curl_easy_handle::pre_init", "ssl version: %s\n", ver->ssl_version);
 
     if (!ver->ssl_version)
-      throw runtime_error("curl does not report an SSL library. cannot continue.");
+      throw std::runtime_error("curl does not report an SSL library. cannot continue.");
 
     if (strstr(ver->ssl_version, "NSS"))
       return; // NSS doesn't require external locking
@@ -77,7 +74,7 @@ namespace
     #ifdef HAVE_GNUTLS
       if (strstr(ver->ssl_version, "GnuTLS")) {
         if (gnutls_global_init() != GNUTLS_E_SUCCESS)
-          throw runtime_error("failed to initialize GnuTLS.");
+          throw std::runtime_error("failed to initialize GnuTLS.");
 
         return;
       }
@@ -90,7 +87,7 @@ namespace
 
     S3_LOG(LOG_ERR, "curl_easy_handle::pre_init", "unsupported ssl version: %s\n", ver->ssl_version);
 
-    throw runtime_error("curl reports an unsupported ssl library/version.");
+    throw std::runtime_error("curl reports an unsupported ssl library/version.");
   }
 
   void cleanup()
@@ -101,7 +98,7 @@ namespace
 
 curl_easy_handle::curl_easy_handle()
 {
-  lock_guard<mutex> lock(s_init_mutex);
+  std::lock_guard<std::mutex> lock(s_init_mutex);
 
   if (s_init_count++ == 0)
     pre_init();
@@ -109,15 +106,18 @@ curl_easy_handle::curl_easy_handle()
   _handle = curl_easy_init();
 
   if (!_handle)
-    throw runtime_error("curl_easy_init() failed.");
+    throw std::runtime_error("curl_easy_init() failed.");
 }
 
 curl_easy_handle::~curl_easy_handle()
 {
-  lock_guard<mutex> lock(s_init_mutex);
+  std::lock_guard<std::mutex> lock(s_init_mutex);
 
   curl_easy_cleanup(_handle);
 
   if (--s_init_count == 0)
     cleanup();
 }
+
+}  // namespace base
+}  // namespace s3

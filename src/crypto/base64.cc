@@ -29,18 +29,15 @@
 
 #include "crypto/base64.h"
 
-using std::string;
-using std::runtime_error;
-using std::vector;
+namespace s3 {
+  namespace crypto {
 
-using s3::crypto::base64;
-
-string base64::encode(const uint8_t *input, size_t size)
+std::string base64::encode(const uint8_t *input, size_t size)
 {
   BIO *bio_b64 = BIO_new(BIO_f_base64());
   BIO *bio_mem = BIO_new(BIO_s_mem());
   BUF_MEM *mem;
-  string ret;
+  std::string ret;
 
   BIO_set_flags(bio_b64, BIO_FLAGS_BASE64_NO_NL);
 
@@ -56,7 +53,7 @@ string base64::encode(const uint8_t *input, size_t size)
   return ret;
 }
 
-void base64::decode(const string &input, vector<uint8_t> *output)
+void base64::decode(const std::string &input, std::vector<uint8_t> *output)
 {
   const size_t READ_CHUNK = 1024;
 
@@ -75,7 +72,7 @@ void base64::decode(const string &input, vector<uint8_t> *output)
 
     if (r < 0) {
       BIO_free_all(bio_b64);
-      throw runtime_error("failed while decoding base64.");
+      throw std::runtime_error("failed while decoding base64.");
     }
 
     output->resize(total_bytes + r);
@@ -87,3 +84,6 @@ void base64::decode(const string &input, vector<uint8_t> *output)
 
   BIO_free_all(bio_b64);
 }
+
+}  // namespace crypto
+}  // namespace s3

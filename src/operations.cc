@@ -34,62 +34,42 @@
 #include "fs/special.h"
 #include "fs/symlink.h"
 
-using std::atomic_int;
-using std::dynamic_pointer_cast;
-using std::numeric_limits;
-using std::ostream;
-using std::runtime_error;
-using std::shared_ptr;
-using std::string;
-using std::vector;
-
-using s3::operations;
-using s3::base::config;
-using s3::base::statistics;
-using s3::base::timer;
-using s3::fs::cache;
-using s3::fs::directory;
-using s3::fs::encrypted_file;
-using s3::fs::file;
-using s3::fs::object;
-using s3::fs::special;
-using s3::fs::symlink;
-
-using namespace std::placeholders;
+namespace s3
+{
 
 namespace
 {
-  atomic_int s_reopen_attempts(0), s_reopen_rescues(0), s_reopen_fails(0);
-  atomic_int s_rename_attempts(0), s_rename_fails(0);
-  atomic_int s_create(0), s_mkdir(0), s_mknod(0), s_open(0), s_rename(0), s_symlink(0), s_truncate(0), s_unlink(0);
-  atomic_int s_getattr(0), s_readdir(0), s_readlink(0);
+  std::atomic_int s_reopen_attempts(0), s_reopen_rescues(0), s_reopen_fails(0);
+  std::atomic_int s_rename_attempts(0), s_rename_fails(0);
+  std::atomic_int s_create(0), s_mkdir(0), s_mknod(0), s_open(0), s_rename(0), s_symlink(0), s_truncate(0), s_unlink(0);
+  std::atomic_int s_getattr(0), s_readdir(0), s_readlink(0);
 
   void dir_filler(fuse_fill_dir_t filler, void *buf, const std::string &path)
   {
     filler(buf, path.c_str(), NULL, 0);
   }
 
-  inline string get_parent(const string &path)
+  inline std::string get_parent(const std::string &path)
   {
     size_t last_slash = path.rfind('/');
 
-    return (last_slash == string::npos) ? "" : path.substr(0, last_slash);
+    return (last_slash == std::string::npos) ? "" : path.substr(0, last_slash);
   }
 
-  inline void invalidate(const string &path)
+  inline void invalidate(const std::string &path)
   {
     if (!path.empty())
-      cache::remove(path);
+      fs::cache::remove(path);
   }
 
-  int touch(const string &path)
+  int touch(const std::string &path)
   {
-    object::ptr obj;
+    fs::object::ptr obj;
 
     if (path.empty())
       return 0; // succeed if path is root
 
-    obj = cache::get(path);
+    obj = fs::cache::get(path);
 
     if (!obj)
       return -ENOENT;
@@ -100,7 +80,7 @@ namespace
     return obj->commit();
   }
 
-  void statistics_writer(ostream *o)
+  void statistics_writer(std::ostream *o)
   {
     *o <<
       "operations (exceptions):\n"
@@ -125,7 +105,7 @@ namespace
   }
 
   int s_mountpoint_mode = 0;
-  statistics::writers::entry s_entry(statistics_writer, 0);
+  base::statistics::writers::entry s_entry(statistics_writer, 0);
 }
 
 // also adjust path by skipping leading slash
@@ -174,13 +154,13 @@ namespace
   }
 
 #define GET_OBJECT(var, path) \
-  object::ptr var = cache::get(path); \
+  fs::object::ptr var = fs::cache::get(path); \
   \
   if (!var) \
     return -ENOENT;
 
 #define GET_OBJECT_AS(type, mode, var, path) \
-  type::ptr var = dynamic_pointer_cast<type>(cache::get(path)); \
+  type::ptr var = std::dynamic_pointer_cast<type>(fs::cache::get(path)); \
   \
   if (!var) \
     return -ENOENT; \
@@ -207,12 +187,12 @@ namespace
       return ret_val; \
   } while (0)
 
-void operations::init(const string &mountpoint)
+void operations::init(const std::string &mountpoint)
 {
   struct stat mp_stat;
 
   if (stat(mountpoint.c_str(), &mp_stat))
-    throw runtime_error("failed to stat mount point.");
+    throw std::runtime_error("failed to stat mount point.");
 
   s_mountpoint_mode = S_IFDIR | mp_stat.st_mode;
 }
@@ -297,22 +277,22 @@ int operations::create(const char *path, mode_t mode, fuse_file_info *file_info)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    file::ptr f;
-    string parent = get_parent(path);
+    fs::file::ptr f;
+    std::string parent = get_parent(path);
     int r = 0, last_error = 0;
     const fuse_context *ctx = fuse_get_context();
 
-    if (cache::get(path)) {
+    if (fs::cache::get(path)) {
       S3_LOG(LOG_WARNING, "create", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }
 
     invalidate(parent);
 
-    if (config::get_use_encryption() && config::get_encrypt_new_files())
-      f.reset(new encrypted_file(path));
+    if (base::config::get_use_encryption() && base::config::get_encrypt_new_files())
+      f.reset(new fs::encrypted_file(path));
     else
-      f.reset(new file(path));
+      f.reset(new fs::file(path));
 
     f->set_mode(mode);
     f->set_uid(ctx->uid);
@@ -323,9 +303,9 @@ int operations::create(const char *path, mode_t mode, fuse_file_info *file_info)
 
     // rarely, the newly created file won't be downloadable right away, so
     // try a few times before giving up.
-    for (int i = 0; i < config::get_max_inconsistent_state_retries(); i++) {
+    for (int i = 0; i < base::config::get_max_inconsistent_state_retries(); i++) {
       last_error = r;
-      r = file::open(static_cast<string>(path), s3::fs::OPEN_DEFAULT, &file_info->fh);
+      r = fs::file::open(static_cast<std::string>(path), s3::fs::OPEN_DEFAULT, &file_info->fh);
 
       if (r != -ENOENT)
         break;
@@ -334,7 +314,7 @@ int operations::create(const char *path, mode_t mode, fuse_file_info *file_info)
       ++s_reopen_attempts;
 
       // sleep a bit instead of retrying more times than necessary
-      timer::sleep(i + 1);
+      base::timer::sleep(i + 1);
     }
 
     if (!r && last_error == -ENOENT)
@@ -349,7 +329,7 @@ int operations::create(const char *path, mode_t mode, fuse_file_info *file_info)
 
 int operations::flush(const char *path, fuse_file_info *file_info)
 {
-  file *f = file::from_handle(file_info->fh);
+  fs::file *f = fs::file::from_handle(file_info->fh);
 
   S3_LOG(LOG_DEBUG, "flush", "path: %s\n", f->get_path().c_str());
 
@@ -360,7 +340,7 @@ int operations::flush(const char *path, fuse_file_info *file_info)
 
 int operations::ftruncate(const char *path, off_t offset, fuse_file_info *file_info)
 {
-  file *f = file::from_handle(file_info->fh);
+  fs::file *f = fs::file::from_handle(file_info->fh);
 
   S3_LOG(LOG_DEBUG, "ftruncate", "path: %s, offset: %ji\n", f->get_path().c_str(), static_cast<intmax_t>(offset));
 
@@ -420,7 +400,7 @@ int operations::getxattr(const char *path, const char *name, char *buffer, size_
 
 int operations::listxattr(const char *path, char *buffer, size_t size)
 {
-  typedef vector<string> str_vec;
+  typedef std::vector<std::string> str_vec;
 
   ASSERT_VALID_PATH(path);
 
@@ -460,17 +440,17 @@ int operations::mkdir(const char *path, mode_t mode)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    directory::ptr dir;
-    string parent = get_parent(path);
+    fs::directory::ptr dir;
+    std::string parent = get_parent(path);
 
-    if (cache::get(path)) {
+    if (fs::cache::get(path)) {
       S3_LOG(LOG_WARNING, "mkdir", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }
 
     invalidate(parent);
 
-    dir.reset(new directory(path));
+    dir.reset(new fs::directory(path));
 
     dir->set_mode(mode);
     dir->set_uid(ctx->uid);
@@ -492,17 +472,17 @@ int operations::mknod(const char *path, mode_t mode, dev_t dev)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    special::ptr obj;
-    string parent = get_parent(path);
+    fs::special::ptr obj;
+    std::string parent = get_parent(path);
 
-    if (cache::get(path)) {
+    if (fs::cache::get(path)) {
       S3_LOG(LOG_WARNING, "mknod", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }
 
     invalidate(parent);
 
-    obj.reset(new special(path));
+    obj.reset(new fs::special(path));
 
     obj->set_type(mode);
     obj->set_device(dev);
@@ -525,15 +505,15 @@ int operations::open(const char *path, fuse_file_info *file_info)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    RETURN_ON_ERROR(file::open(
-      static_cast<string>(path), 
+    RETURN_ON_ERROR(fs::file::open(
+      static_cast<std::string>(path), 
       (file_info->flags & O_TRUNC) ? s3::fs::OPEN_TRUNCATE_TO_ZERO : s3::fs::OPEN_DEFAULT, 
       &file_info->fh));
 
     // successful open with O_TRUNC updates ctime and mtime
     if (file_info->flags & O_TRUNC) {
-      file::from_handle(file_info->fh)->set_ctime();
-      file::from_handle(file_info->fh)->set_mtime();
+      fs::file::from_handle(file_info->fh)->set_ctime();
+      fs::file::from_handle(file_info->fh)->set_mtime();
     }
 
     return 0;
@@ -543,7 +523,7 @@ int operations::open(const char *path, fuse_file_info *file_info)
 int operations::read(const char *path, char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
 {
   BEGIN_TRY;
-    return file::from_handle(file_info->fh)->read(buffer, size, offset);
+    return fs::file::from_handle(file_info->fh)->read(buffer, size, offset);
   END_TRY;
 }
 
@@ -555,9 +535,9 @@ int operations::readdir(const char *path, void *buf, fuse_fill_dir_t filler, off
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    GET_OBJECT_AS(directory, S_IFDIR, dir, path);
+    GET_OBJECT_AS(fs::directory, S_IFDIR, dir, path);
 
-    return dir->read(bind(&dir_filler, filler, buf, _1));
+    return dir->read(bind(&dir_filler, filler, buf, std::placeholders::_1));
   END_TRY;
 }
 
@@ -569,9 +549,9 @@ int operations::readlink(const char *path, char *buffer, size_t max_size)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    GET_OBJECT_AS(s3::fs::symlink, S_IFLNK, link, path);
+    GET_OBJECT_AS(fs::symlink, S_IFLNK, link, path);
 
-    string target;
+    std::string target;
 
     RETURN_ON_ERROR(link->read(&target));
 
@@ -590,7 +570,7 @@ int operations::readlink(const char *path, char *buffer, size_t max_size)
 
 int operations::release(const char *path, fuse_file_info *file_info)
 {
-  file *f = file::from_handle(file_info->fh);
+  fs::file *f = fs::file::from_handle(file_info->fh);
 
   S3_LOG(LOG_DEBUG, "release", "path: %s\n", f->get_path().c_str());
 
@@ -627,7 +607,7 @@ int operations::rename(const char *from, const char *to)
 
     // not using GET_OBJECT() here because we don't want to fail if "to"
     // doesn't exist
-    object::ptr to_obj = cache::get(to);
+    fs::object::ptr to_obj = fs::cache::get(to);
 
     invalidate(get_parent(from));
     invalidate(get_parent(to));
@@ -637,7 +617,7 @@ int operations::rename(const char *from, const char *to)
         if (from_obj->get_type() != S_IFDIR)
           return -EISDIR;
 
-        if (!dynamic_pointer_cast<directory>(to_obj)->is_empty())
+        if (!std::dynamic_pointer_cast<fs::directory>(to_obj)->is_empty())
           return -ENOTEMPTY;
 
       } else if (from_obj->get_type() == S_IFDIR) {
@@ -649,8 +629,8 @@ int operations::rename(const char *from, const char *to)
 
     RETURN_ON_ERROR(from_obj->rename(to));
 
-    for (int i = 0; i < config::get_max_inconsistent_state_retries(); i++) {
-      to_obj = cache::get(to);
+    for (int i = 0; i < base::config::get_max_inconsistent_state_retries(); i++) {
+      to_obj = fs::cache::get(to);
 
       if (to_obj)
         break;
@@ -659,7 +639,7 @@ int operations::rename(const char *from, const char *to)
       ++s_rename_attempts;
 
       // sleep a bit instead of retrying more times than necessary
-      timer::sleep(i + 1);
+      base::timer::sleep(i + 1);
     }
 
     // TODO: fail if ctime/mtime can't be set? maybe have a strict posix compliance flag?
@@ -698,17 +678,17 @@ int operations::statfs(const char * /* ignored */, struct statvfs *s)
 {
   s->f_namemax = 1024; // arbitrary
 
-  s->f_bsize = object::get_block_size();
+  s->f_bsize = fs::object::get_block_size();
 
   // the following members are all 64-bit, but on 32-bit systems we want to 
   // return values that'll fit in 32 bits, otherwise we screw up tools like
   // "df". hence "size_t" rather than the type of the member.
 
-  s->f_blocks = numeric_limits<size_t>::max();
-  s->f_bfree = numeric_limits<size_t>::max();
-  s->f_bavail = numeric_limits<size_t>::max();
-  s->f_files = numeric_limits<size_t>::max();
-  s->f_ffree = numeric_limits<size_t>::max();
+  s->f_blocks = std::numeric_limits<size_t>::max();
+  s->f_bfree = std::numeric_limits<size_t>::max();
+  s->f_bavail = std::numeric_limits<size_t>::max();
+  s->f_files = std::numeric_limits<size_t>::max();
+  s->f_ffree = std::numeric_limits<size_t>::max();
 
   return 0;
 }
@@ -723,17 +703,17 @@ int operations::symlink(const char *target, const char *path)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    symlink::ptr link;
-    string parent = get_parent(path);
+    fs::symlink::ptr link;
+    std::string parent = get_parent(path);
 
-    if (cache::get(path)) {
+    if (fs::cache::get(path)) {
       S3_LOG(LOG_WARNING, "symlink", "attempt to overwrite object at [%s]\n", path);
       return -EEXIST;
     }
 
     invalidate(parent);
 
-    link.reset(new s3::fs::symlink(path));
+    link.reset(new fs::symlink(path));
 
     link->set_uid(ctx->uid);
     link->set_gid(ctx->gid);
@@ -748,7 +728,7 @@ int operations::symlink(const char *target, const char *path)
 
 int operations::truncate(const char *path, off_t size)
 {
-  file *f;
+  fs::file *f;
   uint64_t handle;
 
   S3_LOG(LOG_DEBUG, "truncate", "path: %s, size: %ji\n", path, static_cast<intmax_t>(size));
@@ -762,12 +742,12 @@ int operations::truncate(const char *path, off_t size)
     // passing OPEN_TRUNCATE_TO_ZERO saves us from having to download the 
     // entire file if we're just going to truncate it to zero anyway.
 
-    RETURN_ON_ERROR(file::open(
-      static_cast<string>(path), 
+    RETURN_ON_ERROR(fs::file::open(
+      static_cast<std::string>(path), 
       (size == 0) ? s3::fs::OPEN_TRUNCATE_TO_ZERO : s3::fs::OPEN_DEFAULT,
       &handle));
 
-    f = file::from_handle(handle);
+    f = fs::file::from_handle(handle);
 
     r = f->truncate(size);
 
@@ -792,7 +772,7 @@ int operations::unlink(const char *path)
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-    string parent = get_parent(path);
+    std::string parent = get_parent(path);
 
     GET_OBJECT(obj, path);
 
@@ -822,6 +802,8 @@ int operations::utimens(const char *path, const timespec times[2])
 int operations::write(const char *path, const char *buffer, size_t size, off_t offset, fuse_file_info *file_info)
 {
   BEGIN_TRY;
-    return file::from_handle(file_info->fh)->write(buffer, size, offset);
+    return fs::file::from_handle(file_info->fh)->write(buffer, size, offset);
   END_TRY;
 }
+
+}  // namespace s3

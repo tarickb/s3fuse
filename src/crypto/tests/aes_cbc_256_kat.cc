@@ -6,14 +6,8 @@
 #include "crypto/hex.h"
 #include "crypto/symmetric_key.h"
 
-using std::string;
-using std::vector;
-
-using s3::crypto::aes_cbc_256_no_padding;
-using s3::crypto::cipher;
-using s3::crypto::encoder;
-using s3::crypto::hex;
-using s3::crypto::symmetric_key;
+namespace s3 { namespace crypto {
+  namespace tests {
 
 namespace
 {
@@ -10757,28 +10751,30 @@ TEST(aes_cbc_256, known_answers)
   for (int i = 0; i < TEST_COUNT; i++) {
     const known_answer *kat = TESTS + i;
     symmetric_key::ptr cs;
-    vector<uint8_t> in_buf, out_buf;
-    string in_enc, out_enc;
-    string pretty_kat;
+    std::vector<uint8_t> in_buf, out_buf;
+    std::string in_enc, out_enc;
+    std::string pretty_kat;
 
     pretty_kat = 
-      string("key: ") + kat->key + ", " + 
+      std::string("key: ") + kat->key + ", " + 
       "iv: " + kat->iv + ", " + 
       "plain text: " + kat->plaintext + ", " + 
       "cipher text: " + kat->ciphertext;
 
-    cs = symmetric_key::from_string(string(kat->key) + ":" + kat->iv);
+    cs = symmetric_key::from_string(std::string(kat->key) + ":" + kat->iv);
 
     encoder::decode<hex>(kat->plaintext, &in_buf);
     cipher::encrypt<aes_cbc_256_no_padding>(cs, &in_buf[0], in_buf.size(), &out_buf);
     out_enc = encoder::encode<hex>(out_buf);
 
-    EXPECT_EQ(string(kat->ciphertext), out_enc) << pretty_kat;
+    EXPECT_EQ(std::string(kat->ciphertext), out_enc) << pretty_kat;
 
     in_buf.clear();
     cipher::decrypt<aes_cbc_256_no_padding>(cs, &out_buf[0], out_buf.size(), &in_buf);
     in_enc = encoder::encode<hex>(in_buf);
 
-    EXPECT_EQ(string(kat->plaintext), in_enc) << pretty_kat;
+    EXPECT_EQ(std::string(kat->plaintext), in_enc) << pretty_kat;
   }
 }
+
+} } }

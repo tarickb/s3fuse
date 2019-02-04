@@ -6,10 +6,6 @@
 
 #include <iostream>
 
-using std::cerr;
-using std::cout;
-using std::endl;
-
 #define STR_(x) #x
 #define STR(x) STR_(x)
 
@@ -29,7 +25,7 @@ int main(int argc, char **argv)
   int create_fd = -1, open_fd = -1;
 
   if (argc != 2) {
-    cerr << "usage: " << argv[0] << " <test-file-name>" << endl;
+    std::cerr << "usage: " << argv[0] << " <test-file-name>" << std::endl;
     return 1;
   }
 
@@ -89,6 +85,6 @@ int main(int argc, char **argv)
   TZ(fstat(create_fd, &st));
   TZ(close(create_fd));
 
-  cout << "succeeded." << endl;
+  std::cout << "succeeded." << std::endl;
   return 0;
 }

@@ -26,17 +26,13 @@
 #include "crypto/buffer.h"
 #include "crypto/pbkdf2_sha1.h"
 
-using std::runtime_error;
-using std::string;
-using std::vector;
+namespace s3 {
+  namespace crypto {
 
-using s3::crypto::buffer;
-using s3::crypto::pbkdf2_sha1;
-
-buffer::ptr pbkdf2_sha1::derive(const string &password, const string &salt, int rounds, size_t key_len)
+buffer::ptr pbkdf2_sha1::derive(const std::string &password, const std::string &salt, int rounds, size_t key_len)
 {
   int r = 0;
-  vector<uint8_t> key(key_len);
+  std::vector<uint8_t> key(key_len);
 
   r = PKCS5_PBKDF2_HMAC_SHA1(
     password.c_str(),
@@ -48,7 +44,10 @@ buffer::ptr pbkdf2_sha1::derive(const string &password, const string &salt, int 
     &key[0]);
 
   if (r != 1)
-    throw runtime_error("failed to derive key");
+    throw std::runtime_error("failed to derive key");
 
   return buffer::from_vector(key);
 }
+
+}  // namespace crypto
+}  // namespace s3

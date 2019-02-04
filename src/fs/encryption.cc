@@ -32,53 +32,39 @@
 #include "fs/encryption.h"
 #include "services/service.h"
 
-using std::cout;
-using std::endl;
-using std::ifstream;
-using std::runtime_error;
-using std::string;
-
-using s3::base::config;
-using s3::base::request;
-using s3::crypto::buffer;
-using s3::crypto::passwords;
-using s3::crypto::pbkdf2_sha1;
-using s3::crypto::private_file;
-using s3::fs::bucket_volume_key;
-using s3::fs::encryption;
-using s3::services::service;
+namespace s3 { namespace fs {
 
 namespace
 {
   const int DERIVATION_ROUNDS = 8192;
   const int PASSWORD_ATTEMPTS = 5;
 
-  buffer::ptr init_from_file()
+  crypto::buffer::ptr init_from_file()
   {
-    ifstream f;
-    string key;
+    std::ifstream f;
+    std::string key;
 
-    private_file::open(config::get_volume_key_file(), &f);
+    crypto::private_file::open(base::config::get_volume_key_file(), &f);
     getline(f, key);
 
-    return buffer::from_string(key);
+    return crypto::buffer::from_string(key);
   }
 
-  buffer::ptr init_from_password()
+  crypto::buffer::ptr init_from_password()
   {
-    string password;
-    string prompt;
+    std::string password;
+    std::string prompt;
 
     prompt = "password for key \"";
-    prompt += config::get_volume_key_id();
+    prompt += base::config::get_volume_key_id();
     prompt += "\" in bucket \"";
-    prompt += config::get_bucket_name();
+    prompt += base::config::get_bucket_name();
     prompt += "\": ";
 
-    password = passwords::read_from_stdin(prompt);
+    password = crypto::passwords::read_from_stdin(prompt);
 
     if (password.empty())
-      throw runtime_error("cannot use empty password for file encryption.");
+      throw std::runtime_error("cannot use empty password for file encryption.");
 
     return encryption::derive_key_from_password(password);
   }
@@ -88,24 +74,24 @@ namespace
 
 void encryption::init()
 {
-  buffer::ptr password_key;
-  request::ptr req;
+  crypto::buffer::ptr password_key;
+  base::request::ptr req;
 
-  if (!config::get_use_encryption())
+  if (!base::config::get_use_encryption())
     return;
 
-  if (config::get_volume_key_id().empty())
-    throw runtime_error("volume key id must be set if encryption is enabled.");
+  if (base::config::get_volume_key_id().empty())
+    throw std::runtime_error("volume key id must be set if encryption is enabled.");
 
-  req.reset(new request());
-  req->set_hook(service::get_request_hook());
+  req.reset(new base::request());
+  req->set_hook(services::service::get_request_hook());
 
-  s_volume_key = bucket_volume_key::fetch(req, config::get_volume_key_id());
+  s_volume_key = bucket_volume_key::fetch(req, base::config::get_volume_key_id());
 
   if (!s_volume_key)
-    throw runtime_error("encryption enabled but specified volume key could not be found. check the configuration and/or run " PACKAGE_NAME "_vol_key.");
+    throw std::runtime_error("encryption enabled but specified volume key could not be found. check the configuration and/or run " PACKAGE_NAME "_vol_key.");
 
-  if (config::get_volume_key_file().empty()) {
+  if (base::config::get_volume_key_file().empty()) {
     int retry_count = 0;
 
     while (true) {
@@ -118,7 +104,7 @@ void encryption::init()
         retry_count++;
 
         if (retry_count < PASSWORD_ATTEMPTS) {
-          cout << "incorrect password. please try again." << endl;
+          std::cout << "incorrect password. please try again." << std::endl;
         } else {
           throw;
         }
@@ -132,21 +118,23 @@ void encryption::init()
   S3_LOG(
     LOG_DEBUG,
     "encryption::init",
-    "encryption enabled with id [%s]\n", config::get_volume_key_id().c_str());
+    "encryption enabled with id [%s]\n", base::config::get_volume_key_id().c_str());
 }
 
-buffer::ptr encryption::get_volume_key()
+crypto::buffer::ptr encryption::get_volume_key()
 {
   if (!s_volume_key)
-    throw runtime_error("volume key not available.");
+    throw std::runtime_error("volume key not available.");
 
   return s_volume_key->get_volume_key();
 }
 
-buffer::ptr encryption::derive_key_from_password(const string &password)
+crypto::buffer::ptr encryption::derive_key_from_password(const std::string &password)
 {
-  return pbkdf2_sha1::derive<bucket_volume_key::key_cipher>(
+  return crypto::pbkdf2_sha1::derive<bucket_volume_key::key_cipher>(
     password,
-    config::get_bucket_name(),
+    base::config::get_bucket_name(),
     DERIVATION_ROUNDS);
 }
+
+} }

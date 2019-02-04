@@ -26,46 +26,39 @@
 #include "base/logger.h"
 #include "services/gs/impl.h"
 
-using std::cerr;
-using std::cin;
-using std::cout;
-using std::endl;
-using std::string;
-using std::strrchr;
-
-using s3::services::gs::impl;
-
 int main(int argc, char **argv)
 {
-  string code, access_token, refresh_token;
+  std::string code, access_token, refresh_token;
   time_t expiry;
 
   if (argc != 2) {
-    const char *arg0 = strrchr(argv[0], '/');
+    const char *arg0 = std::strrchr(argv[0], '/');
 
-    cerr << "Usage: " << (arg0 ? arg0 + 1 : argv[0]) << " <token-file-name>" << endl;
+    std::cerr << "Usage: " << (arg0 ? arg0 + 1 : argv[0]) << "<token-file-name>" << std::endl;
     return 1;
   }
 
   try {
+    using s3::services::gs::impl;
+
     // make sure we can write to the token file before we run the request.
     impl::write_token(argv[1], "");
 
-    cout << "Paste this URL into your browser:" << endl;
-    cout << impl::get_new_token_url() << endl << endl;
+    std::cout << "Paste this URL into your browser:" << std::endl;
+    std::cout << impl::get_new_token_url() << std::endl << std::endl;
 
-    cout << "Please enter the authorization code: ";
-    getline(cin, code);
+    std::cout << "Please enter the authorization code: ";
+    getline(std::cin, code);
 
     impl::get_tokens(impl::GT_AUTH_CODE, code, &access_token, &expiry, &refresh_token);
     impl::write_token(argv[1], refresh_token);
 
   } catch (const std::exception &e) {
-    cerr << "Failed to get tokens: " << e.what() << endl;
+    std::cerr << "Failed to get tokens: " << e.what() << std::endl;
     return 1;
   }
 
-  cout << "Done!" << endl;
+  std::cout << "Done!" << std::endl;
 
   return 0;
 }

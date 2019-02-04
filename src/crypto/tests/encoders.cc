@@ -6,12 +6,8 @@
 #include "crypto/hex.h"
 #include "crypto/hex_with_quotes.h"
 
-using std::numeric_limits;
-using std::runtime_error;
-using std::string;
-using std::vector;
-
-using namespace s3::crypto;
+namespace s3 { namespace crypto {
+  namespace tests {
 
 namespace
 {
@@ -29,14 +25,14 @@ namespace
   void encode_kat(const char **kat)
   {
     for (size_t i = 0; i < KAT_COUNT; i++)
-      EXPECT_EQ(string(kat[i]), encoder::encode<encoding>(KAT_INPUT[i]));
+      EXPECT_EQ(std::string(kat[i]), encoder::encode<encoding>(KAT_INPUT[i]));
   }
 
   template <class encoding>
   void decode_kat(const char **kat)
   {
     for (size_t i = 0; i < KAT_COUNT; i++) {
-      vector<uint8_t> dec;
+      std::vector<uint8_t> dec;
 
       encoder::decode<encoding>(kat[i], &dec);
       EXPECT_STREQ(KAT_INPUT[i], reinterpret_cast<const char *>(&dec[0]));
@@ -48,14 +44,14 @@ namespace
   {
     for (int test = 0; test < TEST_COUNT; test++) {
       int test_size = TEST_SIZES[test];
-      vector<uint8_t> in(test_size), out;
-      string enc;
+      std::vector<uint8_t> in(test_size), out;
+      std::string enc;
       bool diff = false;
 
       srand(time(NULL));
 
       for (int i = 0; i < test_size; i++)
-        in[i] = rand() % numeric_limits<uint8_t>::max();
+        in[i] = rand() % std::numeric_limits<uint8_t>::max();
 
       enc = encoder::encode<encoding>(in);
       encoder::decode<encoding>(enc, &out);
@@ -106,9 +102,9 @@ TEST(hex_with_quotes, random)
 
 TEST(hex_with_quotes, decode_with_no_quotes)
 {
-  vector<uint8_t> out;
+  std::vector<uint8_t> out;
 
-  EXPECT_THROW(encoder::decode<hex_with_quotes>("input has no quotes", &out), runtime_error);
+  EXPECT_THROW(encoder::decode<hex_with_quotes>("input has no quotes", &out), std::runtime_error);
 }
 
 TEST(base64, encode_known_answers)
@@ -125,3 +121,5 @@ TEST(base64, random)
 {
   run_random<base64>();
 }
+
+} } }

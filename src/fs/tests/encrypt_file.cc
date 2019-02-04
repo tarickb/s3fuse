@@ -13,38 +13,26 @@
 #include "crypto/sha256.h"
 #include "crypto/symmetric_key.h"
 
-using std::cerr;
-using std::endl;
-using std::string;
-
-using s3::crypto::aes_cbc_256_with_pkcs;
-using s3::crypto::aes_ctr_256;
-using s3::crypto::buffer;
-using s3::crypto::cipher;
-using s3::crypto::hash_list;
-using s3::crypto::hex;
-using s3::crypto::sha256;
-using s3::crypto::symmetric_key;
-
-const size_t HASH_BLOCK_SIZE = hash_list<sha256>::CHUNK_SIZE;
+const size_t HASH_BLOCK_SIZE = s3::crypto::hash_list<s3::crypto::sha256>::CHUNK_SIZE;
 
 int main(int argc, char **argv)
 {
-  string out_prefix;
-  symmetric_key::ptr file_key, meta_key;
+  std::string out_prefix;
+  s3::crypto::symmetric_key::ptr file_key, meta_key;
   FILE *f_in, *f_out, *f_meta;
-  buffer::ptr v_key;
-  hash_list<sha256>::ptr hashes;
+  s3::crypto::buffer::ptr v_key;
+  s3::crypto::hash_list<s3::crypto::sha256>::ptr hashes;
   struct stat s;
   size_t offset = 0;
-  string root_hash, meta;
+  std::string root_hash, meta;
 
   if (argc != 4) {
-    cerr << "usage: " << argv[0] << " <v-key> <in-file> <output-prefix>" << endl;
+    std::cerr << "usage: " << argv[0] << " <v-key> <in-file> <output-prefix>" <<
+      std::endl;
     return 1;
   }
 
-  v_key = buffer::from_string(argv[1]);
+  v_key = s3::crypto::buffer::from_string(argv[1]);
   out_prefix = argv[3];
 
   f_in = fopen(argv[2], "r");
@@ -52,19 +40,19 @@ int main(int argc, char **argv)
   f_meta = fopen((out_prefix + ".s3_meta").c_str(), "w");
 
   if (!f_in || !f_out || !f_meta) {
-    cerr << "failed to open input/output file(s)" << endl;
+    std::cerr << "failed to open input/output file(s)" << std::endl;
     return 1;
   }
 
-  file_key = symmetric_key::generate<aes_ctr_256>();
-  meta_key = symmetric_key::generate<aes_cbc_256_with_pkcs>(v_key);
+  file_key = s3::crypto::symmetric_key::generate<s3::crypto::aes_ctr_256>();
+  meta_key = s3::crypto::symmetric_key::generate<s3::crypto::aes_cbc_256_with_pkcs>(v_key);
 
   fprintf(f_meta, "v_key: %s\n", v_key->to_string().c_str());
   fprintf(f_meta, "iv: %s\n", meta_key->get_iv()->to_string().c_str());
   fprintf(f_meta, "f_key: %s\n", file_key->to_string().c_str());
 
   fstat(fileno(f_in), &s);
-  hashes.reset(new hash_list<sha256>(s.st_size));
+  hashes.reset(new s3::crypto::hash_list<s3::crypto::sha256>(s.st_size));
 
   fprintf(f_meta, "size: %" PRId64 "\n", s.st_size);
 
@@ -74,10 +62,10 @@ int main(int argc, char **argv)
 
     read_count = fread(buf_in, 1, HASH_BLOCK_SIZE, f_in);
 
-    aes_ctr_256::encrypt(file_key, buf_in, read_count, buf_out);
+    s3::crypto::aes_ctr_256::encrypt(file_key, buf_in, read_count, buf_out);
 
     if (fwrite(buf_out, read_count, 1, f_out) != 1) {
-      cerr << "failed to write to output file" << endl;
+      std::cerr << "failed to write to output file" << std::endl;
       return 1;
     }
 
@@ -88,12 +76,14 @@ int main(int argc, char **argv)
       break;
   }
 
-  root_hash = hashes->get_root_hash<hex>();
+  root_hash = hashes->get_root_hash<s3::crypto::hex>();
   meta = file_key->to_string() + "#" + root_hash;
 
   fprintf(f_meta, "root_hash: %s\n", root_hash.c_str());
   fprintf(f_meta, "meta: %s\n", meta.c_str());
-  fprintf(f_meta, "meta_enc: %s\n", cipher::encrypt<aes_cbc_256_with_pkcs, hex>(meta_key, meta).c_str());
+  fprintf(f_meta, "meta_enc: %s\n",
+      s3::crypto::cipher::encrypt<s3::crypto::aes_cbc_256_with_pkcs,
+      s3::crypto::hex>(meta_key, meta).c_str());
 
   return 0;
 }

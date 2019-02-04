@@ -31,57 +31,47 @@
 #include "threads/request_worker.h"
 #include "threads/work_item_queue.h"
 
-using std::atomic_int;
-using std::lock_guard;
-using std::mutex;
-using std::ostream;
-using std::setprecision;
-using std::unique_lock;
-
-using s3::base::request;
-using s3::base::statistics;
-using s3::base::timer;
-using s3::services::service;
-using s3::threads::request_worker;
-using s3::threads::work_item;
-using s3::threads::work_item_queue;
+namespace s3
+{
+  namespace threads
+  {
 
 namespace
 {
   double s_total_req_time = 0.0;
   double s_total_fn_time = 0.0;
 
-  mutex s_stats_mutex;
-  atomic_int s_reposted_items(0);
+  std::mutex s_stats_mutex;
+  std::atomic_int s_reposted_items(0);
 
-  void statistics_writer(ostream *o)
+  void statistics_writer(std::ostream *o)
   {
-    o->setf(ostream::fixed);
+    o->setf(std::ostream::fixed);
 
     *o <<
       "thread pool request workers:\n"
-      "  total request time: " << setprecision(3) << s_total_req_time << " s\n"
+      "  total request time: " << std::setprecision(3) << s_total_req_time << " s\n"
       "  total function time: " << s_total_fn_time << " s\n"
-      "  request wait: " << setprecision(2) << s_total_req_time / s_total_fn_time * 100.0 << " %\n"
+      "  request wait: " << std::setprecision(2) << s_total_req_time / s_total_fn_time * 100.0 << " %\n"
       "  reposted items: " << s_reposted_items << "\n";
   }
 
-  statistics::writers::entry s_writer(statistics_writer, 0);
+  base::statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
 request_worker::request_worker(const work_item_queue::ptr &queue)
-  : _request(new request()),
+  : _request(new base::request()),
     _time_in_function(0.),
     _time_in_request(0.),
     _queue(queue)
 {
-  _request->set_hook(service::get_request_hook());
+  _request->set_hook(services::service::get_request_hook());
 }
 
 request_worker::~request_worker()    
 {
   if (_time_in_function > 0.0) {
-    lock_guard<mutex> lock(s_stats_mutex);
+    std::lock_guard<std::mutex> lock(s_stats_mutex);
 
     s_total_req_time += _time_in_request;
     s_total_fn_time += _time_in_function;
@@ -90,7 +80,7 @@ request_worker::~request_worker()
 
 bool request_worker::check_timeout()
 {
-  lock_guard<mutex> lock(_mutex);
+  std::lock_guard<std::mutex> lock(_mutex);
 
   if (_request->check_timeout()) {
     work_item_queue::ptr queue = _queue.lock();
@@ -115,7 +105,7 @@ bool request_worker::check_timeout()
 void request_worker::work()
 {
   while (true) {
-    unique_lock<mutex> lock(_mutex);
+    std::unique_lock<std::mutex> lock(_mutex);
     work_item_queue::ptr queue;
     work_item item;
     int r;
@@ -145,12 +135,12 @@ void request_worker::work()
     try {
       double start_time, end_time;
 
-      start_time = timer::get_current_time();
+      start_time = base::timer::get_current_time();
       _request->reset_current_run_time();
 
       r = item.get_function()(_request);
 
-      end_time = timer::get_current_time();
+      end_time = base::timer::get_current_time();
       _time_in_function += end_time - start_time;
       _time_in_request += _request->get_current_run_time();
 
@@ -176,3 +166,5 @@ void request_worker::work()
   _thread.reset();
 }
 
+  }
+}

@@ -30,12 +30,8 @@
 
 #include "crypto/passwords.h"
 
-using std::cin;
-using std::cout;
-using std::endl;
-using std::string;
-
-using s3::crypto::passwords;
+namespace s3 {
+  namespace crypto {
 
 namespace
 {
@@ -48,9 +44,9 @@ namespace
   }
 }
 
-string passwords::read_from_stdin(const string &prompt)
+std::string passwords::read_from_stdin(const std::string &prompt)
 {
-  string line;
+  std::string line;
   termios term_flags;
   struct sigaction new_action, old_int_action, old_term_action;
 
@@ -64,7 +60,7 @@ string passwords::read_from_stdin(const string &prompt)
   tcgetattr(STDIN_FILENO, &s_term_flags_orig);
   memcpy(&term_flags, &s_term_flags_orig, sizeof(term_flags));
 
-  cout << prompt;
+  std::cout << prompt;
 
   term_flags.c_lflag &= ~ECHO;
 
@@ -74,7 +70,7 @@ string passwords::read_from_stdin(const string &prompt)
   tcsetattr(STDIN_FILENO, TCSANOW, &term_flags);
 
   try {
-    getline(cin, line);
+    std::getline(std::cin, line);
   } catch (...) {
     line.clear();
   }
@@ -84,7 +80,10 @@ string passwords::read_from_stdin(const string &prompt)
   sigaction(SIGINT, &old_int_action, NULL);
   sigaction(SIGTERM, &old_term_action, NULL);
 
-  cout << endl;
+  std::cout << std::endl;
 
   return line;
 }
+
+}  // namespace crypto
+}  // namespace s3

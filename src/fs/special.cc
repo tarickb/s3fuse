@@ -27,19 +27,13 @@
 #include "fs/special.h"
 #include "services/service.h"
 
-using std::string;
-
-using s3::base::request;
-using s3::fs::metadata;
-using s3::fs::object;
-using s3::fs::special;
-using s3::services::service;
+namespace s3 { namespace fs {
 
 namespace
 {
-  const string CONTENT_TYPE = "binary/s3fuse-special_0100"; // version 1.0
+  const std::string CONTENT_TYPE = "binary/s3fuse-special_0100"; // version 1.0
 
-  object * checker(const string &path, const request::ptr &req)
+  object * checker(const std::string &path, const base::request::ptr &req)
   {
     if (req->get_response_header("Content-Type") != CONTENT_TYPE)
       return NULL;
@@ -50,7 +44,7 @@ namespace
   object::type_checker_list::entry s_checker_reg(checker, 100);
 }
 
-special::special(const string &path)
+special::special(const std::string &path)
   : object(path)
 {
   set_content_type(CONTENT_TYPE);
@@ -60,9 +54,9 @@ special::~special()
 {
 }
 
-void special::init(const request::ptr &req)
+void special::init(const base::request::ptr &req)
 {
-  const string &meta_prefix = service::get_header_meta_prefix();
+  const std::string &meta_prefix = services::service::get_header_meta_prefix();
   mode_t mode;
   dev_t dev;
 
@@ -77,9 +71,9 @@ void special::init(const request::ptr &req)
   set_device(dev);
 }
 
-void special::set_request_headers(const request::ptr &req)
+void special::set_request_headers(const base::request::ptr &req)
 {
-  const string &meta_prefix = service::get_header_meta_prefix();
+  const std::string &meta_prefix = services::service::get_header_meta_prefix();
   char buf[16];
 
   object::set_request_headers(req);
@@ -91,3 +85,5 @@ void special::set_request_headers(const request::ptr &req)
   snprintf(buf, 16, "%" PRIu64, static_cast<uint64_t>(get_stat()->st_rdev));
   req->set_header(meta_prefix + metadata::DEVICE, buf);
 }
+
+} }

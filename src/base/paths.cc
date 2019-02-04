@@ -23,14 +23,16 @@
 
 #include "base/paths.h"
 
-using std::string;
+namespace s3 {
+  namespace base {
 
-using s3::base::paths;
-
-string paths::transform(const string &path)
+std::string paths::transform(const std::string &path)
 {
   if (!path.empty() && path[0] == '~')
-    return string(getenv("HOME")) + (path.c_str() + 1);
+    return std::string(getenv("HOME")) + (path.c_str() + 1);
   else
     return path;
 }
+
+}  // namespace base
+}  // namespace s3

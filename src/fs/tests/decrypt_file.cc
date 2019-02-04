@@ -13,38 +13,23 @@
 #include "crypto/sha256.h"
 #include "crypto/symmetric_key.h"
 
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::stoull;
-using std::string;
-
-using s3::crypto::aes_cbc_256_with_pkcs;
-using s3::crypto::aes_ctr_256;
-using s3::crypto::buffer;
-using s3::crypto::cipher;
-using s3::crypto::hash_list;
-using s3::crypto::hex;
-using s3::crypto::sha256;
-using s3::crypto::symmetric_key;
-
-const size_t HASH_BLOCK_SIZE = hash_list<sha256>::CHUNK_SIZE;
+const size_t HASH_BLOCK_SIZE = s3::crypto::hash_list<s3::crypto::sha256>::CHUNK_SIZE;
 
 int main(int argc, char **argv)
 {
   try {
-    string in_prefix;
-    symmetric_key::ptr file_key, meta_key;
+    std::string in_prefix;
+    s3::crypto::symmetric_key::ptr file_key, meta_key;
     FILE *f_in, *f_out, *f_meta;
-    buffer::ptr v_key;
-    hash_list<sha256>::ptr hashes;
+    s3::crypto::buffer::ptr v_key;
+    s3::crypto::hash_list<s3::crypto::sha256>::ptr hashes;
     size_t offset = 0;
-    string root_hash, meta;
+    std::string root_hash, meta;
     size_t file_size = 0;
-    string ref_meta;
+    std::string ref_meta;
 
     if (argc != 3) {
-      cerr << "usage: " << argv[0] << " <input-prefix> <out-file>" << endl;
+      std::cerr << "usage: " << argv[0] << " <input-prefix> <out-file>" << std::endl;
       return 1;
     }
 
@@ -55,13 +40,13 @@ int main(int argc, char **argv)
     f_meta = fopen((in_prefix + ".s3_meta").c_str(), "r");
 
     if (!f_in || !f_out || !f_meta) {
-      cerr << "failed to open input/output file(s)" << endl;
+      std::cerr << "failed to open input/output file(s)" << std::endl;
       return 1;
     }
 
     while (true) {
       char buf[1024];
-      string line, prefix;
+      std::string line, prefix;
       size_t pos;
 
       if (!fgets(buf, 1024, f_meta))
@@ -72,8 +57,8 @@ int main(int argc, char **argv)
       line = buf;
       pos = line.find(": ");
 
-      if (pos == string::npos) {
-        cerr << "malformed input: " << line << endl;
+      if (pos == std::string::npos) {
+        std::cerr << "malformed input: " << line << std::endl;
         return 1;
       }
 
@@ -81,39 +66,41 @@ int main(int argc, char **argv)
       line = line.substr(pos + 2);
 
       if (prefix == "v_key") {
-        v_key = buffer::from_string(line);
+        v_key = s3::crypto::buffer::from_string(line);
       } else if (prefix == "iv") {
-        meta_key = symmetric_key::create(v_key, buffer::from_string(line));
+        meta_key = s3::crypto::symmetric_key::create(v_key, s3::crypto::buffer::from_string(line));
       } else if (prefix == "size") {
-        file_size = stoull(line);
+        file_size = std::stoull(line);
       } else if (prefix == "meta") {
         ref_meta = line;
       } else if (prefix == "meta_enc") {
-        string meta = cipher::decrypt<aes_cbc_256_with_pkcs, hex>(meta_key, line);
+        std::string meta =
+          s3::crypto::cipher::decrypt<s3::crypto::aes_cbc_256_with_pkcs,
+          s3::crypto::hex>(meta_key, line);
 
         if (meta != ref_meta) {
-          cerr << "meta mismatch" << endl;
+          std::cerr << "meta mismatch" << std::endl;
           return 1;
         }
 
         pos = meta.find('#');
 
-        if (pos == string::npos) {
-          cerr << "malformed meta: " << meta << endl;
+        if (pos == std::string::npos) {
+          std::cerr << "malformed meta: " << meta << std::endl;
           return 1;
         }
 
-        file_key = symmetric_key::from_string(meta.substr(0, pos));
+        file_key = s3::crypto::symmetric_key::from_string(meta.substr(0, pos));
         root_hash = meta.substr(pos + 1);
       } else if (prefix == "f_key" || prefix == "root_hash" || prefix == "meta") {
         // ignore
       } else {
-        cerr << "unknown prefix: " << prefix << endl;
+        std::cerr << "unknown prefix: " << prefix << std::endl;
         return 1;
       }
     }
 
-    hashes.reset(new hash_list<sha256>(file_size));
+    hashes.reset(new s3::crypto::hash_list<s3::crypto::sha256>(file_size));
 
     while (true) {
       uint8_t buf_in[HASH_BLOCK_SIZE], buf_out[HASH_BLOCK_SIZE];
@@ -121,10 +108,10 @@ int main(int argc, char **argv)
 
       read_count = fread(buf_in, 1, HASH_BLOCK_SIZE, f_in);
 
-      aes_ctr_256::decrypt(file_key, buf_in, read_count, buf_out);
+      s3::crypto::aes_ctr_256::decrypt(file_key, buf_in, read_count, buf_out);
 
       if (fwrite(buf_out, read_count, 1, f_out) != 1) {
-        cerr << "failed to write to output file" << endl;
+        std::cerr << "failed to write to output file" << std::endl;
         return 1;
       }
 
@@ -135,17 +122,17 @@ int main(int argc, char **argv)
         break;
     }
 
-    if (root_hash != hashes->get_root_hash<hex>()) {
-      cerr << "hash mismatch" << endl;
+    if (root_hash != hashes->get_root_hash<s3::crypto::hex>()) {
+      std::cerr << "hash mismatch" << std::endl;
       return 1;
     }
 
-    cout << "done" << endl;
+    std::cout << "done" << std::endl;
 
     return 0;
 
   } catch (const std::exception &e) {
-    cerr << "caught exception: " << e.what() << endl;
+    std::cerr << "caught exception: " << e.what() << std::endl;
   }
 
   return 1;

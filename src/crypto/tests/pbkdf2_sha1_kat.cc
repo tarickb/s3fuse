@@ -3,10 +3,8 @@
 #include "crypto/buffer.h"
 #include "crypto/pbkdf2_sha1.h"
 
-using std::string;
-
-using s3::crypto::buffer;
-using s3::crypto::pbkdf2_sha1;
+namespace s3 { namespace crypto {
+  namespace tests {
 
 namespace
 {
@@ -61,16 +59,18 @@ TEST(pbkdf2_sha1, known_answers)
 {
   for (int test = 0; test < TEST_COUNT; test++) {
     const known_answer *kat = TESTS + test;
-    string key_out, pretty_kat;
+    std::string key_out, pretty_kat;
     buffer::ptr key;
 
     key = pbkdf2_sha1::derive(kat->password, kat->salt, kat->rounds, kat->key_len);
     key_out = key->to_string();
 
-    EXPECT_EQ(string(kat->output), key_out) <<
+    EXPECT_EQ(std::string(kat->output), key_out) <<
       "password: " << kat->password << ", " <<
       "salt: " << kat->salt << ", " <<
       "rounds: " << kat->rounds << ", " <<
       "key len: " << kat->key_len;
   }
 }
+
+} } }

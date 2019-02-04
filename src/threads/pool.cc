@@ -29,18 +29,10 @@
 #include "threads/work_item_queue.h"
 #include "threads/worker.h"
 
-using std::bind;
-using std::runtime_error;
-using std::string;
-using std::thread;
-using std::unique_ptr;
-
-using s3::base::config;
-using s3::base::statistics;
-using s3::threads::async_handle;
-using s3::threads::pool;
-using s3::threads::work_item;
-using s3::threads::work_item_queue;
+namespace s3
+{
+  namespace threads
+  {
 
 namespace
 {
@@ -75,14 +67,14 @@ namespace
   class _pool_impl : public _pool
   {
   public:
-    _pool_impl(const string &id)
+    _pool_impl(const std::string &id)
       : _queue(new work_item_queue()),
         _id(id),
         _respawn_counter(0),
         _done(false)
     {
       if (use_watchdog)
-        _watchdog_thread.reset(new thread(bind(&_pool_impl::watchdog, this)));
+        _watchdog_thread.reset(new std::thread(std::bind(&_pool_impl::watchdog, this)));
 
       for (int i = 0; i < NUM_THREADS_PER_POOL; i++)
         _threads.push_back(worker_type::create(_queue));
@@ -104,7 +96,7 @@ namespace
       sleep_one_second();
 
       if (use_watchdog)
-        statistics::write(
+        base::statistics::write(
           "thread pool",
           _id,
           "\n  respawn_counter: %i",
@@ -143,8 +135,8 @@ namespace
 
     work_item_queue::ptr _queue;
     wt_list _threads;
-    unique_ptr<thread> _watchdog_thread;
-    string _id;
+    std::unique_ptr<std::thread> _watchdog_thread;
+    std::string _id;
     int _respawn_counter;
     bool _done;
   };
@@ -172,10 +164,13 @@ void pool::internal_post(
   int timeout_retries)
 {
   if (p >= POOL_COUNT)
-    throw runtime_error("invalid pool id.");
+    throw std::runtime_error("invalid pool id.");
 
   s_pools[p]->post(
     fn, 
     ah,
-    (timeout_retries == DEFAULT_TIMEOUT_RETRIES) ? config::get_timeout_retries() : timeout_retries);
+    (timeout_retries == DEFAULT_TIMEOUT_RETRIES) ? base::config::get_timeout_retries() : timeout_retries);
+}
+
+  }
 }

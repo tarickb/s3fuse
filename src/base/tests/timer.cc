@@ -2,7 +2,11 @@
 
 #include "base/timer.h"
 
-using s3::base::timer;
+namespace s3
+{
+  namespace base
+  {
+    namespace tests {
 
 TEST(timer, sleep)
 {
@@ -30,4 +34,8 @@ TEST(timer, current_time_et)
 
   EXPECT_GT(diff, 0.9);
   EXPECT_LT(diff, 1.1);
+}
+
+}
+  }
 }

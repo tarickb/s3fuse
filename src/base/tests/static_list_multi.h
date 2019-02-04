@@ -12,8 +12,8 @@ namespace s3
   {
     namespace tests
     {
-      typedef static_list<std::function<std::string()>> void_fn_list;
-      typedef static_list<std::function<std::string(int)>> int_fn_list;
+      using void_fn_list = static_list<std::function<std::string()>>;
+      using int_fn_list = static_list<std::function<std::string(int)>>;
     }
   }
 }

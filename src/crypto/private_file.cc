@@ -28,45 +28,42 @@
 #include "base/paths.h"
 #include "crypto/private_file.h"
 
-using std::ifstream;
-using std::ios;
-using std::ofstream;
-using std::runtime_error;
-using std::string;
+namespace s3 {
+  namespace crypto {
 
-using s3::base::paths;
-using s3::crypto::private_file;
-
-void private_file::open(const string &file_, ofstream *f, open_mode mode)
+void private_file::open(const std::string &file_, std::ofstream *f, open_mode mode)
 {
-  string file = paths::transform(file_);
-  ifstream test_open(file.c_str(), ios::in);
+  std::string file = base::paths::transform(file_);
+  std::ifstream test_open(file.c_str(), std::ios::in);
 
   if (test_open.good() && mode != OM_OVERWRITE)
-    throw runtime_error("file already exists");
+    throw std::runtime_error("file already exists");
 
-  f->open(file.c_str(), ios::out | ios::trunc);
+  f->open(file.c_str(), std::ios::out | std::ios::trunc);
 
   if (!f->good())
-    throw runtime_error("unable to open/create private file.");
+    throw std::runtime_error("unable to open/create private file.");
 
   if (chmod(file.c_str(), S_IRUSR | S_IWUSR))
-    throw runtime_error("failed to set permissions on private file.");
+    throw std::runtime_error("failed to set permissions on private file.");
 }
 
-void private_file::open(const string &file_, ifstream *f)
+void private_file::open(const std::string &file_, std::ifstream *f)
 {
-  string file = paths::transform(file_);
+  std::string file = base::paths::transform(file_);
   struct stat s;
 
-  f->open(file.c_str(), ios::in);
+  f->open(file.c_str(), std::ios::in);
 
   if (!f->good())
-    throw runtime_error("unable to open private file.");
+    throw std::runtime_error("unable to open private file.");
 
   if (stat(file.c_str(), &s))
-    throw runtime_error("unable to stat private file.");
+    throw std::runtime_error("unable to stat private file.");
 
   if ((s.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) != (S_IRUSR | S_IWUSR))
-    throw runtime_error("private file must be readable/writeable only by owner.");
+    throw std::runtime_error("private file must be readable/writeable only by owner.");
 }
+
+}  // namespace crypto
+}  // namespace s3

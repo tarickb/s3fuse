@@ -28,13 +28,7 @@
 #include "fs/list_reader.h"
 #include "services/service.h"
 
-using std::string;
-using std::to_string;
-
-using s3::base::request;
-using s3::base::xml;
-using s3::fs::list_reader;
-using s3::services::service;
+namespace s3 { namespace fs {
 
 namespace
 {
@@ -44,7 +38,7 @@ namespace
   const char *      PREFIX_XPATH = "/ListBucketResult/CommonPrefixes/Prefix";
 }
 
-list_reader::list_reader(const string &prefix, bool group_common_prefixes, int max_keys)
+list_reader::list_reader(const std::string &prefix, bool group_common_prefixes, int max_keys)
   : _truncated(true),
     _prefix(prefix),
     _group_common_prefixes(group_common_prefixes),
@@ -52,12 +46,13 @@ list_reader::list_reader(const string &prefix, bool group_common_prefixes, int m
 {
 }
 
-int list_reader::read(const request::ptr &req, xml::element_list *keys, xml::element_list *prefixes)
+int list_reader::read(const base::request::ptr &req, base::xml::element_list
+    *keys, base::xml::element_list *prefixes)
 {
   int r;
-  xml::document_ptr doc;
-  string temp;
-  string query;
+  base::xml::document_ptr doc;
+  std::string temp;
+  std::string query;
 
   if (!keys)
     return -EINVAL;
@@ -72,41 +67,41 @@ int list_reader::read(const request::ptr &req, xml::element_list *keys, xml::ele
   if (!_truncated)
     return 0;
 
-  query = string("prefix=") + request::url_encode(_prefix) + "&marker=" + _marker;
+  query = std::string("prefix=") + base::request::url_encode(_prefix) + "&marker=" + _marker;
 
   if (_group_common_prefixes)
     query += "&delimiter=/";
 
   if (_max_keys > 0)
-    query += string("&max-keys=") + to_string(_max_keys);
+    query += std::string("&max-keys=") + std::to_string(_max_keys);
 
-  req->set_url(service::get_bucket_url(), query);
+  req->set_url(services::service::get_bucket_url(), query);
   req->run();
 
   if (req->get_response_code() != base::HTTP_SC_OK)
     return -EIO;
 
-  doc = xml::parse(req->get_output_string());
+  doc = base::xml::parse(req->get_output_string());
 
   if (!doc) {
     S3_LOG(LOG_WARNING, "list_reader::read", "failed to parse response.\n");
     return -EIO;
   }
 
-  if ((r = xml::find(doc, IS_TRUNCATED_XPATH, &temp)))
+  if ((r = base::xml::find(doc, IS_TRUNCATED_XPATH, &temp)))
     return r;
 
   _truncated = (temp == "true");
 
-  if (prefixes && (r = xml::find(doc, PREFIX_XPATH, prefixes)))
+  if (prefixes && (r = base::xml::find(doc, PREFIX_XPATH, prefixes)))
     return r;
 
-  if ((r = xml::find(doc, KEY_XPATH, keys)))
+  if ((r = base::xml::find(doc, KEY_XPATH, keys)))
     return r;
 
   if (_truncated) {
-    if (service::is_next_marker_supported()) {
-      if ((r = xml::find(doc, NEXT_MARKER_XPATH, &_marker)))
+    if (services::service::is_next_marker_supported()) {
+      if ((r = base::xml::find(doc, NEXT_MARKER_XPATH, &_marker)))
         return r;
     } else {
       _marker = keys->back();
@@ -116,4 +111,4 @@ int list_reader::read(const request::ptr &req, xml::element_list *keys, xml::ele
   return keys->size() + (prefixes ? prefixes->size() : 0);
 }
 
-
+} }

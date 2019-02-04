@@ -39,49 +39,23 @@
 #include "services/service.h"
 #include "threads/pool.h"
 
-using std::atomic_int;
-using std::lock_guard;
-using std::mutex;
-using std::ostream;
-using std::runtime_error;
-using std::string;
-using std::unique_lock;
-
-using s3::base::char_vector_ptr;
-using s3::base::config;
-using s3::base::request;
-using s3::base::statistics;
-using s3::crypto::hash;
-using s3::crypto::hash_list;
-using s3::crypto::hex;
-using s3::crypto::hex_with_quotes;
-using s3::crypto::md5;
-using s3::crypto::sha256;
-using s3::fs::file;
-using s3::fs::metadata;
-using s3::fs::mime_types;
-using s3::fs::object;
-using s3::fs::static_xattr;
-using s3::services::service;
-using s3::threads::pool;
-
-using namespace std::placeholders;
-
 #define TEMP_NAME_TEMPLATE "/tmp/s3fuse.local-XXXXXX"
+
+namespace s3 { namespace fs {
 
 namespace
 {
   const off_t TRUNCATE_LIMIT = 4ULL * 1024 * 1024 * 1024; // 4 GB
 
-  atomic_int s_sha256_mismatches(0), s_md5_mismatches(0), s_no_hash_checks(0);
-  atomic_int s_non_dirty_flushes(0), s_reopens(0);
+  std::atomic_int s_sha256_mismatches(0), s_md5_mismatches(0), s_no_hash_checks(0);
+  std::atomic_int s_non_dirty_flushes(0), s_reopens(0);
 
-  object * checker(const string &path, const request::ptr &req)
+  object * checker(const std::string &path, const base::request::ptr &req)
   {
     return new file(path);
   }
 
-  void statistics_writer(ostream *o)
+  void statistics_writer(std::ostream *o)
   {
     *o <<
       "files:\n"
@@ -91,21 +65,21 @@ namespace
   }
 
   object::type_checker_list::entry s_checker_reg(checker, 1000);
-  statistics::writers::entry s_writer(statistics_writer, 0);
+  base::statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
 void file::test_transfer_chunk_sizes()
 {
-  size_t chunk_size = hash_list<sha256>::CHUNK_SIZE;
+  size_t chunk_size = crypto::hash_list<crypto::sha256>::CHUNK_SIZE;
 
-  if (service::get_file_transfer()->get_download_chunk_size() % chunk_size) {
+  if (services::service::get_file_transfer()->get_download_chunk_size() % chunk_size) {
     S3_LOG(LOG_ERR, "file::test_transfer_chunk_size", "download chunk size must be a multiple of %zu.\n", chunk_size);
-    throw runtime_error("invalid download chunk size");
+    throw std::runtime_error("invalid download chunk size");
   }
 
-  if (service::get_file_transfer()->get_upload_chunk_size() % chunk_size) {
+  if (services::service::get_file_transfer()->get_upload_chunk_size() % chunk_size) {
     S3_LOG(LOG_ERR, "file::test_transfer_chunk_size", "upload chunk size must be a multiple of %zu.\n", chunk_size);
-    throw runtime_error("invalid upload chunk size");
+    throw std::runtime_error("invalid upload chunk size");
   }
 }
 
@@ -124,16 +98,16 @@ void file::open_locked_object(const object::ptr &obj, file_open_mode mode, uint6
   *status = static_cast<file *>(obj.get())->open(mode, handle);
 }
 
-int file::open(const string &path, file_open_mode mode, uint64_t *handle)
+int file::open(const std::string &path, file_open_mode mode, uint64_t *handle)
 {
   int r = -EINVAL;
 
-  cache::lock_object(path, bind(&file::open_locked_object, _1, mode, handle, &r));
+  cache::lock_object(path, bind(&file::open_locked_object, std::placeholders::_1, mode, handle, &r));
 
   return r;
 }
 
-file::file(const string &path)
+file::file(const std::string &path)
   : object(path),
     _fd(-1),
     _status(0),
@@ -143,12 +117,12 @@ file::file(const string &path)
 {
   set_type(S_IFREG);
 
-  if (config::get_auto_detect_mime_type()) {
+  if (base::config::get_auto_detect_mime_type()) {
     size_t pos = path.find_last_of('.');
 
-    if (pos != string::npos) {
-      string ext = path.substr(pos + 1);
-      string content_type = mime_types::get_type_by_extension(ext);
+    if (pos != std::string::npos) {
+      std::string ext = path.substr(pos + 1);
+      std::string content_type = mime_types::get_type_by_extension(ext);
 
       if (!content_type.empty())
         set_content_type(content_type);
@@ -162,14 +136,14 @@ file::~file()
 
 bool file::is_removable()
 {
-  lock_guard<mutex> lock(_fs_mutex);
+  std::lock_guard<std::mutex> lock(_fs_mutex);
 
   return _ref_count == 0 && object::is_removable();
 }
 
-void file::init(const request::ptr &req)
+void file::init(const base::request::ptr &req)
 {
-  const string &meta_prefix = service::get_header_meta_prefix();
+  const std::string &meta_prefix = services::service::get_header_meta_prefix();
 
   object::init(req);
 
@@ -181,7 +155,7 @@ void file::init(const request::ptr &req)
   }
 }
 
-void file::set_sha256_hash(const string &hash)
+void file::set_sha256_hash(const std::string &hash)
 {
   if (hash.empty())
     return;
@@ -190,9 +164,9 @@ void file::set_sha256_hash(const string &hash)
   get_metadata()->replace(static_xattr::from_string(PACKAGE_NAME "_sha256", hash, xattr::XM_VISIBLE));
 }
 
-void file::set_request_headers(const request::ptr &req)
+void file::set_request_headers(const base::request::ptr &req)
 {
-  const string &meta_prefix = service::get_header_meta_prefix();
+  const std::string &meta_prefix = services::service::get_header_meta_prefix();
 
   object::set_request_headers(req);
 
@@ -201,7 +175,7 @@ void file::set_request_headers(const request::ptr &req)
 
 void file::on_download_complete(int ret)
 {
-  lock_guard<mutex> lock(_fs_mutex);
+  std::lock_guard<std::mutex> lock(_fs_mutex);
 
   if (_status != FS_DOWNLOADING) {
     S3_LOG(LOG_ERR, "file::download_complete", "inconsistent state for [%s]. don't know what to do.\n", get_path().c_str());
@@ -220,7 +194,7 @@ int file::is_downloadable()
 
 int file::open(file_open_mode mode, uint64_t *handle)
 {
-  lock_guard<mutex> lock(_fs_mutex);
+  std::lock_guard<std::mutex> lock(_fs_mutex);
 
   if (_ref_count == 0) {
     char temp_name[] = TEMP_NAME_TEMPLATE;
@@ -260,10 +234,11 @@ int file::open(file_open_mode mode, uint64_t *handle)
 
         _status = FS_DOWNLOADING;
 
-        pool::post(
+        threads::pool::post(
           threads::PR_0,
-          bind(&file::download, shared_from_this(), _1),
-          bind(&file::on_download_complete, shared_from_this(), _1));
+          bind(&file::download, shared_from_this(), std::placeholders::_1),
+          bind(&file::on_download_complete, shared_from_this(),
+            std::placeholders::_1));
       }
     }
   } else {
@@ -278,7 +253,7 @@ int file::open(file_open_mode mode, uint64_t *handle)
 
 int file::release()
 {
-  lock_guard<mutex> lock(_fs_mutex);
+  std::lock_guard<std::mutex> lock(_fs_mutex);
 
   if (_ref_count == 0) {
     S3_LOG(LOG_WARNING, "file::release", "attempt to release file [%s] with zero ref-count\n", get_path().c_str());
@@ -308,7 +283,7 @@ int file::release()
 
 int file::flush()
 {
-  unique_lock<mutex> lock(_fs_mutex);
+  std::unique_lock<std::mutex> lock(_fs_mutex);
 
   while (_status & (FS_DOWNLOADING | FS_UPLOADING | FS_WRITING))
     _condition.wait(lock);
@@ -326,7 +301,8 @@ int file::flush()
   _status |= FS_UPLOADING;
 
   lock.unlock();
-  _async_error = pool::call(threads::PR_0, bind(&file::upload, shared_from_this(), _1));
+  _async_error = threads::pool::call(threads::PR_0, bind(&file::upload,
+        shared_from_this(), std::placeholders::_1));
   lock.lock();
 
   _status = 0;
@@ -337,7 +313,7 @@ int file::flush()
 
 int file::write(const char *buffer, size_t size, off_t offset)
 {
-  unique_lock<mutex> lock(_fs_mutex);
+  std::unique_lock<std::mutex> lock(_fs_mutex);
   int r;
 
   if (_read_only)
@@ -363,7 +339,7 @@ int file::write(const char *buffer, size_t size, off_t offset)
 
 int file::read(char *buffer, size_t size, off_t offset)
 {
-  unique_lock<mutex> lock(_fs_mutex);
+  std::unique_lock<std::mutex> lock(_fs_mutex);
   int r;
 
   while (_status & FS_DOWNLOADING)
@@ -380,7 +356,7 @@ int file::read(char *buffer, size_t size, off_t offset)
 
 int file::truncate(off_t length)
 {
-  unique_lock<mutex> lock(_fs_mutex);
+  std::unique_lock<std::mutex> lock(_fs_mutex);
   int r;
 
   if (length > TRUNCATE_LIMIT)
@@ -422,7 +398,7 @@ int file::write_chunk(const char *buffer, size_t size, off_t offset)
   return 0;
 }
 
-int file::read_chunk(size_t size, off_t offset, const char_vector_ptr &buffer)
+int file::read_chunk(size_t size, off_t offset, const base::char_vector_ptr &buffer)
 {
   ssize_t r;
 
@@ -445,7 +421,7 @@ size_t file::get_local_size()
   if (fstat(_fd, &s) == -1) {
     S3_LOG(LOG_WARNING, "file::get_local_size", "failed to stat [%s].\n", get_path().c_str());
 
-    throw runtime_error("failed to stat local file");
+    throw std::runtime_error("failed to stat local file");
   }
 
   return s.st_size;
@@ -456,19 +432,19 @@ void file::update_stat()
   object::update_stat();
 
   {
-    lock_guard<mutex> lock(_fs_mutex);
+    std::lock_guard<std::mutex> lock(_fs_mutex);
 
     update_stat(lock);
   }
 }
 
-void file::update_stat(const lock_guard<mutex> &)
+void file::update_stat(const std::lock_guard<std::mutex> &)
 {
   if (_fd != -1)
     get_stat()->st_size = get_local_size();
 }
 
-int file::download(const request::ptr & /* ignored */)
+int file::download(const base::request::ptr & /* ignored */)
 {
   int r = 0;
 
@@ -477,10 +453,11 @@ int file::download(const request::ptr & /* ignored */)
   if (r)
     return r;
 
-  r = service::get_file_transfer()->download(
+  r = services::service::get_file_transfer()->download(
     get_url(),
     get_local_size(),
-    bind(&file::write_chunk, shared_from_this(), _1, _2, _3));
+    bind(&file::write_chunk, shared_from_this(), std::placeholders::_1,
+      std::placeholders::_2, std::placeholders::_3));
 
   if (r)
     return r;
@@ -491,7 +468,7 @@ int file::download(const request::ptr & /* ignored */)
 int file::prepare_download()
 {
   if (!_sha256_hash.empty())
-    _hash_list.reset(new hash_list<sha256>(get_local_size()));
+    _hash_list.reset(new crypto::hash_list<crypto::sha256>(get_local_size()));
 
   return 0;
 }
@@ -499,7 +476,7 @@ int file::prepare_download()
 int file::finalize_download()
 {
   if (!_sha256_hash.empty()) {
-    string computed_hash = _hash_list->get_root_hash<hex>();
+    std::string computed_hash = _hash_list->get_root_hash<crypto::hex>();
 
     if (computed_hash != _sha256_hash) {
       ++s_sha256_mismatches;
@@ -514,9 +491,9 @@ int file::finalize_download()
 
       return -EIO;
     }
-  } else if (md5::is_valid_quoted_hex_hash(get_etag())) {
+  } else if (crypto::md5::is_valid_quoted_hex_hash(get_etag())) {
     // as a fallback, use the etag as an md5 hash of the file
-    string computed_hash = hash::compute<md5, hex_with_quotes>(_fd);
+    std::string computed_hash = crypto::hash::compute<crypto::md5, crypto::hex_with_quotes>(_fd);
 
     if (computed_hash != get_etag()) {
       ++s_md5_mismatches;
@@ -544,20 +521,21 @@ int file::finalize_download()
   return 0;
 }
 
-int file::upload(const request::ptr & /* ignored */)
+int file::upload(const base::request::ptr & /* ignored */)
 {
   int r;
-  string returned_etag;
+  std::string returned_etag;
 
   r = prepare_upload();
 
   if (r)
     return r;
 
-  r = service::get_file_transfer()->upload(
+  r = services::service::get_file_transfer()->upload(
     get_url(),
     get_local_size(),
-    bind(&file::read_chunk, shared_from_this(), _1, _2, _3),
+    bind(&file::read_chunk, shared_from_this(), std::placeholders::_1,
+      std::placeholders::_2, std::placeholders::_3),
     &returned_etag);
 
   if (r)
@@ -570,15 +548,16 @@ int file::upload(const request::ptr & /* ignored */)
 
 int file::prepare_upload()
 {
-  _hash_list.reset(new hash_list<sha256>(get_local_size()));
+  _hash_list.reset(new crypto::hash_list<crypto::sha256>(get_local_size()));
 
   return 0;
 }
 
-int file::finalize_upload(const string &returned_etag)
+int file::finalize_upload(const std::string &returned_etag)
 {
   set_etag(returned_etag);
-  set_sha256_hash(_hash_list->get_root_hash<hex>());
+  set_sha256_hash(_hash_list->get_root_hash<crypto::hex>());
 
   return 0;
 }
+}  }

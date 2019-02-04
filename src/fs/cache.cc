@@ -28,26 +28,16 @@
 #include "fs/cache.h"
 #include "fs/directory.h"
 
-using std::atomic_int;
-using std::lock_guard;
-using std::mutex;
-using std::ostream;
-using std::string;
-using std::unique_ptr;
+namespace s3 { namespace fs {
 
-using s3::base::config;
-using s3::base::request;
-using s3::base::statistics;
-using s3::fs::cache;
-
-mutex cache::s_mutex;
-unique_ptr<cache::cache_map> cache::s_cache_map;
+std::mutex cache::s_mutex;
+std::unique_ptr<cache::cache_map> cache::s_cache_map;
 uint64_t cache::s_hits(0), cache::s_misses(0), cache::s_expiries(0);
-statistics::writers::entry cache::s_writer(cache::statistics_writer, 0);
+base::statistics::writers::entry cache::s_writer(cache::statistics_writer, 0);
 
 namespace
 {
-  atomic_int s_get_failures(0);
+  std::atomic_int s_get_failures(0);
 
   inline double percent(uint64_t a, uint64_t b)
   {
@@ -57,17 +47,17 @@ namespace
 
 void cache::init()
 {
-  s_cache_map.reset(new cache_map(config::get_max_objects_in_cache()));
+  s_cache_map.reset(new cache_map(base::config::get_max_objects_in_cache()));
 }
 
-void cache::statistics_writer(ostream *o)
+void cache::statistics_writer(std::ostream *o)
 {
   uint64_t total = s_hits + s_misses + s_expiries;
 
   if (total == 0)
     total = 1; // avoid NaNs below
 
-  o->setf(ostream::fixed);
+  o->setf(std::ostream::fixed);
   o->precision(2);
 
   *o << 
@@ -79,7 +69,7 @@ void cache::statistics_writer(ostream *o)
     "  get failures: " << s_get_failures << "\n";
 }
 
-int cache::fetch(const request::ptr &req, const string &path, int hints, object::ptr *obj)
+int cache::fetch(const base::request::ptr &req, const std::string &path, int hints, object::ptr *obj)
 {
   if (!path.empty()) {
     req->init(base::HTTP_HEAD);
@@ -105,7 +95,7 @@ int cache::fetch(const request::ptr &req, const string &path, int hints, object:
   *obj = object::create(path, req);
 
   {
-    lock_guard<mutex> lock(s_mutex);
+    std::lock_guard<std::mutex> lock(s_mutex);
     object::ptr &map_obj = (*s_cache_map)[path];
 
     if (map_obj) {
@@ -119,3 +109,4 @@ int cache::fetch(const request::ptr &req, const string &path, int hints, object:
 
   return 0;
 }
+} }

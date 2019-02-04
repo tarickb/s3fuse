@@ -29,32 +29,21 @@
 #include "fs/object.h"
 #include "services/service.h"
 
-using std::string;
-using std::to_string;
-
-using s3::base::request;
-using s3::base::xml;
-using s3::fs::callback_xattr;
-using s3::fs::glacier;
-using s3::fs::object;
-using s3::fs::xattr;
-using s3::services::service;
-
-using namespace std::placeholders;
+namespace s3 { namespace fs {
 
 namespace
 {
   const char *STORAGE_CLASS_XPATH = "/ListBucketResult/Contents/StorageClass";
 
-  string unformat(const string &s)
+  std::string unformat(const std::string &s)
   {
-    string r;
+    std::string r;
     size_t pos = s.find('=');
 
     if (s.empty())
       return s;
 
-    if (pos == string::npos) {
+    if (pos == std::string::npos) {
       S3_LOG(LOG_WARNING, "unformat", "malformed string: [%s]\n", s.c_str());
       return "";
     }
@@ -74,14 +63,14 @@ namespace
     x->set_mode((x->get_mode() & ~mode) | (enable ? mode : 0));
   }
 
-  int get_nop_callback(const char *value, string *out)
+  int get_nop_callback(const char *value, std::string *out)
   {
     *out = value;
 
     return 0;
   }
 
-  int set_nop_callback(const string & /* ignored */)
+  int set_nop_callback(const std::string & /* ignored */)
   {
     return 0;
   }
@@ -92,48 +81,49 @@ glacier::glacier(const object *obj)
 {
   _storage_class_xattr = callback_xattr::create(
     PACKAGE_NAME "_storage_class",
-    bind(&glacier::get_storage_class_value, this, _1),
+    bind(&glacier::get_storage_class_value, this, std::placeholders::_1),
     set_nop_callback,
     xattr::XM_VISIBLE);
 
   _restore_ongoing_xattr = callback_xattr::create(
     PACKAGE_NAME "_restore_ongoing",
-    bind(&glacier::get_restore_ongoing_value, this, _1),
+    bind(&glacier::get_restore_ongoing_value, this, std::placeholders::_1),
     set_nop_callback,
     xattr::XM_DEFAULT);
 
   _restore_expiry_xattr = callback_xattr::create(
     PACKAGE_NAME "_restore_expiry",
-    bind(&glacier::get_restore_expiry_value, this, _1),
+    bind(&glacier::get_restore_expiry_value, this, std::placeholders::_1),
     set_nop_callback,
     xattr::XM_DEFAULT);
 
   _request_restore_xattr = callback_xattr::create(
     PACKAGE_NAME "_request_restore",
-    bind(get_nop_callback, "set-to-num-days-for-restore", _1),
-    bind(&glacier::set_request_restore_value, this, _1),
+    bind(get_nop_callback, "set-to-num-days-for-restore", std::placeholders::_1),
+    bind(&glacier::set_request_restore_value, this, std::placeholders::_1),
     xattr::XM_VISIBLE | xattr::XM_WRITABLE);
 }
 
-int glacier::query_storage_class(const request::ptr &req)
+int glacier::query_storage_class(const base::request::ptr &req)
 {
-  xml::document_ptr doc;
+  base::xml::document_ptr doc;
 
   req->init(base::HTTP_GET);
-  req->set_url(service::get_bucket_url(), string("max-keys=1&prefix=") + request::url_encode(_object->get_path()));
+  req->set_url(services::service::get_bucket_url(), std::string("max-keys=1&prefix=") +
+      base::request::url_encode(_object->get_path()));
   req->run();
 
   if (req->get_response_code() != base::HTTP_SC_OK)
     return -EIO;
 
-  doc = xml::parse(req->get_output_string());
+  doc = base::xml::parse(req->get_output_string());
 
   if (!doc) {
     S3_LOG(LOG_WARNING, "glacier::query_storage_class", "failed to parse response.\n");
     return -EIO;
   }
 
-  xml::find(doc, STORAGE_CLASS_XPATH, &_storage_class);
+  base::xml::find(doc, STORAGE_CLASS_XPATH, &_storage_class);
 
   if (_storage_class.empty()) {
     S3_LOG(LOG_WARNING, "glacier::query_storage_class", "cannot find storage class.\n");
@@ -143,9 +133,9 @@ int glacier::query_storage_class(const request::ptr &req)
   return 0;
 }
 
-void glacier::read_restore_status(const request::ptr &req)
+void glacier::read_restore_status(const base::request::ptr &req)
 {
-  const string &restore = req->get_response_header("x-amz-restore");
+  const std::string &restore = req->get_response_header("x-amz-restore");
 
   _restore_ongoing.clear();
   _restore_expiry.clear();
@@ -155,7 +145,7 @@ void glacier::read_restore_status(const request::ptr &req)
 
     pos = restore.find(',');
 
-    if (pos == string::npos) {
+    if (pos == std::string::npos) {
       _restore_ongoing = restore;
     } else {
       _restore_ongoing = restore.substr(0, pos);
@@ -179,7 +169,7 @@ void glacier::read_restore_status(const request::ptr &req)
   set_mode(_request_restore_xattr, xattr::XM_VISIBLE, _restore_ongoing != "true");
 }
 
-int glacier::start_restore(const request::ptr &req, int days)
+int glacier::start_restore(const base::request::ptr &req, int days)
 {
   if (_restore_ongoing == "true") {
     S3_LOG(
@@ -196,8 +186,8 @@ int glacier::start_restore(const request::ptr &req, int days)
   req->set_header("Content-Type", "");
 
   req->set_input_buffer(
-    string("<RestoreRequest><Days>") + 
-    to_string(days) +
+    std::string("<RestoreRequest><Days>") + 
+    std::to_string(days) +
     "</Days></RestoreRequest>");
 
   req->run();
@@ -232,3 +222,5 @@ int glacier::start_restore(const request::ptr &req, int days)
 
   return 0;
 }
+
+} }

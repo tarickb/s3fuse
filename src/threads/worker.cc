@@ -24,14 +24,14 @@
 #include "threads/work_item_queue.h"
 #include "threads/worker.h"
 
-using std::shared_ptr;
-
-using s3::base::request;
-using s3::threads::worker;
+namespace s3
+{
+  namespace threads
+  {
 
 void worker::work()
 {
-  shared_ptr<request> null_req;
+  std::shared_ptr<base::request> null_req;
 
   while (true) {
     work_item item;
@@ -59,4 +59,7 @@ void worker::work()
 
   // the thread in _thread holds a shared_ptr to this, and will keep it from being destructed
   _thread.reset();
+}
+
+}
 }

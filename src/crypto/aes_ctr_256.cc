@@ -25,17 +25,15 @@
 #include "crypto/aes_ctr_256.h"
 #include "crypto/symmetric_key.h"
 
-using std::runtime_error;
-
-using s3::crypto::aes_ctr_256;
-using s3::crypto::symmetric_key;
+namespace s3 {
+  namespace crypto {
 
 void aes_ctr_256::crypt(const symmetric_key::ptr &key, uint64_t starting_block, const uint8_t *in, size_t size, uint8_t *out)
 {
   uint8_t iv[BLOCK_LEN];
 
   if (key->get_iv()->size() != IV_LEN)
-    throw runtime_error("iv length is not valid for aes_ctr_256");
+    throw std::runtime_error("iv length is not valid for aes_ctr_256");
 
   starting_block = __builtin_bswap64(starting_block);
 
@@ -49,7 +47,10 @@ void aes_ctr_256::crypt(const symmetric_key::ptr &key, uint64_t starting_block, 
   memset(ecount_buf, 0, sizeof(ecount_buf));
 
   if (AES_set_encrypt_key(key->get_key()->get(), key->get_key()->size() * 8 /* in bits */, &aes_key) != 0)
-    throw runtime_error("failed to set encryption key for aes_ctr_256");
+    throw std::runtime_error("failed to set encryption key for aes_ctr_256");
 
   CRYPTO_ctr128_encrypt(in, out, size, &aes_key, iv, ecount_buf, &num, reinterpret_cast<block128_f>(AES_encrypt));
 }
+
+}  // namespace crypto
+}  // namespace s3

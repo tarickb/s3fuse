@@ -30,38 +30,24 @@
 #include "base/statistics.h"
 #include "threads/pool.h"
 
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::runtime_error;
-using std::stoi;
-using std::string;
-using std::strrchr;
-
-using s3::init;
-using s3::operations;
-using s3::base::config;
-using s3::base::statistics;
-using s3::threads::pool;
-
 namespace
 {
   const int DEFAULT_VERBOSITY = LOG_WARNING;
   const char *APP_DESCRIPTION = "FUSE driver for cloud object storage services";
 
   #ifdef __APPLE__
-    const string OSX_MOUNTPOINT_PREFIX = "/volumes/" PACKAGE_NAME "_";
+    const std::string OSX_MOUNTPOINT_PREFIX = "/volumes/" PACKAGE_NAME "_";
   #endif
 
   struct options
   {
     const char *base_name;
-    string config;
-    string mountpoint;
+    std::string config;
+    std::string mountpoint;
     int verbosity;
 
     #ifdef __APPLE__
-      string volname;
+      std::string volname;
 
       bool noappledouble_set;
       bool daemon_timeout_set;
@@ -72,7 +58,7 @@ namespace
     {
       verbosity = DEFAULT_VERBOSITY;
 
-      base_name = strrchr(arg0, '/');
+      base_name = std::strrchr(arg0, '/');
       base_name = base_name ? base_name + 1 : arg0;
 
       #ifdef __APPLE__
@@ -86,7 +72,7 @@ namespace
 
 int print_usage(const char *base_name)
 {
-  cerr <<
+  std::cerr <<
     "Usage: " << base_name << " [options] <mountpoint>\n"
     "\n"
     "Options:\n"
@@ -102,15 +88,15 @@ int print_usage(const char *base_name)
     "  -v, --verbose        enable logging to stderr (can be repeated for more verbosity)\n"
     "  -vN, --verbose=N     set verbosity to N\n"
     "  -V, --version        print version and exit\n"
-    << endl;
+    << std::endl;
 
   return 0;
 }
 
 int print_version()
 {
-  cout << PACKAGE_NAME << ", " << PACKAGE_VERSION_WITH_REV << ", " << APP_DESCRIPTION << endl;
-  cout << "enabled services: " << init::get_enabled_services() << endl;
+  std::cout << PACKAGE_NAME << ", " << PACKAGE_VERSION_WITH_REV << ", " << APP_DESCRIPTION << std::endl;
+  std::cout << "enabled services: " << s3::init::get_enabled_services() << std::endl;
 
   return 0;
 }
@@ -118,7 +104,7 @@ int print_version()
 int process_argument(void *data, const char *c_arg, int key, struct fuse_args *out_args)
 {
   options *opts = static_cast<options *>(data);
-  const string arg = c_arg;
+  const std::string arg = c_arg;
 
   if (arg == "-V" || arg == "--version") {
     print_version();
@@ -136,17 +122,17 @@ int process_argument(void *data, const char *c_arg, int key, struct fuse_args *o
   }
 
   if (arg.find("-v") == 0) {
-    opts->verbosity = stoi(arg.substr(string("-v").length()));
+    opts->verbosity = std::stoi(arg.substr(std::string("-v").length()));
     return 0;
   }
 
   if (arg.find("--verbose=") == 0) {
-    opts->verbosity = stoi(arg.substr(string("--verbose=").length()));
+    opts->verbosity = std::stoi(arg.substr(std::string("--verbose=").length()));
     return 0;
   }
 
   if (arg.find("config=") == 0) {
-    opts->config = arg.substr(string("config=").length());
+    opts->config = arg.substr(std::string("config=").length());
     return 0;
   }
 
@@ -184,7 +170,7 @@ void * init(fuse_conn_info *info)
 
   // this has to be here, rather than in main(), because the threads created
   // won't survive the fork in fuse_main().
-  init::threads();
+  s3::init::threads();
 
   return NULL;
 }
@@ -192,7 +178,7 @@ void * init(fuse_conn_info *info)
 void add_missing_options(options *opts, fuse_args *args)
 {
   #ifdef __APPLE__
-    opts->volname = "-ovolname=" PACKAGE_NAME " volume (" + config::get_bucket_name() + ")";
+    opts->volname = "-ovolname=" PACKAGE_NAME " volume (" + s3::base::config::get_bucket_name() + ")";
 
     if (!opts->daemon_timeout_set)
       fuse_opt_add_arg(args, "-odaemon_timeout=3600");
@@ -217,7 +203,7 @@ int main(int argc, char **argv)
   if (opts.mountpoint.empty()) {
     #if defined(__APPLE__) && defined(OSX_BUNDLE)
       if (argc == 1) {
-        opts.mountpoint = OSX_MOUNTPOINT_PREFIX + config::get_bucket_name();
+        opts.mountpoint = OSX_MOUNTPOINT_PREFIX + s3::base::config::get_bucket_name();
 
         mkdir(opts.mountpoint.c_str(), 0777);
 
@@ -233,15 +219,15 @@ int main(int argc, char **argv)
   }
 
   try {
-    init::base(init::IB_WITH_STATS, opts.verbosity, opts.config);
-    init::services();
-    init::fs();
+    s3::init::base(s3::init::IB_WITH_STATS, opts.verbosity, opts.config);
+    s3::init::services();
+    s3::init::fs();
 
-    operations::init(opts.mountpoint);
-    operations::build_fuse_operations(&opers);
+    s3::operations::init(opts.mountpoint);
+    s3::operations::build_fuse_operations(&opers);
 
     if (opers.init != NULL)
-      throw runtime_error("operations struct defined init when it shouldn't have.");
+      throw std::runtime_error("operations struct defined init when it shouldn't have.");
 
     // not an actual FS operation
     opers.init = init;
@@ -260,11 +246,11 @@ int main(int argc, char **argv)
   fuse_opt_free_args(&args);
 
   try {
-    pool::terminate();
+    s3::threads::pool::terminate();
 
     // these won't do anything if statistics::init() wasn't called
-    statistics::collect();
-    statistics::flush();
+    s3::base::statistics::collect();
+    s3::base::statistics::flush();
 
   } catch (const std::exception &e) {
     S3_LOG(LOG_ERR, "main", "caught exception while cleaning up: %s\n", e.what());

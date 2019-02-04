@@ -21,7 +21,7 @@
 
 #include "fs/metadata.h"
 
-using s3::fs::metadata;
+namespace s3 { namespace fs {
 
 const char *metadata::RESERVED_PREFIX    = "s3fuse-";
 
@@ -41,3 +41,5 @@ const char *metadata::DEVICE             = "s3fuse-device";
 const char *metadata::SHA256             = "s3fuse-sha256";
 const char *metadata::ENC_IV             = "s3fuse-e-iv";
 const char *metadata::ENC_METADATA       = "s3fuse-e-meta";
+
+} }

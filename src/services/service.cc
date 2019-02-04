@@ -26,22 +26,16 @@
 #include "base/request_hook.h"
 #include "services/service.h"
 
-using std::shared_ptr;
-using std::string;
-
-using s3::base::request;
-using s3::base::request_hook;
-using s3::services::file_transfer;
-using s3::services::impl;
-using s3::services::service;
+namespace s3 {
+  namespace services {
 
 impl::ptr service::s_impl;
-shared_ptr<request_hook> service::s_hook;
-shared_ptr<file_transfer> service::s_file_transfer;
+std::shared_ptr<base::request_hook> service::s_hook;
+std::shared_ptr<file_transfer> service::s_file_transfer;
 
 namespace
 {
-  class service_hook : public request_hook
+  class service_hook : public base::request_hook
   {
   public:
     service_hook(const impl::ptr &impl)
@@ -53,17 +47,17 @@ namespace
     {
     }
 
-    virtual string adjust_url(const string &url)
+    virtual std::string adjust_url(const std::string &url)
     {
       return _impl->adjust_url(url);
     }
 
-    virtual void pre_run(request *r, int iter)
+    virtual void pre_run(base::request *r, int iter)
     {
       _impl->pre_run(r, iter);
     }
 
-    virtual bool should_retry(request *r, int iter)
+    virtual bool should_retry(base::request *r, int iter)
     {
       return _impl->should_retry(r, iter);
     }
@@ -79,3 +73,4 @@ void service::init(const impl::ptr &svc)
   s_hook.reset(new service_hook(s_impl));
   s_file_transfer = s_impl->build_file_transfer();
 }
+} }

@@ -4,60 +4,49 @@
 
 #include "fs/callback_xattr.h"
 
-using std::bind;
-using std::cout;
-using std::endl;
-using std::string;
-using std::vector;
+std::string s_val;
 
-using s3::fs::callback_xattr;
-using s3::fs::xattr;
-
-using namespace std::placeholders;
-
-string s_val;
-
-void test(const xattr::ptr &p)
+void test(const s3::fs::xattr::ptr &p)
 {
-  vector<char> buf;
+  std::vector<char> buf;
   int len;
 
   len = p->get_value(NULL, 0);
 
   if (len < 0) {
-    cout << "error: " << len << endl;
+    std::cout << "error: " << len << std::endl;
     return;
   }
 
   buf.resize(len + 1);
 
   if (p->get_value(&buf[0], len) != len) {
-    cout << "error in get_value()" << endl;
+    std::cout << "error in get_value()" << std::endl;
     return;
   }
 
   buf[len] = '\0';
 
-  cout << 
+  std::cout << 
     p->get_key() << ": " << 
     (p->is_writable() ? "(writable) " : "") << 
     (p->is_serializable() ? "(serializable) " : "") << 
     (p->is_visible() ? "(visible) " : "") <<
     (p->is_removable() ? "(removable) " : "") <<
-    &buf[0] << endl;
+    &buf[0] << std::endl;
 }
 
-int get(string *val)
+int get(std::string *val)
 {
-  cout << "get" << endl;
+  std::cout << "get" << std::endl;
   *val = s_val;
 
   return 0;
 }
 
-int set(const string &val)
+int set(const std::string &val)
 {
-  cout << "set: value: " << val << endl;
+  std::cout << "set: value: " << val << std::endl;
   s_val = val;
 
   return 0;
@@ -65,22 +54,22 @@ int set(const string &val)
 
 int main(int argc, char **argv)
 {
-  const string TEST = "test";
-  xattr::ptr p;
+  const std::string TEST = "test";
+  s3::fs::xattr::ptr p;
 
-  p = callback_xattr::create(
+  p = s3::fs::callback_xattr::create(
     "cb_test_key", 
-    bind(get, _1),
-    bind(set, _1),
-    xattr::XM_VISIBLE);
+    std::bind(get, std::placeholders::_1),
+    std::bind(set, std::placeholders::_1),
+    s3::fs::xattr::XM_VISIBLE);
 
-  cout << "test 1" << endl;
+  std::cout << "test 1" << std::endl;
   test(p);
 
-  cout << "setting..." << endl;
+  std::cout << "setting..." << std::endl;
   p->set_value(TEST.c_str(), TEST.size());
 
-  cout << "test 2" << endl;
+  std::cout << "test 2" << std::endl;
   test(p);
 
   return 0;

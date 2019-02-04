@@ -23,9 +23,13 @@
 
 #include "crypto/sha256.h"
 
-using s3::crypto::sha256;
+namespace s3 {
+  namespace crypto {
 
 void sha256::compute(const uint8_t *input, size_t size, uint8_t *hash)
 {
   SHA256(input, size, hash);
 }
+
+}  // namespace crypto
+}  // namespace s3P

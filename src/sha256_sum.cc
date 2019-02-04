@@ -33,32 +33,19 @@
 #include "crypto/hex.h"
 #include "crypto/sha256.h"
 
-using std::cerr;
-using std::cout;
-using std::endl;
-using std::runtime_error;
-using std::strrchr;
-
-using s3::crypto::hash_list;
-using s3::crypto::hex;
-using s3::crypto::sha256;
-
-namespace
-{
-  typedef hash_list<sha256> sha256_hash;
-}
-
 int main(int argc, char **argv)
 {
+  using sha256_hash = s3::crypto::hash_list<s3::crypto::sha256>;
+  
   struct stat s;
   const char *file_name = NULL;
   int fd = -1;
   sha256_hash::ptr hash;
 
   if (argc != 2) {
-    const char *arg0 = strrchr(argv[0], '/');
+    const char *arg0 = std::strrchr(argv[0], '/');
 
-    cerr << "Usage: " << (arg0 ? arg0 + 1 : argv[0]) << " <file-name>" << endl;
+    std::cerr << "Usage: " << (arg0 ? arg0 + 1 : argv[0]) << " <file-name>" << std::endl;
     return 1;
   }
 
@@ -66,12 +53,12 @@ int main(int argc, char **argv)
   fd = open(file_name, O_RDONLY);
 
   if (fd == -1) {
-    cerr << "Error [" << strerror(errno) << "] (" << errno << ") while opening [" << file_name << "]." << endl;
+    std::cerr << "Error [" << strerror(errno) << "] (" << errno << ") while opening [" << file_name << "]." << std::endl;
     return 1;
   }
 
   if (fstat(fd, &s)) {
-    cerr << "Error [" << strerror(errno) << "] (" << errno << ") while stat-ing [" << file_name << "]." << endl;
+    std::cerr << "Error [" << strerror(errno) << "] (" << errno << ") while stat-ing [" << file_name << "]." << std::endl;
     return 1;
   }
 
@@ -86,7 +73,7 @@ int main(int argc, char **argv)
       size_t this_chunk = (remaining > sha256_hash::CHUNK_SIZE) ? sha256_hash::CHUNK_SIZE : remaining;
 
       if (pread(fd, buffer, this_chunk, offset) != static_cast<ssize_t>(this_chunk))
-        throw runtime_error("pread() failed");
+        throw std::runtime_error("pread() failed");
 
       hash->compute_hash(offset, buffer, this_chunk);
 
@@ -94,10 +81,10 @@ int main(int argc, char **argv)
       offset += this_chunk;
     }
 
-    cout << hash->get_root_hash<hex>() << endl;
+    std::cout << hash->get_root_hash<s3::crypto::hex>() << std::endl;
 
   } catch (const std::exception &e) {
-    cerr << "Caught exception " << e.what() << " while hashing [" << file_name << "]" << endl;
+    std::cerr << "Caught exception " << e.what() << " while hashing [" << file_name << "]" << std::endl;
     return 1;
   }
 

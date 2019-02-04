@@ -23,7 +23,8 @@
 
 #include "crypto/hmac_sha1.h"
 
-using s3::crypto::hmac_sha1;
+namespace s3 {
+  namespace crypto {
 
 void hmac_sha1::sign(const uint8_t *key, size_t key_len, const uint8_t *data, size_t data_len, uint8_t *mac)
 {
@@ -36,3 +37,6 @@ void hmac_sha1::sign(const uint8_t *key, size_t key_len, const uint8_t *data, si
     mac, 
     NULL);
 }
+
+}  // namespace crypto
+}  // namespace s3

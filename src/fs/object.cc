@@ -54,30 +54,7 @@
   #define NEED_XATTR_PREFIX
 #endif
 
-using std::atomic_int;
-using std::bind;
-using std::dynamic_pointer_cast;
-using std::lock_guard;
-using std::mutex;
-using std::ostream;
-using std::runtime_error;
-using std::shared_ptr;
-using std::string;
-using std::to_string;
-using std::vector;
-
-using s3::base::config;
-using s3::base::header_map;
-using s3::base::request;
-using s3::base::statistics;
-using s3::base::timer;
-using s3::base::xml;
-using s3::fs::object;
-using s3::fs::callback_xattr;
-using s3::fs::static_xattr;
-using s3::services::service;
-
-using namespace std::placeholders;
+namespace s3 { namespace fs {
 
 namespace
 {
@@ -85,7 +62,7 @@ namespace
   const char *COMMIT_ETAG_XPATH = "/CopyObjectResult/ETag";
   const char *VERSION_XPATH = "/ListVersionsResult/Version|/ListVersionsResult/DeleteMarker";
 
-  const string INTERNAL_OBJECT_PREFIX = "$s3fuse$_";
+  const std::string INTERNAL_OBJECT_PREFIX = "$s3fuse$_";
   const char *INTERNAL_OBJECT_PREFIX_CSTR = INTERNAL_OBJECT_PREFIX.c_str();
   const size_t INTERNAL_OBJECT_PREFIX_SIZE = INTERNAL_OBJECT_PREFIX.size();
 
@@ -93,18 +70,18 @@ namespace
   const char *EMPTY_VERSION_ETAG = "\"d41d8cd98f00b204e9800998ecf8427e\"";
 
   #ifdef NEED_XATTR_PREFIX
-    const string XATTR_PREFIX = "user.";
+    const std::string XATTR_PREFIX = "user.";
     const size_t XATTR_PREFIX_LEN = XATTR_PREFIX.size();
   #else
     const size_t XATTR_PREFIX_LEN = 0;
   #endif
 
-  const string CONTENT_TYPE_XATTR = PACKAGE_NAME "_content_type";
-  const string ETAG_XATTR = PACKAGE_NAME "_etag";
-  const string CACHE_CONTROL_XATTR = PACKAGE_NAME "_cache_control";
-  const string CURRENT_VERSION_XATTR = PACKAGE_NAME "_current_version";
-  const string ALL_VERSIONS_XATTR = PACKAGE_NAME "_all_versions";
-  const string ALL_VERSIONS_INCL_EMPTY_XATTR = PACKAGE_NAME "_all_versions_incl_empty";
+  const std::string CONTENT_TYPE_XATTR = PACKAGE_NAME "_content_type";
+  const std::string ETAG_XATTR = PACKAGE_NAME "_etag";
+  const std::string CACHE_CONTROL_XATTR = PACKAGE_NAME "_cache_control";
+  const std::string CURRENT_VERSION_XATTR = PACKAGE_NAME "_current_version";
+  const std::string ALL_VERSIONS_XATTR = PACKAGE_NAME "_all_versions";
+  const std::string ALL_VERSIONS_INCL_EMPTY_XATTR = PACKAGE_NAME "_all_versions_incl_empty";
 
   const int USER_XATTR_FLAGS = 
     s3::fs::xattr::XM_WRITABLE | 
@@ -121,10 +98,10 @@ namespace
 
   const char VERSION_SEPARATOR = '#';
 
-  atomic_int s_precon_failed_commits(0), s_new_etag_on_commit(0);
-  atomic_int s_commit_failures(0), s_precon_rescues(0), s_abandoned_commits(0);
+  std::atomic_int s_precon_failed_commits(0), s_new_etag_on_commit(0);
+  std::atomic_int s_commit_failures(0), s_precon_rescues(0), s_abandoned_commits(0);
 
-  void statistics_writer(ostream *o)
+  void statistics_writer(std::ostream *o)
   {
     *o <<
       "objects:\n"
@@ -135,29 +112,29 @@ namespace
       "  abandoned commits: " << s_abandoned_commits << "\n";
   }
 
-  inline string build_url_no_internal_check(const string &path)
+  inline std::string build_url_no_internal_check(const std::string &path)
   {
-    return service::get_bucket_url() + "/" + request::url_encode(path);
+    return services::service::get_bucket_url() + "/" + base::request::url_encode(path);
   }
 
-  inline string build_url_for_versioned_path(const string &path)
+  inline std::string build_url_for_versioned_path(const std::string &path)
   {
-    string::size_type sep = path.find(VERSION_SEPARATOR);
-    if (sep == string::npos)
-      throw runtime_error("can't build url for non-versioned path.");
+    std::string::size_type sep = path.find(VERSION_SEPARATOR);
+    if (sep == std::string::npos)
+      throw std::runtime_error("can't build url for non-versioned path.");
 
-    string base_path = path.substr(0, sep);
-    string version = path.substr(sep + 1);
+    std::string base_path = path.substr(0, sep);
+    std::string version = path.substr(sep + 1);
 
-    return service::get_bucket_url() + "/" + request::url_encode(base_path) + "?versionId=" + version;
+    return services::service::get_bucket_url() + "/" + base::request::url_encode(base_path) + "?versionId=" + version;
   }
 
-  int set_nop_callback(const string & /* ignored */)
+  int set_nop_callback(const std::string & /* ignored */)
   {
     return 0;
   }
 
-  statistics::writers::entry s_writer(statistics_writer, 0);
+  base::statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
 int object::get_block_size()
@@ -165,24 +142,25 @@ int object::get_block_size()
   return BLOCK_SIZE;
 }
 
-bool object::is_internal_path(const string &path)
+bool object::is_internal_path(const std::string &path)
 {
   return strncmp(path.c_str(), INTERNAL_OBJECT_PREFIX_CSTR, INTERNAL_OBJECT_PREFIX_SIZE) == 0;
 }
 
-bool object::is_versioned_path(const string &path)
+bool object::is_versioned_path(const std::string &path)
 {
 #ifdef WITH_AWS
-  return config::get_enable_versioning() && (path.find(VERSION_SEPARATOR) != string::npos);
+  return base::config::get_enable_versioning() && (path.find(VERSION_SEPARATOR) !=
+      std::string::npos);
 #else
   return false;
 #endif
 }
 
-string object::build_url(const string &path)
+std::string object::build_url(const std::string &path)
 {
   if (is_internal_path(path))
-    throw runtime_error("path cannot start with " PACKAGE_NAME " internal object prefix.");
+    throw std::runtime_error("path cannot start with " PACKAGE_NAME " internal object prefix.");
 
   if (is_versioned_path(path))
     return build_url_for_versioned_path(path);
@@ -190,20 +168,20 @@ string object::build_url(const string &path)
   return build_url_no_internal_check(path);
 }
 
-string object::build_internal_url(const string &key)
+std::string object::build_internal_url(const std::string &key)
 {
-  if (key.find('/') != string::npos)
-    throw runtime_error("internal url key cannot contain a slash!");
+  if (key.find('/') != std::string::npos)
+    throw std::runtime_error("internal url key cannot contain a slash!");
 
   return build_url_no_internal_check(INTERNAL_OBJECT_PREFIX + key);
 }
 
-const string & object::get_internal_prefix()
+const std::string & object::get_internal_prefix()
 {
   return INTERNAL_OBJECT_PREFIX;
 }
 
-object::ptr object::create(const string &path, const request::ptr &req)
+object::ptr object::create(const std::string &path, const base::request::ptr &req)
 {
   ptr obj;
 
@@ -218,27 +196,28 @@ object::ptr object::create(const string &path, const request::ptr &req)
   }
 
   if (!obj)
-    throw runtime_error("couldn't figure out object type!");
+    throw std::runtime_error("couldn't figure out object type!");
 
   obj->init(req);
 
   return obj;
 }
 
-int object::copy_by_path(const request::ptr &req, const string &from, const string &to)
+int object::copy_by_path(const base::request::ptr &req, const std::string &from, const
+    std::string &to)
 {
   req->init(base::HTTP_PUT);
   req->set_url(object::build_url(to));
-  req->set_header(service::get_header_prefix() + "copy-source", object::build_url(from));
-  req->set_header(service::get_header_prefix() + "metadata-directive", "COPY");
+  req->set_header(services::service::get_header_prefix() + "copy-source", object::build_url(from));
+  req->set_header(services::service::get_header_prefix() + "metadata-directive", "COPY");
 
   // use transfer timeout because this could take a while
-  req->run(config::get_transfer_timeout_in_s());
+  req->run(base::config::get_transfer_timeout_in_s());
 
   return (req->get_response_code() == base::HTTP_SC_OK) ? 0 : -EIO;
 }
 
-int object::remove_by_url(const request::ptr &req, const string &url)
+int object::remove_by_url(const base::request::ptr &req, const std::string &url)
 {
   req->init(base::HTTP_DELETE);
   req->set_url(url);
@@ -248,7 +227,7 @@ int object::remove_by_url(const request::ptr &req, const string &url)
   return (req->get_response_code() == base::HTTP_SC_NO_CONTENT) ? 0 : -EIO;
 }
 
-object::object(const string &path)
+object::object(const std::string &path)
   : _path(path),
     _expiry(0)
 {
@@ -256,9 +235,9 @@ object::object(const string &path)
 
   _stat.st_nlink = 1; // laziness (see FUSE FAQ re. find)
   _stat.st_blksize = BLOCK_SIZE;
-  _stat.st_mode = config::get_default_mode() & ~S_IFMT;
-  _stat.st_uid = config::get_default_uid();
-  _stat.st_gid = config::get_default_gid();
+  _stat.st_mode = base::config::get_default_mode() & ~S_IFMT;
+  _stat.st_uid = base::config::get_default_uid();
+  _stat.st_gid = base::config::get_default_gid();
   _stat.st_ctime = time(NULL);
   _stat.st_mtime = time(NULL);
 
@@ -268,10 +247,10 @@ object::object(const string &path)
   if (_stat.st_gid == GID_MAX)
     _stat.st_gid = getgid();
 
-  _content_type = config::get_default_content_type();
+  _content_type = base::config::get_default_content_type();
 
-  if (!config::get_default_cache_control().empty())
-    _metadata.replace(static_xattr::from_string(CACHE_CONTROL_XATTR, config::get_default_cache_control(), META_XATTR_FLAGS));
+  if (!base::config::get_default_cache_control().empty())
+    _metadata.replace(static_xattr::from_string(CACHE_CONTROL_XATTR, base::config::get_default_cache_control(), META_XATTR_FLAGS));
 
   _url = build_url(_path);
 }
@@ -289,10 +268,10 @@ void object::update_stat()
 {
 }
 
-int object::set_metadata(const string &key, const char *value, size_t size, int flags, bool *needs_commit)
+int object::set_metadata(const std::string &key, const char *value, size_t size, int flags, bool *needs_commit)
 {
-  lock_guard<mutex> lock(_mutex);
-  string user_key = key.substr(XATTR_PREFIX_LEN);
+  std::lock_guard<std::mutex> lock(_mutex);
+  std::string user_key = key.substr(XATTR_PREFIX_LEN);
   xattr_map::iterator itor = _metadata.find(user_key);
 
   *needs_commit = false;
@@ -326,9 +305,9 @@ int object::set_metadata(const string &key, const char *value, size_t size, int 
   return itor->second->set_value(value, size);
 }
 
-void object::get_metadata_keys(vector<string> *keys)
+void object::get_metadata_keys(std::vector<std::string> *keys)
 {
-  lock_guard<mutex> lock(_mutex);
+  std::lock_guard<std::mutex> lock(_mutex);
 
   for (xattr_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor) {
     if (itor->second->is_visible()) {
@@ -341,11 +320,11 @@ void object::get_metadata_keys(vector<string> *keys)
   }
 }
 
-int object::get_metadata(const string &key, char *buffer, size_t max_size)
+int object::get_metadata(const std::string &key, char *buffer, size_t max_size)
 {
-  lock_guard<mutex> lock(_mutex);
+  std::lock_guard<std::mutex> lock(_mutex);
   xattr::ptr value;
-  string user_key = key.substr(XATTR_PREFIX_LEN);
+  std::string user_key = key.substr(XATTR_PREFIX_LEN);
   xattr_map::const_iterator itor;
 
   #ifdef NEED_XATTR_PREFIX
@@ -361,9 +340,9 @@ int object::get_metadata(const string &key, char *buffer, size_t max_size)
   return itor->second->get_value(buffer, max_size);
 }
 
-int object::remove_metadata(const string &key)
+int object::remove_metadata(const std::string &key)
 {
-  lock_guard<mutex> lock(_mutex);
+  std::lock_guard<std::mutex> lock(_mutex);
   xattr_map::iterator itor = _metadata.find(key.substr(XATTR_PREFIX_LEN));
 
   if (itor == _metadata.end() || !itor->second->is_removable())
@@ -378,7 +357,7 @@ void object::set_mode(mode_t mode)
   mode = mode & ~S_IFMT;
 
   if (mode == 0)
-    mode = config::get_default_mode() & ~S_IFMT;
+    mode = base::config::get_default_mode() & ~S_IFMT;
 
   _stat.st_mode = (_stat.st_mode & S_IFMT) | mode;
 
@@ -386,13 +365,13 @@ void object::set_mode(mode_t mode)
   _stat.st_ctime = time(NULL);
 }
 
-void object::init(const request::ptr &req)
+void object::init(const base::request::ptr &req)
 {
   // this doesn't need to lock the metadata mutex because the object won't be in the cache (and thus
   // isn't shareable) until the request has finished processing
 
-  const string &meta_prefix = service::get_header_meta_prefix();
-  const string &cache_control = req->get_response_header("Cache-Control");
+  const std::string &meta_prefix = services::service::get_header_meta_prefix();
+  const std::string &cache_control = req->get_response_header("Cache-Control");
   mode_t mode;
   uid_t uid;
   gid_t gid;
@@ -410,9 +389,9 @@ void object::init(const request::ptr &req)
   uid = strtol(req->get_response_header(meta_prefix + metadata::UID).c_str(), NULL, 0);
   gid = strtol(req->get_response_header(meta_prefix + metadata::GID).c_str(), NULL, 0);
 
-  for (header_map::const_iterator itor = req->get_response_headers().begin(); itor != req->get_response_headers().end(); ++itor) {
-    const string &key = itor->first;
-    const string &value = itor->second;
+  for (base::header_map::const_iterator itor = req->get_response_headers().begin(); itor != req->get_response_headers().end(); ++itor) {
+    const std::string &key = itor->first;
+    const std::string &value = itor->second;
 
     if (
       strncmp(key.c_str(), meta_prefix.c_str(), meta_prefix.size()) == 0 &&
@@ -428,7 +407,8 @@ void object::init(const request::ptr &req)
   _metadata.replace(static_xattr::from_string(CONTENT_TYPE_XATTR, _content_type, xattr::XM_VISIBLE));
   _metadata.replace(static_xattr::from_string(ETAG_XATTR, _etag, xattr::XM_VISIBLE));
 
-  header_map::const_iterator version_itor = req->get_response_headers().find(service::get_header_prefix() + "version-id");
+  base::header_map::const_iterator version_itor =
+    req->get_response_headers().find(services::service::get_header_prefix() + "version-id");
   if (version_itor == req->get_response_headers().end())
     _metadata.erase(CURRENT_VERSION_XATTR);
   else
@@ -459,10 +439,10 @@ void object::init(const request::ptr &req)
   _stat.st_blocks = (_stat.st_size + BLOCK_SIZE - 1) / BLOCK_SIZE;
 
   // setting _expiry > 0 makes this object valid
-  _expiry = time(NULL) + config::get_cache_expiry_in_s();
+  _expiry = time(NULL) + base::config::get_cache_expiry_in_s();
 
   #ifdef WITH_AWS
-    if (config::get_allow_glacier_restores()) {
+    if (base::config::get_allow_glacier_restores()) {
       _glacier = glacier::create(this, req);
 
       _metadata.replace(_glacier->get_storage_class_xattr());
@@ -473,32 +453,34 @@ void object::init(const request::ptr &req)
   #endif
 
   #ifdef WITH_AWS
-    if (config::get_enable_versioning()) {
+    if (base::config::get_enable_versioning()) {
       _metadata.replace(callback_xattr::create(
             ALL_VERSIONS_XATTR,
-            bind(&object::get_all_versions, this, /* empties= */ false, _1),
+            std::bind(&object::get_all_versions, this, /* empties= */ false,
+              std::placeholders::_1),
             set_nop_callback,
             xattr::XM_VISIBLE));
 
       _metadata.replace(callback_xattr::create(
             ALL_VERSIONS_INCL_EMPTY_XATTR,
-            bind(&object::get_all_versions, this, /* empties= */ true, _1),
+            std::bind(&object::get_all_versions, this, /* empties= */ true,
+              std::placeholders::_1),
             set_nop_callback,
             xattr::XM_VISIBLE));
     }
   #endif
 }
 
-void object::set_request_headers(const request::ptr &req)
+void object::set_request_headers(const base::request::ptr &req)
 {
-  lock_guard<mutex> lock(_mutex);
+  std::lock_guard<std::mutex> lock(_mutex);
   xattr_map::const_iterator itor;
-  const string &meta_prefix = service::get_header_meta_prefix();
+  const std::string &meta_prefix = services::service::get_header_meta_prefix();
   char buf[16];
 
   // do this first so that we overwrite any keys we care about (i.e., those that start with "META_PREFIX-META_PREFIX_RESERVED-")
   for (itor = _metadata.begin(); itor != _metadata.end(); ++itor) {
-    string key, value;
+    std::string key, value;
 
     if (!itor->second->is_serializable())
       continue;
@@ -529,14 +511,14 @@ void object::set_request_headers(const request::ptr &req)
   itor = _metadata.find(CACHE_CONTROL_XATTR);
 
   if (itor != _metadata.end())
-    req->set_header("Cache-Control", dynamic_pointer_cast<static_xattr>(itor->second)->to_string());
+    req->set_header("Cache-Control", std::dynamic_pointer_cast<static_xattr>(itor->second)->to_string());
 }
 
-void object::set_request_body(const request::ptr &req)
+void object::set_request_body(const base::request::ptr &req)
 {
 }
 
-int object::commit(const request::ptr &req)
+int object::commit(const base::request::ptr &req)
 {
   int current_error = 0, last_error = 0;
 
@@ -545,9 +527,9 @@ int object::commit(const request::ptr &req)
   // 1. the etag can change as a result of a copy
   // 2. we may get intermittent "precondition failed" errors
 
-  for (int i = 0; i < config::get_max_inconsistent_state_retries(); i++) {
-    xml::document_ptr doc;
-    string response, new_etag;
+  for (int i = 0; i < base::config::get_max_inconsistent_state_retries(); i++) {
+    base::xml::document_ptr doc;
+    std::string response, new_etag;
 
     // save error from last iteration (so that we can tell if the precondition
     // failed retry worked)
@@ -564,19 +546,19 @@ int object::commit(const request::ptr &req)
     if (_etag.empty()) {
       set_request_body(req);
     } else {
-      req->set_header(service::get_header_prefix() + "copy-source", _url);
-      req->set_header(service::get_header_prefix() + "copy-source-if-match", _etag);
-      req->set_header(service::get_header_prefix() + "metadata-directive", "REPLACE");
+      req->set_header(services::service::get_header_prefix() + "copy-source", _url);
+      req->set_header(services::service::get_header_prefix() + "copy-source-if-match", _etag);
+      req->set_header(services::service::get_header_prefix() + "metadata-directive", "REPLACE");
     }
 
     // this can, apparently, take a long time if the object is large
-    req->run(config::get_transfer_timeout_in_s());
+    req->run(base::config::get_transfer_timeout_in_s());
 
     if (req->get_response_code() == base::HTTP_SC_PRECONDITION_FAILED) {
       ++s_precon_failed_commits;
       S3_LOG(LOG_WARNING, "object::commit", "got precondition failed error for [%s].\n", _url.c_str());
 
-      timer::sleep(i + 1);
+      base::timer::sleep(i + 1);
 
       current_error = -EBUSY;
       continue;
@@ -603,7 +585,7 @@ int object::commit(const request::ptr &req)
       break;
     }
 
-    doc = xml::parse(response);
+    doc = base::xml::parse(response);
 
     if (!doc) {
       S3_LOG(LOG_WARNING, "object::commit", "failed to parse response.\n");
@@ -612,7 +594,7 @@ int object::commit(const request::ptr &req)
       break;
     }
 
-    current_error = xml::find(doc, COMMIT_ETAG_XPATH, &new_etag);
+    current_error = base::xml::find(doc, COMMIT_ETAG_XPATH, &new_etag);
 
     if (current_error)
       break;
@@ -651,7 +633,7 @@ int object::commit(const request::ptr &req)
   return current_error;
 }
 
-int object::remove(const request::ptr &req)
+int object::remove(const base::request::ptr &req)
 {
   if (!is_removable())
     return -EBUSY;
@@ -661,7 +643,7 @@ int object::remove(const request::ptr &req)
   return object::remove_by_url(req, _url);
 }
 
-int object::rename(const request::ptr &req, const string &to)
+int object::rename(const base::request::ptr &req, const std::string &to)
 {
   int r;
 
@@ -678,37 +660,38 @@ int object::rename(const request::ptr &req, const string &to)
   return remove(req);
 }
 
-int object::fetch_all_versions(const request::ptr &req, bool empties, string *out)
+int object::fetch_all_versions(const base::request::ptr &req, bool empties, std::string *out)
 {
-  xml::document_ptr doc;
+  base::xml::document_ptr doc;
 
   req->init(base::HTTP_GET);
-  req->set_url(service::get_bucket_url() + "?versions", string("prefix=") + request::url_encode(get_path()));
+  req->set_url(services::service::get_bucket_url() + "?versions", std::string("prefix=") +
+      base::request::url_encode(get_path()));
   req->run();
 
   if (req->get_response_code() != base::HTTP_SC_OK)
     return -EIO;
 
-  doc = xml::parse(req->get_output_string());
+  doc = base::xml::parse(req->get_output_string());
 
   if (!doc) {
     S3_LOG(LOG_WARNING, "object::fetch_all_versions", "failed to parse response.\n");
     return -EIO;
   }
 
-  xml::element_map_list versions;
-  xml::find(doc, VERSION_XPATH, &versions);
-  string versions_str;
-  string latest_etag;
+  base::xml::element_map_list versions;
+  base::xml::find(doc, VERSION_XPATH, &versions);
+  std::string versions_str;
+  std::string latest_etag;
   int empty_count = 0;
 
-  for (xml::element_map_list::iterator itor = versions.begin(); itor != versions.end(); ++itor) {
-    xml::element_map &keys = *itor;
+  for (base::xml::element_map_list::iterator itor = versions.begin(); itor != versions.end(); ++itor) {
+    base::xml::element_map &keys = *itor;
 
-    const string &key = keys["Key"];
+    const std::string &key = keys["Key"];
     if (key != get_path()) continue;
 
-    const string &etag = keys["ETag"];
+    const std::string &etag = keys["ETag"];
     if (etag == latest_etag) continue;
     if (!empties && etag == EMPTY_VERSION_ETAG) {
       empty_count++;
@@ -716,25 +699,27 @@ int object::fetch_all_versions(const request::ptr &req, bool empties, string *ou
     }
     latest_etag = etag;
 
-    if (keys[xml::MAP_NAME_KEY] == "Version") {
+    if (keys[base::xml::MAP_NAME_KEY] == "Version") {
       versions_str += "version=" + keys["VersionId"] + " mtime=" + keys["LastModified"] + " etag=" + etag + " size=" + keys["Size"] + "\n";
-    } else if (keys[xml::MAP_NAME_KEY] == "DeleteMarker") {
+    } else if (keys[base::xml::MAP_NAME_KEY] == "DeleteMarker") {
       versions_str += "version=" + keys["VersionId"] + " mtime=" + keys["LastModified"] + " etag=" + etag + " deleted\n";
     }
   }
 
   if (empty_count) {
     if (!versions_str.empty()) versions_str += "\n";
-    versions_str += "(" + to_string(empty_count) + " empty version(s) omitted. Request extended attribute \"" + ALL_VERSIONS_INCL_EMPTY_XATTR + "\" to see empty versions.)\n";
+    versions_str += "(" + std::to_string(empty_count) + " empty version(s) omitted. Request extended attribute \"" + ALL_VERSIONS_INCL_EMPTY_XATTR + "\" to see empty versions.)\n";
   }
 
   *out = versions_str;
   return 0;
 }
 
-int object::get_all_versions(bool empties, string *out)
+int object::get_all_versions(bool empties, std::string *out)
 {
   return threads::pool::call(
     threads::PR_REQ_1,
-    bind(&object::fetch_all_versions, this, _1, empties, out));
+    std::bind(&object::fetch_all_versions, this, std::placeholders::_1, empties, out));
 }
+
+} }

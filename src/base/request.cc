@@ -34,20 +34,10 @@
 #include "base/statistics.h"
 #include "base/timer.h"
 
-using std::atomic_int;
-using std::lock_guard;
-using std::min;
-using std::mutex;
-using std::ostream;
-using std::runtime_error;
-using std::setprecision;
-using std::string;
+#define TEST_OK(x) do { if ((x) != CURLE_OK) throw std::runtime_error("call to " #x " failed."); } while (0)
 
-using s3::base::request;
-using s3::base::statistics;
-using s3::base::timer;
-
-#define TEST_OK(x) do { if ((x) != CURLE_OK) throw runtime_error("call to " #x " failed."); } while (0)
+namespace s3 {
+  namespace base {
 
 namespace
 {
@@ -79,25 +69,25 @@ namespace
     curl_slist *_list;
   };
 
-  const string USER_AGENT = string(PACKAGE_NAME) + " " + PACKAGE_VERSION_WITH_REV;
+  const std::string USER_AGENT = std::string(PACKAGE_NAME) + " " + PACKAGE_VERSION_WITH_REV;
 
   uint64_t s_run_count = 0;
   uint64_t s_total_bytes = 0;
   double s_run_time = 0.0;
-  atomic_int s_curl_failures(0), s_request_failures(0);
-  atomic_int s_timeouts(0), s_aborts(0), s_hook_retries(0);
-  atomic_int s_rewinds(0);
-  mutex s_stats_mutex;
+  std::atomic_int s_curl_failures(0), s_request_failures(0);
+  std::atomic_int s_timeouts(0), s_aborts(0), s_hook_retries(0);
+  std::atomic_int s_rewinds(0);
+  std::mutex s_stats_mutex;
 
-  void statistics_writer(ostream *o)
+  void statistics_writer(std::ostream *o)
   {
-    o->setf(ostream::fixed);
+    o->setf(std::ostream::fixed);
 
     *o << 
       "http requests:\n"
       "  count: " << s_run_count << "\n"
-      "  total time: " << setprecision(2) << s_run_time << " s\n"
-      "  avg time per request: " << setprecision(3) << s_run_time / static_cast<double>(s_run_count) * 1.0e3 << " ms\n"
+      "  total time: " << std::setprecision(2) << s_run_time << " s\n"
+      "  avg time per request: " << std::setprecision(3) << s_run_time / static_cast<double>(s_run_count) * 1.0e3 << " ms\n"
       "  bytes: " << s_total_bytes << "\n"
       "  throughput: " << static_cast<double>(s_total_bytes) / s_run_time * 1.0e-3 << " kB/s\n"
       "  curl failures: " << s_curl_failures << "\n"
@@ -115,7 +105,7 @@ size_t request::header_process(char *data, size_t size, size_t items, void *cont
 {
   request *req = static_cast<request *>(context);
   const char *p1, *p2;
-  string name, value;
+  std::string name, value;
 
   size *= items;
 
@@ -176,7 +166,7 @@ size_t request::input_read(char *data, size_t size, size_t items, void *context)
   if (req->_canceled)
     return 0; // abort!
 
-  remaining = min(req->_input_remaining, size);
+  remaining = std::min(req->_input_remaining, size);
 
   memcpy(data, req->_input_pos, remaining);
   
@@ -232,7 +222,7 @@ request::request()
 request::~request()
 {
   if (_total_bytes_transferred > 0) {
-    lock_guard<mutex> lock(s_stats_mutex);
+    std::lock_guard<std::mutex> lock(s_stats_mutex);
 
     s_run_count += _run_count;
     s_run_time += _total_run_time;
@@ -243,7 +233,7 @@ request::~request()
 void request::init(http_method method)
 {
   if (_canceled)
-    throw runtime_error("cannot reuse a canceled request.");
+    throw std::runtime_error("cannot reuse a canceled request.");
 
   _curl_error[0] = '\0';
   _url.clear();
@@ -281,16 +271,16 @@ void request::init(http_method method)
     TEST_OK(curl_easy_setopt(_curl, CURLOPT_UPLOAD, true));
 
   } else
-    throw runtime_error("unsupported HTTP method.");
+    throw std::runtime_error("unsupported HTTP method.");
 }
 
-void request::set_url(const string &url, const string &query_string)
+void request::set_url(const std::string &url, const std::string &query_string)
 {
   _url = url;
   _curl_url = _hook ? _hook->adjust_url(url) : url;
 
   if (!query_string.empty()) {
-    _curl_url += ((_curl_url.find('?') == string::npos) ? "?" : "&");
+    _curl_url += ((_curl_url.find('?') == std::string::npos) ? "?" : "&");
     _curl_url += query_string;
   }
 }
@@ -316,13 +306,13 @@ void request::run(int timeout_in_s)
 
   // sanity
   if (_url.empty())
-    throw runtime_error("call set_url() first!");
+    throw std::runtime_error("call set_url() first!");
 
   if (_method.empty())
-    throw runtime_error("call set_method() first!");
+    throw std::runtime_error("call set_method() first!");
 
   if (_canceled)
-    throw runtime_error("cannot reuse a canceled request.");
+    throw std::runtime_error("cannot reuse a canceled request.");
 
   TEST_OK(curl_easy_setopt(_curl, CURLOPT_URL, _curl_url.c_str()));
 
@@ -331,7 +321,7 @@ void request::run(int timeout_in_s)
   else if (_method == "POST")
     TEST_OK(curl_easy_setopt(_curl, CURLOPT_POSTFIELDSIZE_LARGE, _input_buffer ? static_cast<curl_off_t>(_input_buffer->size()) : 0));
   else if (_input_buffer && !_input_buffer->empty())
-    throw runtime_error("can't set input data for non-POST/non-PUT request.");
+    throw std::runtime_error("can't set input data for non-POST/non-PUT request.");
 
   for (iter = 0; iter < config::get_max_transfer_retries(); iter++) {
     curl_slist_wrapper headers;
@@ -344,7 +334,7 @@ void request::run(int timeout_in_s)
       _hook->pre_run(this, iter);
 
     for (header_map::const_iterator itor = _headers.begin(); itor != _headers.end(); ++itor) {
-      string header = itor->first + ": " + itor->second;
+      std::string header = itor->first + ": " + itor->second;
 
       headers.append(header.c_str());
       request_size += header.size();
@@ -363,7 +353,7 @@ void request::run(int timeout_in_s)
 
     if (_canceled) {
       ++s_timeouts;
-      throw runtime_error("request timed out.");
+      throw std::runtime_error("request timed out.");
     }
 
     if (
@@ -408,7 +398,7 @@ void request::run(int timeout_in_s)
 
   if (r != CURLE_OK) {
     ++s_aborts;
-    throw runtime_error(_curl_error);
+    throw std::runtime_error(_curl_error);
   }
 
   // don't save the time for the first request since it's likely to be disproportionately large
@@ -436,3 +426,5 @@ void request::run(int timeout_in_s)
   }
 }
 
+}  // namespace base
+}  // namespace s3

@@ -34,48 +34,32 @@
 #include "services/gs/file_transfer.h"
 #include "services/gs/impl.h"
 
-using std::atomic_int;
-using std::mutex;
-using std::shared_ptr;
-using std::endl;
-using std::ifstream;
-using std::lock_guard;
-using std::mutex;
-using std::ofstream;
-using std::ostream;
-using std::runtime_error;
-using std::string;
-using std::stringstream;
-
-using s3::base::config;
-using s3::base::request;
-using s3::base::statistics;
-using s3::crypto::private_file;
-using s3::services::file_transfer;
-using s3::services::gs::impl;
+namespace s3 {
+  namespace services {
+    namespace gs {
 
 namespace
 {
-  const string HEADER_PREFIX = "x-goog-";
-  const string HEADER_META_PREFIX = "x-goog-meta-";
-  const string URL_PREFIX = "https://commondatastorage.googleapis.com";
+  const std::string HEADER_PREFIX = "x-goog-";
+  const std::string HEADER_META_PREFIX = "x-goog-meta-";
+  const std::string URL_PREFIX = "https://commondatastorage.googleapis.com";
 
-  const string EP_TOKEN = "https://accounts.google.com/o/oauth2/token";
-  const string OAUTH_SCOPE = "https%3a%2f%2fwww.googleapis.com%2fauth%2fdevstorage.full_control";
+  const std::string EP_TOKEN = "https://accounts.google.com/o/oauth2/token";
+  const std::string OAUTH_SCOPE = "https%3a%2f%2fwww.googleapis.com%2fauth%2fdevstorage.full_control";
 
-  const string CLIENT_ID = "591551582755.apps.googleusercontent.com";
-  const string CLIENT_SECRET = "CQAaXZWfWJKdy_IV7TNZfO1P";
+  const std::string CLIENT_ID = "591551582755.apps.googleusercontent.com";
+  const std::string CLIENT_SECRET = "CQAaXZWfWJKdy_IV7TNZfO1P";
 
-  const string NEW_TOKEN_URL = 
+  const std::string NEW_TOKEN_URL = 
     "https://accounts.google.com/o/oauth2/auth?"
     "client_id=" + CLIENT_ID + "&"
     "redirect_uri=urn%3aietf%3awg%3aoauth%3a2.0%3aoob&"
     "scope=" + OAUTH_SCOPE + "&"
     "response_type=code";
 
-  atomic_int s_refresh_on_fail(0), s_refresh_on_expiry(0);
+  std::atomic_int s_refresh_on_fail(0), s_refresh_on_expiry(0);
 
-  void statistics_writer(ostream *o)
+  void statistics_writer(std::ostream *o)
   {
     *o <<
       "google storage service:\n"
@@ -83,19 +67,20 @@ namespace
       "  token refreshes due to expiry: " << s_refresh_on_expiry << "\n";
   }
 
-  statistics::writers::entry s_entry(statistics_writer, 0);
+  base::statistics::writers::entry s_entry(statistics_writer, 0);
 }
 
-const string & impl::get_new_token_url()
+const std::string & impl::get_new_token_url()
 {
   return NEW_TOKEN_URL;
 }
 
-void impl::get_tokens(get_tokens_mode mode, const string &key, string *access_token, time_t *expiry, string *refresh_token)
+void impl::get_tokens(get_tokens_mode mode, const std::string &key, std::string
+    *access_token, time_t *expiry, std::string *refresh_token)
 {
-  request req;
-  string data;
-  stringstream ss;
+  base::request req;
+  std::string data;
+  std::stringstream ss;
   Json::Value tree;
 
   data =
@@ -112,7 +97,7 @@ void impl::get_tokens(get_tokens_mode mode, const string &key, string *access_to
       "refresh_token=" + key + "&"
       "grant_type=refresh_token";
   else
-    throw runtime_error("unrecognized get_tokens mode.");
+    throw std::runtime_error("unrecognized get_tokens mode.");
 
   req.init(base::HTTP_POST);
   req.set_url(EP_TOKEN);
@@ -122,7 +107,7 @@ void impl::get_tokens(get_tokens_mode mode, const string &key, string *access_to
 
   if (req.get_response_code() != base::HTTP_SC_OK) {
     S3_LOG(LOG_ERR, "impl::get_tokens", "token endpoint returned %i.\n", req.get_response_code());
-    throw runtime_error("failed to get tokens.");
+    throw std::runtime_error("failed to get tokens.");
   }
 
   ss << req.get_output_string();
@@ -130,7 +115,7 @@ void impl::get_tokens(get_tokens_mode mode, const string &key, string *access_to
 
   if (!tree.isMember("access_token") || !tree.isMember("expires_in") ||
       !tree.isMember("refresh_token")) {
-    throw runtime_error("failed to parse response.");
+    throw std::runtime_error("failed to parse response.");
   }
 
   *access_token = tree["access_token"].asString();
@@ -140,47 +125,47 @@ void impl::get_tokens(get_tokens_mode mode, const string &key, string *access_to
     *refresh_token = tree["refresh_token"].asString();
 }
 
-string impl::read_token(const string &file)
+std::string impl::read_token(const std::string &file)
 {
-  ifstream f;
-  string token;
+  std::ifstream f;
+  std::string token;
 
-  private_file::open(file, &f);
+  crypto::private_file::open(file, &f);
   getline(f, token);
 
   return token;
 }
 
-void impl::write_token(const string &file, const string &token)
+void impl::write_token(const std::string &file, const std::string &token)
 {
-  ofstream f;
+  std::ofstream f;
 
-  private_file::open(file, &f, private_file::OM_OVERWRITE);
-  f << token << endl;
+  crypto::private_file::open(file, &f, crypto::private_file::OM_OVERWRITE);
+  f << token << std::endl;
 }
 
 impl::impl()
   : _expiry(0)
 {
-  lock_guard<mutex> lock(_mutex);
+  std::lock_guard<std::mutex> lock(_mutex);
 
-  _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
+  _bucket_url = std::string("/") + base::request::url_encode(base::config::get_bucket_name());
 
-  _refresh_token = impl::read_token(config::get_gs_token_file());
+  _refresh_token = impl::read_token(base::config::get_gs_token_file());
   refresh(lock);
 }
 
-const string & impl::get_header_prefix()
+const std::string & impl::get_header_prefix()
 {
   return HEADER_PREFIX;
 }
 
-const string & impl::get_header_meta_prefix()
+const std::string & impl::get_header_meta_prefix()
 {
   return HEADER_META_PREFIX;
 }
 
-const string & impl::get_bucket_url()
+const std::string & impl::get_bucket_url()
 {
   return _bucket_url;
 }
@@ -190,9 +175,9 @@ bool impl::is_next_marker_supported()
   return true;
 }
 
-void impl::sign(request *req, int iter)
+void impl::sign(base::request *req, int iter)
 {
-  lock_guard<mutex> lock(_mutex);
+  std::lock_guard<std::mutex> lock(_mutex);
 
   if (iter > 0) {
     ++s_refresh_on_fail;
@@ -207,11 +192,11 @@ void impl::sign(request *req, int iter)
   req->set_header("Authorization", _access_token);
   req->set_header("x-goog-api-version", "2");
 
-  if (!config::get_gs_project_id().empty())
-    req->set_header("x-goog-project-id", config::get_gs_project_id());
+  if (!base::config::get_gs_project_id().empty())
+    req->set_header("x-goog-project-id", base::config::get_gs_project_id());
 }
 
-void impl::refresh(const lock_guard<mutex> &lock)
+void impl::refresh(const std::lock_guard<std::mutex> &lock)
 {
   impl::get_tokens(
     GT_REFRESH, 
@@ -230,17 +215,17 @@ void impl::refresh(const lock_guard<mutex> &lock)
   _access_token = "OAuth " + _access_token;
 }
 
-string impl::adjust_url(const string &url)
+std::string impl::adjust_url(const std::string &url)
 {
   return URL_PREFIX + url;
 }
 
-void impl::pre_run(request *r, int iter)
+void impl::pre_run(base::request *r, int iter)
 {
   sign(r, iter);
 }
 
-bool impl::should_retry(request *r, int iter)
+bool impl::should_retry(base::request *r, int iter)
 {
   if (services::impl::should_retry(r, iter))
     return true;
@@ -249,7 +234,9 @@ bool impl::should_retry(request *r, int iter)
   return (r->get_response_code() == base::HTTP_SC_UNAUTHORIZED && iter == 0);
 }
 
-shared_ptr<file_transfer> impl::build_file_transfer()
+std::shared_ptr<services::file_transfer> impl::build_file_transfer()
 {
-  return shared_ptr<file_transfer>(new gs::file_transfer());
+  return std::shared_ptr<file_transfer>(new gs::file_transfer());
 }
+
+} } }

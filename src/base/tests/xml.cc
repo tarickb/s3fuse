@@ -5,9 +5,9 @@
 
 #include "base/xml.h"
 
-using std::string;
-
-using s3::base::xml;
+namespace s3 {
+  namespace base {
+    namespace tests {
 
 namespace
 {
@@ -73,7 +73,7 @@ TEST(xml, match_with_namespace)
 TEST(xml, find_single_element_b)
 {
   xml::document_ptr doc;
-  string s;
+  std::string s;
 
   init();
 
@@ -82,13 +82,13 @@ TEST(xml, find_single_element_b)
 
   xml::find(doc, "//b", &s);
 
-  EXPECT_EQ(string("element_b_0"), s);
+  EXPECT_EQ(std::string("element_b_0"), s);
 }
 
 TEST(xml, find_single_element_second_b)
 {
   xml::document_ptr doc;
-  string s;
+  std::string s;
 
   init();
 
@@ -97,13 +97,13 @@ TEST(xml, find_single_element_second_b)
 
   xml::find(doc, "//b[2]", &s);
 
-  EXPECT_EQ(string("element_b_1"), s);
+  EXPECT_EQ(std::string("element_b_1"), s);
 }
 
 TEST(xml, find_single_element_c)
 {
   xml::document_ptr doc;
-  string s;
+  std::string s;
 
   init();
 
@@ -112,7 +112,7 @@ TEST(xml, find_single_element_c)
 
   xml::find(doc, "//c", &s);
 
-  EXPECT_EQ(string("element_c_0"), s);
+  EXPECT_EQ(std::string("element_c_0"), s);
 }
 
 TEST(xml, find_list_b)
@@ -129,8 +129,8 @@ TEST(xml, find_list_b)
 
   EXPECT_EQ(static_cast<int>(list.size()), 2);
 
-  EXPECT_EQ(string("element_b_0"), list.front());
-  EXPECT_EQ(string("element_b_1"), list.back());
+  EXPECT_EQ(std::string("element_b_0"), list.front());
+  EXPECT_EQ(std::string("element_b_1"), list.back());
 }
 
 TEST(xml, find_list_c)
@@ -147,7 +147,7 @@ TEST(xml, find_list_c)
 
   EXPECT_EQ(static_cast<int>(list.size()), 1);
 
-  EXPECT_EQ(string("element_c_0"), list.front());
+  EXPECT_EQ(std::string("element_c_0"), list.front());
 }
 
 TEST(xml, find_list_c_multiple)
@@ -166,7 +166,7 @@ TEST(xml, find_list_c_multiple)
   EXPECT_EQ(list.size(), static_cast<size_t>(6));
 
   for (xml::element_list::const_iterator itor = list.begin(); itor != list.end(); ++itor) {
-    string exp = "ec";
+    std::string exp = "ec";
 
     exp += std::to_string(i++);
 
@@ -242,3 +242,7 @@ TEST(xml, element_map)
   EXPECT_EQ(third["k21"], "v21");
   EXPECT_EQ(third["k22"], "v22");
 }
+
+}
+}  // namespace base
+}  // namespace s3

@@ -34,27 +34,9 @@
 #include "threads/parallel_work_queue.h"
 #include "threads/pool.h"
 
-using std::atomic_int;
-using std::ostream;
-using std::string;
-using std::to_string;
-using std::unique_ptr;
-using std::vector;
-
-using s3::base::char_vector;
-using s3::base::char_vector_ptr;
-using s3::base::config;
-using s3::base::request;
-using s3::base::statistics;
-using s3::base::xml;
-using s3::crypto::hash;
-using s3::crypto::hex_with_quotes;
-using s3::crypto::md5;
-using s3::services::aws::file_transfer;
-using s3::threads::parallel_work_queue;
-using s3::threads::pool;
-
-using namespace std::placeholders;
+namespace s3 {
+  namespace services {
+    namespace aws {
 
 namespace
 {
@@ -63,24 +45,24 @@ namespace
   const char *MULTIPART_ETAG_XPATH = "/CompleteMultipartUploadResult/ETag";
   const char *MULTIPART_UPLOAD_ID_XPATH = "/InitiateMultipartUploadResult/UploadId";
 
-  atomic_int s_uploads_multi_chunks_failed(0);
+  std::atomic_int s_uploads_multi_chunks_failed(0);
 
-  void statistics_writer(ostream *o)
+  void statistics_writer(std::ostream *o)
   {
     *o <<
       "aws multi-part uploads:\n"
       "  chunks failed: " << s_uploads_multi_chunks_failed << "\n";
   }
 
-  statistics::writers::entry s_writer(statistics_writer, 0);
+  base::statistics::writers::entry s_writer(statistics_writer, 0);
 }
 
 file_transfer::file_transfer()
 {
   _upload_chunk_size = 
-    (config::get_upload_chunk_size() == -1)
+    (base::config::get_upload_chunk_size() == -1)
       ? UPLOAD_CHUNK_SIZE
-      : config::get_upload_chunk_size();
+      : base::config::get_upload_chunk_size();
 }
 
 size_t file_transfer::get_upload_chunk_size()
@@ -88,17 +70,19 @@ size_t file_transfer::get_upload_chunk_size()
   return _upload_chunk_size;
 }
 
-int file_transfer::upload_multi(const string &url, size_t size, const read_chunk_fn &on_read, string *returned_etag)
+int file_transfer::upload_multi(const std::string &url, size_t size, const
+    read_chunk_fn &on_read, std::string *returned_etag)
 {
-  typedef parallel_work_queue<upload_range> multipart_upload;
+  typedef threads::parallel_work_queue<upload_range> multipart_upload;
 
-  string upload_id, complete_upload;
+  std::string upload_id, complete_upload;
   const size_t num_parts = (size + _upload_chunk_size - 1) / _upload_chunk_size;
-  vector<upload_range> parts(num_parts);
-  unique_ptr<multipart_upload> upload;
+  std::vector<upload_range> parts(num_parts);
+  std::unique_ptr<multipart_upload> upload;
   int r;
 
-  r = pool::call(threads::PR_REQ_0, bind(&file_transfer::upload_multi_init, this, _1, url, &upload_id));
+  r = threads::pool::call(threads::PR_REQ_0,
+      bind(&file_transfer::upload_multi_init, this, std::placeholders::_1, url, &upload_id));
 
   if (r)
     return r;
@@ -114,15 +98,17 @@ int file_transfer::upload_multi(const string &url, size_t size, const read_chunk
   upload.reset(new multipart_upload(
     parts.begin(),
     parts.end(),
-    bind(&file_transfer::upload_part, this, _1, url, upload_id, on_read, _2, false),
-    bind(&file_transfer::upload_part, this, _1, url, upload_id, on_read, _2, true)));
+    bind(&file_transfer::upload_part, this, std::placeholders::_1, url,
+      upload_id, on_read, std::placeholders::_2, false),
+    bind(&file_transfer::upload_part, this, std::placeholders::_1, url,
+      upload_id, on_read, std::placeholders::_2, true)));
 
   r = upload->process();
 
   if (r) {
-    pool::call(
+    threads::pool::call(
       threads::PR_REQ_0, 
-      bind(&file_transfer::upload_multi_cancel, this, _1, url, upload_id));
+      bind(&file_transfer::upload_multi_cancel, this, std::placeholders::_1, url, upload_id));
 
     return r;
   }
@@ -131,26 +117,26 @@ int file_transfer::upload_multi(const string &url, size_t size, const read_chunk
 
   for (size_t i = 0; i < parts.size(); i++) {
     // part numbers are 1-based
-    complete_upload += "<Part><PartNumber>" + to_string(i + 1) + "</PartNumber><ETag>" + parts[i].etag + "</ETag></Part>";
+    complete_upload += "<Part><PartNumber>" + std::to_string(i + 1) + "</PartNumber><ETag>" + parts[i].etag + "</ETag></Part>";
   }
 
   complete_upload += "</CompleteMultipartUpload>";
 
-  return pool::call(
+  return threads::pool::call(
     threads::PR_REQ_0, 
-    bind(&file_transfer::upload_multi_complete, this, _1, url, upload_id, complete_upload, returned_etag));
+    bind(&file_transfer::upload_multi_complete, this, std::placeholders::_1, url, upload_id, complete_upload, returned_etag));
 }
 
 int file_transfer::upload_part(
-  const request::ptr &req, 
-  const string &url, 
-  const string &upload_id, 
+  const base::request::ptr &req, 
+  const std::string &url, 
+  const std::string &upload_id, 
   const read_chunk_fn &on_read, 
   upload_range *range, 
   bool is_retry)
 {
   int r = 0;
-  char_vector_ptr buffer(new char_vector());
+  base::char_vector_ptr buffer(new base::char_vector());
 
   if (is_retry)
     ++s_uploads_multi_chunks_failed;
@@ -160,15 +146,15 @@ int file_transfer::upload_part(
   if (r)
     return r;
 
-  range->etag = hash::compute<md5, hex_with_quotes>(*buffer);
+  range->etag = crypto::hash::compute<crypto::md5, crypto::hex_with_quotes>(*buffer);
 
   req->init(base::HTTP_PUT);
 
   // part numbers are 1-based
-  req->set_url(url + "?partNumber=" + to_string(range->id + 1) + "&uploadId=" + upload_id);
+  req->set_url(url + "?partNumber=" + std::to_string(range->id + 1) + "&uploadId=" + upload_id);
   req->set_input_buffer(buffer);
 
-  req->run(config::get_transfer_timeout_in_s());
+  req->run(base::config::get_transfer_timeout_in_s());
 
   if (req->get_response_code() != base::HTTP_SC_OK)
     return -EIO;
@@ -181,9 +167,10 @@ int file_transfer::upload_part(
   return 0;
 }
 
-int file_transfer::upload_multi_init(const request::ptr &req, const string &url, string *upload_id)
+int file_transfer::upload_multi_init(const base::request::ptr &req, const std::string
+    &url, std::string *upload_id)
 {
-  xml::document_ptr doc;
+  base::xml::document_ptr doc;
   int r;
 
   req->init(base::HTTP_POST);
@@ -195,14 +182,14 @@ int file_transfer::upload_multi_init(const request::ptr &req, const string &url,
   if (req->get_response_code() != base::HTTP_SC_OK)
     return -EIO;
 
-  doc = xml::parse(req->get_output_string());
+  doc = base::xml::parse(req->get_output_string());
 
   if (!doc) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_multi_init", "failed to parse response.\n");
     return -EIO;
   }
 
-  if ((r = xml::find(doc, MULTIPART_UPLOAD_ID_XPATH, upload_id)))
+  if ((r = base::xml::find(doc, MULTIPART_UPLOAD_ID_XPATH, upload_id)))
     return r;
 
   if (upload_id->empty())
@@ -211,7 +198,8 @@ int file_transfer::upload_multi_init(const request::ptr &req, const string &url,
   return r;
 }
 
-int file_transfer::upload_multi_cancel(const request::ptr &req, const string &url, const string &upload_id)
+int file_transfer::upload_multi_cancel(const base::request::ptr &req, const
+    std::string &url, const std::string &upload_id)
 {
   S3_LOG(LOG_WARNING, "file_transfer::upload_multi_cancel", "one or more parts failed to upload for [%s].\n", url.c_str());
 
@@ -224,13 +212,13 @@ int file_transfer::upload_multi_cancel(const request::ptr &req, const string &ur
 }
 
 int file_transfer::upload_multi_complete(
-  const request::ptr &req, 
-  const string &url, 
-  const string &upload_id, 
-  const string &upload_metadata, 
-  string *etag)
+  const base::request::ptr &req, 
+  const std::string &url, 
+  const std::string &upload_id, 
+  const std::string &upload_metadata, 
+  std::string *etag)
 {
-  xml::document_ptr doc;
+  base::xml::document_ptr doc;
   int r;
 
   req->init(base::HTTP_POST);
@@ -240,21 +228,21 @@ int file_transfer::upload_multi_complete(
 
   // use the transfer timeout because completing a multi-part upload can take a long time
   // see http://docs.amazonwebservices.com/AmazonS3/latest/API/index.html?mpUploadComplete.html
-  req->run(config::get_transfer_timeout_in_s());
+  req->run(base::config::get_transfer_timeout_in_s());
 
   if (req->get_response_code() != base::HTTP_SC_OK) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_multi_complete", "failed to complete multipart upload for [%s] with error %li.\n", url.c_str(), req->get_response_code());
     return -EIO;
   }
 
-  doc = xml::parse(req->get_output_string());
+  doc = base::xml::parse(req->get_output_string());
 
   if (!doc) {
     S3_LOG(LOG_WARNING, "file_transfer::upload_multi_complete", "failed to parse response.\n");
     return -EIO;
   }
 
-  if ((r = xml::find(doc, MULTIPART_ETAG_XPATH, etag)))
+  if ((r = base::xml::find(doc, MULTIPART_ETAG_XPATH, etag)))
     return r;
 
   if (etag->empty()) {
@@ -264,3 +252,5 @@ int file_transfer::upload_multi_complete(
 
   return 0;
 }
+
+} } }
