@@ -106,7 +106,7 @@ namespace
 #define CONFIG_KEY(x)
 #define CONFIG_SECTION(x)
 
-#include "base/config.inc"
+__CONFIG_INC_GOES_HERE__
 
 #undef CONFIG
 #undef CONFIG_CONSTRAINT
@@ -181,7 +181,7 @@ void config::init(const string &file)
     #define CONFIG_KEY(x)
     #define CONFIG_SECTION(x)
 
-    #include "base/config.inc"
+__CONFIG_INC_GOES_HERE__
 
     #undef CONFIG
     #undef CONFIG_CONSTRAINT
@@ -203,7 +203,7 @@ void config::init(const string &file)
   #define CONFIG_KEY(key) s_ ## key
   #define CONFIG_SECTION(x)
 
-  #include "base/config.inc"
+__CONFIG_INC_GOES_HERE__
 
   #undef CONFIG
   #undef CONFIG_CONSTRAINT

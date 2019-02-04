@@ -21,7 +21,7 @@
 
 #include <limits.h>
 
-#include "logger.h"
+#include "base/logger.h"
 
 using s3::base::logger;
 

@@ -25,12 +25,12 @@
 #include <stdexcept>
 #include <boost/detail/atomic_count.hpp>
 
-#include "config.h"
-#include "logger.h"
-#include "request.h"
-#include "request_hook.h"
-#include "statistics.h"
-#include "timer.h"
+#include "base/config.h"
+#include "base/logger.h"
+#include "base/request.h"
+#include "base/request_hook.h"
+#include "base/statistics.h"
+#include "base/timer.h"
 
 using boost::mutex;
 using boost::detail::atomic_count;

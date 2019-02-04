@@ -21,10 +21,10 @@
 
 CONFIG_SECTION("Required Parameters");
 CONFIG(std::string, bucket_name, "", "bucket name");
-CONFIG_CONSTRAINT(CONFIG_KEY(bucket_name).size() > 0, "bucket_name must be specified")
+CONFIG_CONSTRAINT(CONFIG_KEY(bucket_name).size() > 0, "bucket_name must be specified");
 #ifndef FIXED_SERVICE
   CONFIG(std::string, service, "", "specifies the service to use -- must be one of the enabled services listed by '__PACKAGE_NAME__ -V'");
-  CONFIG_CONSTRAINT(CONFIG_KEY(service).size() > 0, "service must be specified")
+  CONFIG_CONSTRAINT(CONFIG_KEY(service).size() > 0, "service must be specified");
 #endif
 
 #ifdef WITH_AWS

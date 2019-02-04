@@ -28,8 +28,8 @@
 #include <boost/regex.hpp>
 #include <boost/utility.hpp>
 
-#include "logger.h"
-#include "xml.h"
+#include "base/logger.h"
+#include "base/xml.h"
 
 using boost::regex;
 using std::runtime_error;

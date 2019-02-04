@@ -22,7 +22,6 @@
  * limitations under the License.
  */
 
-#include <pthread.h>
 #include <string.h>
 
 #if defined(HAVE_OPENSSL) && defined(__APPLE__)
@@ -40,8 +39,8 @@
 #include <stdexcept>
 #include <boost/thread.hpp>
 
-#include "curl_easy_handle.h"
-#include "logger.h"
+#include "base/curl_easy_handle.h"
+#include "base/logger.h"
 
 using boost::mutex;
 using std::runtime_error;
