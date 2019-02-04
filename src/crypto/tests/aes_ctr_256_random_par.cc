@@ -1,18 +1,22 @@
-#include <boost/bind.hpp>
-#include <boost/thread.hpp>
+#include <algorithm>
+#include <functional>
+#include <thread>
+
 #include <gtest/gtest.h>
 
 #include "crypto/aes_ctr_256.h"
 #include "crypto/symmetric_key.h"
 #include "crypto/tests/random.h"
 
-using boost::bind;
-using boost::thread_group;
+using std::bind;
+using std::thread;
 using std::vector;
 
 using s3::crypto::aes_ctr_256;
 using s3::crypto::symmetric_key;
 using s3::crypto::tests::random;
+
+using namespace std::placeholders;
 
 namespace
 {
@@ -61,27 +65,27 @@ TEST(aes_ctr_256, random_data_parallel)
     if (size < THREADS * CHUNK_SIZE) {
       run_thread(true, sk, &in[0], &out_enc[0], 0, size);
     } else {
-      thread_group threads;
+      vector<thread> threads;
 
       for (size_t i = 0; i < THREADS - 1; i++)
-        threads.create_thread(bind(&run_thread, true, sk, &in[0], &out_enc[0], i * bytes_per_thread, bytes_per_thread));
+        threads.emplace_back(bind(&run_thread, true, sk, &in[0], &out_enc[0], i * bytes_per_thread, bytes_per_thread));
 
-      threads.create_thread(bind(&run_thread, true, sk, &in[0], &out_enc[0], (THREADS - 1) * bytes_per_thread, bytes_last_thread));
+      threads.emplace_back(bind(&run_thread, true, sk, &in[0], &out_enc[0], (THREADS - 1) * bytes_per_thread, bytes_last_thread));
 
-      threads.join_all();
+      std::for_each(threads.begin(), threads.end(), [](thread& t) { t.join(); });
     }
 
     if (size < THREADS * CHUNK_SIZE) {
       run_thread(false, sk, &out_enc[0], &out_dec[0], 0, size);
     } else {
-      thread_group threads;
+      vector<thread> threads;
 
       for (size_t i = 0; i < THREADS - 1; i++)
-        threads.create_thread(bind(&run_thread, false, sk, &out_enc[0], &out_dec[0], i * bytes_per_thread, bytes_per_thread));
+        threads.emplace_back(bind(&run_thread, false, sk, &out_enc[0], &out_dec[0], i * bytes_per_thread, bytes_per_thread));
 
-      threads.create_thread(bind(&run_thread, false, sk, &out_enc[0], &out_dec[0], (THREADS - 1) * bytes_per_thread, bytes_last_thread));
+      threads.emplace_back(bind(&run_thread, false, sk, &out_enc[0], &out_dec[0], (THREADS - 1) * bytes_per_thread, bytes_last_thread));
 
-      threads.join_all();
+      std::for_each(threads.begin(), threads.end(), [](thread& t) { t.join(); });
     }
 
     for (size_t i = 0; i < in.size(); i++) {

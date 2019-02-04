@@ -22,8 +22,9 @@
 #ifndef S3_THREADS_WORKER_H
 #define S3_THREADS_WORKER_H
 
-#include <boost/smart_ptr.hpp>
-#include <boost/thread.hpp>
+#include <functional>
+#include <memory>
+#include <thread>
 
 namespace s3
 {
@@ -34,14 +35,14 @@ namespace s3
     class worker
     {
     public:
-      typedef boost::shared_ptr<worker> ptr;
+      typedef std::shared_ptr<worker> ptr;
 
-      static ptr create(const boost::shared_ptr<work_item_queue> &queue)
+      static ptr create(const std::shared_ptr<work_item_queue> &queue)
       {
         ptr wt(new worker(queue));
 
         // passing "wt", a shared_ptr, for "this" keeps the object alive so long as worker() hasn't returned
-        wt->_thread.reset(new boost::thread(boost::bind(&worker::work, wt)));
+        wt->_thread.reset(new std::thread(std::bind(&worker::work, wt)));
 
         return wt;
       }
@@ -50,15 +51,15 @@ namespace s3
       inline bool check_timeout() const { return false; }
 
     private:
-      inline worker(const boost::shared_ptr<work_item_queue> &queue)
+      inline worker(const std::shared_ptr<work_item_queue> &queue)
         : _queue(queue)
       {
       }
 
       void work();
 
-      boost::shared_ptr<boost::thread> _thread;
-      boost::shared_ptr<work_item_queue> _queue;
+      std::shared_ptr<std::thread> _thread;
+      std::shared_ptr<work_item_queue> _queue;
     };
   }
 }

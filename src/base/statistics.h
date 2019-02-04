@@ -25,12 +25,12 @@
 #include <stdarg.h>
 
 #include <fstream>
+#include <functional>
 #include <iostream>
+#include <memory>
+#include <mutex>
 #include <stdexcept>
 #include <string>
-#include <boost/lexical_cast.hpp>
-#include <boost/smart_ptr.hpp>
-#include <boost/thread.hpp>
 
 #include "base/paths.h"
 #include "base/static_list.h"
@@ -42,13 +42,13 @@ namespace s3
     class statistics
     {
     public:
-      typedef boost::function1<void, std::ostream *> writer_fn;
+      typedef std::function<void(std::ostream *)> writer_fn;
 
       typedef static_list<writer_fn> writers;
 
-      inline static void init(const boost::shared_ptr<std::ostream> &output)
+      inline static void init(const std::shared_ptr<std::ostream> &output)
       {
-        boost::mutex::scoped_lock lock(s_mutex);
+        std::lock_guard<std::mutex> lock(s_mutex);
 
         if (s_stream)
           throw std::runtime_error("can't call statistics::init() more than once!");
@@ -58,7 +58,7 @@ namespace s3
 
       inline static void init(const std::string &output_file)
       {
-        boost::shared_ptr<std::ofstream> f(new std::ofstream());
+        std::shared_ptr<std::ofstream> f(new std::ofstream());
 
         f->open(paths::transform(output_file).c_str(), std::ofstream::trunc);
 
@@ -70,7 +70,7 @@ namespace s3
 
       inline static void collect()
       {
-        boost::mutex::scoped_lock lock(s_mutex);
+        std::lock_guard<std::mutex> lock(s_mutex);
 
         if (!s_stream)
           return;
@@ -94,13 +94,12 @@ namespace s3
         va_end(args);
       }
 
-      template <class T>
-      inline static void write(const std::string &id, T tag, const char *format, ...)
+      inline static void write(const std::string &id, const std::string &tag, const char *format, ...)
       {
         va_list args;
 
         va_start(args, format);
-        write(id + "_" + boost::lexical_cast<std::string>(tag), format, args);
+        write(id + "_" + tag, format, args);
         va_end(args);
       }
 
@@ -110,7 +109,7 @@ namespace s3
         const size_t BUF_LEN = 256;
 
         char buf[BUF_LEN];
-        boost::mutex::scoped_lock lock(s_mutex);
+        std::lock_guard<std::mutex> lock(s_mutex);
 
         if (!s_stream)
           return;
@@ -120,8 +119,8 @@ namespace s3
         (*s_stream) << id << ": " << buf << std::endl;
       }
 
-      static boost::mutex s_mutex;
-      static boost::shared_ptr<std::ostream> s_stream;
+      static std::mutex s_mutex;
+      static std::shared_ptr<std::ostream> s_stream;
     };
   }
 }

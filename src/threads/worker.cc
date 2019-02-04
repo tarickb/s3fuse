@@ -24,7 +24,7 @@
 #include "threads/work_item_queue.h"
 #include "threads/worker.h"
 
-using boost::shared_ptr;
+using std::shared_ptr;
 
 using s3::base::request;
 using s3::threads::worker;
@@ -57,6 +57,6 @@ void worker::work()
     item.get_ah()->complete(r);
   }
 
-  // the boost::thread in _thread holds a shared_ptr to this, and will keep it from being destructed
+  // the thread in _thread holds a shared_ptr to this, and will keep it from being destructed
   _thread.reset();
 }

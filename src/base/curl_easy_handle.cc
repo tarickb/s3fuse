@@ -36,14 +36,15 @@
   #include <gnutls/gnutls.h>
 #endif
 
+#include <mutex>
 #include <stdexcept>
-#include <boost/thread.hpp>
 
 #include "base/curl_easy_handle.h"
 #include "base/logger.h"
 
-using boost::mutex;
+using std::mutex;
 using std::runtime_error;
+using std::lock_guard;
 
 using s3::base::curl_easy_handle;
 
@@ -100,7 +101,7 @@ namespace
 
 curl_easy_handle::curl_easy_handle()
 {
-  mutex::scoped_lock lock(s_init_mutex);
+  lock_guard<mutex> lock(s_init_mutex);
 
   if (s_init_count++ == 0)
     pre_init();
@@ -113,7 +114,7 @@ curl_easy_handle::curl_easy_handle()
 
 curl_easy_handle::~curl_easy_handle()
 {
-  mutex::scoped_lock lock(s_init_mutex);
+  lock_guard<mutex> lock(s_init_mutex);
 
   curl_easy_cleanup(_handle);
 

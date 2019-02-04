@@ -1,4 +1,3 @@
-find_package(Boost REQUIRED COMPONENTS thread)
 find_package(GTest)
 find_package(Threads)
 
@@ -20,6 +19,6 @@ add_executable(${PROJECT_NAME}_crypto_tests
   random.h
   sha256_kat.cc
   symmetric_key.cc)
-target_link_libraries(${PROJECT_NAME}_crypto_tests ${PROJECT_NAME}_crypto ${GTEST_BOTH_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} Boost::thread)
+target_link_libraries(${PROJECT_NAME}_crypto_tests ${PROJECT_NAME}_crypto ${GTEST_BOTH_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
 
 gtest_discover_tests(${PROJECT_NAME}_crypto_tests)

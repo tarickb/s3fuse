@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#include <string>
+
 #include "base/logger.h"
 #include "base/request.h"
 #include "base/xml.h"
@@ -27,8 +29,8 @@
 #include "fs/object.h"
 #include "services/service.h"
 
-using boost::lexical_cast;
 using std::string;
+using std::to_string;
 
 using s3::base::request;
 using s3::base::xml;
@@ -37,6 +39,8 @@ using s3::fs::glacier;
 using s3::fs::object;
 using s3::fs::xattr;
 using s3::services::service;
+
+using namespace std::placeholders;
 
 namespace
 {
@@ -193,7 +197,7 @@ int glacier::start_restore(const request::ptr &req, int days)
 
   req->set_input_buffer(
     string("<RestoreRequest><Days>") + 
-    lexical_cast<string>(days) +
+    to_string(days) +
     "</Days></RestoreRequest>");
 
   req->run();

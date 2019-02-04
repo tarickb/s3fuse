@@ -23,6 +23,7 @@
 #define S3_THREADS_PARALLEL_WORK_QUEUE_H
 
 #include <iostream>
+#include <list>
 #include <vector>
 
 #include "base/config.h"
@@ -42,8 +43,8 @@ namespace s3
     class parallel_work_queue
     {
     public:
-      typedef boost::function2<int, const boost::shared_ptr<base::request> &, T *> process_part_fn;
-      typedef boost::function2<int, const boost::shared_ptr<base::request> &, T *> retry_part_fn;
+      typedef std::function<int(const std::shared_ptr<base::request> &, T *)> process_part_fn;
+      typedef std::function<int(const std::shared_ptr<base::request> &, T *)> retry_part_fn;
 
       template <class iterator_type>
       inline parallel_work_queue(
@@ -82,7 +83,7 @@ namespace s3
 
           part->handle = threads::pool::post(
             threads::PR_REQ_1, 
-            bind(_on_process_part, _1, part->part),
+            bind(_on_process_part, std::placeholders::_1, part->part),
             0 /* don't retry on timeout since we handle that here */);
 
           parts_in_progress.push_back(part);
@@ -101,7 +102,7 @@ namespace s3
             if ((part_r == -EAGAIN || part_r == -ETIMEDOUT) && part->retry_count < _max_retries) {
               part->handle = threads::pool::post(
                 threads::PR_REQ_1, 
-                bind(_on_retry_part, _1, part->part),
+                bind(_on_retry_part, std::placeholders::_1, part->part),
                 0);
 
               part->retry_count++;
@@ -121,7 +122,7 @@ namespace s3
 
             part->handle = threads::pool::post(
               threads::PR_REQ_1, 
-              bind(_on_process_part, _1, part->part),
+              bind(_on_process_part, std::placeholders::_1, part->part),
               0);
 
             parts_in_progress.push_back(part);

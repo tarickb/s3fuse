@@ -19,9 +19,9 @@
  * limitations under the License.
  */
 
+#include <atomic>
+#include <string>
 #include <vector>
-#include <boost/lexical_cast.hpp>
-#include <boost/detail/atomic_count.hpp>
 
 #include "base/config.h"
 #include "base/logger.h"
@@ -34,11 +34,11 @@
 #include "threads/parallel_work_queue.h"
 #include "threads/pool.h"
 
-using boost::lexical_cast;
-using boost::scoped_ptr;
-using boost::detail::atomic_count;
+using std::atomic_int;
 using std::ostream;
 using std::string;
+using std::to_string;
+using std::unique_ptr;
 using std::vector;
 
 using s3::base::char_vector;
@@ -54,6 +54,8 @@ using s3::services::aws::file_transfer;
 using s3::threads::parallel_work_queue;
 using s3::threads::pool;
 
+using namespace std::placeholders;
+
 namespace
 {
   const size_t UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024;
@@ -61,7 +63,7 @@ namespace
   const char *MULTIPART_ETAG_XPATH = "/CompleteMultipartUploadResult/ETag";
   const char *MULTIPART_UPLOAD_ID_XPATH = "/InitiateMultipartUploadResult/UploadId";
 
-  atomic_count s_uploads_multi_chunks_failed(0);
+  atomic_int s_uploads_multi_chunks_failed(0);
 
   void statistics_writer(ostream *o)
   {
@@ -93,7 +95,7 @@ int file_transfer::upload_multi(const string &url, size_t size, const read_chunk
   string upload_id, complete_upload;
   const size_t num_parts = (size + _upload_chunk_size - 1) / _upload_chunk_size;
   vector<upload_range> parts(num_parts);
-  scoped_ptr<multipart_upload> upload;
+  unique_ptr<multipart_upload> upload;
   int r;
 
   r = pool::call(threads::PR_REQ_0, bind(&file_transfer::upload_multi_init, this, _1, url, &upload_id));
@@ -129,7 +131,7 @@ int file_transfer::upload_multi(const string &url, size_t size, const read_chunk
 
   for (size_t i = 0; i < parts.size(); i++) {
     // part numbers are 1-based
-    complete_upload += "<Part><PartNumber>" + lexical_cast<string>(i + 1) + "</PartNumber><ETag>" + parts[i].etag + "</ETag></Part>";
+    complete_upload += "<Part><PartNumber>" + to_string(i + 1) + "</PartNumber><ETag>" + parts[i].etag + "</ETag></Part>";
   }
 
   complete_upload += "</CompleteMultipartUpload>";
@@ -163,7 +165,7 @@ int file_transfer::upload_part(
   req->init(base::HTTP_PUT);
 
   // part numbers are 1-based
-  req->set_url(url + "?partNumber=" + lexical_cast<string>(range->id + 1) + "&uploadId=" + upload_id);
+  req->set_url(url + "?partNumber=" + to_string(range->id + 1) + "&uploadId=" + upload_id);
   req->set_input_buffer(buffer);
 
   req->run(config::get_transfer_timeout_in_s());

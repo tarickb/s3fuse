@@ -49,7 +49,7 @@ namespace s3
         virtual std::string adjust_url(const std::string &url);
         virtual void pre_run(base::request *r, int iter);
 
-        virtual boost::shared_ptr<services::file_transfer> build_file_transfer();
+        virtual std::shared_ptr<services::file_transfer> build_file_transfer();
 
       private:
         void sign(base::request *req);

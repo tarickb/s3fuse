@@ -33,14 +33,14 @@ namespace s3
     class special : public object
     {
     public:
-      typedef boost::shared_ptr<special> ptr;
+      typedef std::shared_ptr<special> ptr;
 
       special(const std::string &path);
       virtual ~special();
 
       inline ptr shared_from_this()
       {
-        return boost::static_pointer_cast<special>(object::shared_from_this());
+        return std::dynamic_pointer_cast<special>(object::shared_from_this());
       }
 
       inline void set_type(mode_t mode)
@@ -54,8 +54,8 @@ namespace s3
       }
 
     protected:
-      virtual void init(const boost::shared_ptr<base::request> &req);
-      virtual void set_request_headers(const boost::shared_ptr<base::request> &req);
+      virtual void init(const std::shared_ptr<base::request> &req);
+      virtual void set_request_headers(const std::shared_ptr<base::request> &req);
     };
   }
 }

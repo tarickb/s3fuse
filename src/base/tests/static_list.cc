@@ -1,13 +1,12 @@
+#include <functional>
 #include <gtest/gtest.h>
-
-#include <boost/function.hpp>
 
 #include "base/static_list.h"
 
 using std::string;
 
-typedef s3::base::static_list<boost::function1<string, const char *> > str_fn_list;
-typedef s3::base::static_list<boost::function1<string, double> > double_fn_list;
+typedef s3::base::static_list<std::function<string(const char *)>> str_fn_list;
+typedef s3::base::static_list<std::function<string(double)>> double_fn_list;
 
 string str_fn_1(const char *a)
 {

@@ -24,17 +24,18 @@
 
 #include <curl/curl.h>
 
-#include <boost/utility.hpp>
-
 namespace s3
 {
   namespace base
   {
-    class curl_easy_handle : boost::noncopyable
+    class curl_easy_handle
     {
     public:
       curl_easy_handle();
       ~curl_easy_handle();
+
+      curl_easy_handle(const curl_easy_handle &) = delete;
+      curl_easy_handle & operator =(const curl_easy_handle &) = delete;
 
       inline operator const CURL * () const { return _handle; }
       inline operator CURL * () { return _handle; }

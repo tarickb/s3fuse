@@ -26,10 +26,10 @@
 
 #include <openssl/rand.h>
 
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <boost/smart_ptr.hpp>
 
 #include "crypto/encoder.h"
 #include "crypto/hex.h"
@@ -41,7 +41,7 @@ namespace s3
     class buffer
     {
     public:
-      typedef boost::shared_ptr<buffer> ptr;
+      typedef std::shared_ptr<buffer> ptr;
 
       inline static ptr zero(size_t len)
       {

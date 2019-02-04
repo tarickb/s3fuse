@@ -22,9 +22,9 @@
 #ifndef S3_SERVICES_FILE_TRANSFER_H
 #define S3_SERVICES_FILE_TRANSFER_H
 
+#include <functional>
+#include <memory>
 #include <string>
-#include <boost/function.hpp>
-#include <boost/smart_ptr.hpp>
 
 #include "base/request.h"
 
@@ -35,8 +35,8 @@ namespace s3
     class file_transfer
     {
     public:
-      typedef boost::function3<int, const char *, size_t, off_t> write_chunk_fn;
-      typedef boost::function3<int, size_t, off_t, const base::char_vector_ptr &> read_chunk_fn;
+      typedef std::function<int(const char *, size_t, off_t)> write_chunk_fn;
+      typedef std::function<int(size_t, off_t, const base::char_vector_ptr &)> read_chunk_fn;
 
       virtual ~file_transfer();
 

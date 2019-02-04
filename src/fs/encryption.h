@@ -22,8 +22,8 @@
 #ifndef S3_FS_ENCRYPTION_H
 #define S3_FS_ENCRYPTION_H
 
+#include <memory>
 #include <string>
-#include <boost/smart_ptr.hpp>
 
 namespace s3
 {
@@ -39,9 +39,9 @@ namespace s3
     public:
       static void init();
 
-      static boost::shared_ptr<crypto::buffer> get_volume_key();
+      static std::shared_ptr<crypto::buffer> get_volume_key();
 
-      static boost::shared_ptr<crypto::buffer> derive_key_from_password(const std::string &password);
+      static std::shared_ptr<crypto::buffer> derive_key_from_password(const std::string &password);
     };
   }
 }

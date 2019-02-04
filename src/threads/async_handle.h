@@ -22,9 +22,10 @@
 #ifndef S3_THREADS_ASYNC_HANDLE_H
 #define S3_THREADS_ASYNC_HANDLE_H
 
-#include <boost/smart_ptr.hpp>
-#include <boost/thread.hpp>
-#include <boost/thread/condition.hpp>
+#include <condition_variable>
+#include <functional>
+#include <memory>
+#include <mutex>
 
 namespace s3
 {
@@ -33,7 +34,7 @@ namespace s3
     class async_handle
     {
     public:
-      typedef boost::shared_ptr<async_handle> ptr;
+      typedef std::shared_ptr<async_handle> ptr;
 
       inline virtual ~async_handle()
       {
@@ -45,7 +46,7 @@ namespace s3
     class wait_async_handle : public async_handle
     {
     public:
-      typedef boost::shared_ptr<wait_async_handle> ptr;
+      typedef std::shared_ptr<wait_async_handle> ptr;
 
       inline wait_async_handle()
         : _return_code(0),
@@ -59,7 +60,7 @@ namespace s3
 
       inline virtual void complete(int return_code)
       {
-        boost::mutex::scoped_lock lock(_mutex);
+        std::lock_guard<std::mutex> lock(_mutex);
 
         _return_code = return_code;
         _done = true;
@@ -69,7 +70,7 @@ namespace s3
 
       inline int wait()
       {
-        boost::mutex::scoped_lock lock(_mutex);
+        std::unique_lock<std::mutex> lock(_mutex);
 
         while (!_done)
           _condition.wait(lock);
@@ -78,8 +79,8 @@ namespace s3
       }
 
     private:
-      boost::mutex _mutex;
-      boost::condition _condition;
+      std::mutex _mutex;
+      std::condition_variable _condition;
 
       int _return_code;
       bool _done;
@@ -88,8 +89,8 @@ namespace s3
     class callback_async_handle : public async_handle
     {
     public:
-      typedef boost::shared_ptr<callback_async_handle> ptr;
-      typedef boost::function1<void, int> callback_function;
+      typedef std::shared_ptr<callback_async_handle> ptr;
+      typedef std::function<void(int)> callback_function;
 
       inline callback_async_handle(const callback_function &cb)
         : _cb(cb)

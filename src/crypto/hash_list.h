@@ -22,10 +22,10 @@
 #ifndef S3_CRYPTO_HASH_LIST_H
 #define S3_CRYPTO_HASH_LIST_H
 
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include <boost/smart_ptr.hpp>
 
 #include "crypto/encoder.h"
 #include "crypto/hash.h"
@@ -38,7 +38,7 @@ namespace s3
     class hash_list
     {
     public:
-      typedef boost::shared_ptr<hash_list<hash_type> > ptr;
+      typedef std::shared_ptr<hash_list<hash_type> > ptr;
 
       static const size_t CHUNK_SIZE = 128 * 1024; // 128 KB
 

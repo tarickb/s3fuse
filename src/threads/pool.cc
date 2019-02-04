@@ -29,10 +29,11 @@
 #include "threads/work_item_queue.h"
 #include "threads/worker.h"
 
-using boost::bind;
-using boost::scoped_ptr;
-using boost::thread;
+using std::bind;
+using std::runtime_error;
 using std::string;
+using std::thread;
+using std::unique_ptr;
 
 using s3::base::config;
 using s3::base::statistics;
@@ -43,9 +44,9 @@ using s3::threads::work_item_queue;
 
 namespace
 {
-  BOOST_STATIC_ASSERT(s3::threads::PR_0 == 0);
-  BOOST_STATIC_ASSERT(s3::threads::PR_REQ_0 == 1);
-  BOOST_STATIC_ASSERT(s3::threads::PR_REQ_1 == 2);
+  static_assert(s3::threads::PR_0 == 0, "PR_0 == 0");
+  static_assert(s3::threads::PR_REQ_0 == 1, "PR_REQ_0 == 1");
+  static_assert(s3::threads::PR_REQ_1 == 2, "PR_REQ_1 == 2");
 
   const int POOL_COUNT = 3; // PR_0, PR_REQ_0, PR_REQ_1
   const int NUM_THREADS_PER_POOL = 8;
@@ -142,7 +143,7 @@ namespace
 
     work_item_queue::ptr _queue;
     wt_list _threads;
-    scoped_ptr<thread> _watchdog_thread;
+    unique_ptr<thread> _watchdog_thread;
     string _id;
     int _respawn_counter;
     bool _done;
@@ -170,7 +171,8 @@ void pool::internal_post(
   const async_handle::ptr &ah,
   int timeout_retries)
 {
-  assert(p < POOL_COUNT);
+  if (p >= POOL_COUNT)
+    throw runtime_error("invalid pool id.");
 
   s_pools[p]->post(
     fn, 

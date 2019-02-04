@@ -21,15 +21,15 @@
 
 #include <errno.h>
 
-#include <boost/lexical_cast.hpp>
+#include <string>
 
 #include "base/logger.h"
 #include "base/request.h"
 #include "fs/list_reader.h"
 #include "services/service.h"
 
-using boost::lexical_cast;
 using std::string;
+using std::to_string;
 
 using s3::base::request;
 using s3::base::xml;
@@ -78,7 +78,7 @@ int list_reader::read(const request::ptr &req, xml::element_list *keys, xml::ele
     query += "&delimiter=/";
 
   if (_max_keys > 0)
-    query += string("&max-keys=") + lexical_cast<string>(_max_keys);
+    query += string("&max-keys=") + to_string(_max_keys);
 
   req->set_url(service::get_bucket_url(), query);
   req->run();

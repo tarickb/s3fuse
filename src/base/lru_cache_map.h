@@ -24,7 +24,6 @@
 #define S3_BASE_LRU_CACHE_MAP_H
 
 #include <map>
-#include <boost/function.hpp>
 
 namespace s3
 {
@@ -42,7 +41,7 @@ namespace s3
     class lru_cache_map
     {
     public:
-      typedef boost::function2<void, const key_type &, const value_type &> itor_callback_fn;
+      typedef std::function<void(const key_type &, const value_type &)> itor_callback_fn;
 
       inline lru_cache_map(size_t max_size)
         : _max_size(max_size),

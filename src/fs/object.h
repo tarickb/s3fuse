@@ -26,10 +26,11 @@
 #include <sys/stat.h>
 #include <sys/time.h>
 
+#include <functional>
+#include <memory>
+#include <mutex>
 #include <string>
 #include <vector>
-#include <boost/smart_ptr.hpp>
-#include <boost/thread.hpp>
 
 #include "base/static_list.h"
 #include "fs/xattr.h"
@@ -48,12 +49,12 @@ namespace s3
       class glacier;
     #endif
 
-    class object : public boost::enable_shared_from_this<object>
+    class object : public std::enable_shared_from_this<object>
     {
     public:
-      typedef boost::shared_ptr<object> ptr;
+      typedef std::shared_ptr<object> ptr;
 
-      typedef object * (*type_checker_fn)(const std::string &path, const boost::shared_ptr<base::request> &req);
+      typedef object * (*type_checker_fn)(const std::string &path, const std::shared_ptr<base::request> &req);
       typedef base::static_list<type_checker_fn> type_checker_list;
 
       static int get_block_size();
@@ -64,10 +65,10 @@ namespace s3
       static bool is_versioned_path(const std::string &path);
       static const std::string & get_internal_prefix();
 
-      static ptr create(const std::string &path, const boost::shared_ptr<base::request> &req);
+      static ptr create(const std::string &path, const std::shared_ptr<base::request> &req);
 
-      static int remove_by_url(const boost::shared_ptr<base::request> &req, const std::string &url);
-      static int copy_by_path(const boost::shared_ptr<base::request> &req, const std::string &from, const std::string &to);
+      static int remove_by_url(const std::shared_ptr<base::request> &req, const std::string &url);
+      static int copy_by_path(const std::shared_ptr<base::request> &req, const std::string &from, const std::string &to);
 
       virtual ~object();
 
@@ -106,39 +107,51 @@ namespace s3
         memcpy(s, &_stat, sizeof(_stat));
       }
 
-      int commit(const boost::shared_ptr<base::request> &req);
+      int commit(const std::shared_ptr<base::request> &req);
 
-      virtual int remove(const boost::shared_ptr<base::request> &req);
-      virtual int rename(const boost::shared_ptr<base::request> &req, const std::string &to);
+      virtual int remove(const std::shared_ptr<base::request> &req);
+      virtual int rename(const std::shared_ptr<base::request> &req, const std::string &to);
+
+      inline int commit_wrapper(const std::shared_ptr<base::request> &req) {
+        return commit(req);
+      }
+
+      inline int remove_wrapper(const std::shared_ptr<base::request> &req) {
+        return remove(req);
+      }
+
+      inline int rename_wrapper(const std::shared_ptr<base::request> &req, const std::string &to) {
+        return rename(req, to);
+      }
 
       inline int commit()
       {
         return threads::pool::call(
           threads::PR_REQ_0, 
-          boost::bind(&object::commit, shared_from_this(), _1));
+          std::bind(&object::commit_wrapper, shared_from_this(), std::placeholders::_1));
       }
 
       inline int remove()
       {
         return threads::pool::call(
           threads::PR_REQ_0, 
-          boost::bind(&object::remove, shared_from_this(), _1));
+          std::bind(&object::remove_wrapper, shared_from_this(), std::placeholders::_1));
       }
 
       inline int rename(const std::string &to)
       {
         return threads::pool::call(
           threads::PR_REQ_0, 
-          boost::bind(&object::rename, shared_from_this(), _1, to));
+          std::bind(&object::rename_wrapper, shared_from_this(), std::placeholders::_1, to));
       }
 
     protected:
       object(const std::string &path);
 
-      virtual void init(const boost::shared_ptr<base::request> &req);
+      virtual void init(const std::shared_ptr<base::request> &req);
 
-      virtual void set_request_headers(const boost::shared_ptr<base::request> &req);
-      virtual void set_request_body(const boost::shared_ptr<base::request> &req);
+      virtual void set_request_headers(const std::shared_ptr<base::request> &req);
+      virtual void set_request_body(const std::shared_ptr<base::request> &req);
 
       virtual void update_stat();
 
@@ -160,9 +173,9 @@ namespace s3
 
     private:
       int get_all_versions(bool empties, std::string *out);
-      int fetch_all_versions(const boost::shared_ptr<base::request> &req, bool empties, std::string *out);
+      int fetch_all_versions(const std::shared_ptr<base::request> &req, bool empties, std::string *out);
 
-      boost::mutex _mutex;
+      std::mutex _mutex;
 
       // should only be modified during init()
       std::string _path;
@@ -171,7 +184,7 @@ namespace s3
       bool _intact;
 
       #ifdef WITH_AWS
-        boost::shared_ptr<glacier> _glacier;
+        std::shared_ptr<glacier> _glacier;
       #endif
 
       // unprotected

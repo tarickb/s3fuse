@@ -22,6 +22,10 @@
 #ifndef S3_FS_FILE_H
 #define S3_FS_FILE_H
 
+#include <condition_variable>
+#include <memory>
+#include <mutex>
+
 #include "base/request.h"
 #include "crypto/hash_list.h"
 #include "crypto/sha256.h"
@@ -41,7 +45,7 @@ namespace s3
     class file : public object
     {
     public:
-      typedef boost::shared_ptr<file> ptr;
+      typedef std::shared_ptr<file> ptr;
 
       inline static file * from_handle(uint64_t handle)
       {
@@ -56,7 +60,7 @@ namespace s3
 
       inline ptr shared_from_this()
       {
-        return boost::static_pointer_cast<file>(object::shared_from_this());
+        return std::dynamic_pointer_cast<file>(object::shared_from_this());
       }
 
       virtual bool is_removable();
@@ -68,7 +72,7 @@ namespace s3
       int truncate(off_t length);
 
     protected:
-      virtual void init(const boost::shared_ptr<base::request> &req);
+      virtual void init(const std::shared_ptr<base::request> &req);
 
       virtual int is_downloadable();
 
@@ -81,7 +85,7 @@ namespace s3
       virtual int prepare_upload();
       virtual int finalize_upload(const std::string &returned_etag);
 
-      virtual void set_request_headers(const boost::shared_ptr<base::request> &req);
+      virtual void set_request_headers(const std::shared_ptr<base::request> &req);
 
       virtual void update_stat();
 
@@ -115,33 +119,33 @@ namespace s3
 
       int open(file_open_mode mode, uint64_t *handle);
 
-      int download(const boost::shared_ptr<base::request> &);
+      int download(const std::shared_ptr<base::request> &);
 
-      int download_single(const boost::shared_ptr<base::request> &req);
+      int download_single(const std::shared_ptr<base::request> &req);
       int download_multi();
-      int download_part(const boost::shared_ptr<base::request> &req, const transfer_part *part);
+      int download_part(const std::shared_ptr<base::request> &req, const transfer_part *part);
 
-      int upload(const boost::shared_ptr<base::request> &);
+      int upload(const std::shared_ptr<base::request> &);
 
-      int upload_single(const boost::shared_ptr<base::request> &req, std::string *returned_etag);
+      int upload_single(const std::shared_ptr<base::request> &req, std::string *returned_etag);
       int upload_multi(std::string *returned_etag);
-      int upload_multi_init(const boost::shared_ptr<base::request> &req, std::string *upload_id);
-      int upload_multi_cancel(const boost::shared_ptr<base::request> &req, const std::string &upload_id);
+      int upload_multi_init(const std::shared_ptr<base::request> &req, std::string *upload_id);
+      int upload_multi_cancel(const std::shared_ptr<base::request> &req, const std::string &upload_id);
       int upload_multi_complete(
-        const boost::shared_ptr<base::request> &req, 
+        const std::shared_ptr<base::request> &req, 
         const std::string &upload_id, 
         const std::string &upload_metadata, 
         std::string *etag);
-      int upload_part(const boost::shared_ptr<base::request> &req, const std::string &upload_id, transfer_part *part);
+      int upload_part(const std::shared_ptr<base::request> &req, const std::string &upload_id, transfer_part *part);
 
       size_t get_local_size();
 
       void on_download_complete(int ret);
 
-      void update_stat(const boost::mutex::scoped_lock &);
+      void update_stat(const std::lock_guard<std::mutex> &);
 
-      boost::mutex _fs_mutex;
-      boost::condition _condition;
+      std::mutex _fs_mutex;
+      std::condition_variable _condition;
       crypto::hash_list<crypto::sha256>::ptr _hash_list;
       std::string _sha256_hash;
 

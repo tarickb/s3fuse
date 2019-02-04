@@ -19,9 +19,10 @@
  * limitations under the License.
  */
 
+#include <iterator>
+#include <memory>
+#include <sstream>
 #include <vector>
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
 
 #include "base/config.h"
 #include "base/logger.h"
@@ -34,11 +35,11 @@
 #include "services/fvs/file_transfer.h"
 #include "services/fvs/impl.h"
 
-using boost::is_any_of;
-using boost::shared_ptr;
-using boost::token_compress_on;
 using std::ifstream;
+using std::istream_iterator;
+using std::istringstream;
 using std::runtime_error;
+using std::shared_ptr;
 using std::string;
 using std::vector;
 
@@ -72,12 +73,12 @@ impl::impl()
 {
   ifstream f;
   string line;
-  vector<string> fields;
 
   private_file::open(config::get_fvs_secret_file(), &f);
   getline(f, line);
 
-  split(fields, line, is_any_of(string(" \t")), token_compress_on);
+  istringstream line_stream(line);
+  vector<string> fields{istream_iterator<string>(line_stream), istream_iterator<string>()};
 
   if (fields.size() != 2) {
     S3_LOG(

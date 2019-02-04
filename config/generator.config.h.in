@@ -26,6 +26,7 @@
 #include <limits.h>
 #include <unistd.h>
 
+#include <limits>
 #include <string>
 
 #if !defined(UID_MAX)

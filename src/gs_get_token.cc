@@ -19,6 +19,7 @@
  * limitations under the License.
  */
 
+#include <cstring>
 #include <fstream>
 #include <iostream>
 
@@ -30,6 +31,7 @@ using std::cin;
 using std::cout;
 using std::endl;
 using std::string;
+using std::strrchr;
 
 using s3::services::gs::impl;
 

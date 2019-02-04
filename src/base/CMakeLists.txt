@@ -1,4 +1,3 @@
-find_package(Boost REQUIRED COMPONENTS regex thread)
 find_package(CURL REQUIRED)
 find_package(LibXml2 REQUIRED)
 find_package(OpenSSL)
@@ -60,6 +59,6 @@ if(EnableTests)
 endif()
 
 add_library(${PROJECT_NAME}_base ${base_SOURCES})
-target_link_libraries(${PROJECT_NAME}_base Boost::regex Boost::thread ${CURL_LIBRARIES} ${LIBXML2_LIBRARIES} ${OPENSSL_LIBRARIES} ${GNUTLS_LIBRARIES})
+target_link_libraries(${PROJECT_NAME}_base ${CURL_LIBRARIES} ${LIBXML2_LIBRARIES} ${OPENSSL_LIBRARIES} ${GNUTLS_LIBRARIES})
 
 add_dependencies(${PROJECT_NAME}_base ${PROJECT_NAME}_config)

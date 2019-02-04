@@ -19,14 +19,14 @@
  * limitations under the License.
  */
 
-#include <boost/detail/atomic_count.hpp>
+#include <atomic>
 
 #include "base/request.h"
 #include "base/statistics.h"
 #include "base/xml.h"
 #include "services/impl.h"
 
-using boost::detail::atomic_count;
+using std::atomic_int;
 using std::ostream;
 
 using s3::base::request;
@@ -38,8 +38,8 @@ namespace
 {
   const char *REQ_TIMEOUT_XPATH = "/Error/Code[text() = 'RequestTimeout']";
 
-  atomic_count s_internal_server_error(0), s_service_unavailable(0);
-  atomic_count s_req_timeout(0), s_bad_request(0);
+  atomic_int s_internal_server_error(0), s_service_unavailable(0);
+  atomic_int s_req_timeout(0), s_bad_request(0);
 
   void statistics_writer(ostream *o)
   {

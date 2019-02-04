@@ -1,13 +1,15 @@
+#include <functional>
 #include <string>
-#include <boost/bind.hpp>
 #include <gtest/gtest.h>
 
 #include "base/lru_cache_map.h"
 
-using boost::bind;
+using std::bind;
 using std::string;
 
 using s3::base::lru_cache_map;
+
+using namespace std::placeholders;
 
 inline bool remove_if_over_100(const int &i)
 {

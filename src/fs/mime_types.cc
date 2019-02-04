@@ -19,22 +19,25 @@
  * limitations under the License.
  */
 
+#include <algorithm>
+#include <cctype>
 #include <fstream>
+#include <istream>
+#include <iterator>
 #include <map>
+#include <sstream>
 #include <vector>
-#include <boost/algorithm/string/case_conv.hpp>
-#include <boost/algorithm/string/classification.hpp>
-#include <boost/algorithm/string/split.hpp>
 
 #include "base/paths.h"
 #include "fs/mime_types.h"
 
-using boost::is_any_of;
-using boost::token_compress_on;
-using boost::algorithm::to_lower;
 using std::ifstream;
+using std::istream_iterator;
+using std::istringstream;
 using std::map;
 using std::string;
+using std::tolower;
+using std::transform;
 using std::vector;
 
 using s3::base::paths;
@@ -56,23 +59,20 @@ namespace
 
   void load_from_file(const string &path)
   {
-    string line;
-    vector<string> fields;
     ifstream f(paths::transform(path).c_str(), ifstream::in);
 
     while (f.good()) {
-      size_t pos;
-
+      string line;
       getline(f, line);
 
-      pos = line.find('#');
-
+      size_t pos= line.find('#');
       if (pos == 0)
         continue;
       else if (pos != string::npos)
         line = line.substr(0, pos);
 
-      split(fields, line, is_any_of(string(" \t")), token_compress_on);
+      istringstream line_stream(line);
+      vector<string> fields{istream_iterator<string>(line_stream), istream_iterator<string>()};
 
       for (size_t i = 1; i < fields.size(); i++)
         s_map[fields[i]] = fields[0];
@@ -88,7 +88,7 @@ void mime_types::init()
 
 string mime_types::get_type_by_extension(string ext)
 {
-  to_lower(ext);
+  transform(ext.begin(), ext.end(), ext.begin(), [](char c){ return tolower(c); });
 
   const type_map::const_iterator &iter = s_map.find(ext);
   return (iter == s_map.end()) ? "" : iter->second;

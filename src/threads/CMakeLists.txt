@@ -1,4 +1,4 @@
-find_package(Boost REQUIRED COMPONENTS thread)
+find_package(Threads)
 
 set(threads_SOURCES
   async_handle.h
@@ -17,5 +17,5 @@ if(EnableTests)
 endif()
 
 add_library(${PROJECT_NAME}_threads ${threads_SOURCES})
-target_link_libraries(${PROJECT_NAME}_threads Boost::thread)
+target_link_libraries(${PROJECT_NAME}_threads ${CMAKE_THREAD_LIBS_INIT})
 add_dependencies(${PROJECT_NAME}_threads ${PROJECT_NAME}_base)

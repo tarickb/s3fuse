@@ -5,7 +5,6 @@
 
 #include <iostream>
 #include <string>
-#include <boost/lexical_cast.hpp>
 
 #include "crypto/aes_cbc_256.h"
 #include "crypto/aes_ctr_256.h"
@@ -14,10 +13,10 @@
 #include "crypto/sha256.h"
 #include "crypto/symmetric_key.h"
 
-using boost::lexical_cast;
 using std::cerr;
 using std::cout;
 using std::endl;
+using std::stoull;
 using std::string;
 
 using s3::crypto::aes_cbc_256_with_pkcs;
@@ -86,7 +85,7 @@ int main(int argc, char **argv)
       } else if (prefix == "iv") {
         meta_key = symmetric_key::create(v_key, buffer::from_string(line));
       } else if (prefix == "size") {
-        file_size = lexical_cast<size_t>(line);
+        file_size = stoull(line);
       } else if (prefix == "meta") {
         ref_meta = line;
       } else if (prefix == "meta_enc") {

@@ -19,6 +19,7 @@
  * limitations under the License.
  */
 
+#include <cstring>
 #include <iostream>
 #include <string>
 
@@ -32,7 +33,10 @@
 using std::cerr;
 using std::cout;
 using std::endl;
+using std::runtime_error;
+using std::stoi;
 using std::string;
+using std::strrchr;
 
 using s3::init;
 using s3::operations;
@@ -111,59 +115,60 @@ int print_version()
   return 0;
 }
 
-int process_argument(void *data, const char *arg, int key, struct fuse_args *out_args)
+int process_argument(void *data, const char *c_arg, int key, struct fuse_args *out_args)
 {
   options *opts = static_cast<options *>(data);
+  const string arg = c_arg;
 
-  if (strcmp(arg, "-V") == 0 || strcmp(arg, "--version") == 0) {
+  if (arg == "-V" || arg == "--version") {
     print_version();
     exit(0);
   }
 
-  if (strcmp(arg, "-h") == 0 || strcmp(arg, "--help") == 0) {
+  if (arg == "-h" || arg == "--help") {
     print_usage(opts->base_name);
     exit(1);
   }
 
-  if (strcmp(arg, "-v") == 0 || strcmp(arg, "--verbose") == 0) {
+  if (arg == "-v" || arg == "--verbose") {
     opts->verbosity++;
     return 0;
   }
 
-  if (strstr(arg, "-v") == arg) {
-    opts->verbosity = atoi(arg + sizeof("-v") - 1); // sizeof counts the trailing null
+  if (arg.find("-v") == 0) {
+    opts->verbosity = stoi(arg.substr(string("-v").length()));
     return 0;
   }
 
-  if (strstr(arg, "--verbose=") == arg) {
-    opts->verbosity = atoi(arg + sizeof("--verbose=") - 1);
+  if (arg.find("--verbose=") == 0) {
+    opts->verbosity = stoi(arg.substr(string("--verbose=").length()));
     return 0;
   }
 
-  if (strstr(arg, "config=") == arg) {
-    opts->config = arg + sizeof("config=") - 1;
+  if (arg.find("config=") == 0) {
+    opts->config = arg.substr(string("config=").length());
     return 0;
   }
 
   #ifdef __APPLE__
-    if (strstr(arg, "daemon_timeout=") == arg) {
+    if (arg.find("daemon_timeout=") == 0) {
       opts->daemon_timeout_set = true;
       return 1; // continue processing
     }
 
-    if (strstr(arg, "noappledouble") == arg) {
+    if (arg.find("noappledouble") == 0) {
       opts->noappledouble_set = true;
       return 1; // continue processing
     }
 
-    if (strstr(arg, "volname=") == arg) {
+    if (arg.find("volname=") == 0) {
       opts->volname_set = true;
       return 1; // continue processing
     }
   #endif
 
   if (key == FUSE_OPT_KEY_NONOPT)
-    opts->mountpoint = arg; // assume that the mountpoint is the only non-option
+    opts->mountpoint = c_arg; // assume that the mountpoint is the only non-option
 
   return 1;
 }
@@ -235,7 +240,8 @@ int main(int argc, char **argv)
     operations::init(opts.mountpoint);
     operations::build_fuse_operations(&opers);
 
-    assert(opers.init == NULL);
+    if (opers.init != NULL)
+      throw runtime_error("operations struct defined init when it shouldn't have.");
 
     // not an actual FS operation
     opers.init = init;

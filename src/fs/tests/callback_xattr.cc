@@ -1,10 +1,10 @@
+#include <functional>
 #include <iostream>
 #include <vector>
-#include <boost/bind.hpp>
 
 #include "fs/callback_xattr.h"
 
-using boost::bind;
+using std::bind;
 using std::cout;
 using std::endl;
 using std::string;
@@ -12,6 +12,8 @@ using std::vector;
 
 using s3::fs::callback_xattr;
 using s3::fs::xattr;
+
+using namespace std::placeholders;
 
 string s_val;
 
@@ -63,7 +65,7 @@ int set(const string &val)
 
 int main(int argc, char **argv)
 {
-  const char *TEST = "test";
+  const string TEST = "test";
   xattr::ptr p;
 
   p = callback_xattr::create(
@@ -76,7 +78,7 @@ int main(int argc, char **argv)
   test(p);
 
   cout << "setting..." << endl;
-  p->set_value(TEST, strlen(TEST));
+  p->set_value(TEST.c_str(), TEST.size());
 
   cout << "test 2" << endl;
   test(p);

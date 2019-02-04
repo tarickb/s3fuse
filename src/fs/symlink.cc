@@ -23,9 +23,11 @@
 #include "base/request.h"
 #include "fs/symlink.h"
 
-using boost::defer_lock;
-using boost::mutex;
+using std::defer_lock;
+using std::lock_guard;
+using std::mutex;
 using std::string;
+using std::unique_lock;
 
 using s3::base::request;
 using s3::fs::object;
@@ -63,14 +65,14 @@ symlink::~symlink()
 
 void symlink::set_request_body(const request::ptr &req)
 {
-  mutex::scoped_lock lock(_mutex);
+  lock_guard<mutex> lock(_mutex);
 
   req->set_input_buffer(CONTENT_PREFIX + _target);
 }
 
 int symlink::internal_read(const request::ptr &req)
 {
-  mutex::scoped_lock lock(_mutex, defer_lock);
+  unique_lock<mutex> lock(_mutex, defer_lock);
   string output;
 
   req->init(base::HTTP_GET);

@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#include <boost/lexical_cast.hpp>
-#include <boost/detail/atomic_count.hpp>
+#include <atomic>
+#include <string>
 
 #include "base/config.h"
 #include "base/logger.h"
@@ -35,11 +35,11 @@
 #include "threads/parallel_work_queue.h"
 #include "threads/pool.h"
 
-using boost::lexical_cast;
-using boost::scoped_ptr;
-using boost::detail::atomic_count;
+using std::atomic_int;
 using std::ostream;
 using std::string;
+using std::to_string;
+using std::unique_ptr;
 using std::vector;
 
 using s3::base::char_vector;
@@ -56,6 +56,8 @@ using s3::services::file_transfer;
 using s3::threads::parallel_work_queue;
 using s3::threads::pool;
 
+using namespace std::placeholders;
+
 namespace
 {
   struct download_range
@@ -64,10 +66,10 @@ namespace
     off_t offset;
   };
 
-  atomic_count s_downloads_single(0), s_downloads_single_failed(0);
-  atomic_count s_downloads_multi(0), s_downloads_multi_failed(0), s_downloads_multi_chunks_failed(0);
-  atomic_count s_uploads_single(0), s_uploads_single_failed(0);
-  atomic_count s_uploads_multi(0), s_uploads_multi_failed(0);
+  atomic_int s_downloads_single(0), s_downloads_single_failed(0);
+  atomic_int s_downloads_multi(0), s_downloads_multi_failed(0), s_downloads_multi_chunks_failed(0);
+  atomic_int s_uploads_single(0), s_uploads_single_failed(0);
+  atomic_int s_uploads_multi(0), s_uploads_multi_failed(0);
 
   void statistics_writer(ostream *o)
   {
@@ -99,9 +101,9 @@ namespace
     req->set_url(url);
     req->set_header("Range", 
       string("bytes=") + 
-      lexical_cast<string>(range->offset) + 
+      to_string(range->offset) + 
       string("-") + 
-      lexical_cast<string>(range->offset + range->size));
+      to_string(range->offset + range->size));
 
     req->run(config::get_transfer_timeout_in_s());
 
@@ -113,7 +115,7 @@ namespace
     return on_write(&req->get_output_buffer()[0], range->size, range->offset);
   }
 
-  int increment_on_result(int r, atomic_count *success, atomic_count *failure)
+  int increment_on_result(int r, atomic_int *success, atomic_int *failure)
   {
     if (r)
       ++(*failure);
@@ -188,7 +190,7 @@ int file_transfer::download_multi(const string &url, size_t size, const file_tra
 {
   typedef parallel_work_queue<download_range> multipart_download;
 
-  scoped_ptr<multipart_download> dl;
+  unique_ptr<multipart_download> dl;
   size_t num_parts = (size + get_download_chunk_size() - 1) / get_download_chunk_size();
   vector<download_range> parts(num_parts);
 

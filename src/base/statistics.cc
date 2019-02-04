@@ -21,9 +21,9 @@
 
 #include "base/statistics.h"
 
-using boost::mutex;
-using boost::shared_ptr;
+using std::mutex;
 using std::ostream;
+using std::shared_ptr;
 
 using s3::base::statistics;
 

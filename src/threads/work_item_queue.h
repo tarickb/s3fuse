@@ -24,9 +24,9 @@
 
 #include <deque>
 
-#include <boost/smart_ptr.hpp>
-#include <boost/thread.hpp>
-#include <boost/thread/condition.hpp>
+#include <condition_variable>
+#include <memory>
+#include <thread>
 
 #include "threads/work_item.h"
 
@@ -37,7 +37,7 @@ namespace s3
     class work_item_queue
     {
     public:
-      typedef boost::shared_ptr<work_item_queue> ptr;
+      typedef std::shared_ptr<work_item_queue> ptr;
 
       inline work_item_queue()
         : _done(false)
@@ -46,7 +46,7 @@ namespace s3
 
       inline work_item get_next()
       {
-        boost::mutex::scoped_lock lock(_mutex);
+        std::unique_lock<std::mutex> lock(_mutex);
         work_item item;
 
         while (!_done && _queue.empty())
@@ -63,7 +63,7 @@ namespace s3
 
       inline void post(const work_item &item)
       {
-        boost::mutex::scoped_lock lock(_mutex);
+        std::lock_guard<std::mutex> lock(_mutex);
 
         _queue.push_back(item);
         _condition.notify_all();
@@ -71,15 +71,15 @@ namespace s3
 
       inline void abort()
       {
-        boost::mutex::scoped_lock lock(_mutex);
+        std::lock_guard<std::mutex> lock(_mutex);
 
         _done = true;
         _condition.notify_all();
       }
 
     private:
-      boost::mutex _mutex;
-      boost::condition _condition;
+      std::mutex _mutex;
+      std::condition_variable _condition;
       std::deque<work_item> _queue;
       bool _done;
     };

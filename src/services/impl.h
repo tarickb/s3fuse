@@ -22,8 +22,8 @@
 #ifndef S3_SERVICES_IMPL_H
 #define S3_SERVICES_IMPL_H
 
+#include <memory>
 #include <string>
-#include <boost/smart_ptr.hpp>
 
 namespace s3
 {
@@ -39,7 +39,7 @@ namespace s3
     class impl
     {
     public:
-      typedef boost::shared_ptr<impl> ptr;
+      typedef std::shared_ptr<impl> ptr;
 
       virtual ~impl();
 
@@ -54,7 +54,7 @@ namespace s3
       virtual void pre_run(base::request *r, int iter) = 0;
       virtual bool should_retry(base::request *r, int iter);
 
-      virtual boost::shared_ptr<file_transfer> build_file_transfer() = 0;
+      virtual std::shared_ptr<file_transfer> build_file_transfer() = 0;
     };
   }
 }

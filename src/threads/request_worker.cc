@@ -19,7 +19,8 @@
  * limitations under the License.
  */
 
-#include <boost/detail/atomic_count.hpp>
+#include <atomic>
+#include <iomanip>
 
 #include "base/logger.h"
 #include "base/request.h"
@@ -30,10 +31,12 @@
 #include "threads/request_worker.h"
 #include "threads/work_item_queue.h"
 
-using boost::mutex;
-using boost::detail::atomic_count;
+using std::atomic_int;
+using std::lock_guard;
+using std::mutex;
 using std::ostream;
 using std::setprecision;
+using std::unique_lock;
 
 using s3::base::request;
 using s3::base::statistics;
@@ -49,7 +52,7 @@ namespace
   double s_total_fn_time = 0.0;
 
   mutex s_stats_mutex;
-  atomic_count s_reposted_items(0);
+  atomic_int s_reposted_items(0);
 
   void statistics_writer(ostream *o)
   {
@@ -78,7 +81,7 @@ request_worker::request_worker(const work_item_queue::ptr &queue)
 request_worker::~request_worker()    
 {
   if (_time_in_function > 0.0) {
-    mutex::scoped_lock lock(s_stats_mutex);
+    lock_guard<mutex> lock(s_stats_mutex);
 
     s_total_req_time += _time_in_request;
     s_total_fn_time += _time_in_function;
@@ -87,7 +90,7 @@ request_worker::~request_worker()
 
 bool request_worker::check_timeout()
 {
-  mutex::scoped_lock lock(_mutex);
+  lock_guard<mutex> lock(_mutex);
 
   if (_request->check_timeout()) {
     work_item_queue::ptr queue = _queue.lock();
@@ -112,7 +115,7 @@ bool request_worker::check_timeout()
 void request_worker::work()
 {
   while (true) {
-    mutex::scoped_lock lock(_mutex);
+    unique_lock<mutex> lock(_mutex);
     work_item_queue::ptr queue;
     work_item item;
     int r;
@@ -169,7 +172,7 @@ void request_worker::work()
     }
   }
 
-  // the boost::thread in _thread holds a shared_ptr to this, and will keep it from being destructed
+  // the thread in _thread holds a shared_ptr to this, and will keep it from being destructed
   _thread.reset();
 }
 

@@ -24,14 +24,14 @@
 #include <libxml/tree.h>
 #include <libxml/xpath.h>
 
+#include <regex>
 #include <stdexcept>
-#include <boost/regex.hpp>
-#include <boost/utility.hpp>
 
 #include "base/logger.h"
 #include "base/xml.h"
 
-using boost::regex;
+using std::regex;
+using std::regex_replace;
 using std::runtime_error;
 using std::string;
 
@@ -63,7 +63,7 @@ namespace
   }
 
   template <class T, void (*DTOR)(T *)>
-  class libxml_ptr : boost::noncopyable
+  class libxml_ptr
   {
   public:
     libxml_ptr()
@@ -75,6 +75,9 @@ namespace
       : _ptr(ptr)
     {
     }
+
+    libxml_ptr(const libxml_ptr &) = delete;
+    libxml_ptr & operator =(const libxml_ptr &) = delete;
 
     virtual ~libxml_ptr()
     {

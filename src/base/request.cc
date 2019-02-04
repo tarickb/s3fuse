@@ -22,8 +22,10 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <atomic>
+#include <iomanip>
+#include <mutex>
 #include <stdexcept>
-#include <boost/detail/atomic_count.hpp>
 
 #include "base/config.h"
 #include "base/logger.h"
@@ -32,9 +34,10 @@
 #include "base/statistics.h"
 #include "base/timer.h"
 
-using boost::mutex;
-using boost::detail::atomic_count;
+using std::atomic_int;
+using std::lock_guard;
 using std::min;
+using std::mutex;
 using std::ostream;
 using std::runtime_error;
 using std::setprecision;
@@ -81,9 +84,9 @@ namespace
   uint64_t s_run_count = 0;
   uint64_t s_total_bytes = 0;
   double s_run_time = 0.0;
-  atomic_count s_curl_failures(0), s_request_failures(0);
-  atomic_count s_timeouts(0), s_aborts(0), s_hook_retries(0);
-  atomic_count s_rewinds(0);
+  atomic_int s_curl_failures(0), s_request_failures(0);
+  atomic_int s_timeouts(0), s_aborts(0), s_hook_retries(0);
+  atomic_int s_rewinds(0);
   mutex s_stats_mutex;
 
   void statistics_writer(ostream *o)
@@ -229,7 +232,7 @@ request::request()
 request::~request()
 {
   if (_total_bytes_transferred > 0) {
-    mutex::scoped_lock lock(s_stats_mutex);
+    lock_guard<mutex> lock(s_stats_mutex);
 
     s_run_count += _run_count;
     s_run_time += _total_run_time;

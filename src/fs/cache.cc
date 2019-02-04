@@ -19,7 +19,8 @@
  * limitations under the License.
  */
 
-#include <boost/detail/atomic_count.hpp>
+#include <atomic>
+#include <mutex>
 
 #include "base/config.h"
 #include "base/logger.h"
@@ -27,25 +28,26 @@
 #include "fs/cache.h"
 #include "fs/directory.h"
 
-using boost::mutex;
-using boost::scoped_ptr;
-using boost::detail::atomic_count;
+using std::atomic_int;
+using std::lock_guard;
+using std::mutex;
 using std::ostream;
 using std::string;
+using std::unique_ptr;
 
 using s3::base::config;
 using s3::base::request;
 using s3::base::statistics;
 using s3::fs::cache;
 
-boost::mutex cache::s_mutex;
-scoped_ptr<cache::cache_map> cache::s_cache_map;
+mutex cache::s_mutex;
+unique_ptr<cache::cache_map> cache::s_cache_map;
 uint64_t cache::s_hits(0), cache::s_misses(0), cache::s_expiries(0);
 statistics::writers::entry cache::s_writer(cache::statistics_writer, 0);
 
 namespace
 {
-  atomic_count s_get_failures(0);
+  atomic_int s_get_failures(0);
 
   inline double percent(uint64_t a, uint64_t b)
   {
@@ -103,7 +105,7 @@ int cache::fetch(const request::ptr &req, const string &path, int hints, object:
   *obj = object::create(path, req);
 
   {
-    mutex::scoped_lock lock(s_mutex);
+    lock_guard<mutex> lock(s_mutex);
     object::ptr &map_obj = (*s_cache_map)[path];
 
     if (map_obj) {

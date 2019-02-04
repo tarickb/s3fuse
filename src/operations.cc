@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
+#include <atomic>
 #include <limits>
-#include <boost/detail/atomic_count.hpp>
 
 #include "operations.h"
 #include "base/config.h"
@@ -34,11 +34,12 @@
 #include "fs/special.h"
 #include "fs/symlink.h"
 
-using boost::static_pointer_cast;
-using boost::detail::atomic_count;
+using std::atomic_int;
+using std::dynamic_pointer_cast;
 using std::numeric_limits;
 using std::ostream;
 using std::runtime_error;
+using std::shared_ptr;
 using std::string;
 using std::vector;
 
@@ -54,12 +55,14 @@ using s3::fs::object;
 using s3::fs::special;
 using s3::fs::symlink;
 
+using namespace std::placeholders;
+
 namespace
 {
-  atomic_count s_reopen_attempts(0), s_reopen_rescues(0), s_reopen_fails(0);
-  atomic_count s_rename_attempts(0), s_rename_fails(0);
-  atomic_count s_create(0), s_mkdir(0), s_mknod(0), s_open(0), s_rename(0), s_symlink(0), s_truncate(0), s_unlink(0);
-  atomic_count s_getattr(0), s_readdir(0), s_readlink(0);
+  atomic_int s_reopen_attempts(0), s_reopen_rescues(0), s_reopen_fails(0);
+  atomic_int s_rename_attempts(0), s_rename_fails(0);
+  atomic_int s_create(0), s_mkdir(0), s_mknod(0), s_open(0), s_rename(0), s_symlink(0), s_truncate(0), s_unlink(0);
+  atomic_int s_getattr(0), s_readdir(0), s_readlink(0);
 
   void dir_filler(fuse_fill_dir_t filler, void *buf, const std::string &path)
   {
@@ -177,7 +180,7 @@ namespace
     return -ENOENT;
 
 #define GET_OBJECT_AS(type, mode, var, path) \
-  type::ptr var = static_pointer_cast<type>(cache::get(path)); \
+  type::ptr var = dynamic_pointer_cast<type>(cache::get(path)); \
   \
   if (!var) \
     return -ENOENT; \
@@ -634,7 +637,7 @@ int operations::rename(const char *from, const char *to)
         if (from_obj->get_type() != S_IFDIR)
           return -EISDIR;
 
-        if (!static_pointer_cast<directory>(to_obj)->is_empty())
+        if (!dynamic_pointer_cast<directory>(to_obj)->is_empty())
           return -ENOTEMPTY;
 
       } else if (from_obj->get_type() == S_IFDIR) {

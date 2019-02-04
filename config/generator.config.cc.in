@@ -23,15 +23,15 @@
 
 #include <fstream>
 #include <stdexcept>
-#include <boost/lexical_cast.hpp>
 
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/paths.h"
 
-using boost::lexical_cast;
 using std::ifstream;
 using std::runtime_error;
+using std::stoi;
+using std::stoull;
 using std::string;
 
 using s3::base::config;
@@ -51,7 +51,7 @@ namespace
   public:
     static void parse(const string &str, T *out)
     {
-      *out = lexical_cast<T>(str);
+      throw runtime_error("unknown or invalid config variable type.");
     }
   };
 
@@ -74,6 +74,36 @@ namespace
       }
 
       throw runtime_error("cannot parse.");
+    }
+  };
+
+  template <>
+  class option_parser_worker<int>
+  {
+  public:
+    static void parse(const string &str, int *out)
+    {
+      *out = stoi(str);
+    }
+  };
+
+  template <>
+  class option_parser_worker<size_t>
+  {
+  public:
+    static void parse(const string &str, size_t *out)
+    {
+      *out = stoull(str);
+    }
+  };
+
+  template <>
+  class option_parser_worker<string>
+  {
+  public:
+    static void parse(const string &str, string *out)
+    {
+      *out = str;
     }
   };
 

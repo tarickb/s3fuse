@@ -22,8 +22,8 @@
 #include <string.h>
 #include <sys/xattr.h>
 
-#include <boost/detail/atomic_count.hpp>
-#include <boost/lexical_cast.hpp>
+#include <atomic>
+#include <string>
 
 #include "base/config.h"
 #include "base/logger.h"
@@ -54,13 +54,16 @@
   #define NEED_XATTR_PREFIX
 #endif
 
-using boost::lexical_cast;
-using boost::mutex;
-using boost::static_pointer_cast;
-using boost::detail::atomic_count;
+using std::atomic_int;
+using std::bind;
+using std::dynamic_pointer_cast;
+using std::lock_guard;
+using std::mutex;
 using std::ostream;
 using std::runtime_error;
+using std::shared_ptr;
 using std::string;
+using std::to_string;
 using std::vector;
 
 using s3::base::config;
@@ -73,6 +76,8 @@ using s3::fs::object;
 using s3::fs::callback_xattr;
 using s3::fs::static_xattr;
 using s3::services::service;
+
+using namespace std::placeholders;
 
 namespace
 {
@@ -116,8 +121,8 @@ namespace
 
   const char VERSION_SEPARATOR = '#';
 
-  atomic_count s_precon_failed_commits(0), s_new_etag_on_commit(0);
-  atomic_count s_commit_failures(0), s_precon_rescues(0), s_abandoned_commits(0);
+  atomic_int s_precon_failed_commits(0), s_new_etag_on_commit(0);
+  atomic_int s_commit_failures(0), s_precon_rescues(0), s_abandoned_commits(0);
 
   void statistics_writer(ostream *o)
   {
@@ -286,7 +291,7 @@ void object::update_stat()
 
 int object::set_metadata(const string &key, const char *value, size_t size, int flags, bool *needs_commit)
 {
-  mutex::scoped_lock lock(_mutex);
+  lock_guard<mutex> lock(_mutex);
   string user_key = key.substr(XATTR_PREFIX_LEN);
   xattr_map::iterator itor = _metadata.find(user_key);
 
@@ -323,7 +328,7 @@ int object::set_metadata(const string &key, const char *value, size_t size, int 
 
 void object::get_metadata_keys(vector<string> *keys)
 {
-  mutex::scoped_lock lock(_mutex);
+  lock_guard<mutex> lock(_mutex);
 
   for (xattr_map::const_iterator itor = _metadata.begin(); itor != _metadata.end(); ++itor) {
     if (itor->second->is_visible()) {
@@ -338,7 +343,7 @@ void object::get_metadata_keys(vector<string> *keys)
 
 int object::get_metadata(const string &key, char *buffer, size_t max_size)
 {
-  mutex::scoped_lock lock(_mutex);
+  lock_guard<mutex> lock(_mutex);
   xattr::ptr value;
   string user_key = key.substr(XATTR_PREFIX_LEN);
   xattr_map::const_iterator itor;
@@ -358,7 +363,7 @@ int object::get_metadata(const string &key, char *buffer, size_t max_size)
 
 int object::remove_metadata(const string &key)
 {
-  mutex::scoped_lock lock(_mutex);
+  lock_guard<mutex> lock(_mutex);
   xattr_map::iterator itor = _metadata.find(key.substr(XATTR_PREFIX_LEN));
 
   if (itor == _metadata.end() || !itor->second->is_removable())
@@ -486,7 +491,7 @@ void object::init(const request::ptr &req)
 
 void object::set_request_headers(const request::ptr &req)
 {
-  mutex::scoped_lock lock(_mutex);
+  lock_guard<mutex> lock(_mutex);
   xattr_map::const_iterator itor;
   const string &meta_prefix = service::get_header_meta_prefix();
   char buf[16];
@@ -524,7 +529,7 @@ void object::set_request_headers(const request::ptr &req)
   itor = _metadata.find(CACHE_CONTROL_XATTR);
 
   if (itor != _metadata.end())
-    req->set_header("Cache-Control", static_pointer_cast<static_xattr>(itor->second)->to_string());
+    req->set_header("Cache-Control", dynamic_pointer_cast<static_xattr>(itor->second)->to_string());
 }
 
 void object::set_request_body(const request::ptr &req)
@@ -720,7 +725,7 @@ int object::fetch_all_versions(const request::ptr &req, bool empties, string *ou
 
   if (empty_count) {
     if (!versions_str.empty()) versions_str += "\n";
-    versions_str += "(" + lexical_cast<string>(empty_count) + " empty version(s) omitted. Request extended attribute \"" + ALL_VERSIONS_INCL_EMPTY_XATTR + "\" to see empty versions.)\n";
+    versions_str += "(" + to_string(empty_count) + " empty version(s) omitted. Request extended attribute \"" + ALL_VERSIONS_INCL_EMPTY_XATTR + "\" to see empty versions.)\n";
   }
 
   *out = versions_str;
@@ -731,5 +736,5 @@ int object::get_all_versions(bool empties, string *out)
 {
   return threads::pool::call(
     threads::PR_REQ_1,
-    boost::bind(&object::fetch_all_versions, this, _1, empties, out));
+    bind(&object::fetch_all_versions, this, _1, empties, out));
 }

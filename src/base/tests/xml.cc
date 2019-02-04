@@ -1,12 +1,10 @@
 #include <string.h>
 
 #include <stdexcept>
-#include <boost/lexical_cast.hpp>
 #include <gtest/gtest.h>
 
 #include "base/xml.h"
 
-using boost::lexical_cast;
 using std::string;
 
 using s3::base::xml;
@@ -170,7 +168,7 @@ TEST(xml, find_list_c_multiple)
   for (xml::element_list::const_iterator itor = list.begin(); itor != list.end(); ++itor) {
     string exp = "ec";
 
-    exp += lexical_cast<string>(i++);
+    exp += std::to_string(i++);
 
     EXPECT_EQ(exp, *itor);
   }

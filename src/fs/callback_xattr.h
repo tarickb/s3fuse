@@ -23,8 +23,8 @@
 #ifndef S3_FS_CALLBACK_XATTR_H
 #define S3_FS_CALLBACK_XATTR_H
 
+#include <functional>
 #include <string>
-#include <boost/function.hpp>
 
 #include "fs/xattr.h"
 
@@ -35,8 +35,8 @@ namespace s3
     class callback_xattr : public xattr
     {
     public:
-      typedef boost::function1<int, std::string *> get_value_function;
-      typedef boost::function1<int, std::string> set_value_function;
+      typedef std::function<int(std::string *)> get_value_function;
+      typedef std::function<int(std::string)> set_value_function;
 
       inline static ptr create(
         const std::string &key, 

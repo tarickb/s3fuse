@@ -22,7 +22,7 @@
 #ifndef S3_FS_BUCKET_VOLUME_KEY_H
 #define S3_FS_BUCKET_VOLUME_KEY_H
 
-#include <boost/smart_ptr.hpp>
+#include <memory>
 
 #include "base/request.h"
 #include "crypto/aes_cbc_256.h"
@@ -41,18 +41,18 @@ namespace s3
     public:
       typedef crypto::aes_cbc_256_with_pkcs key_cipher;
 
-      typedef boost::shared_ptr<bucket_volume_key> ptr;
+      typedef std::shared_ptr<bucket_volume_key> ptr;
 
       static ptr fetch(const base::request::ptr &req, const std::string &id);
       static ptr generate(const base::request::ptr &req, const std::string &id);
       static void get_keys(const base::request::ptr &req, std::vector<std::string> *keys);
 
-      inline const boost::shared_ptr<crypto::buffer> & get_volume_key() { return _volume_key; }
+      inline const std::shared_ptr<crypto::buffer> & get_volume_key() { return _volume_key; }
       inline const std::string & get_id() { return _id; }
 
-      void unlock(const boost::shared_ptr<crypto::buffer> &key);
+      void unlock(const std::shared_ptr<crypto::buffer> &key);
       void remove(const base::request::ptr &req);
-      void commit(const base::request::ptr &req, const boost::shared_ptr<crypto::buffer> &key);
+      void commit(const base::request::ptr &req, const std::shared_ptr<crypto::buffer> &key);
 
       ptr clone(const std::string &new_id);
 
@@ -65,7 +65,7 @@ namespace s3
       void generate();
 
       std::string _id, _encrypted_key;
-      boost::shared_ptr<crypto::buffer> _volume_key;
+      std::shared_ptr<crypto::buffer> _volume_key;
     };
   }
 }

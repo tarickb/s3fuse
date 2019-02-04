@@ -21,6 +21,7 @@
 
 #include <getopt.h>
 
+#include <cstring>
 #include <fstream>
 #include <iostream>
 
@@ -44,6 +45,7 @@ using std::ifstream;
 using std::ofstream;
 using std::runtime_error;
 using std::string;
+using std::strrchr;
 using std::vector;
 
 using s3::init;

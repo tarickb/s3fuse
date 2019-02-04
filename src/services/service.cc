@@ -19,13 +19,14 @@
  * limitations under the License.
  */
 
+#include <memory>
 #include <stdexcept>
 
 #include "base/request.h"
 #include "base/request_hook.h"
 #include "services/service.h"
 
-using boost::shared_ptr;
+using std::shared_ptr;
 using std::string;
 
 using s3::base::request;

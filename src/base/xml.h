@@ -24,9 +24,9 @@
 
 #include <list>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
-#include <boost/smart_ptr.hpp>
 
 namespace s3
 {
@@ -40,7 +40,7 @@ namespace s3
     public:
       static const char *MAP_NAME_KEY;
 
-      typedef boost::shared_ptr<document> document_ptr;
+      typedef std::shared_ptr<document> document_ptr;
       typedef std::list<std::string> element_list;
       typedef std::map<std::string, std::string> element_map;
       typedef std::list<element_map> element_map_list;

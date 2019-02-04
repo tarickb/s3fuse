@@ -26,6 +26,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 
+#include <cstring>
 #include <iostream>
 
 #include "crypto/hash_list.h"
@@ -36,6 +37,7 @@ using std::cerr;
 using std::cout;
 using std::endl;
 using std::runtime_error;
+using std::strrchr;
 
 using s3::crypto::hash_list;
 using s3::crypto::hex;

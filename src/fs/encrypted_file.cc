@@ -19,7 +19,7 @@
  * limitations under the License.
  */
 
-#include <boost/detail/atomic_count.hpp>
+#include <atomic>
 
 #include "base/logger.h"
 #include "base/request.h"
@@ -34,7 +34,7 @@
 #include "fs/metadata.h"
 #include "services/service.h"
 
-using boost::detail::atomic_count;
+using std::atomic_int;
 using std::ostream;
 using std::runtime_error;
 using std::string;
@@ -61,7 +61,7 @@ namespace
   const string CONTENT_TYPE = "binary/encrypted-s3fuse-file_0100"; // version 1.0
   const string META_VERIFIER = "s3fuse_enc_meta ";
 
-  atomic_count s_non_empty_but_not_intact(0), s_no_iv_or_meta(0), s_init_errors(0), s_open_without_key(0);
+  atomic_int s_non_empty_but_not_intact(0), s_no_iv_or_meta(0), s_init_errors(0), s_open_without_key(0);
 
   object * checker(const string &path, const request::ptr &req)
   {

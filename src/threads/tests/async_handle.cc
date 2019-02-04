@@ -1,10 +1,11 @@
+#include <thread>
 #include <gtest/gtest.h>
 
 #include "threads/async_handle.h"
 
-using boost::bind;
-using boost::scoped_ptr;
-using boost::thread;
+using std::bind;
+using std::unique_ptr;
+using std::thread;
 
 using s3::threads::callback_async_handle;
 using s3::threads::wait_async_handle;
@@ -39,7 +40,7 @@ TEST(wait_async_handle, signal_before_wait)
 TEST(wait_async_handle, signal_after_wait)
 {
   wait_async_handle::ptr h(new wait_async_handle());
-  scoped_ptr<thread> t(new thread(bind(delay_signal_handle, h, 321)));
+  unique_ptr<thread> t(new thread(bind(delay_signal_handle, h, 321)));
 
   EXPECT_EQ(321, h->wait());
 

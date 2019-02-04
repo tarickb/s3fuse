@@ -22,8 +22,8 @@
 #ifndef S3_THREADS_WORK_ITEM_H
 #define S3_THREADS_WORK_ITEM_H
 
-#include <boost/function.hpp>
-#include <boost/smart_ptr.hpp>
+#include <functional>
+#include <memory>
 
 namespace s3
 {
@@ -39,14 +39,14 @@ namespace s3
     class work_item
     {
     public:
-      typedef boost::function1<int, boost::shared_ptr<base::request> > worker_function;
+      typedef std::function<int(std::shared_ptr<base::request>)> worker_function;
 
       inline work_item()
         : _retries(-1)
       {
       }
 
-      inline work_item(const worker_function &function, const boost::shared_ptr<async_handle> &ah, int retries)
+      inline work_item(const worker_function &function, const std::shared_ptr<async_handle> &ah, int retries)
         : _function(function), 
           _ah(ah),
           _retries(retries)
@@ -56,7 +56,7 @@ namespace s3
       inline bool is_valid() const { return _ah.get() != nullptr; }
       inline bool has_retries_left() const { return _retries > 0; }
 
-      inline const boost::shared_ptr<async_handle> & get_ah() const { return _ah; }
+      inline const std::shared_ptr<async_handle> & get_ah() const { return _ah; }
       inline const worker_function & get_function() const { return _function; }
 
       inline work_item decrement_retry_counter() const
@@ -66,7 +66,7 @@ namespace s3
 
     private:
       worker_function _function;
-      boost::shared_ptr<async_handle> _ah;
+      std::shared_ptr<async_handle> _ah;
       int _retries;
     };
   }

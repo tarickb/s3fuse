@@ -22,8 +22,8 @@
 #ifndef S3_FS_LIST_READER_H
 #define S3_FS_LIST_READER_H
 
+#include <memory>
 #include <string>
-#include <boost/smart_ptr.hpp>
 
 #include "base/xml.h"
 
@@ -39,7 +39,7 @@ namespace s3
     class list_reader
     {
     public:
-      typedef boost::shared_ptr<list_reader> ptr;
+      typedef std::shared_ptr<list_reader> ptr;
 
       list_reader(
         const std::string &prefix, 
@@ -47,7 +47,7 @@ namespace s3
         int max_keys = -1);
 
       int read(
-        const boost::shared_ptr<base::request> &req, 
+        const std::shared_ptr<base::request> &req, 
         base::xml::element_list *keys, 
         base::xml::element_list *prefixes);
 

@@ -19,9 +19,12 @@
  * limitations under the License.
  */
 
-#include <boost/detail/atomic_count.hpp>
-#include <boost/property_tree/json_parser.hpp>
-#include <boost/property_tree/ptree.hpp>
+#include <atomic>
+#include <memory>
+#include <mutex>
+#include <sstream>
+
+#include <json/json.h>
 
 #include "base/config.h"
 #include "base/logger.h"
@@ -31,12 +34,13 @@
 #include "services/gs/file_transfer.h"
 #include "services/gs/impl.h"
 
-using boost::mutex;
-using boost::detail::atomic_count;
-using boost::property_tree::ptree;
-using boost::shared_ptr;
+using std::atomic_int;
+using std::mutex;
+using std::shared_ptr;
 using std::endl;
 using std::ifstream;
+using std::lock_guard;
+using std::mutex;
 using std::ofstream;
 using std::ostream;
 using std::runtime_error;
@@ -69,7 +73,7 @@ namespace
     "scope=" + OAUTH_SCOPE + "&"
     "response_type=code";
 
-  atomic_count s_refresh_on_fail(0), s_refresh_on_expiry(0);
+  atomic_int s_refresh_on_fail(0), s_refresh_on_expiry(0);
 
   void statistics_writer(ostream *o)
   {
@@ -92,7 +96,7 @@ void impl::get_tokens(get_tokens_mode mode, const string &key, string *access_to
   request req;
   string data;
   stringstream ss;
-  ptree tree;
+  Json::Value tree;
 
   data =
     "client_id=" + CLIENT_ID + "&"
@@ -122,13 +126,18 @@ void impl::get_tokens(get_tokens_mode mode, const string &key, string *access_to
   }
 
   ss << req.get_output_string();
-  read_json(ss, tree);
+  ss >> tree;
 
-  *access_token = tree.get<string>("access_token");
-  *expiry = time(NULL) + tree.get<int>("expires_in");
+  if (!tree.isMember("access_token") || !tree.isMember("expires_in") ||
+      !tree.isMember("refresh_token")) {
+    throw runtime_error("failed to parse response.");
+  }
+
+  *access_token = tree["access_token"].asString();
+  *expiry = time(NULL) + tree["expires_in"].asInt();
 
   if (mode == GT_AUTH_CODE)
-    *refresh_token = tree.get<string>("refresh_token");
+    *refresh_token = tree["refresh_token"].asString();
 }
 
 string impl::read_token(const string &file)
@@ -153,7 +162,7 @@ void impl::write_token(const string &file, const string &token)
 impl::impl()
   : _expiry(0)
 {
-  mutex::scoped_lock lock(_mutex);
+  lock_guard<mutex> lock(_mutex);
 
   _bucket_url = string("/") + request::url_encode(config::get_bucket_name());
 
@@ -183,7 +192,7 @@ bool impl::is_next_marker_supported()
 
 void impl::sign(request *req, int iter)
 {
-  mutex::scoped_lock lock(_mutex);
+  lock_guard<mutex> lock(_mutex);
 
   if (iter > 0) {
     ++s_refresh_on_fail;
@@ -202,7 +211,7 @@ void impl::sign(request *req, int iter)
     req->set_header("x-goog-project-id", config::get_gs_project_id());
 }
 
-void impl::refresh(const mutex::scoped_lock &lock)
+void impl::refresh(const lock_guard<mutex> &lock)
 {
   impl::get_tokens(
     GT_REFRESH, 

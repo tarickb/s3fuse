@@ -22,10 +22,9 @@
 #ifndef S3_FS_GLACIER_H
 #define S3_FS_GLACIER_H
 
+#include <functional>
+#include <memory>
 #include <string>
-#include <boost/bind.hpp>
-#include <boost/lexical_cast.hpp>
-#include <boost/shared_ptr.hpp>
 
 #include "threads/pool.h"
 
@@ -39,9 +38,9 @@ namespace s3
     class glacier
     {
     public:
-      typedef boost::shared_ptr<glacier> ptr;
+      typedef std::shared_ptr<glacier> ptr;
 
-      inline static ptr create(const object *obj, const boost::shared_ptr<base::request> &req)
+      inline static ptr create(const object *obj, const std::shared_ptr<base::request> &req)
       {
         ptr p(new glacier(obj));
 
@@ -50,10 +49,10 @@ namespace s3
         return p;
       }
 
-      inline const boost::shared_ptr<xattr> & get_storage_class_xattr() { return _storage_class_xattr; }
-      inline const boost::shared_ptr<xattr> & get_restore_ongoing_xattr() { return _restore_ongoing_xattr; }
-      inline const boost::shared_ptr<xattr> & get_restore_expiry_xattr() { return _restore_expiry_xattr; }
-      inline const boost::shared_ptr<xattr> & get_request_restore_xattr() { return _request_restore_xattr; }
+      inline const std::shared_ptr<xattr> & get_storage_class_xattr() { return _storage_class_xattr; }
+      inline const std::shared_ptr<xattr> & get_restore_ongoing_xattr() { return _restore_ongoing_xattr; }
+      inline const std::shared_ptr<xattr> & get_restore_expiry_xattr() { return _restore_expiry_xattr; }
+      inline const std::shared_ptr<xattr> & get_request_restore_xattr() { return _request_restore_xattr; }
 
     private:
       glacier(const object *obj);
@@ -63,7 +62,7 @@ namespace s3
         if (_storage_class.empty()) {
           int r = threads::pool::call(
             threads::PR_REQ_1,
-            boost::bind(&glacier::query_storage_class, this, _1));
+            std::bind(&glacier::query_storage_class, this, std::placeholders::_1));
 
           if (r)
             return r;
@@ -93,23 +92,23 @@ namespace s3
         int days;
 
         try {
-          days = boost::lexical_cast<int>(days_str);
+          days = std::stoi(days_str);
         } catch (...) {
           return -EINVAL;
         }
 
         return threads::pool::call(
           threads::PR_REQ_1,
-          boost::bind(&glacier::start_restore, this, _1, days));
+          std::bind(&glacier::start_restore, this, std::placeholders::_1, days));
       }
 
-      void read_restore_status(const boost::shared_ptr<base::request> &req);
-      int query_storage_class(const boost::shared_ptr<base::request> &req);
-      int start_restore(const boost::shared_ptr<base::request> &req, int days);
+      void read_restore_status(const std::shared_ptr<base::request> &req);
+      int query_storage_class(const std::shared_ptr<base::request> &req);
+      int start_restore(const std::shared_ptr<base::request> &req, int days);
 
       const object *_object;
       std::string _storage_class, _restore_ongoing, _restore_expiry;
-      boost::shared_ptr<xattr> _storage_class_xattr, _restore_ongoing_xattr, _restore_expiry_xattr, _request_restore_xattr;
+      std::shared_ptr<xattr> _storage_class_xattr, _restore_ongoing_xattr, _restore_expiry_xattr, _request_restore_xattr;
     };
   }
 }

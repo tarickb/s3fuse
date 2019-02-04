@@ -22,7 +22,7 @@
 #ifndef S3_SERVICES_GS_IMPL_H
 #define S3_SERVICES_GS_IMPL_H
 
-#include <boost/thread.hpp>
+#include <mutex>
 
 #include "services/impl.h"
 
@@ -64,13 +64,13 @@ namespace s3
         virtual void pre_run(base::request *r, int iter);
         virtual bool should_retry(base::request *r, int iter);
 
-        virtual boost::shared_ptr<services::file_transfer> build_file_transfer();
+        virtual std::shared_ptr<services::file_transfer> build_file_transfer();
 
       private:
         void sign(base::request *req, int iter);
-        void refresh(const boost::mutex::scoped_lock &lock);
+        void refresh(const std::lock_guard<std::mutex> &lock);
 
-        boost::mutex _mutex;
+        std::mutex _mutex;
         std::string _access_token, _refresh_token, _bucket_url;
         time_t _expiry;
       };

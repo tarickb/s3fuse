@@ -22,6 +22,10 @@
 #ifndef S3_FS_DIRECTORY_H
 #define S3_FS_DIRECTORY_H
 
+#include <functional>
+#include <list>
+#include <mutex>
+
 #include "fs/object.h"
 #include "threads/pool.h"
 
@@ -32,23 +36,23 @@ namespace s3
     class directory : public object
     {
     public:
-      typedef boost::shared_ptr<directory> ptr;
-      typedef boost::function1<void, const std::string &> filler_function;
+      typedef std::shared_ptr<directory> ptr;
+      typedef std::function<void(const std::string &)> filler_function;
 
       static std::string build_url(const std::string &path);
-      static void get_internal_objects(const boost::shared_ptr<base::request> &req, std::vector<std::string> *objects);
+      static void get_internal_objects(const std::shared_ptr<base::request> &req, std::vector<std::string> *objects);
 
       directory(const std::string &path);
       virtual ~directory();
 
       inline ptr shared_from_this()
       {
-        return boost::static_pointer_cast<directory>(object::shared_from_this());
+        return std::dynamic_pointer_cast<directory>(object::shared_from_this());
       }
 
       inline int read(const filler_function &filler)
       {
-        boost::mutex::scoped_lock lock(_mutex);
+        std::unique_lock<std::mutex> lock(_mutex);
         cache_list_ptr cache;
 
         cache = _cache;
@@ -66,29 +70,33 @@ namespace s3
         } else {
           return threads::pool::call(
             threads::PR_REQ_0, 
-            bind(&directory::read, shared_from_this(), _1, filler));
+            bind(&directory::do_read, shared_from_this(), std::placeholders::_1, filler));
         }
       }
 
-      bool is_empty(const boost::shared_ptr<base::request> &req);
+      bool is_empty(const std::shared_ptr<base::request> &req);
+
+      inline bool is_empty_wrapper(const std::shared_ptr<base::request> &req) {
+        return is_empty(req);
+      }
 
       inline bool is_empty()
       {
         return threads::pool::call(
           threads::PR_REQ_0, 
-          boost::bind(&directory::is_empty, shared_from_this(), _1));
+          std::bind(&directory::is_empty_wrapper, shared_from_this(), std::placeholders::_1));
       }
 
-      virtual int remove(const boost::shared_ptr<base::request> &req);
-      virtual int rename(const boost::shared_ptr<base::request> &req, const std::string &to);
+      virtual int remove(const std::shared_ptr<base::request> &req);
+      virtual int rename(const std::shared_ptr<base::request> &req, const std::string &to);
 
     private:
       typedef std::list<std::string> cache_list;
-      typedef boost::shared_ptr<cache_list> cache_list_ptr;
+      typedef std::shared_ptr<cache_list> cache_list_ptr;
 
-      int read(const boost::shared_ptr<base::request> &req, const filler_function &filler);
+      int do_read(const std::shared_ptr<base::request> &req, const filler_function &filler);
 
-      boost::mutex _mutex;
+      std::mutex _mutex;
       cache_list_ptr _cache;
     };
   }

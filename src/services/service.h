@@ -22,8 +22,8 @@
 #ifndef S3_SERVICES_SERVICE_H
 #define S3_SERVICES_SERVICE_H
 
+#include <memory>
 #include <string>
-#include <boost/smart_ptr.hpp>
 
 #include "services/impl.h"
 
@@ -50,12 +50,12 @@ namespace s3
 
       inline static base::request_hook * get_request_hook() { return s_hook.get(); }
 
-      inline static const boost::shared_ptr<file_transfer> & get_file_transfer() { return s_file_transfer; }
+      inline static const std::shared_ptr<file_transfer> & get_file_transfer() { return s_file_transfer; }
 
     private:
       static impl::ptr s_impl;
-      static boost::shared_ptr<base::request_hook> s_hook;
-      static boost::shared_ptr<file_transfer> s_file_transfer;
+      static std::shared_ptr<base::request_hook> s_hook;
+      static std::shared_ptr<file_transfer> s_file_transfer;
     };
   }
 }

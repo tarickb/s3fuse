@@ -22,9 +22,10 @@
 #ifndef S3_FS_CACHE_H
 #define S3_FS_CACHE_H
 
+#include <functional>
+#include <memory>
+#include <mutex>
 #include <string>
-#include <boost/smart_ptr.hpp>
-#include <boost/thread.hpp>
 
 #include "base/logger.h"
 #include "base/lru_cache_map.h"
@@ -51,7 +52,7 @@ namespace s3
     class cache
     {
     public:
-      typedef boost::function1<void, object::ptr> locked_object_function;
+      typedef std::function<void(object::ptr)> locked_object_function;
 
       static void init();
 
@@ -62,12 +63,12 @@ namespace s3
         if (!obj)
           threads::pool::call(
             threads::PR_REQ_0,
-            boost::bind(&cache::fetch, _1, path, hints, &obj));
+            std::bind(&cache::fetch, std::placeholders::_1, path, hints, &obj));
 
         return obj;
       }
 
-      inline static object::ptr get(const boost::shared_ptr<base::request> &req, const std::string &path, int hints = HINT_NONE)
+      inline static object::ptr get(const std::shared_ptr<base::request> &req, const std::string &path, int hints = HINT_NONE)
       {
         object::ptr obj = find(path);
 
@@ -79,7 +80,7 @@ namespace s3
 
       inline static int remove(const std::string &path)
       {
-        boost::mutex::scoped_lock lock(s_mutex);
+        std::lock_guard<std::mutex> lock(s_mutex);
         object::ptr o;
 
         if (!s_cache_map->find(path, &o))
@@ -97,7 +98,7 @@ namespace s3
       // only cached object at "path"
       inline static void lock_object(const std::string &path, const locked_object_function &fn)
       {
-        boost::mutex::scoped_lock lock(s_mutex, boost::defer_lock);
+        std::unique_lock<std::mutex> lock(s_mutex, std::defer_lock);
         object::ptr obj;
 
         // this puts the object at "path" in the cache if it isn't already there
@@ -131,7 +132,7 @@ namespace s3
 
       inline static object::ptr find(const std::string &path)
       {
-        boost::mutex::scoped_lock lock(s_mutex);
+        std::lock_guard<std::mutex> lock(s_mutex);
         object::ptr &obj = (*s_cache_map)[path];
 
         if (!obj) {
@@ -149,12 +150,12 @@ namespace s3
       }
 
       static void statistics_writer(std::ostream *o);
-      static int fetch(const boost::shared_ptr<base::request> &req, const std::string &path, int hints, object::ptr *obj);
+      static int fetch(const std::shared_ptr<base::request> &req, const std::string &path, int hints, object::ptr *obj);
 
       typedef base::lru_cache_map<std::string, object::ptr, is_object_removable> cache_map;
 
-      static boost::mutex s_mutex;
-      static boost::scoped_ptr<cache_map> s_cache_map;
+      static std::mutex s_mutex;
+      static std::unique_ptr<cache_map> s_cache_map;
       static uint64_t s_hits, s_misses, s_expiries;
 
       static base::statistics::writers::entry s_writer;

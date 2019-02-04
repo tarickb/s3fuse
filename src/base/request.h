@@ -26,11 +26,9 @@
 #include <stdio.h>
 
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
-#include <boost/function.hpp>
-#include <boost/smart_ptr.hpp>
-#include <boost/utility.hpp>
 
 #include "base/curl_easy_handle.h"
 
@@ -67,16 +65,19 @@ namespace s3
 
     typedef std::map<std::string, std::string> header_map;
     typedef std::vector<char> char_vector;
-    typedef boost::shared_ptr<char_vector> char_vector_ptr;
+    typedef std::shared_ptr<char_vector> char_vector_ptr;
 
     class request_hook;
 
-    class request : boost::noncopyable
+    class request
     {
     public:
       static const int DEFAULT_REQUEST_TIMEOUT = -1;
 
-      typedef boost::shared_ptr<request> ptr;
+      typedef std::shared_ptr<request> ptr;
+
+      request(const request &) = delete;
+      request & operator =(const request &) = delete;
 
       inline static std::string url_encode(const std::string &url)
       {

@@ -19,7 +19,7 @@
  * limitations under the License.
  */
 
-#include <boost/detail/atomic_count.hpp>
+#include <atomic>
 
 #include "base/config.h"
 #include "base/logger.h"
@@ -32,13 +32,14 @@
 #include "threads/parallel_work_queue.h"
 #include "threads/pool.h"
 
-using boost::mutex;
-using boost::scoped_ptr;
-using boost::detail::atomic_count;
+using std::atomic_int;
 using std::list;
+using std::lock_guard;
+using std::mutex;
 using std::ostream;
 using std::runtime_error;
 using std::string;
+using std::unique_ptr;
 using std::vector;
 
 using s3::base::config;
@@ -52,10 +53,12 @@ using s3::fs::object;
 using s3::threads::parallel_work_queue;
 using s3::threads::pool;
 
+using namespace std::placeholders;
+
 namespace
 {
-  atomic_count s_internal_objects_skipped_in_list(0);
-  atomic_count s_copy_retries(0), s_delete_retries(0);
+  atomic_int s_internal_objects_skipped_in_list(0);
+  atomic_int s_copy_retries(0), s_delete_retries(0);
 
   void statistics_writer(ostream *o)
   {
@@ -150,7 +153,7 @@ directory::~directory()
 {
 }
 
-int directory::read(const request::ptr &req, const filler_function &filler)
+int directory::do_read(const request::ptr &req, const filler_function &filler)
 {
   string path = get_path();
   size_t path_len;
@@ -211,7 +214,7 @@ int directory::read(const request::ptr &req, const filler_function &filler)
     return r;
 
   if (cache) {
-    mutex::scoped_lock lock(_mutex);
+    lock_guard<mutex> lock(_mutex);
 
     _cache = cache;
   }
@@ -251,7 +254,7 @@ int directory::rename(const request::ptr &req, const string &to_)
   list_reader::ptr reader;
   xml::element_list keys;
   list<string> relative_paths;
-  scoped_ptr<rename_queue> queue;
+  unique_ptr<rename_queue> queue;
   int r;
 
   // can't do anything with the root directory

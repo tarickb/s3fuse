@@ -24,6 +24,7 @@
 
 #include <stdint.h>
 
+#include <memory>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -41,7 +42,7 @@ namespace s3
     public:
       template <class cipher_type>
       inline static void encrypt(
-        const boost::shared_ptr<symmetric_key> &key, 
+        const std::shared_ptr<symmetric_key> &key, 
         const uint8_t *input, 
         size_t size, 
         std::vector<uint8_t> *output)
@@ -51,7 +52,7 @@ namespace s3
 
       template <class cipher_type, class encoder_type>
       inline static std::string encrypt(
-        const boost::shared_ptr<symmetric_key> &key, 
+        const std::shared_ptr<symmetric_key> &key, 
         const uint8_t *input, 
         size_t size)
       {
@@ -64,7 +65,7 @@ namespace s3
 
       template <class cipher_type, class encoder_type>
       inline static std::string encrypt(
-        const boost::shared_ptr<symmetric_key> &key,
+        const std::shared_ptr<symmetric_key> &key,
         const std::string &input)
       {
         return encrypt<cipher_type, encoder_type>(key, reinterpret_cast<const uint8_t *>(input.c_str()), input.size() + 1);
@@ -72,7 +73,7 @@ namespace s3
 
       template <class cipher_type>
       inline static void decrypt(
-        const boost::shared_ptr<symmetric_key> &key, 
+        const std::shared_ptr<symmetric_key> &key, 
         const uint8_t *input, 
         size_t size, 
         std::vector<uint8_t> *output)
@@ -82,7 +83,7 @@ namespace s3
 
       template <class cipher_type>
       inline static std::string decrypt(
-        const boost::shared_ptr<symmetric_key> &key,
+        const std::shared_ptr<symmetric_key> &key,
         const uint8_t *input,
         size_t size)
       {
@@ -98,7 +99,7 @@ namespace s3
 
       template <class cipher_type, class encoder_type>
       inline static std::string decrypt(
-        const boost::shared_ptr<symmetric_key> &key,
+        const std::shared_ptr<symmetric_key> &key,
         const std::string &input_)
       {
         std::vector<uint8_t> input;

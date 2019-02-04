@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#include <boost/lexical_cast.hpp>
-#include <boost/detail/atomic_count.hpp>
+#include <atomic>
+#include <string>
 
 #include "base/config.h"
 #include "base/logger.h"
@@ -29,11 +29,11 @@
 #include "threads/parallel_work_queue.h"
 #include "threads/pool.h"
 
-using boost::lexical_cast;
-using boost::scoped_ptr;
-using boost::detail::atomic_count;
+using std::to_string;
+using std::atomic_int;
 using std::ostream;
 using std::string;
+using std::unique_ptr;
 using std::vector;
 
 using s3::base::char_vector;
@@ -45,13 +45,15 @@ using s3::services::gs::file_transfer;
 using s3::threads::parallel_work_queue;
 using s3::threads::pool;
 
+using namespace std::placeholders;
+
 namespace
 {
   const size_t UPLOAD_CHUNK_SIZE = 256 * 1024;
 
   const string UPLOAD_ID_DELIM = "?upload_id=";
 
-  atomic_count s_uploads_multi_chunks_failed(0);
+  atomic_int s_uploads_multi_chunks_failed(0);
 
   void statistics_writer(ostream *o)
   {
@@ -84,7 +86,7 @@ int file_transfer::upload_multi(const string &url, size_t size, const read_chunk
   const size_t num_parts = (size + _upload_chunk_size - 1) / _upload_chunk_size;
   vector<upload_range> parts(num_parts);
   upload_range last_part;
-  scoped_ptr<multipart_upload> upload;
+  unique_ptr<multipart_upload> upload;
   int r;
 
   r = pool::call(threads::PR_REQ_0, bind(&file_transfer::upload_multi_init, this, _1, url, &location));
@@ -142,11 +144,11 @@ int file_transfer::read_and_upload(
   req->set_input_buffer(buffer);
 
   content_range += 
-    lexical_cast<string>(range->offset) + 
+    to_string(range->offset) + 
     "-" +
-    lexical_cast<string>(range->offset + range->size - 1) +
+    to_string(range->offset + range->size - 1) +
     "/" +
-    ((total_size == 0) ? string("*") : lexical_cast<string>(total_size));
+    ((total_size == 0) ? string("*") : to_string(total_size));
 
   req->set_header("Content-Range", content_range);
 

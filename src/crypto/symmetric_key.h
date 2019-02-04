@@ -23,8 +23,8 @@
 #ifndef S3_CRYPTO_SYMMETRIC_KEY_H
 #define S3_CRYPTO_SYMMETRIC_KEY_H
 
+#include <memory>
 #include <string>
-#include <boost/smart_ptr.hpp>
 
 #include "crypto/buffer.h"
 
@@ -35,7 +35,7 @@ namespace s3
     class symmetric_key
     {
     public:
-      typedef boost::shared_ptr<symmetric_key> ptr;
+      typedef std::shared_ptr<symmetric_key> ptr;
 
       template <class cipher_type>
       inline static ptr generate()

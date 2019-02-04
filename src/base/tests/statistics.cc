@@ -1,11 +1,13 @@
+#include <memory>
 #include <sstream>
 #include <gtest/gtest.h>
 
 #include "base/statistics.h"
 
-using boost::shared_ptr;
 using std::ostringstream;
+using std::shared_ptr;
 using std::string;
+using std::to_string;
 
 using s3::base::statistics;
 
@@ -18,7 +20,7 @@ TEST(statistics, write_100)
 
   for (int i = 0; i < 10; i++) {
     for (int j = 0; j < 10; j++)
-      statistics::write("object", i, "%i", j);
+      statistics::write("object", to_string(i), "%i", j);
   }
 
   statistics::flush();

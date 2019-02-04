@@ -23,8 +23,8 @@
 #define S3_FS_XATTR_H
 
 #include <map>
+#include <memory>
 #include <string>
-#include <boost/smart_ptr.hpp>
 
 namespace s3
 {
@@ -33,7 +33,7 @@ namespace s3
     class xattr
     {
     public:
-      typedef boost::shared_ptr<xattr> ptr;
+      typedef std::shared_ptr<xattr> ptr;
 
       enum access_mode
       {
