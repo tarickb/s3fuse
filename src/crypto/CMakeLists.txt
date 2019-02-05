@@ -1,8 +1,5 @@
 find_package(OpenSSL REQUIRED)
 
-include_directories(
-  ${OPENSSL_INCLUDE_DIR})
-
 set(crypto_SOURCES
   aes_cbc_256.cc
   aes_cbc_256.h
@@ -37,4 +34,5 @@ if(EnableTests)
 endif()
 
 add_library(${PROJECT_NAME}_crypto ${crypto_SOURCES})
-target_link_libraries(${PROJECT_NAME}_crypto OpenSSL::Crypto)
+target_link_libraries(${PROJECT_NAME}_crypto ${OPENSSL_CRYPTO_LIBRARY})
+target_include_directories(${PROJECT_NAME}_crypto SYSTEM PUBLIC ${OPENSSL_INCLUDE_DIR})
