@@ -13,7 +13,7 @@ add_executable(${PROJECT_NAME}_base_tests
   statistics.cc
   timer.cc
   xml.cc)
-
 target_link_libraries(${PROJECT_NAME}_base_tests ${PROJECT_NAME}_base ${GTEST_BOTH_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+target_include_directories(${PROJECT_NAME}_base_tests SYSTEM PRIVATE ${GTEST_INCLUDE_DIR})
 
 gtest_discover_tests(${PROJECT_NAME}_base_tests)

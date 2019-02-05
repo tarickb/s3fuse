@@ -20,5 +20,6 @@ add_executable(${PROJECT_NAME}_crypto_tests
   sha256_kat.cc
   symmetric_key.cc)
 target_link_libraries(${PROJECT_NAME}_crypto_tests ${PROJECT_NAME}_crypto ${GTEST_BOTH_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT})
+target_include_directories(${PROJECT_NAME}_crypto_tests SYSTEM PRIVATE ${GTEST_INCLUDE_DIR})
 
 gtest_discover_tests(${PROJECT_NAME}_crypto_tests)
