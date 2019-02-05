@@ -16,8 +16,7 @@ endif()
 
 include_directories(
   ${CMAKE_SOURCE_DIR}/src
-  ${CMAKE_BINARY_DIR}/src
-  ${FUSE_INCLUDE_DIRS})
+  ${CMAKE_BINARY_DIR}/src)
 
 add_subdirectory(base)
 add_subdirectory(crypto)
@@ -53,9 +52,11 @@ if(EnableTests)
 endif()
 
 add_library(${PROJECT_NAME}_init init.h init.cc)
+target_link_libraries(${PROJECT_NAME}_init ${PROJECT_NAME}_crypto)
 
 add_executable(${PROJECT_NAME} main.cc operations.cc operations.h)
-target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_init ${libs} ${FUSE_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_init ${libs} -L${FUSE_LIBRARY_DIRS} ${FUSE_LIBRARIES})
+target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${FUSE_INCLUDE_DIRS})
 
 add_executable(${PROJECT_NAME}_gs_get_token gs_get_token.cc)
 target_link_libraries(${PROJECT_NAME}_gs_get_token ${libs})
