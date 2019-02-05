@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -30,10 +30,9 @@
 #include "crypto/base64.h"
 
 namespace s3 {
-  namespace crypto {
+namespace crypto {
 
-std::string base64::encode(const uint8_t *input, size_t size)
-{
+std::string base64::encode(const uint8_t *input, size_t size) {
   BIO *bio_b64 = BIO_new(BIO_f_base64());
   BIO *bio_mem = BIO_new(BIO_s_mem());
   BUF_MEM *mem;
@@ -53,8 +52,7 @@ std::string base64::encode(const uint8_t *input, size_t size)
   return ret;
 }
 
-void base64::decode(const std::string &input, std::vector<uint8_t> *output)
-{
+void base64::decode(const std::string &input, std::vector<uint8_t> *output) {
   const size_t READ_CHUNK = 1024;
 
   BIO *bio_b64 = BIO_new(BIO_f_base64());
@@ -85,5 +83,5 @@ void base64::decode(const std::string &input, std::vector<uint8_t> *output)
   BIO_free_all(bio_b64);
 }
 
-}  // namespace crypto
-}  // namespace s3
+} // namespace crypto
+} // namespace s3

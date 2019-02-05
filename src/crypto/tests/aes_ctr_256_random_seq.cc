@@ -4,19 +4,31 @@
 #include "crypto/symmetric_key.h"
 #include "crypto/tests/random.h"
 
-namespace s3 { namespace crypto {
-  namespace tests {
+namespace s3 {
+namespace crypto {
+namespace tests {
 
-namespace
-{
-  const int TEST_SIZES[] = { 0, 1, 2, 3, 5, 123, 256, 1023, 1024, 2 * 1024, 64 * 1024 - 1, 1024 * 1024 - 1, 2 * 1024 * 1024, 10 * 1024 * 1024 };
-  const int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
+namespace {
+const int TEST_SIZES[] = {0,
+                          1,
+                          2,
+                          3,
+                          5,
+                          123,
+                          256,
+                          1023,
+                          1024,
+                          2 * 1024,
+                          64 * 1024 - 1,
+                          1024 * 1024 - 1,
+                          2 * 1024 * 1024,
+                          10 * 1024 * 1024};
+const int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
 
-  const size_t CHUNK_SIZE = 8 * 1024;
-}
+const size_t CHUNK_SIZE = 8 * 1024;
+} // namespace
 
-TEST(aes_ctr_256, random_data_sequential)
-{
+TEST(aes_ctr_256, random_data_sequential) {
   for (int test = 0; test < TEST_COUNT; test++) {
     symmetric_key::ptr sk;
     std::vector<uint8_t> in, out_enc, out_dec;
@@ -57,4 +69,6 @@ TEST(aes_ctr_256, random_data_sequential)
   }
 }
 
-} } }
+} // namespace tests
+} // namespace crypto
+} // namespace s3

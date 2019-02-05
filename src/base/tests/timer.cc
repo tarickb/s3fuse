@@ -2,14 +2,11 @@
 
 #include "base/timer.h"
 
-namespace s3
-{
-  namespace base
-  {
-    namespace tests {
+namespace s3 {
+namespace base {
+namespace tests {
 
-TEST(timer, sleep)
-{
+TEST(timer, sleep) {
   double start, stop, diff;
 
   start = timer::get_current_time();
@@ -22,8 +19,7 @@ TEST(timer, sleep)
   EXPECT_LT(diff, 1.1);
 }
 
-TEST(timer, current_time_et)
-{
+TEST(timer, current_time_et) {
   double start, stop, diff;
 
   start = timer::get_current_time();
@@ -36,6 +32,6 @@ TEST(timer, current_time_et)
   EXPECT_LT(diff, 1.1);
 }
 
-}
-  }
-}
+} // namespace tests
+} // namespace base
+} // namespace s3

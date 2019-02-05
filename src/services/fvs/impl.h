@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2013, Tarick Bedeir, Hiroyuki Kakine.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -24,40 +24,36 @@
 
 #include "services/impl.h"
 
-namespace s3
-{
-  namespace services
-  {
-    class file_transfer;
+namespace s3 {
+namespace services {
+class file_transfer;
 
-    namespace fvs
-    {
-      class impl : public services::impl
-      {
-      public:
-        impl();
+namespace fvs {
+class impl : public services::impl {
+public:
+  impl();
 
-        virtual ~impl() { }
+  virtual ~impl() {}
 
-        virtual const std::string & get_header_prefix();
-        virtual const std::string & get_header_meta_prefix();
+  virtual const std::string &get_header_prefix();
+  virtual const std::string &get_header_meta_prefix();
 
-        virtual const std::string & get_bucket_url();
+  virtual const std::string &get_bucket_url();
 
-        virtual bool is_next_marker_supported();
+  virtual bool is_next_marker_supported();
 
-        virtual std::string adjust_url(const std::string &url);
-        virtual void pre_run(base::request *r, int iter);
+  virtual std::string adjust_url(const std::string &url);
+  virtual void pre_run(base::request *r, int iter);
 
-        virtual std::shared_ptr<services::file_transfer> build_file_transfer();
+  virtual std::shared_ptr<services::file_transfer> build_file_transfer();
 
-      private:
-        void sign(base::request *req);
+private:
+  void sign(base::request *req);
 
-        std::string _key, _secret, _endpoint, _bucket_url;
-      };
-    }
-  }
-}
+  std::string _key, _secret, _endpoint, _bucket_url;
+};
+} // namespace fvs
+} // namespace services
+} // namespace s3
 
 #endif

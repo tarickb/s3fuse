@@ -6,13 +6,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,8 +23,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <string.h>
-#include <unistd.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <cstring>
 #include <iostream>
@@ -33,10 +33,9 @@
 #include "crypto/hex.h"
 #include "crypto/sha256.h"
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   using sha256_hash = s3::crypto::hash_list<s3::crypto::sha256>;
-  
+
   struct stat s;
   const char *file_name = NULL;
   int fd = -1;
@@ -45,7 +44,8 @@ int main(int argc, char **argv)
   if (argc != 2) {
     const char *arg0 = std::strrchr(argv[0], '/');
 
-    std::cerr << "Usage: " << (arg0 ? arg0 + 1 : argv[0]) << " <file-name>" << std::endl;
+    std::cerr << "Usage: " << (arg0 ? arg0 + 1 : argv[0]) << " <file-name>"
+              << std::endl;
     return 1;
   }
 
@@ -53,12 +53,14 @@ int main(int argc, char **argv)
   fd = open(file_name, O_RDONLY);
 
   if (fd == -1) {
-    std::cerr << "Error [" << strerror(errno) << "] (" << errno << ") while opening [" << file_name << "]." << std::endl;
+    std::cerr << "Error [" << strerror(errno) << "] (" << errno
+              << ") while opening [" << file_name << "]." << std::endl;
     return 1;
   }
 
   if (fstat(fd, &s)) {
-    std::cerr << "Error [" << strerror(errno) << "] (" << errno << ") while stat-ing [" << file_name << "]." << std::endl;
+    std::cerr << "Error [" << strerror(errno) << "] (" << errno
+              << ") while stat-ing [" << file_name << "]." << std::endl;
     return 1;
   }
 
@@ -70,9 +72,12 @@ int main(int argc, char **argv)
     hash.reset(new sha256_hash(remaining));
 
     while (remaining) {
-      size_t this_chunk = (remaining > sha256_hash::CHUNK_SIZE) ? sha256_hash::CHUNK_SIZE : remaining;
+      size_t this_chunk = (remaining > sha256_hash::CHUNK_SIZE)
+                              ? sha256_hash::CHUNK_SIZE
+                              : remaining;
 
-      if (pread(fd, buffer, this_chunk, offset) != static_cast<ssize_t>(this_chunk))
+      if (pread(fd, buffer, this_chunk, offset) !=
+          static_cast<ssize_t>(this_chunk))
         throw std::runtime_error("pread() failed");
 
       hash->compute_hash(offset, buffer, this_chunk);
@@ -84,7 +89,8 @@ int main(int argc, char **argv)
     std::cout << hash->get_root_hash<s3::crypto::hex>() << std::endl;
 
   } catch (const std::exception &e) {
-    std::cerr << "Caught exception " << e.what() << " while hashing [" << file_name << "]" << std::endl;
+    std::cerr << "Caught exception " << e.what() << " while hashing ["
+              << file_name << "]" << std::endl;
     return 1;
   }
 

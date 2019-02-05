@@ -1,13 +1,13 @@
-#include <stdexcept>
 #include <gtest/gtest.h>
+#include <stdexcept>
 
 #include "base/request.h"
 
 namespace s3 {
-  namespace base { namespace tests {
+namespace base {
+namespace tests {
 
-TEST(request, bad_url)
-{
+TEST(request, bad_url) {
   request r;
 
   r.init(s3::base::HTTP_GET);
@@ -16,8 +16,7 @@ TEST(request, bad_url)
   ASSERT_THROW(r.run(), std::runtime_error);
 }
 
-TEST(request, missing_page)
-{
+TEST(request, missing_page) {
   request r;
 
   r.init(s3::base::HTTP_GET);
@@ -27,8 +26,7 @@ TEST(request, missing_page)
   ASSERT_EQ(s3::base::HTTP_SC_NOT_FOUND, r.get_response_code());
 }
 
-TEST(request, valid_page)
-{
+TEST(request, valid_page) {
   request r;
 
   r.init(s3::base::HTTP_GET);
@@ -39,6 +37,6 @@ TEST(request, valid_page)
   ASSERT_FALSE(r.get_output_string().empty());
 }
 
-}
-}  // namespace base
-}  // namespace s3
+} // namespace tests
+} // namespace base
+} // namespace s3

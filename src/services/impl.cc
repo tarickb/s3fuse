@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,34 +27,35 @@
 #include "services/impl.h"
 
 namespace s3 {
-  namespace services {
+namespace services {
 
-namespace
-{
-  const char *REQ_TIMEOUT_XPATH = "/Error/Code[text() = 'RequestTimeout']";
+namespace {
+const char *REQ_TIMEOUT_XPATH = "/Error/Code[text() = 'RequestTimeout']";
 
-  std::atomic_int s_internal_server_error(0), s_service_unavailable(0);
-  std::atomic_int s_req_timeout(0), s_bad_request(0);
+std::atomic_int s_internal_server_error(0), s_service_unavailable(0);
+std::atomic_int s_req_timeout(0), s_bad_request(0);
 
-  void statistics_writer(std::ostream *o)
-  {
-    *o <<
-      "common service base:\n"
-      "  \"internal server error\": " << s_internal_server_error << "\n"
-      "  \"service unavailable\": " << s_service_unavailable << "\n"
-      "  \"RequestTimeout\": " << s_req_timeout << "\n"
-      "  \"bad request\": " << s_bad_request << "\n";
-  }
-
-  base::statistics::writers::entry s_writer(statistics_writer, 0);
+void statistics_writer(std::ostream *o) {
+  *o << "common service base:\n"
+        "  \"internal server error\": "
+     << s_internal_server_error
+     << "\n"
+        "  \"service unavailable\": "
+     << s_service_unavailable
+     << "\n"
+        "  \"RequestTimeout\": "
+     << s_req_timeout
+     << "\n"
+        "  \"bad request\": "
+     << s_bad_request << "\n";
 }
 
-impl::~impl()
-{
-}
+base::statistics::writers::entry s_writer(statistics_writer, 0);
+} // namespace
 
-bool impl::should_retry(base::request *r, int iter)
-{
+impl::~impl() {}
+
+bool impl::should_retry(base::request *r, int iter) {
   long rc = r->get_response_code();
 
   if (rc == base::HTTP_SC_INTERNAL_SERVER_ERROR) {
@@ -80,4 +81,5 @@ bool impl::should_retry(base::request *r, int iter)
   return false;
 }
 
-} }
+} // namespace services
+} // namespace s3

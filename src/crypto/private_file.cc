@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <unistd.h>
 
 #include <stdexcept>
@@ -29,10 +29,10 @@
 #include "crypto/private_file.h"
 
 namespace s3 {
-  namespace crypto {
+namespace crypto {
 
-void private_file::open(const std::string &file_, std::ofstream *f, open_mode mode)
-{
+void private_file::open(const std::string &file_, std::ofstream *f,
+                        open_mode mode) {
   std::string file = base::paths::transform(file_);
   std::ifstream test_open(file.c_str(), std::ios::in);
 
@@ -48,8 +48,7 @@ void private_file::open(const std::string &file_, std::ofstream *f, open_mode mo
     throw std::runtime_error("failed to set permissions on private file.");
 }
 
-void private_file::open(const std::string &file_, std::ifstream *f)
-{
+void private_file::open(const std::string &file_, std::ifstream *f) {
   std::string file = base::paths::transform(file_);
   struct stat s;
 
@@ -62,8 +61,9 @@ void private_file::open(const std::string &file_, std::ifstream *f)
     throw std::runtime_error("unable to stat private file.");
 
   if ((s.st_mode & (S_IRWXU | S_IRWXG | S_IRWXO)) != (S_IRUSR | S_IWUSR))
-    throw std::runtime_error("private file must be readable/writeable only by owner.");
+    throw std::runtime_error(
+        "private file must be readable/writeable only by owner.");
 }
 
-}  // namespace crypto
-}  // namespace s3
+} // namespace crypto
+} // namespace s3

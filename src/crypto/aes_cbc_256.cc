@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,10 +25,11 @@
 #include "crypto/symmetric_key.h"
 
 namespace s3 {
-  namespace crypto {
+namespace crypto {
 
-void aes_cbc_256::crypt(int mode, const symmetric_key::ptr &key, const uint8_t *in, size_t size, std::vector<uint8_t> *out)
-{
+void aes_cbc_256::crypt(int mode, const symmetric_key::ptr &key,
+                        const uint8_t *in, size_t size,
+                        std::vector<uint8_t> *out) {
   if (key->get_iv()->size() != IV_LEN)
     throw std::runtime_error("iv length is not valid for aes_cbc_256");
 
@@ -37,7 +38,8 @@ void aes_cbc_256::crypt(int mode, const symmetric_key::ptr &key, const uint8_t *
     out->resize(size + BLOCK_LEN);
   } else {
     if (size % BLOCK_LEN)
-      throw std::runtime_error("input size must be a multiple of BLOCK_LEN when decrypting with aes_cbc_256");
+      throw std::runtime_error("input size must be a multiple of BLOCK_LEN "
+                               "when decrypting with aes_cbc_256");
 
     out->resize(size);
   }
@@ -45,29 +47,30 @@ void aes_cbc_256::crypt(int mode, const symmetric_key::ptr &key, const uint8_t *
   const EVP_CIPHER *cipher = NULL;
 
   switch (key->get_key()->size()) {
-    case (128 / 8):
-      cipher = EVP_aes_128_cbc();
-      break;
+  case (128 / 8):
+    cipher = EVP_aes_128_cbc();
+    break;
 
-    case (192 / 8):
-      cipher = EVP_aes_192_cbc();
-      break;
+  case (192 / 8):
+    cipher = EVP_aes_192_cbc();
+    break;
 
-    case (256 / 8):
-      cipher = EVP_aes_256_cbc();
-      break;
+  case (256 / 8):
+    cipher = EVP_aes_256_cbc();
+    break;
   }
 
   if (!cipher)
     throw std::runtime_error("invalid key length for aes_cbc_256");
-  
+
   EVP_CIPHER_CTX *ctx = EVP_CIPHER_CTX_new();
 
   try {
     int updated = 0, finalized = 0;
 
     if (mode & M_ENCRYPT) {
-      if (EVP_EncryptInit_ex(ctx, cipher, NULL, key->get_key()->get(), key->get_iv()->get()) == 0)
+      if (EVP_EncryptInit_ex(ctx, cipher, NULL, key->get_key()->get(),
+                             key->get_iv()->get()) == 0)
         throw std::runtime_error("EVP_EncryptInit_ex() failed in aes_cbc_256");
 
       if (mode & M_NO_PAD)
@@ -79,7 +82,8 @@ void aes_cbc_256::crypt(int mode, const symmetric_key::ptr &key, const uint8_t *
       if (!EVP_EncryptFinal_ex(ctx, &(*out)[updated], &finalized))
         throw std::runtime_error("EVP_EncryptFinal_ex() failed in aes_cbc_256");
     } else {
-      if (EVP_DecryptInit_ex(ctx, cipher, NULL, key->get_key()->get(), key->get_iv()->get()) == 0)
+      if (EVP_DecryptInit_ex(ctx, cipher, NULL, key->get_key()->get(),
+                             key->get_iv()->get()) == 0)
         throw std::runtime_error("EVP_DecryptInit_ex() failed in aes_cbc_256");
 
       if (mode & M_NO_PAD)
@@ -102,5 +106,5 @@ void aes_cbc_256::crypt(int mode, const symmetric_key::ptr &key, const uint8_t *
   EVP_CIPHER_CTX_free(ctx);
 }
 
-}  // namespace crypto
-}  // namespace s3
+} // namespace crypto
+} // namespace s3

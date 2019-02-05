@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -29,39 +29,39 @@
 #include <stdio.h>
 #include <syslog.h>
 
-namespace s3
-{
-  namespace base
-  {
-    class logger
-    {
-    public:
-      static void init(int max_level);
+namespace s3 {
+namespace base {
+class logger {
+public:
+  static void init(int max_level);
 
-      inline static void log(int level, const char *message, ...)
-      {
-        va_list args;
+  inline static void log(int level, const char *message, ...) {
+    va_list args;
 
-        if (level <= s_max_level) {
-          va_start(args, message);
-          vfprintf(stderr, message, args);
-          va_end(args);
+    if (level <= s_max_level) {
+      va_start(args, message);
+      vfprintf(stderr, message, args);
+      va_end(args);
 
-          // can't reuse va_list
+      // can't reuse va_list
 
-          va_start(args, message);
-          vsyslog(level, message, args);
-          va_end(args);
-        }
-      }
-
-    private:
-      static int s_max_level;
-    };
+      va_start(args, message);
+      vsyslog(level, message, args);
+      va_end(args);
+    }
   }
-}
 
-// "##" between "," and "__VA_ARGS__" removes the comma if no arguments are provided
-#define S3_LOG(level, fn, str, ...) do { s3::base::logger::log(level, fn ": " str, ## __VA_ARGS__); } while (0)
+private:
+  static int s_max_level;
+};
+} // namespace base
+} // namespace s3
+
+// "##" between "," and "__VA_ARGS__" removes the comma if no arguments are
+// provided
+#define S3_LOG(level, fn, str, ...)                                            \
+  do {                                                                         \
+    s3::base::logger::log(level, fn ": " str, ##__VA_ARGS__);                  \
+  } while (0)
 
 #endif

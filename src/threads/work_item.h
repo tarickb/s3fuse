@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,51 +25,40 @@
 #include <functional>
 #include <memory>
 
-namespace s3
-{
-  namespace base
-  {
-    class request;
-  }
-
-  namespace threads
-  {
-    class async_handle;
-
-    class work_item
-    {
-    public:
-      typedef std::function<int(std::shared_ptr<base::request>)> worker_function;
-
-      inline work_item()
-        : _retries(-1)
-      {
-      }
-
-      inline work_item(const worker_function &function, const std::shared_ptr<async_handle> &ah, int retries)
-        : _function(function), 
-          _ah(ah),
-          _retries(retries)
-      {
-      }
-
-      inline bool is_valid() const { return _ah.get() != nullptr; }
-      inline bool has_retries_left() const { return _retries > 0; }
-
-      inline const std::shared_ptr<async_handle> & get_ah() const { return _ah; }
-      inline const worker_function & get_function() const { return _function; }
-
-      inline work_item decrement_retry_counter() const
-      {
-        return work_item(_function, _ah, _retries - 1);
-      }
-
-    private:
-      worker_function _function;
-      std::shared_ptr<async_handle> _ah;
-      int _retries;
-    };
-  }
+namespace s3 {
+namespace base {
+class request;
 }
+
+namespace threads {
+class async_handle;
+
+class work_item {
+public:
+  typedef std::function<int(std::shared_ptr<base::request>)> worker_function;
+
+  inline work_item() : _retries(-1) {}
+
+  inline work_item(const worker_function &function,
+                   const std::shared_ptr<async_handle> &ah, int retries)
+      : _function(function), _ah(ah), _retries(retries) {}
+
+  inline bool is_valid() const { return _ah.get() != nullptr; }
+  inline bool has_retries_left() const { return _retries > 0; }
+
+  inline const std::shared_ptr<async_handle> &get_ah() const { return _ah; }
+  inline const worker_function &get_function() const { return _function; }
+
+  inline work_item decrement_retry_counter() const {
+    return work_item(_function, _ah, _retries - 1);
+  }
+
+private:
+  worker_function _function;
+  std::shared_ptr<async_handle> _ah;
+  int _retries;
+};
+} // namespace threads
+} // namespace s3
 
 #endif

@@ -1,51 +1,43 @@
 #include <functional>
-#include <string>
 #include <gtest/gtest.h>
+#include <string>
 
 #include "base/lru_cache_map.h"
 
 namespace s3 {
-  namespace base { namespace tests {
+namespace base {
+namespace tests {
 
-    namespace {
+namespace {
 
-inline bool remove_if_over_100(const int &i)
-{
-  return (i > 100);
-}
+inline bool remove_if_over_100(const int &i) { return (i > 100); }
 
-void append_to_string(const std::string &key, const int &i, std::string *str)
-{
+void append_to_string(const std::string &key, const int &i, std::string *str) {
   *str += (str->empty() ? "" : ",");
   *str += key;
 }
 
-template <class T>
-std::string oldest(const T &t)
-{
+template <class T> std::string oldest(const T &t) {
   std::string s;
 
   t.for_each_oldest(std::bind(append_to_string, std::placeholders::_1,
-        std::placeholders::_2, &s));
+                              std::placeholders::_2, &s));
 
   return s;
 }
 
-template <class T>
-std::string newest(const T &t)
-{
+template <class T> std::string newest(const T &t) {
   std::string s;
 
   t.for_each_newest(std::bind(append_to_string, std::placeholders::_1,
-        std::placeholders::_2, &s));
+                              std::placeholders::_2, &s));
 
   return s;
 }
 
-}  // namespace
+} // namespace
 
-TEST(lru_cache_map, no_remove_condition)
-{
+TEST(lru_cache_map, no_remove_condition) {
   lru_cache_map<std::string, int> c(5);
 
   c["e1"] = 1;
@@ -109,8 +101,7 @@ TEST(lru_cache_map, no_remove_condition)
   EXPECT_EQ(std::string("e6,e7,e5,e8,e1"), oldest(c)) << "re-add e1, oldest";
 }
 
-TEST(lru_cache_map, remove_if_over_100)
-{
+TEST(lru_cache_map, remove_if_over_100) {
   lru_cache_map<std::string, int, remove_if_over_100> c(5);
 
   c["e1"] = 1;
@@ -174,6 +165,6 @@ TEST(lru_cache_map, remove_if_over_100)
   EXPECT_EQ(std::string("e6,e7,e5,e8,e1"), oldest(c)) << "re-add e1, oldest";
 }
 
-}
-}  // namespace base
-}  // namespace s3
+} // namespace tests
+} // namespace base
+} // namespace s3

@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -26,15 +26,15 @@
 #include "base/logger.h"
 #include "services/gs/impl.h"
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   std::string code, access_token, refresh_token;
   time_t expiry;
 
   if (argc != 2) {
     const char *arg0 = std::strrchr(argv[0], '/');
 
-    std::cerr << "Usage: " << (arg0 ? arg0 + 1 : argv[0]) << "<token-file-name>" << std::endl;
+    std::cerr << "Usage: " << (arg0 ? arg0 + 1 : argv[0]) << "<token-file-name>"
+              << std::endl;
     return 1;
   }
 
@@ -50,7 +50,8 @@ int main(int argc, char **argv)
     std::cout << "Please enter the authorization code: ";
     getline(std::cin, code);
 
-    impl::get_tokens(impl::GT_AUTH_CODE, code, &access_token, &expiry, &refresh_token);
+    impl::get_tokens(impl::GT_AUTH_CODE, code, &access_token, &expiry,
+                     &refresh_token);
     impl::write_token(argv[1], refresh_token);
 
   } catch (const std::exception &e) {

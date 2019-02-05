@@ -2,8 +2,7 @@
 
 #include "crypto/passwords.h"
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   std::string pwd;
 
   pwd = s3::crypto::passwords::read_from_stdin("enter volume password: ");

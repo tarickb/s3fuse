@@ -13,10 +13,10 @@
 #include "crypto/sha256.h"
 #include "crypto/symmetric_key.h"
 
-const size_t HASH_BLOCK_SIZE = s3::crypto::hash_list<s3::crypto::sha256>::CHUNK_SIZE;
+const size_t HASH_BLOCK_SIZE =
+    s3::crypto::hash_list<s3::crypto::sha256>::CHUNK_SIZE;
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   std::string out_prefix;
   s3::crypto::symmetric_key::ptr file_key, meta_key;
   FILE *f_in, *f_out, *f_meta;
@@ -27,8 +27,8 @@ int main(int argc, char **argv)
   std::string root_hash, meta;
 
   if (argc != 4) {
-    std::cerr << "usage: " << argv[0] << " <v-key> <in-file> <output-prefix>" <<
-      std::endl;
+    std::cerr << "usage: " << argv[0] << " <v-key> <in-file> <output-prefix>"
+              << std::endl;
     return 1;
   }
 
@@ -45,7 +45,9 @@ int main(int argc, char **argv)
   }
 
   file_key = s3::crypto::symmetric_key::generate<s3::crypto::aes_ctr_256>();
-  meta_key = s3::crypto::symmetric_key::generate<s3::crypto::aes_cbc_256_with_pkcs>(v_key);
+  meta_key =
+      s3::crypto::symmetric_key::generate<s3::crypto::aes_cbc_256_with_pkcs>(
+          v_key);
 
   fprintf(f_meta, "v_key: %s\n", v_key->to_string().c_str());
   fprintf(f_meta, "iv: %s\n", meta_key->get_iv()->to_string().c_str());
@@ -82,8 +84,9 @@ int main(int argc, char **argv)
   fprintf(f_meta, "root_hash: %s\n", root_hash.c_str());
   fprintf(f_meta, "meta: %s\n", meta.c_str());
   fprintf(f_meta, "meta_enc: %s\n",
-      s3::crypto::cipher::encrypt<s3::crypto::aes_cbc_256_with_pkcs,
-      s3::crypto::hex>(meta_key, meta).c_str());
+          s3::crypto::cipher::encrypt<s3::crypto::aes_cbc_256_with_pkcs,
+                                      s3::crypto::hex>(meta_key, meta)
+              .c_str());
 
   return 0;
 }

@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -31,21 +31,18 @@
 #include "crypto/passwords.h"
 
 namespace s3 {
-  namespace crypto {
+namespace crypto {
 
-namespace
-{
-  termios s_term_flags_orig;
+namespace {
+termios s_term_flags_orig;
 
-  void reset_term_attrs(int, siginfo_t *, void *)
-  {
-    tcsetattr(STDIN_FILENO, TCSANOW, &s_term_flags_orig);
-    exit(1);
-  }
+void reset_term_attrs(int, siginfo_t *, void *) {
+  tcsetattr(STDIN_FILENO, TCSANOW, &s_term_flags_orig);
+  exit(1);
 }
+} // namespace
 
-std::string passwords::read_from_stdin(const std::string &prompt)
-{
+std::string passwords::read_from_stdin(const std::string &prompt) {
   std::string line;
   termios term_flags;
   struct sigaction new_action, old_int_action, old_term_action;
@@ -85,5 +82,5 @@ std::string passwords::read_from_stdin(const std::string &prompt)
   return line;
 }
 
-}  // namespace crypto
-}  // namespace s3
+} // namespace crypto
+} // namespace s3

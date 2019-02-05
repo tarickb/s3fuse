@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -29,15 +29,13 @@
 #include "crypto/md5.h"
 
 namespace s3 {
-  namespace crypto {
+namespace crypto {
 
-void md5::compute(const uint8_t *input, size_t size, uint8_t *hash)
-{
+void md5::compute(const uint8_t *input, size_t size, uint8_t *hash) {
   MD5(input, size, hash);
 }
 
-void md5::compute(int fd, uint8_t *hash)
-{
+void md5::compute(int fd, uint8_t *hash) {
   const ssize_t BUF_LEN = 8 * 1024;
   off_t offset = 0;
   char buf[BUF_LEN];
@@ -71,5 +69,5 @@ void md5::compute(int fd, uint8_t *hash)
   EVP_MD_CTX_free(md5_ctx);
 }
 
-}  // namespace crypto
-}  // namespace s3
+} // namespace crypto
+} // namespace s3

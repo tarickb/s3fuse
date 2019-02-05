@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -27,23 +27,20 @@
 #include <string>
 #include <vector>
 
-namespace s3
-{
-  namespace crypto
-  {
-    class encoder;
-    class hex_with_quotes;
+namespace s3 {
+namespace crypto {
+class encoder;
+class hex_with_quotes;
 
-    class hex
-    {
-    private:
-      friend class encoder;
-      friend class hex_with_quotes;
+class hex {
+private:
+  friend class encoder;
+  friend class hex_with_quotes;
 
-      static std::string encode(const uint8_t *input, size_t size);
-      static void decode(const std::string &input, std::vector<uint8_t> *output);
-    };
-  }
-}
+  static std::string encode(const uint8_t *input, size_t size);
+  static void decode(const std::string &input, std::vector<uint8_t> *output);
+};
+} // namespace crypto
+} // namespace s3
 
 #endif

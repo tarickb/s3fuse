@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -30,49 +30,37 @@
 
 #include "fs/xattr.h"
 
-namespace s3
-{
-  namespace fs
-  {
-    class static_xattr : public xattr
-    {
-    public:
-      static ptr from_header(
-        const std::string &header_key, 
-        const std::string &header_value, 
-        int mode);
+namespace s3 {
+namespace fs {
+class static_xattr : public xattr {
+public:
+  static ptr from_header(const std::string &header_key,
+                         const std::string &header_value, int mode);
 
-      static ptr from_string(
-        const std::string &key, 
-        const std::string &value, 
-        int mode);
+  static ptr from_string(const std::string &key, const std::string &value,
+                         int mode);
 
-      static ptr create(
-        const std::string &key, 
-        int mode);
+  static ptr create(const std::string &key, int mode);
 
-      virtual ~static_xattr() { }
+  virtual ~static_xattr() {}
 
-      virtual int set_value(const char *value, size_t size);
-      virtual int get_value(char *buffer, size_t max_size);
+  virtual int set_value(const char *value, size_t size);
+  virtual int get_value(char *buffer, size_t max_size);
 
-      virtual void to_header(std::string *header, std::string *value);
-      std::string to_string();
+  virtual void to_header(std::string *header, std::string *value);
+  std::string to_string();
 
-    private:
-      inline static_xattr(const std::string &key, bool encode_key, bool encode_value, int mode)
-        : xattr(key, mode),
-          _encode_key(encode_key),
-          _encode_value(encode_value),
-          _hide_on_empty(mode & XM_VISIBLE)
-      {
-      }
+private:
+  inline static_xattr(const std::string &key, bool encode_key,
+                      bool encode_value, int mode)
+      : xattr(key, mode), _encode_key(encode_key), _encode_value(encode_value),
+        _hide_on_empty(mode & XM_VISIBLE) {}
 
-      std::vector<uint8_t> _value;
-      bool _encode_key, _encode_value;
-      bool _hide_on_empty;
-    };
-  }
-}
+  std::vector<uint8_t> _value;
+  bool _encode_key, _encode_value;
+  bool _hide_on_empty;
+};
+} // namespace fs
+} // namespace s3
 
 #endif

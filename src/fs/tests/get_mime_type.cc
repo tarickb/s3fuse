@@ -2,8 +2,7 @@
 
 #include "fs/mime_types.h"
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   std::string ext, type;
 
   if (argc != 2) {

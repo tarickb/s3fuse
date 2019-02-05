@@ -1,19 +1,19 @@
 #include <fstream>
-#include <stdexcept>
 #include <gtest/gtest.h>
+#include <stdexcept>
 
 #include "base/config.h"
 
 namespace s3 {
-  namespace base { namespace tests {
+namespace base {
+namespace tests {
 
-TEST(config, load_from_invalid_file)
-{
-  EXPECT_THROW(config::init("/tmp/this shouldn't be a file"), std::runtime_error);
+TEST(config, load_from_invalid_file) {
+  EXPECT_THROW(config::init("/tmp/this shouldn't be a file"),
+               std::runtime_error);
 }
 
-TEST(config, load_empty_file)
-{
+TEST(config, load_empty_file) {
   const char *TEMP_FILE = "/tmp/s3fuse.test-empty";
 
   std::ofstream f(TEMP_FILE, std::ofstream::out | std::ofstream::trunc);
@@ -23,6 +23,6 @@ TEST(config, load_empty_file)
   unlink(TEMP_FILE);
 }
 
-}
-}  // namespace base
-}  // namespace s3
+} // namespace tests
+} // namespace base
+} // namespace s3

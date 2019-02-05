@@ -1,25 +1,30 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include <iostream>
 
 #define STR_(x) #x
 #define STR(x) STR_(x)
 
-#define T(x, e) do { int r = (x); if (r != (e)) { perror(#x " on line " STR(__LINE__) " failed with error"); return 1; } } while (0)
+#define T(x, e)                                                                \
+  do {                                                                         \
+    int r = (x);                                                               \
+    if (r != (e)) {                                                            \
+      perror(#x " on line " STR(__LINE__) " failed with error");               \
+      return 1;                                                                \
+    }                                                                          \
+  } while (0)
 #define TZ(x) T(x, 0)
 
-namespace
-{
-  const char TEST_STRING[] = "this is a test!\n";
-  const int TEST_STRING_LEN = sizeof(TEST_STRING);
-}
+namespace {
+const char TEST_STRING[] = "this is a test!\n";
+const int TEST_STRING_LEN = sizeof(TEST_STRING);
+} // namespace
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   struct stat st;
   const char *file = NULL;
   int create_fd = -1, open_fd = -1;
@@ -30,7 +35,6 @@ int main(int argc, char **argv)
   }
 
   file = argv[1];
-
 
   /*
    * getattr
@@ -56,7 +60,8 @@ int main(int argc, char **argv)
   TZ(unlink(file));
   T(stat(file, &st), -1);
 
-  create_fd = open(file, O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
+  create_fd =
+      open(file, O_CREAT, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH);
 
   if (create_fd == -1) {
     perror("create failed with error");

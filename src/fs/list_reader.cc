@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2013, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -28,27 +28,24 @@
 #include "fs/list_reader.h"
 #include "services/service.h"
 
-namespace s3 { namespace fs {
+namespace s3 {
+namespace fs {
 
-namespace
-{
-  const char *IS_TRUNCATED_XPATH = "/ListBucketResult/IsTruncated";
-  const char *         KEY_XPATH = "/ListBucketResult/Contents/Key";
-  const char * NEXT_MARKER_XPATH = "/ListBucketResult/NextMarker";
-  const char *      PREFIX_XPATH = "/ListBucketResult/CommonPrefixes/Prefix";
-}
+namespace {
+const char *IS_TRUNCATED_XPATH = "/ListBucketResult/IsTruncated";
+const char *KEY_XPATH = "/ListBucketResult/Contents/Key";
+const char *NEXT_MARKER_XPATH = "/ListBucketResult/NextMarker";
+const char *PREFIX_XPATH = "/ListBucketResult/CommonPrefixes/Prefix";
+} // namespace
 
-list_reader::list_reader(const std::string &prefix, bool group_common_prefixes, int max_keys)
-  : _truncated(true),
-    _prefix(prefix),
-    _group_common_prefixes(group_common_prefixes),
-    _max_keys(max_keys)
-{
-}
+list_reader::list_reader(const std::string &prefix, bool group_common_prefixes,
+                         int max_keys)
+    : _truncated(true), _prefix(prefix),
+      _group_common_prefixes(group_common_prefixes), _max_keys(max_keys) {}
 
-int list_reader::read(const base::request::ptr &req, base::xml::element_list
-    *keys, base::xml::element_list *prefixes)
-{
+int list_reader::read(const base::request::ptr &req,
+                      base::xml::element_list *keys,
+                      base::xml::element_list *prefixes) {
   int r;
   base::xml::document_ptr doc;
   std::string temp;
@@ -67,7 +64,8 @@ int list_reader::read(const base::request::ptr &req, base::xml::element_list
   if (!_truncated)
     return 0;
 
-  query = std::string("prefix=") + base::request::url_encode(_prefix) + "&marker=" + _marker;
+  query = std::string("prefix=") + base::request::url_encode(_prefix) +
+          "&marker=" + _marker;
 
   if (_group_common_prefixes)
     query += "&delimiter=/";
@@ -111,4 +109,5 @@ int list_reader::read(const base::request::ptr &req, base::xml::element_list
   return keys->size() + (prefixes ? prefixes->size() : 0);
 }
 
-} }
+} // namespace fs
+} // namespace s3

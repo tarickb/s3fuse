@@ -13,10 +13,10 @@
 #include "crypto/sha256.h"
 #include "crypto/symmetric_key.h"
 
-const size_t HASH_BLOCK_SIZE = s3::crypto::hash_list<s3::crypto::sha256>::CHUNK_SIZE;
+const size_t HASH_BLOCK_SIZE =
+    s3::crypto::hash_list<s3::crypto::sha256>::CHUNK_SIZE;
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   try {
     std::string in_prefix;
     s3::crypto::symmetric_key::ptr file_key, meta_key;
@@ -29,7 +29,8 @@ int main(int argc, char **argv)
     std::string ref_meta;
 
     if (argc != 3) {
-      std::cerr << "usage: " << argv[0] << " <input-prefix> <out-file>" << std::endl;
+      std::cerr << "usage: " << argv[0] << " <input-prefix> <out-file>"
+                << std::endl;
       return 1;
     }
 
@@ -68,15 +69,16 @@ int main(int argc, char **argv)
       if (prefix == "v_key") {
         v_key = s3::crypto::buffer::from_string(line);
       } else if (prefix == "iv") {
-        meta_key = s3::crypto::symmetric_key::create(v_key, s3::crypto::buffer::from_string(line));
+        meta_key = s3::crypto::symmetric_key::create(
+            v_key, s3::crypto::buffer::from_string(line));
       } else if (prefix == "size") {
         file_size = std::stoull(line);
       } else if (prefix == "meta") {
         ref_meta = line;
       } else if (prefix == "meta_enc") {
         std::string meta =
-          s3::crypto::cipher::decrypt<s3::crypto::aes_cbc_256_with_pkcs,
-          s3::crypto::hex>(meta_key, line);
+            s3::crypto::cipher::decrypt<s3::crypto::aes_cbc_256_with_pkcs,
+                                        s3::crypto::hex>(meta_key, line);
 
         if (meta != ref_meta) {
           std::cerr << "meta mismatch" << std::endl;
@@ -92,7 +94,8 @@ int main(int argc, char **argv)
 
         file_key = s3::crypto::symmetric_key::from_string(meta.substr(0, pos));
         root_hash = meta.substr(pos + 1);
-      } else if (prefix == "f_key" || prefix == "root_hash" || prefix == "meta") {
+      } else if (prefix == "f_key" || prefix == "root_hash" ||
+                 prefix == "meta") {
         // ignore
       } else {
         std::cerr << "unknown prefix: " << prefix << std::endl;

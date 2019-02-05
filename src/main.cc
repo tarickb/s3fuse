@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -23,86 +23,90 @@
 #include <iostream>
 #include <string>
 
-#include "init.h"
-#include "operations.h"
 #include "base/config.h"
 #include "base/logger.h"
 #include "base/statistics.h"
+#include "init.h"
+#include "operations.h"
 #include "threads/pool.h"
 
-namespace
-{
-  const int DEFAULT_VERBOSITY = LOG_WARNING;
-  const char *APP_DESCRIPTION = "FUSE driver for cloud object storage services";
+namespace {
+const int DEFAULT_VERBOSITY = LOG_WARNING;
+const char *APP_DESCRIPTION = "FUSE driver for cloud object storage services";
 
-  #ifdef __APPLE__
-    const std::string OSX_MOUNTPOINT_PREFIX = "/volumes/" PACKAGE_NAME "_";
-  #endif
+#ifdef __APPLE__
+const std::string OSX_MOUNTPOINT_PREFIX = "/volumes/" PACKAGE_NAME "_";
+#endif
 
-  struct options
-  {
-    const char *base_name;
-    std::string config;
-    std::string mountpoint;
-    int verbosity;
+struct options {
+  const char *base_name;
+  std::string config;
+  std::string mountpoint;
+  int verbosity;
 
-    #ifdef __APPLE__
-      std::string volname;
+#ifdef __APPLE__
+  std::string volname;
 
-      bool noappledouble_set;
-      bool daemon_timeout_set;
-      bool volname_set;
-    #endif
+  bool noappledouble_set;
+  bool daemon_timeout_set;
+  bool volname_set;
+#endif
 
-    options(const char *arg0)
-    {
-      verbosity = DEFAULT_VERBOSITY;
+  options(const char *arg0) {
+    verbosity = DEFAULT_VERBOSITY;
 
-      base_name = std::strrchr(arg0, '/');
-      base_name = base_name ? base_name + 1 : arg0;
+    base_name = std::strrchr(arg0, '/');
+    base_name = base_name ? base_name + 1 : arg0;
 
-      #ifdef __APPLE__
-        noappledouble_set = false;
-        daemon_timeout_set = false;
-        volname_set = false;
-      #endif
-    }
-  };
-}
+#ifdef __APPLE__
+    noappledouble_set = false;
+    daemon_timeout_set = false;
+    volname_set = false;
+#endif
+  }
+};
+} // namespace
 
-int print_usage(const char *base_name)
-{
-  std::cerr <<
-    "Usage: " << base_name << " [options] <mountpoint>\n"
-    "\n"
-    "Options:\n"
-    "  -f                   stay in the foreground (i.e., do not daemonize)\n"
-    "  -h, --help           print this help message and exit\n"
-    "  -o OPT...            pass OPT (comma-separated) to FUSE, such as:\n"
-    "     allow_other         allow other users to access the mounted file system\n"
-    "     allow_root          allow root to access the mounted file system\n"
-    "     default_permissions enforce permissions (useful in multiuser scenarios)\n"
-    "     gid=<id>            force group ID for all files to <id>\n"
-    "     config=<file>       use <file> rather than the default configuration file\n"
-    "     uid=<id>            force user ID for all files to <id>\n"
-    "  -v, --verbose        enable logging to stderr (can be repeated for more verbosity)\n"
-    "  -vN, --verbose=N     set verbosity to N\n"
-    "  -V, --version        print version and exit\n"
-    << std::endl;
-
-  return 0;
-}
-
-int print_version()
-{
-  std::cout << PACKAGE_NAME << ", " << PACKAGE_VERSION_WITH_REV << ", " << APP_DESCRIPTION << std::endl;
-  std::cout << "enabled services: " << s3::init::get_enabled_services() << std::endl;
+int print_usage(const char *base_name) {
+  std::cerr
+      << "Usage: " << base_name
+      << " [options] <mountpoint>\n"
+         "\n"
+         "Options:\n"
+         "  -f                   stay in the foreground (i.e., do not "
+         "daemonize)\n"
+         "  -h, --help           print this help message and exit\n"
+         "  -o OPT...            pass OPT (comma-separated) to FUSE, such as:\n"
+         "     allow_other         allow other users to access the mounted "
+         "file system\n"
+         "     allow_root          allow root to access the mounted file "
+         "system\n"
+         "     default_permissions enforce permissions (useful in multiuser "
+         "scenarios)\n"
+         "     gid=<id>            force group ID for all files to <id>\n"
+         "     config=<file>       use <file> rather than the default "
+         "configuration file\n"
+         "     uid=<id>            force user ID for all files to <id>\n"
+         "  -v, --verbose        enable logging to stderr (can be repeated for "
+         "more verbosity)\n"
+         "  -vN, --verbose=N     set verbosity to N\n"
+         "  -V, --version        print version and exit\n"
+      << std::endl;
 
   return 0;
 }
 
-int process_argument(void *data, const char *c_arg, int key, struct fuse_args *out_args)
-{
+int print_version() {
+  std::cout << PACKAGE_NAME << ", " << PACKAGE_VERSION_WITH_REV << ", "
+            << APP_DESCRIPTION << std::endl;
+  std::cout << "enabled services: " << s3::init::get_enabled_services()
+            << std::endl;
+
+  return 0;
+}
+
+int process_argument(void *data, const char *c_arg, int key,
+                     struct fuse_args *out_args) {
   options *opts = static_cast<options *>(data);
   const std::string arg = c_arg;
 
@@ -136,36 +140,38 @@ int process_argument(void *data, const char *c_arg, int key, struct fuse_args *o
     return 0;
   }
 
-  #ifdef __APPLE__
-    if (arg.find("daemon_timeout=") == 0) {
-      opts->daemon_timeout_set = true;
-      return 1; // continue processing
-    }
+#ifdef __APPLE__
+  if (arg.find("daemon_timeout=") == 0) {
+    opts->daemon_timeout_set = true;
+    return 1; // continue processing
+  }
 
-    if (arg.find("noappledouble") == 0) {
-      opts->noappledouble_set = true;
-      return 1; // continue processing
-    }
+  if (arg.find("noappledouble") == 0) {
+    opts->noappledouble_set = true;
+    return 1; // continue processing
+  }
 
-    if (arg.find("volname=") == 0) {
-      opts->volname_set = true;
-      return 1; // continue processing
-    }
-  #endif
+  if (arg.find("volname=") == 0) {
+    opts->volname_set = true;
+    return 1; // continue processing
+  }
+#endif
 
   if (key == FUSE_OPT_KEY_NONOPT)
-    opts->mountpoint = c_arg; // assume that the mountpoint is the only non-option
+    opts->mountpoint =
+        c_arg; // assume that the mountpoint is the only non-option
 
   return 1;
 }
 
-void * init(fuse_conn_info *info)
-{
+void *init(fuse_conn_info *info) {
   if (info->capable & FUSE_CAP_ATOMIC_O_TRUNC) {
     info->want |= FUSE_CAP_ATOMIC_O_TRUNC;
     S3_LOG(LOG_DEBUG, "operations::init", "enabling FUSE_CAP_ATOMIC_O_TRUNC\n");
   } else {
-    S3_LOG(LOG_WARNING, "operations::init", "FUSE_CAP_ATOMIC_O_TRUNC not supported, will revert to truncate-then-open\n");
+    S3_LOG(LOG_WARNING, "operations::init",
+           "FUSE_CAP_ATOMIC_O_TRUNC not supported, will revert to "
+           "truncate-then-open\n");
   }
 
   // this has to be here, rather than in main(), because the threads created
@@ -175,24 +181,23 @@ void * init(fuse_conn_info *info)
   return NULL;
 }
 
-void add_missing_options(options *opts, fuse_args *args)
-{
-  #ifdef __APPLE__
-    opts->volname = "-ovolname=" PACKAGE_NAME " volume (" + s3::base::config::get_bucket_name() + ")";
+void add_missing_options(options *opts, fuse_args *args) {
+#ifdef __APPLE__
+  opts->volname = "-ovolname=" PACKAGE_NAME " volume (" +
+                  s3::base::config::get_bucket_name() + ")";
 
-    if (!opts->daemon_timeout_set)
-      fuse_opt_add_arg(args, "-odaemon_timeout=3600");
+  if (!opts->daemon_timeout_set)
+    fuse_opt_add_arg(args, "-odaemon_timeout=3600");
 
-    if (!opts->noappledouble_set)
-      fuse_opt_add_arg(args, "-onoappledouble");
+  if (!opts->noappledouble_set)
+    fuse_opt_add_arg(args, "-onoappledouble");
 
-    if (!opts->volname_set)
-      fuse_opt_add_arg(args, opts->volname.c_str());
-  #endif
+  if (!opts->volname_set)
+    fuse_opt_add_arg(args, opts->volname.c_str());
+#endif
 }
 
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
   int r;
   options opts(argv[0]);
   fuse_operations opers;
@@ -201,21 +206,22 @@ int main(int argc, char **argv)
   fuse_opt_parse(&args, &opts, NULL, process_argument);
 
   if (opts.mountpoint.empty()) {
-    #if defined(__APPLE__) && defined(OSX_BUNDLE)
-      if (argc == 1) {
-        opts.mountpoint = OSX_MOUNTPOINT_PREFIX + s3::base::config::get_bucket_name();
+#if defined(__APPLE__) && defined(OSX_BUNDLE)
+    if (argc == 1) {
+      opts.mountpoint =
+          OSX_MOUNTPOINT_PREFIX + s3::base::config::get_bucket_name();
 
-        mkdir(opts.mountpoint.c_str(), 0777);
+      mkdir(opts.mountpoint.c_str(), 0777);
 
-        fuse_opt_add_arg(&args, opts.mountpoint.c_str());
-      } else {
-        print_usage(opts.base_name);
-        return 1;
-      }
-    #else
+      fuse_opt_add_arg(&args, opts.mountpoint.c_str());
+    } else {
       print_usage(opts.base_name);
       return 1;
-    #endif
+    }
+#else
+    print_usage(opts.base_name);
+    return 1;
+#endif
   }
 
   try {
@@ -227,17 +233,20 @@ int main(int argc, char **argv)
     s3::operations::build_fuse_operations(&opers);
 
     if (opers.init != NULL)
-      throw std::runtime_error("operations struct defined init when it shouldn't have.");
+      throw std::runtime_error(
+          "operations struct defined init when it shouldn't have.");
 
     // not an actual FS operation
     opers.init = init;
 
     add_missing_options(&opts, &args);
 
-    S3_LOG(LOG_INFO, "main", "%s version %s, initialized\n", PACKAGE_NAME, PACKAGE_VERSION_WITH_REV);
+    S3_LOG(LOG_INFO, "main", "%s version %s, initialized\n", PACKAGE_NAME,
+           PACKAGE_VERSION_WITH_REV);
 
   } catch (const std::exception &e) {
-    S3_LOG(LOG_ERR, "main", "caught exception while initializing: %s\n", e.what());
+    S3_LOG(LOG_ERR, "main", "caught exception while initializing: %s\n",
+           e.what());
     return 1;
   }
 
@@ -253,7 +262,8 @@ int main(int argc, char **argv)
     s3::base::statistics::flush();
 
   } catch (const std::exception &e) {
-    S3_LOG(LOG_ERR, "main", "caught exception while cleaning up: %s\n", e.what());
+    S3_LOG(LOG_ERR, "main", "caught exception while cleaning up: %s\n",
+           e.what());
   }
 
   return r;

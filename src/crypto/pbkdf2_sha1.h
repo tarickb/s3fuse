@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -25,24 +25,23 @@
 #include <memory>
 #include <string>
 
-namespace s3
-{
-  namespace crypto
-  {
-    class buffer;
+namespace s3 {
+namespace crypto {
+class buffer;
 
-    class pbkdf2_sha1
-    {
-    public:
-      template <class cipher_type>
-      inline static std::shared_ptr<buffer> derive(const std::string &password, const std::string &salt, int rounds)
-      {
-        return derive(password, salt, rounds, cipher_type::DEFAULT_KEY_LEN);
-      }
-
-      static std::shared_ptr<buffer> derive(const std::string &password, const std::string &salt, int rounds, size_t key_len);
-    };
+class pbkdf2_sha1 {
+public:
+  template <class cipher_type>
+  inline static std::shared_ptr<buffer>
+  derive(const std::string &password, const std::string &salt, int rounds) {
+    return derive(password, salt, rounds, cipher_type::DEFAULT_KEY_LEN);
   }
-}
+
+  static std::shared_ptr<buffer> derive(const std::string &password,
+                                        const std::string &salt, int rounds,
+                                        size_t key_len);
+};
+} // namespace crypto
+} // namespace s3
 
 #endif
