@@ -711,11 +711,11 @@ int operations::statfs(const char * /* ignored */, struct statvfs *s) {
   // return values that'll fit in 32 bits, otherwise we screw up tools like
   // "df". hence "size_t" rather than the type of the member.
 
-  s->f_blocks = std::numeric_limits<size_t>::max();
-  s->f_bfree = std::numeric_limits<size_t>::max();
-  s->f_bavail = std::numeric_limits<size_t>::max();
-  s->f_files = std::numeric_limits<size_t>::max();
-  s->f_ffree = std::numeric_limits<size_t>::max();
+  s->f_blocks = std::numeric_limits<decltype(s->f_blocks)>::max();
+  s->f_bfree = std::numeric_limits<decltype(s->f_bfree)>::max();
+  s->f_bavail = std::numeric_limits<decltype(s->f_bavail)>::max();
+  s->f_files = std::numeric_limits<decltype(s->f_files)>::max();
+  s->f_ffree = std::numeric_limits<decltype(s->f_ffree)>::max();
 
   return 0;
 }
