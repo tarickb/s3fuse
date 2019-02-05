@@ -2,7 +2,7 @@
  * sha256_sum.cc
  * -------------------------------------------------------------------------
  * Calculates a SHA256 hash of the specified file using the same hash-list
- * method as the s3fuse file uploader.
+ * method as the file uploader.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.

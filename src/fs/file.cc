@@ -39,7 +39,7 @@
 #include "services/service.h"
 #include "threads/pool.h"
 
-#define TEMP_NAME_TEMPLATE "/tmp/s3fuse.local-XXXXXX"
+#define TEMP_NAME_TEMPLATE "/tmp/" PACKAGE_NAME ".local-XXXXXX"
 
 namespace s3 {
 namespace fs {

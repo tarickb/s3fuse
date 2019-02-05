@@ -14,7 +14,7 @@ TEST(config, load_from_invalid_file) {
 }
 
 TEST(config, load_empty_file) {
-  const char *TEMP_FILE = "/tmp/s3fuse.test-empty";
+  const char *TEMP_FILE = "/tmp/" PACKAGE_NAME ".test-empty";
 
   std::ofstream f(TEMP_FILE, std::ofstream::out | std::ofstream::trunc);
 
