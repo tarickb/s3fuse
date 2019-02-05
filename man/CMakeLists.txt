@@ -24,9 +24,6 @@ foreach(m IN LISTS man_SED_SOURCES)
   endif()
   set(ms ${CMAKE_CURRENT_SOURCE_DIR}/${m}.template)
 
-  message("mf: ${mf}")
-  message("ms: ${ms}")
-
   add_custom_command(
     OUTPUT ${mf}
     COMMAND sed ${SED_OPTS} ${ms} > ${mf}
