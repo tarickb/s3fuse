@@ -34,7 +34,7 @@ project(
 
 include(GNUInstallDirs)
 
-option(EnableTests "Enable tests." OFF)
+option(EnableTests "Enable tests." ON)
 option(EnableMacOSBundle "Enable macOS app bundle features." OFF)
 
 if(EnableTests)
