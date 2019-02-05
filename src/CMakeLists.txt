@@ -4,6 +4,11 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -Wall -Werror")
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(FUSE REQUIRED "fuse >= 2.7.3")
+if(DEFINED FUSE_LIBRARY_DIRS AND NOT ${FUSE_LIBRARY_DIRS} EQUAL "")
+  set(fuse_lib "-L${FUSE_LIBRARY_DIRS}" ${FUSE_LIBRARIES})
+else()
+  set(fuse_lib ${FUSE_LIBRARIES})
+endif()
 
 add_definitions(
   -DPACKAGE_NAME=\"${PROJECT_NAME}\"
@@ -55,7 +60,7 @@ add_library(${PROJECT_NAME}_init init.h init.cc)
 target_link_libraries(${PROJECT_NAME}_init ${PROJECT_NAME}_crypto)
 
 add_executable(${PROJECT_NAME} main.cc operations.cc operations.h)
-target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_init ${libs} -L${FUSE_LIBRARY_DIRS} ${FUSE_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_init ${libs} ${fuse_lib})
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${FUSE_INCLUDE_DIRS})
 
 add_executable(${PROJECT_NAME}_gs_get_token gs_get_token.cc)
