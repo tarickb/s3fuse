@@ -14,10 +14,6 @@ if(OPENSSL_FOUND)
   add_definitions(-DHAVE_OPENSSL)
 endif()
 
-include_directories(
-  ${LIBXML2_INCLUDE_DIR}
-  ${CURL_INCLUDE_DIRS})
-
 set(base_COPY_FROM_CONFIG
   config.cc
   config.h)
@@ -60,5 +56,6 @@ endif()
 
 add_library(${PROJECT_NAME}_base ${base_SOURCES})
 target_link_libraries(${PROJECT_NAME}_base ${CURL_LIBRARIES} ${LIBXML2_LIBRARIES} ${OPENSSL_LIBRARIES} ${GNUTLS_LIBRARIES})
+target_include_directories(${PROJECT_NAME}_base SYSTEM PUBLIC ${LIBXML2_INCLUDE_DIR} ${CURL_INCLUDE_DIRS})
 
 add_dependencies(${PROJECT_NAME}_base ${PROJECT_NAME}_config)
