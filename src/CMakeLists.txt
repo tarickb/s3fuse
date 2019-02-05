@@ -58,6 +58,7 @@ endif()
 
 add_library(${PROJECT_NAME}_init init.h init.cc)
 target_link_libraries(${PROJECT_NAME}_init ${PROJECT_NAME}_crypto)
+add_dependencies(${PROJECT_NAME}_init ${PROJECT_NAME}_base)
 
 add_executable(${PROJECT_NAME} main.cc operations.cc operations.h)
 target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_init ${libs} ${fuse_lib})
