@@ -32,6 +32,8 @@ project(
   VERSION ${CHANGELOG_VERSION}
   LANGUAGES CXX)
 
+include(GNUInstallDirs)
+
 option(EnableTests "Enable tests." OFF)
 option(EnableMacOSBundle "Enable macOS app bundle features." OFF)
 
@@ -42,8 +44,6 @@ endif()
 option(EnableAwsS3 "Enable AWS S3." ON)
 option(EnableFvs "Enable FV/S." ON)
 option(EnableGcs "Enable Google Cloud Storage." ON)
-
-include(GNUInstallDirs)
 
 math(EXPR service_count 0)
 set(last_service)

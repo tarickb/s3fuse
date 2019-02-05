@@ -3,10 +3,6 @@ find_package(OpenSSL REQUIRED)
 include_directories(
   ${OPENSSL_INCLUDE_DIR})
 
-set(LIBS
-  ${LIBS}
-  ${OPENSSL_CRYPTO_LIBRARY})
-
 set(crypto_SOURCES
   aes_cbc_256.cc
   aes_cbc_256.h

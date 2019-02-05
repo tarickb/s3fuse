@@ -39,6 +39,7 @@ if(EnableGcs)
   list(APPEND service_libs ${PROJECT_NAME}_services_gs)
 endif()
 
+# The order here matters. Libraries have to appear before their dependencies.
 set(libs
   ${PROJECT_NAME}_fs
   ${service_libs}
