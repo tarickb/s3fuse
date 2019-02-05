@@ -1,11 +1,11 @@
 set(man_SED_SOURCES
-  s3fuse.1
-  s3fuse_gs_get_token.1
-  s3fuse_sha256_sum.1
-  s3fuse_vol_key.1)
+  1
+  gs_get_token.1
+  sha256_sum.1
+  vol_key.1)
 
 set(man_FILES
-  ${CMAKE_CURRENT_BINARY_DIR}/s3fuse.conf.5)
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.conf.5)
 
 string(TIMESTAMP TODAY "%Y-%m-%d")
 string(TOUPPER ${PROJECT_NAME} PROJECT_NAME_UPPER)
@@ -17,8 +17,15 @@ set(SED_OPTS
   -e "s/__TODAY__/${TODAY}/g")
 
 foreach(m IN LISTS man_SED_SOURCES)
-  set(mf ${CMAKE_CURRENT_BINARY_DIR}/${m})
-  set(ms ${CMAKE_CURRENT_SOURCE_DIR}/${m}.in)
+  if(m MATCHES "\\.")
+    set(mf ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_${m})
+  else()
+    set(mf ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.${m})
+  endif()
+  set(ms ${CMAKE_CURRENT_SOURCE_DIR}/${m}.template)
+
+  message("mf: ${mf}")
+  message("ms: ${ms}")
 
   add_custom_command(
     OUTPUT ${mf}
@@ -32,10 +39,10 @@ foreach(m IN LISTS man_SED_SOURCES)
 endforeach()
 
 add_custom_command(
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/s3fuse.conf.5
-  COMMAND cp "${CMAKE_BINARY_DIR}/config/s3fuse.conf.5" "${CMAKE_CURRENT_BINARY_DIR}/s3fuse.conf.5"
-  DEPENDS ${CMAKE_BINARY_DIR}/config/s3fuse.conf.5
-  COMMENT "Copying s3fuse.conf.5"
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.conf.5
+  COMMAND cp "${CMAKE_BINARY_DIR}/config/${PROJECT_NAME}.conf.5" "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.conf.5"
+  DEPENDS ${CMAKE_BINARY_DIR}/config/${PROJECT_NAME}.conf.5
+  COMMENT "Copying ${PROJECT_NAME}.conf.5"
   VERBATIM)
 
 set(man_PDF_FILES)

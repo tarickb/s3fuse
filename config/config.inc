@@ -1,5 +1,5 @@
-// this file is used to generate config.h, config.cc, s3fuse.conf, and
-// s3fuse.conf.5
+// this file is used to generate config.h, config.cc, the main configuration
+// file, and the configuration file man page.
 //
 // macros:
 //

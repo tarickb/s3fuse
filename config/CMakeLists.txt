@@ -8,39 +8,39 @@ endforeach()
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/config.h.in
-  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/generator.config.sh config.inc generator.config.h.in ${CMAKE_CURRENT_BINARY_DIR}/config.h.in
-  DEPENDS config.inc generator.config.h.in generator.config.sh
+  COMMAND ./generate_config_cc_h.sh config.inc config.h.template ${CMAKE_CURRENT_BINARY_DIR}/config.h.in
+  DEPENDS config.inc config.h.template generate_config_cc_h.sh
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   COMMENT "Building config.h.in"
   VERBATIM)
 
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/config.cc.in
-  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/generator.config.sh config.inc generator.config.cc.in ${CMAKE_CURRENT_BINARY_DIR}/config.cc.in
-  DEPENDS config.inc generator.config.cc.in generator.config.sh
+  COMMAND ./generate_config_cc_h.sh config.inc config.cc.template ${CMAKE_CURRENT_BINARY_DIR}/config.cc.in
+  DEPENDS config.inc config.cc.template generate_config_cc_h.sh
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   COMMENT "Building config.cc.in"
   VERBATIM)
 
 add_custom_command(
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/s3fuse.conf
-  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/generator.s3fuse.conf.sh "${CMAKE_C_COMPILER}" "${cpp_flags}" config.inc "${PROJECT_NAME}" "${PROJECT_VERSION}" "${CMAKE_INSTALL_SYSCONFDIR}" generator.s3fuse.conf.awk ${CMAKE_CURRENT_BINARY_DIR}/s3fuse.conf
-  DEPENDS config.inc generator.s3fuse.conf.awk generator.s3fuse.conf.sh
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.conf
+  COMMAND ./generate_config_file_man.sh "${CMAKE_C_COMPILER}" "${cpp_flags}" config.inc "${PROJECT_NAME}" "${PROJECT_VERSION}" "${CMAKE_INSTALL_SYSCONFDIR}" config_file.awk ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.conf
+  DEPENDS config.inc config_file.awk generate_config_file_man.sh
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  COMMENT "Building s3fuse.conf"
+  COMMENT "Building ${PROJECT_NAME}.conf"
   VERBATIM)
 
 add_custom_command(
-  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/s3fuse.conf.5
-  COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/generator.s3fuse.conf.sh "${CMAKE_C_COMPILER}" "${cpp_flags}" config.inc "${PROJECT_NAME}" "${PROJECT_VERSION}" "${CMAKE_INSTALL_SYSCONFDIR}" generator.s3fuse.conf.5.awk ${CMAKE_CURRENT_BINARY_DIR}/s3fuse.conf.5
-  DEPENDS config.inc generator.s3fuse.conf.5.awk generator.s3fuse.conf.sh
+  OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.conf.5
+  COMMAND ./generate_config_file_man.sh "${CMAKE_C_COMPILER}" "${cpp_flags}" config.inc "${PROJECT_NAME}" "${PROJECT_VERSION}" "${CMAKE_INSTALL_SYSCONFDIR}" config_file_man.awk ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.conf.5
+  DEPENDS config.inc config_file_man.awk generate_config_file_man.sh
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-  COMMENT "Building s3fuse.conf.5"
+  COMMENT "Building ${PROJECT_NAME}.conf.5"
   VERBATIM)
 
 add_custom_target(
   ${PROJECT_NAME}_config ALL DEPENDS 
   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/config.h.in
   DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/config.cc.in
-  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/s3fuse.conf
-  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/s3fuse.conf.5)
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.conf
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.conf.5)
