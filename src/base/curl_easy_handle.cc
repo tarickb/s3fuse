@@ -65,12 +65,6 @@ void pre_init() {
     throw std::runtime_error(
         "curl does not report an SSL library. cannot continue.");
 
-  if (strstr(ver->ssl_version, "NSS"))
-    return; // NSS doesn't require external locking
-
-  if (strstr(ver->ssl_version, "OpenSSL"))
-    return; // Nothing special required for OpenSSL.
-
 #ifdef HAVE_GNUTLS
   if (strstr(ver->ssl_version, "GnuTLS")) {
     if (gnutls_global_init() != GNUTLS_E_SUCCESS)
@@ -79,16 +73,6 @@ void pre_init() {
     return;
   }
 #endif
-
-#ifdef __APPLE__
-  if (strstr(ver->ssl_version, "SecureTransport"))
-    return;
-#endif
-
-  S3_LOG(LOG_ERR, "curl_easy_handle::pre_init", "unsupported ssl version: %s\n",
-         ver->ssl_version);
-
-  throw std::runtime_error("curl reports an unsupported ssl library/version.");
 }
 
 void cleanup() { curl_global_cleanup(); }
