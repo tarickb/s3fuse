@@ -5,13 +5,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -32,99 +32,77 @@ namespace s3 {
 namespace base {
 
 namespace {
-  const std::string DEFAULT_CONFIG_FILES[] = {
+const std::string DEFAULT_CONFIG_FILES[] = {
     "~/." PACKAGE_NAME "/" PACKAGE_NAME ".conf",
-    SYSCONFDIR "/" PACKAGE_NAME ".conf" };
+    SYSCONFDIR "/" PACKAGE_NAME ".conf"};
 
-  const int DEFAULT_CONFIG_FILE_COUNT = sizeof(DEFAULT_CONFIG_FILES) / sizeof(DEFAULT_CONFIG_FILES[0]);
+const int DEFAULT_CONFIG_FILE_COUNT =
+    sizeof(DEFAULT_CONFIG_FILES) / sizeof(DEFAULT_CONFIG_FILES[0]);
 
-  template <typename T>
-  class option_parser_worker
-  {
-  public:
-    static void parse(const std::string &str, T *out)
-    {
-      throw std::runtime_error("unknown or invalid config variable type.");
+template <typename T> class option_parser_worker {
+public:
+  static void parse(const std::string &str, T *out) {
+    throw std::runtime_error("unknown or invalid config variable type.");
+  }
+};
+
+template <> class option_parser_worker<bool> {
+public:
+  static void parse(const std::string &_str, bool *out) {
+    const char *str = _str.c_str();
+
+    if (!strcasecmp(str, "yes") || !strcasecmp(str, "true") ||
+        !strcasecmp(str, "1") || !strcasecmp(str, "on")) {
+      *out = true;
+      return;
     }
-  };
 
-  template <>
-  class option_parser_worker<bool>
-  {
-  public:
-    static void parse(const std::string &_str, bool *out)
-    {
-      const char *str = _str.c_str();
-
-      if (!strcasecmp(str, "yes") || !strcasecmp(str, "true")  || !strcasecmp(str, "1") || !strcasecmp(str, "on") ) {
-        *out = true;
-        return;
-      }
-
-      if (!strcasecmp(str, "no")  || !strcasecmp(str, "false") || !strcasecmp(str, "0") || !strcasecmp(str, "off")) {
-        *out = false;
-        return;
-      }
-
-      throw std::runtime_error("cannot parse.");
+    if (!strcasecmp(str, "no") || !strcasecmp(str, "false") ||
+        !strcasecmp(str, "0") || !strcasecmp(str, "off")) {
+      *out = false;
+      return;
     }
-  };
 
-  template <>
-  class option_parser_worker<int>
-  {
-  public:
-    static void parse(const std::string &str, int *out)
-    {
-      *out = std::stoi(str);
+    throw std::runtime_error("cannot parse.");
+  }
+};
+
+template <> class option_parser_worker<int> {
+public:
+  static void parse(const std::string &str, int *out) { *out = std::stoi(str); }
+};
+
+template <> class option_parser_worker<size_t> {
+public:
+  static void parse(const std::string &str, size_t *out) {
+    *out = std::stoull(str);
+  }
+};
+
+template <> class option_parser_worker<std::string> {
+public:
+  static void parse(const std::string &str, std::string *out) { *out = str; }
+};
+
+template <typename T> class option_parser {
+public:
+  static void parse(int line_number, const char *key, const char *type,
+                    const std::string &str, T *out) {
+    try {
+      option_parser_worker<T>::parse(str, out);
+
+    } catch (...) {
+      S3_LOG(LOG_ERR, "config::init",
+             "error at line %i: cannot parse [%s] for key [%s] of type %s.\n",
+             line_number, str.c_str(), key, type);
+
+      throw;
     }
-  };
+  }
+};
+} // namespace
 
-  template <>
-  class option_parser_worker<size_t>
-  {
-  public:
-    static void parse(const std::string &str, size_t *out)
-    {
-      *out = std::stoull(str);
-    }
-  };
-
-  template <>
-  class option_parser_worker<std::string>
-  {
-  public:
-    static void parse(const std::string &str, std::string *out)
-    {
-      *out = str;
-    }
-  };
-
-  template <typename T>
-  class option_parser
-  {
-  public:
-    static void parse(int line_number, const char *key, const char *type, const std::string &str, T *out)
-    {
-      try {
-        option_parser_worker<T>::parse(str, out);
-
-      } catch (...) {
-        S3_LOG(
-          LOG_ERR, 
-          "config::init", "error at line %i: cannot parse [%s] for key [%s] of type %s.\n", 
-          line_number,
-          str.c_str(),
-          key,
-          type);
-
-        throw;
-      }
-    }
-  };
-}  // namespace
-
-#define CONFIG(type, name, def, desc) type config::s_ ## name = (def);
+#define CONFIG(type, name, def, desc) type config::s_##name = (def);
 #define CONFIG_CONSTRAINT(x, y)
 #define CONFIG_KEY(x)
 #define CONFIG_SECTION(x)
@@ -136,8 +114,7 @@ __CONFIG_INC_GOES_HERE__
 #undef CONFIG_KEY
 #undef CONFIG_SECTION
 
-void config::init(const std::string &file)
-{
+void config::init(const std::string &file) {
   std::ifstream ifs;
   int line_number = 0;
 
@@ -151,7 +128,9 @@ void config::init(const std::string &file)
 
     if (ifs.fail()) {
       for (int i = 0; i < DEFAULT_CONFIG_FILE_COUNT; i++)
-        S3_LOG(LOG_ERR, "config::init", "unable to open configuration in [%s]\n", DEFAULT_CONFIG_FILES[i].c_str());
+        S3_LOG(LOG_ERR, "config::init",
+               "unable to open configuration in [%s]\n",
+               DEFAULT_CONFIG_FILES[i].c_str());
 
       throw std::runtime_error("cannot open any default config files");
     }
@@ -181,58 +160,56 @@ void config::init(const std::string &file)
     pos = line.find('=');
 
     if (pos == std::string::npos) {
-      S3_LOG(LOG_ERR, "config::init", "error at line %i: missing '='.\n", line_number);
+      S3_LOG(LOG_ERR, "config::init", "error at line %i: missing '='.\n",
+             line_number);
       throw std::runtime_error("malformed config file");
     }
 
     key = line.substr(0, pos);
     value = line.substr(pos + 1);
 
-    #define CONFIG(type, name, def, desc) \
-      if (key == #name) { \
-        option_parser<type>::parse( \
-          line_number, \
-          #name, \
-          #type, \
-          value, \
-          &s_ ## name); \
-        \
-        continue; \
-      }
+#define CONFIG(type, name, def, desc)                                          \
+  if (key == #name) {                                                          \
+    option_parser<type>::parse(line_number, #name, #type, value, &s_##name);   \
+                                                                               \
+    continue;                                                                  \
+  }
 
-    #define CONFIG_CONSTRAINT(x, y)
-    #define CONFIG_KEY(x)
-    #define CONFIG_SECTION(x)
+#define CONFIG_CONSTRAINT(x, y)
+#define CONFIG_KEY(x)
+#define CONFIG_SECTION(x)
 
-__CONFIG_INC_GOES_HERE__
+    __CONFIG_INC_GOES_HERE__
 
-    #undef CONFIG
-    #undef CONFIG_CONSTRAINT
-    #undef CONFIG_KEY
-    #undef CONFIG_SECTION
+#undef CONFIG
+#undef CONFIG_CONSTRAINT
+#undef CONFIG_KEY
+#undef CONFIG_SECTION
 
-    S3_LOG(LOG_ERR, "config::init", "error at line %i: unknown directive '%s'\n", line_number, key.c_str());
+    S3_LOG(LOG_ERR, "config::init",
+           "error at line %i: unknown directive '%s'\n", line_number,
+           key.c_str());
     throw std::runtime_error("malformed config file");
   }
 
-  #define CONFIG(type, name, def, desc)
+#define CONFIG(type, name, def, desc)
 
-  #define CONFIG_CONSTRAINT(test, message) \
-    if (!(test)) { \
-      S3_LOG(LOG_ERR, "config::init", "%s\n", message); \
-      throw std::runtime_error("malformed config file"); \
-    }
+#define CONFIG_CONSTRAINT(test, message)                                       \
+  if (!(test)) {                                                               \
+    S3_LOG(LOG_ERR, "config::init", "%s\n", message);                          \
+    throw std::runtime_error("malformed config file");                         \
+  }
 
-  #define CONFIG_KEY(key) s_ ## key
-  #define CONFIG_SECTION(x)
+#define CONFIG_KEY(key) s_##key
+#define CONFIG_SECTION(x)
 
-__CONFIG_INC_GOES_HERE__
+  __CONFIG_INC_GOES_HERE__
 
-  #undef CONFIG
-  #undef CONFIG_CONSTRAINT
-  #undef CONFIG_KEY
-  #undef CONFIG_SECTION
+#undef CONFIG
+#undef CONFIG_CONSTRAINT
+#undef CONFIG_KEY
+#undef CONFIG_SECTION
 }
 
-}  // namespace base
-}  // namespace s3
+} // namespace base
+} // namespace s3

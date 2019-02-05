@@ -6,13 +6,13 @@
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
- * 
+ *
  *   http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -37,34 +37,31 @@
 #define GID_MAX std::numeric_limits<uint32_t>::max()
 #endif
 
-namespace s3
-{
-  namespace base
-  {
-    class config
-    {
-    public:
-      static void init(const std::string &file = "");
+namespace s3 {
+namespace base {
+class config {
+public:
+  static void init(const std::string &file = "");
 
-      #define CONFIG(type, name, def, desc) \
-        private: \
-          static type s_ ## name; \
-        \
-        public: \
-          inline static const type & get_ ## name () { return s_ ## name; }
+#define CONFIG(type, name, def, desc)                                          \
+private:                                                                       \
+  static type s_##name;                                                        \
+                                                                               \
+public:                                                                        \
+  inline static const type &get_##name() { return s_##name; }
 
-      #define CONFIG_CONSTRAINT(x, y)
-      #define CONFIG_KEY(x)
-      #define CONFIG_SECTION(x)
+#define CONFIG_CONSTRAINT(x, y)
+#define CONFIG_KEY(x)
+#define CONFIG_SECTION(x)
 
-__CONFIG_INC_GOES_HERE__
+  __CONFIG_INC_GOES_HERE__
 
-      #undef CONFIG
-      #undef CONFIG_CONSTRAINT
-      #undef CONFIG_KEY
-      #undef CONFIG_SECTION
-    };
-  }
-}
+#undef CONFIG
+#undef CONFIG_CONSTRAINT
+#undef CONFIG_KEY
+#undef CONFIG_SECTION
+};
+} // namespace base
+} // namespace s3
 
 #endif

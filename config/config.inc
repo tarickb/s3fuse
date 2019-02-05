@@ -1,4 +1,4 @@
-// this file is used to generate config.h, config.cc, s3fuse.conf, and 
+// this file is used to generate config.h, config.cc, s3fuse.conf, and
 // s3fuse.conf.5
 //
 // macros:
@@ -18,6 +18,8 @@
 //   - all macro invocations must be followed by a semicolon.
 //   - this file won't always be run through a preprocessor, so there's not
 //     much room for variation in formatting.
+
+// clang-format off
 
 CONFIG_SECTION("Required Parameters");
 CONFIG(std::string, bucket_name, "", "bucket name");
@@ -102,3 +104,5 @@ CONFIG_CONSTRAINT(CONFIG_KEY(max_inconsistent_state_retries) >= 2, "max_inconsis
 CONFIG_SECTION("Versioning");
 CONFIG(bool, enable_versioning, false, "set to 'true'/'yes' to enable versioning");
 #endif
+
+// clang-format on
