@@ -4,13 +4,13 @@ namespace s3 {
 namespace base {
 namespace tests {
 
-std::string void_fn_2() { return "void fn 2"; }
+std::string VoidFunction2() { return "void fn 2"; }
 
-std::string int_fn_2(int a) { return "int fn 2"; }
+std::string IntFunction2(int a) { return "int fn 2"; }
 
-void_fn_list::entry vf2(void_fn_2, 100);
-int_fn_list::entry if2(int_fn_2, 10);
+VoidFunctionList::Entry vf2(VoidFunction2, 100);
+IntFunctionList::Entry if2(IntFunction2, 10);
 
-} // namespace tests
-} // namespace base
-} // namespace s3
+}  // namespace tests
+}  // namespace base
+}  // namespace s3

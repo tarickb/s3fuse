@@ -28,18 +28,17 @@
 
 namespace s3 {
 namespace crypto {
-class hash;
+class Hash;
 
-class md5 {
-public:
-  enum { HASH_LEN = 128 / 8 };
+class Md5 {
+ public:
+  static constexpr int HASH_LEN = 128 / 8;
 
-  inline static bool is_valid_quoted_hex_hash(const std::string &hash) {
-    if (hash.size() != 2 * HASH_LEN + 2) // *2 for hex encoding, +2 for quotes
+  inline static bool IsValidQuotedHexHash(const std::string &hash) {
+    if (hash.size() != 2 * HASH_LEN + 2)  // *2 for hex encoding, +2 for quotes
       return false;
 
-    if (hash[0] != '"' || hash[hash.size() - 1] != '"')
-      return false;
+    if (hash.front() != '"' || hash.back() != '"') return false;
 
     for (size_t i = 1; i < hash.size() - 1; i++)
       if ((hash[i] < '0' || hash[i] > '9') &&
@@ -49,13 +48,13 @@ public:
     return true;
   }
 
-private:
-  friend class hash;
+ private:
+  friend class Hash;
 
-  static void compute(const uint8_t *input, size_t size, uint8_t *hash);
-  static void compute(int fd, uint8_t *hash);
+  static void Compute(const uint8_t *input, size_t size, uint8_t *hash);
+  static void Compute(int fd, uint8_t *hash);
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

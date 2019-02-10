@@ -10,15 +10,15 @@ namespace crypto {
 namespace tests {
 
 namespace {
-struct known_answer {
+struct KnownAnswer {
   const char *key;
   const char *iv;
   const char *starting_block;
-  const char *plaintext;
-  const char *ciphertext;
+  const char *plain_text;
+  const char *cipher_text;
 };
 
-const known_answer TESTS[] = {
+const KnownAnswer TESTS[] = {
     // from http://tools.ietf.org/html/rfc3686
 
     {"ae6852f8121067cc4bf7a5765577f39e", "0000003000000000", "0000000000000001",
@@ -106,12 +106,11 @@ const known_answer TESTS[] = {
      "35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710"}};
 
 const int TEST_COUNT = sizeof(TESTS) / sizeof(TESTS[0]);
-} // namespace
+}  // namespace
 
-TEST(aes_ctr_256, known_answers) {
+TEST(AesCtr256, KnownAnswers) {
   for (int test = 0; test < TEST_COUNT; test++) {
-    const known_answer *kat = TESTS + test;
-    symmetric_key::ptr cs;
+    const KnownAnswer *kat = TESTS + test;
     std::vector<uint8_t> in_buf, out_buf;
     std::string in_enc, out_enc;
     uint64_t sb = 0;
@@ -119,39 +118,36 @@ TEST(aes_ctr_256, known_answers) {
 
     pretty_kat = std::string("key: ") + kat->key + ", " + "iv: " + kat->iv +
                  ", " + "starting block: " + kat->starting_block + ", " +
-                 "plain text: " + kat->plaintext + ", " +
-                 "cipher text: " + kat->ciphertext;
+                 "plain text: " + kat->plain_text + ", " +
+                 "cipher text: " + kat->cipher_text;
 
-    cs = symmetric_key::from_string(std::string(kat->key) + ":" + kat->iv);
+    const auto cs =
+        SymmetricKey::FromString(std::string(kat->key) + ":" + kat->iv);
 
-    encoder::decode<hex>(kat->starting_block, &in_buf);
-    out_buf.resize(in_buf.size());
-
+    in_buf = Encoder::Decode<Hex>(kat->starting_block);
     ASSERT_EQ(sizeof(sb), in_buf.size()) << pretty_kat;
 
     // reverse endianness of starting_block
+    out_buf.resize(in_buf.size());
     for (size_t i = 0; i < in_buf.size(); i++)
       out_buf[in_buf.size() - i - 1] = in_buf[i];
-
     memcpy(&sb, &out_buf[0], sizeof(sb));
 
-    encoder::decode<hex>(kat->plaintext, &in_buf);
+    in_buf = Encoder::Decode<Hex>(kat->plain_text);
     out_buf.resize(in_buf.size());
 
-    aes_ctr_256::encrypt_with_starting_block(cs, sb, &in_buf[0], in_buf.size(),
-                                             &out_buf[0]);
-    out_enc = encoder::encode<hex>(out_buf);
+    AesCtr256::EncryptWithStartingBlock(cs, sb, &in_buf[0], in_buf.size(),
+                                        &out_buf[0]);
+    out_enc = Encoder::Encode<Hex>(out_buf);
+    EXPECT_EQ(std::string(kat->cipher_text), out_enc) << pretty_kat;
 
-    EXPECT_EQ(std::string(kat->ciphertext), out_enc) << pretty_kat;
-
-    aes_ctr_256::decrypt_with_starting_block(cs, sb, &out_buf[0],
-                                             out_buf.size(), &in_buf[0]);
-    in_enc = encoder::encode<hex>(in_buf);
-
-    EXPECT_EQ(std::string(kat->plaintext), in_enc) << pretty_kat;
+    AesCtr256::DecryptWithStartingBlock(cs, sb, &out_buf[0], out_buf.size(),
+                                        &in_buf[0]);
+    in_enc = Encoder::Encode<Hex>(in_buf);
+    EXPECT_EQ(std::string(kat->plain_text), in_enc) << pretty_kat;
   }
 }
 
-} // namespace tests
-} // namespace crypto
-} // namespace s3
+}  // namespace tests
+}  // namespace crypto
+}  // namespace s3

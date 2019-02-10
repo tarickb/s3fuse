@@ -32,18 +32,17 @@
 
 namespace s3 {
 namespace crypto {
-template <class hash_type> class hash_list {
-public:
-  typedef std::shared_ptr<hash_list<hash_type>> ptr;
+template <class HashType>
+class HashList {
+ public:
+  static const size_t CHUNK_SIZE = 128 * 1024;  // 128 KB
 
-  static const size_t CHUNK_SIZE = 128 * 1024; // 128 KB
-
-  inline hash_list(size_t total_size)
-      : _hashes((total_size + CHUNK_SIZE - 1) / CHUNK_SIZE *
-                hash_type::HASH_LEN) {}
+  inline HashList(size_t total_size)
+      : hashes_((total_size + CHUNK_SIZE - 1) / CHUNK_SIZE *
+                HashType::HASH_LEN) {}
 
   // this is thread safe so long as no two threads try to update the same part
-  inline void compute_hash(size_t offset, const uint8_t *data, size_t size) {
+  inline void ComputeHash(size_t offset, const uint8_t *data, size_t size) {
     size_t remaining_size = size;
 
     if (offset % CHUNK_SIZE)
@@ -54,26 +53,25 @@ public:
       size_t chunk_size =
           (remaining_size > CHUNK_SIZE) ? CHUNK_SIZE : remaining_size;
 
-      hash::compute<hash_type>(
+      Hash::Compute<HashType>(
           data + o, chunk_size,
-          &_hashes[(offset + o) / CHUNK_SIZE * hash_type::HASH_LEN]);
+          &hashes_[(offset + o) / CHUNK_SIZE * HashType::HASH_LEN]);
 
       remaining_size -= chunk_size;
     }
   }
 
-  template <class encoder_type> inline std::string get_root_hash() {
-    uint8_t root_hash[hash_type::HASH_LEN];
-
-    hash::compute<hash_type>(_hashes, root_hash);
-
-    return encoder::encode<encoder_type>(root_hash, hash_type::HASH_LEN);
+  template <class EncoderType>
+  inline std::string GetRootHash() {
+    uint8_t root_hash[HashType::HASH_LEN];
+    Hash::Compute<HashType>(hashes_, root_hash);
+    return Encoder::Encode<EncoderType>(root_hash, HashType::HASH_LEN);
   }
 
-private:
-  std::vector<uint8_t> _hashes;
+ private:
+  std::vector<uint8_t> hashes_;
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

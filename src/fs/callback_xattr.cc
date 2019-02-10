@@ -19,50 +19,40 @@
  * limitations under the License.
  */
 
+#include "fs/callback_xattr.h"
+
 #include <errno.h>
 #include <string.h>
 
 #include <stdexcept>
 
 #include "base/logger.h"
-#include "fs/callback_xattr.h"
 
 namespace s3 {
 namespace fs {
 
-int callback_xattr::set_value(const char *value, size_t size) {
-  std::string s;
-
-  s.assign(value, size);
-
-  return _set_fn(s);
+int CallbackXAttr::SetValue(const char *value, size_t size) {
+  return set_callback_(std::string(value, size));
 }
 
-int callback_xattr::get_value(char *buffer, size_t max_size) {
+int CallbackXAttr::GetValue(char *buffer, size_t max_size) const {
   std::string value;
-  size_t size;
-  int r;
-
-  r = _get_fn(&value);
-
-  if (r)
-    return r;
-
-  size = (value.size() > max_size) ? max_size : value.size();
-
-  // see note in static_xattr::get_value() about buffer == NULL, etc.
-
-  if (buffer == NULL)
-    return value.size();
-
+  const int r = get_callback_(&value);
+  if (r) return r;
+  // see note in static_xattr::get_value() about buffer == nullptr, etc.
+  const size_t size = (value.size() > max_size) ? max_size : value.size();
+  if (buffer == nullptr) return value.size();
   memcpy(buffer, value.c_str(), size);
-
   return (size == value.size()) ? size : -ERANGE;
 }
 
-void callback_xattr::to_header(std::string *header, std::string *value) {
+void CallbackXAttr::ToHeader(std::string *header, std::string *value) const {
   throw std::runtime_error("cannot serialize callback xattr to header");
 }
 
-} // namespace fs
-} // namespace s3
+std::string CallbackXAttr::ToString() const {
+  throw std::runtime_error("cannot cast callback xattr to string");
+}
+
+}  // namespace fs
+}  // namespace s3

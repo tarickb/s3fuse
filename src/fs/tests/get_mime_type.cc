@@ -10,10 +10,10 @@ int main(int argc, char **argv) {
     return 1;
   }
 
-  s3::fs::mime_types::init();
+  s3::fs::MimeTypes::Init();
 
   ext = argv[1];
-  type = s3::fs::mime_types::get_type_by_extension(ext);
+  type = s3::fs::MimeTypes::GetTypeByExtension(ext);
 
   if (type.empty()) {
     std::cerr << "matching type not found" << std::endl;

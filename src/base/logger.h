@@ -31,37 +31,19 @@
 
 namespace s3 {
 namespace base {
-class logger {
-public:
-  static void init(int max_level);
-
-  inline static void log(int level, const char *message, ...) {
-    va_list args;
-
-    if (level <= s_max_level) {
-      va_start(args, message);
-      vfprintf(stderr, message, args);
-      va_end(args);
-
-      // can't reuse va_list
-
-      va_start(args, message);
-      vsyslog(level, message, args);
-      va_end(args);
-    }
-  }
-
-private:
-  static int s_max_level;
+class Logger {
+ public:
+  static void Init(int max_level);
+  static void Log(int level, const char *message, ...);
 };
-} // namespace base
-} // namespace s3
+}  // namespace base
+}  // namespace s3
 
 // "##" between "," and "__VA_ARGS__" removes the comma if no arguments are
 // provided
-#define S3_LOG(level, fn, str, ...)                                            \
-  do {                                                                         \
-    s3::base::logger::log(level, fn ": " str, ##__VA_ARGS__);                  \
+#define S3_LOG(level, fn, str, ...)                           \
+  do {                                                        \
+    s3::base::Logger::Log(level, fn ": " str, ##__VA_ARGS__); \
   } while (0)
 
 #endif

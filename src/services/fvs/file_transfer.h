@@ -29,12 +29,12 @@
 namespace s3 {
 namespace services {
 namespace fvs {
-class file_transfer : public services::file_transfer {
-public:
-  virtual size_t get_upload_chunk_size();
+class FileTransfer : public services::FileTransfer {
+ public:
+  size_t upload_chunk_size() override;
 };
-} // namespace fvs
-} // namespace services
-} // namespace s3
+}  // namespace fvs
+}  // namespace services
+}  // namespace s3
 
 #endif

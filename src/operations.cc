@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#include "operations.h"
+
 #include <atomic>
 #include <limits>
 
@@ -32,7 +34,6 @@
 #include "fs/file.h"
 #include "fs/special.h"
 #include "fs/symlink.h"
-#include "operations.h"
 
 namespace s3 {
 
@@ -43,39 +44,31 @@ std::atomic_int s_create(0), s_mkdir(0), s_mknod(0), s_open(0), s_rename(0),
     s_symlink(0), s_truncate(0), s_unlink(0);
 std::atomic_int s_getattr(0), s_readdir(0), s_readlink(0);
 
-void dir_filler(fuse_fill_dir_t filler, void *buf, const std::string &path) {
-  filler(buf, path.c_str(), NULL, 0);
-}
-
-inline std::string get_parent(const std::string &path) {
+inline std::string GetParent(const std::string &path) {
   size_t last_slash = path.rfind('/');
-
   return (last_slash == std::string::npos) ? "" : path.substr(0, last_slash);
 }
 
-inline void invalidate(const std::string &path) {
+inline void Invalidate(const std::string &path) {
   if (!path.empty())
-    fs::cache::remove(path);
+    fs::Cache::Remove(path);
 }
 
-int touch(const std::string &path) {
-  fs::object::ptr obj;
-
+int Touch(const std::string &path) {
   if (path.empty())
     return 0; // succeed if path is root
 
-  obj = fs::cache::get(path);
-
+  auto obj = fs::Cache::Get(path);
   if (!obj)
     return -ENOENT;
 
   obj->set_ctime();
   obj->set_mtime();
 
-  return obj->commit();
+  return obj->Commit();
 }
 
-void statistics_writer(std::ostream *o) {
+void StatsWriter(std::ostream *o) {
   *o << "operations (exceptions):\n"
         "  reopen attempts: "
      << s_reopen_attempts
@@ -129,13 +122,13 @@ void statistics_writer(std::ostream *o) {
 }
 
 int s_mountpoint_mode = 0;
-base::statistics::writers::entry s_entry(statistics_writer, 0);
+base::Statistics::Writers::Entry s_entry(StatsWriter, 0);
 } // namespace
 
 // also adjust path by skipping leading slash
 #define ASSERT_VALID_PATH(str)                                                 \
   do {                                                                         \
-    const char *last_slash = NULL;                                             \
+    const char *last_slash = nullptr;                                             \
                                                                                \
     if ((str)[0] != '/') {                                                     \
       S3_LOG(LOG_WARNING, "ASSERT_VALID_PATH",                                 \
@@ -165,7 +158,7 @@ base::statistics::writers::entry s_entry(statistics_writer, 0);
   do {                                                                         \
     uid_t curr_uid = fuse_get_context()->uid;                                  \
                                                                                \
-    if (curr_uid && curr_uid != (obj)->get_uid())                              \
+    if (curr_uid && curr_uid != (obj)->uid())                              \
       return -EPERM;                                                           \
   } while (0)
 
@@ -185,36 +178,31 @@ base::statistics::writers::entry s_entry(statistics_writer, 0);
   }
 
 #define GET_OBJECT(var, path)                                                  \
-  fs::object::ptr var = fs::cache::get(path);                                  \
-                                                                               \
+  auto var = fs::Cache::Get(path);                                  \
   if (!var)                                                                    \
     return -ENOENT;
 
-#define GET_OBJECT_AS(type, mode, var, path)                                   \
-  type::ptr var = std::dynamic_pointer_cast<type>(fs::cache::get(path));       \
-                                                                               \
+#define GET_OBJECT_AS(obj_type, mode, var, path)                                   \
+  auto var = std::dynamic_pointer_cast<obj_type>(fs::Cache::Get(path));       \
   if (!var)                                                                    \
     return -ENOENT;                                                            \
-                                                                               \
-  if (var->get_type() != (mode)) {                                             \
+  if (var->type() != (mode)) {                                             \
     S3_LOG(LOG_WARNING, "GET_OBJECT_AS",                                       \
            "could not get [%s] as type [%s] (requested mode %i, reported "     \
            "mode %i, at line %i)\n",                                           \
-           static_cast<const char *>(path), #type, mode, var->get_type(),      \
+           static_cast<const char *>(path), #obj_type, mode, var->type(),      \
            __LINE__);                                                          \
-                                                                               \
     return -EINVAL;                                                            \
   }
 
 #define RETURN_ON_ERROR(op)                                                    \
   do {                                                                         \
     int ret_val = (op);                                                        \
-                                                                               \
     if (ret_val)                                                               \
       return ret_val;                                                          \
   } while (0)
 
-void operations::init(const std::string &mountpoint) {
+void Operations::Init(const std::string &mountpoint) {
   struct stat mp_stat;
 
   if (stat(mountpoint.c_str(), &mp_stat))
@@ -223,76 +211,78 @@ void operations::init(const std::string &mountpoint) {
   s_mountpoint_mode = S_IFDIR | mp_stat.st_mode;
 }
 
-void operations::build_fuse_operations(fuse_operations *ops) {
+void Operations::BuildFuseOperations(fuse_operations *ops) {
   memset(ops, 0, sizeof(*ops));
 
   ops->flag_nullpath_ok = 1;
 
-  ops->chmod = operations::chmod;
-  ops->chown = operations::chown;
-  ops->create = operations::create;
-  ops->getattr = operations::getattr;
-  ops->getxattr = operations::getxattr;
-  ops->flush = operations::flush;
-  ops->ftruncate = operations::ftruncate;
-  ops->listxattr = operations::listxattr;
-  ops->mkdir = operations::mkdir;
-  ops->mknod = operations::mknod;
-  ops->open = operations::open;
-  ops->read = operations::read;
-  ops->readdir = operations::readdir;
-  ops->readlink = operations::readlink;
-  ops->release = operations::release;
-  ops->removexattr = operations::removexattr;
-  ops->rename = operations::rename;
-  ops->rmdir = operations::unlink;
-  ops->setxattr = operations::setxattr;
-  ops->statfs = operations::statfs;
-  ops->symlink = operations::symlink;
-  ops->truncate = operations::truncate;
-  ops->unlink = operations::unlink;
-  ops->utimens = operations::utimens;
-  ops->write = operations::write;
+  ops->chmod = Operations::chmod;
+  ops->chown = Operations::chown;
+  ops->create = Operations::create;
+  ops->getattr = Operations::getattr;
+  ops->getxattr = Operations::getxattr;
+  ops->flush = Operations::flush;
+  ops->ftruncate = Operations::ftruncate;
+  ops->listxattr = Operations::listxattr;
+  ops->mkdir = Operations::mkdir;
+  ops->mknod = Operations::mknod;
+  ops->open = Operations::open;
+  ops->read = Operations::read;
+  ops->readdir = Operations::readdir;
+  ops->readlink = Operations::readlink;
+  ops->release = Operations::release;
+  ops->removexattr = Operations::removexattr;
+  ops->rename = Operations::rename;
+  ops->rmdir = Operations::unlink;
+  ops->setxattr = Operations::setxattr;
+  ops->statfs = Operations::statfs;
+  ops->symlink = Operations::symlink;
+  ops->truncate = Operations::truncate;
+  ops->unlink = Operations::unlink;
+  ops->utimens = Operations::utimens;
+  ops->write = Operations::write;
 }
 
-int operations::chmod(const char *path, mode_t mode) {
+int Operations::chmod(const char *path, mode_t mode) {
   S3_LOG(LOG_DEBUG, "chmod", "path: %s, mode: %i\n", path, mode);
 
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
+
   GET_OBJECT(obj, path);
   CHECK_OWNER(obj);
 
-  obj->set_mode(mode);
+  obj->SetMode(mode);
 
-  return obj->commit();
+  return obj->Commit();
+
   END_TRY;
 }
 
-int operations::chown(const char *path, uid_t uid, gid_t gid) {
+int Operations::chown(const char *path, uid_t uid, gid_t gid) {
   S3_LOG(LOG_DEBUG, "chown", "path: %s, user: %i, group: %i\n", path, uid, gid);
 
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
+
   GET_OBJECT(obj, path);
   CHECK_OWNER(obj);
 
   if (uid != static_cast<uid_t>(-1))
     obj->set_uid(uid);
-
   if (gid != static_cast<gid_t>(-1))
     obj->set_gid(gid);
-
   // chown updates ctime
   obj->set_ctime();
 
-  return obj->commit();
+  return obj->Commit();
+
   END_TRY;
 }
 
-int operations::create(const char *path, mode_t mode,
+int Operations::create(const char *path, mode_t mode,
                        fuse_file_info *file_info) {
   S3_LOG(LOG_DEBUG, "create", "path: %s, mode: %#o\n", path, mode);
   ++s_create;
@@ -300,91 +290,85 @@ int operations::create(const char *path, mode_t mode,
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-  fs::file::ptr f;
-  std::string parent = get_parent(path);
-  int r = 0, last_error = 0;
-  const fuse_context *ctx = fuse_get_context();
 
-  if (fs::cache::get(path)) {
+  if (fs::Cache::Get(path)) {
     S3_LOG(LOG_WARNING, "create", "attempt to overwrite object at [%s]\n",
            path);
     return -EEXIST;
   }
 
-  invalidate(parent);
+  std::string parent = GetParent(path);
+  Invalidate(parent);
 
-  if (base::config::get_use_encryption() &&
-      base::config::get_encrypt_new_files())
-    f.reset(new fs::encrypted_file(path));
+  std::unique_ptr<fs::File> f;
+
+  if (base::Config::use_encryption() &&
+      base::Config::encrypt_new_files())
+    f.reset(new fs::EncryptedFile(path));
   else
-    f.reset(new fs::file(path));
+    f.reset(new fs::File(path));
 
-  f->set_mode(mode);
-  f->set_uid(ctx->uid);
-  f->set_gid(ctx->gid);
+  f->SetMode(mode);
+  f->set_uid(fuse_get_context()->uid);
+  f->set_gid(fuse_get_context()->gid);
 
-  RETURN_ON_ERROR(f->commit());
-  RETURN_ON_ERROR(touch(parent));
+  RETURN_ON_ERROR(f->Commit());
+  RETURN_ON_ERROR(Touch(parent));
 
   // rarely, the newly created file won't be downloadable right away, so
   // try a few times before giving up.
-  for (int i = 0; i < base::config::get_max_inconsistent_state_retries(); i++) {
+  int r = 0, last_error = 0;
+  for (int i = 0; i < base::Config::max_inconsistent_state_retries(); i++) {
     last_error = r;
-    r = fs::file::open(static_cast<std::string>(path), s3::fs::OPEN_DEFAULT,
+    r = fs::File::Open(static_cast<std::string>(path), s3::fs::FileOpenMode::DEFAULT,
                        &file_info->fh);
-
     if (r != -ENOENT)
       break;
-
     S3_LOG(LOG_WARNING, "create", "retrying open on [%s] because of error %i\n",
            path, r);
     ++s_reopen_attempts;
-
     // sleep a bit instead of retrying more times than necessary
-    base::timer::sleep(i + 1);
+    base::Timer::Sleep(i + 1);
   }
 
   if (!r && last_error == -ENOENT)
     ++s_reopen_rescues;
-
   if (r == -ENOENT)
     ++s_reopen_fails;
 
   return r;
+
   END_TRY;
 }
 
-int operations::flush(const char *path, fuse_file_info *file_info) {
-  fs::file *f = fs::file::from_handle(file_info->fh);
+int Operations::flush(const char *path, fuse_file_info *file_info) {
+  auto *f = fs::File::FromHandle(file_info->fh);
 
-  S3_LOG(LOG_DEBUG, "flush", "path: %s\n", f->get_path().c_str());
+  S3_LOG(LOG_DEBUG, "flush", "path: %s\n", f->path().c_str());
 
   BEGIN_TRY;
-  return f->flush();
+  return f->Flush();
   END_TRY;
 }
 
-int operations::ftruncate(const char *path, off_t offset,
+int Operations::ftruncate(const char *path, off_t offset,
                           fuse_file_info *file_info) {
-  fs::file *f = fs::file::from_handle(file_info->fh);
+  auto *f = fs::File::FromHandle(file_info->fh);
 
   S3_LOG(LOG_DEBUG, "ftruncate", "path: %s, offset: %ji\n",
-         f->get_path().c_str(), static_cast<intmax_t>(offset));
+         f->path().c_str(), static_cast<intmax_t>(offset));
 
   BEGIN_TRY;
-  RETURN_ON_ERROR(f->truncate(offset));
-
+  RETURN_ON_ERROR(f->Truncate(offset));
   // successful truncate updates ctime
   f->set_ctime();
-
   // we don't need to flush/commit the ctime update because that'll be done
   // when we close this file.
-
   return 0;
   END_TRY;
 }
 
-int operations::getattr(const char *path, struct stat *s) {
+int Operations::getattr(const char *path, struct stat *s) {
   ASSERT_VALID_PATH(path);
 
   ++s_getattr;
@@ -401,19 +385,21 @@ int operations::getattr(const char *path, struct stat *s) {
   }
 
   BEGIN_TRY;
+
   GET_OBJECT(obj, path);
 
-  obj->copy_stat(s);
+  obj->CopyStat(s);
 
   return 0;
+
   END_TRY;
 }
 
 #ifdef __APPLE__
-int operations::getxattr(const char *path, const char *name, char *buffer,
+int Operations::getxattr(const char *path, const char *name, char *buffer,
                          size_t max_size, uint32_t position)
 #else
-int operations::getxattr(const char *path, const char *name, char *buffer,
+int Operations::getxattr(const char *path, const char *name, char *buffer,
                          size_t max_size)
 #endif
 {
@@ -421,140 +407,132 @@ int operations::getxattr(const char *path, const char *name, char *buffer,
 
   BEGIN_TRY;
   GET_OBJECT(obj, path);
-
-  return obj->get_metadata(name, buffer, max_size);
+  return obj->GetMetadata(name, buffer, max_size);
   END_TRY;
 }
 
-int operations::listxattr(const char *path, char *buffer, size_t size) {
-  typedef std::vector<std::string> str_vec;
-
+int Operations::listxattr(const char *path, char *buffer, size_t size) {
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
+
   GET_OBJECT(obj, path);
 
-  str_vec attrs;
+  const auto attrs = obj->GetMetadataKeys();
+
   size_t required_size = 0;
+  for (const auto& attr : attrs)
+    required_size += attr.size() + 1;
 
-  obj->get_metadata_keys(&attrs);
-
-  for (str_vec::const_iterator itor = attrs.begin(); itor != attrs.end();
-       ++itor)
-    required_size += itor->size() + 1;
-
-  if (buffer == NULL || size == 0)
+  if (buffer == nullptr || size == 0)
     return required_size;
-
   if (required_size > size)
     return -ERANGE;
 
-  for (str_vec::const_iterator itor = attrs.begin(); itor != attrs.end();
-       ++itor) {
-    strcpy(buffer, itor->c_str());
-    buffer += itor->size() + 1;
+  for (const auto& attr : attrs) {
+    strcpy(buffer, attr.c_str());
+    buffer += attr.size() + 1;
   }
 
   return required_size;
+
   END_TRY;
 }
 
-int operations::mkdir(const char *path, mode_t mode) {
-  const fuse_context *ctx = fuse_get_context();
-
+int Operations::mkdir(const char *path, mode_t mode) {
   S3_LOG(LOG_DEBUG, "mkdir", "path: %s, mode: %#o\n", path, mode);
   ++s_mkdir;
 
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-  fs::directory::ptr dir;
-  std::string parent = get_parent(path);
 
-  if (fs::cache::get(path)) {
+  if (fs::Cache::Get(path)) {
     S3_LOG(LOG_WARNING, "mkdir", "attempt to overwrite object at [%s]\n", path);
     return -EEXIST;
   }
 
-  invalidate(parent);
+  std::string parent = GetParent(path);
+  Invalidate(parent);
 
-  dir.reset(new fs::directory(path));
+  fs::Directory dir(path);
 
-  dir->set_mode(mode);
-  dir->set_uid(ctx->uid);
-  dir->set_gid(ctx->gid);
+  dir.SetMode(mode);
+  dir.set_uid(fuse_get_context()->uid);
+  dir.set_gid(fuse_get_context()->gid);
 
-  RETURN_ON_ERROR(dir->commit());
+  RETURN_ON_ERROR(dir.Commit());
 
-  return touch(parent);
+  return Touch(parent);
+
   END_TRY;
 }
 
-int operations::mknod(const char *path, mode_t mode, dev_t dev) {
-  const fuse_context *ctx = fuse_get_context();
-
+int Operations::mknod(const char *path, mode_t mode, dev_t dev) {
   S3_LOG(LOG_DEBUG, "mknod", "path: %s, mode: %#o, dev: %i\n", path, mode, dev);
   ++s_mknod;
 
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-  fs::special::ptr obj;
-  std::string parent = get_parent(path);
 
-  if (fs::cache::get(path)) {
+  if (fs::Cache::Get(path)) {
     S3_LOG(LOG_WARNING, "mknod", "attempt to overwrite object at [%s]\n", path);
     return -EEXIST;
   }
 
-  invalidate(parent);
+  std::string parent = GetParent(path);
+  Invalidate(parent);
 
-  obj.reset(new fs::special(path));
+  fs::Special obj(path);
 
-  obj->set_type(mode);
-  obj->set_device(dev);
+  obj.set_type(mode);
+  obj.set_device(dev);
 
-  obj->set_mode(mode);
-  obj->set_uid(ctx->uid);
-  obj->set_gid(ctx->gid);
+  obj.SetMode(mode);
+  obj.set_uid(fuse_get_context()->uid);
+  obj.set_gid(fuse_get_context()->gid);
 
-  RETURN_ON_ERROR(obj->commit());
+  RETURN_ON_ERROR(obj.Commit());
 
-  return touch(parent);
+  return Touch(parent);
+
   END_TRY;
 }
 
-int operations::open(const char *path, fuse_file_info *file_info) {
+int Operations::open(const char *path, fuse_file_info *file_info) {
   S3_LOG(LOG_DEBUG, "open", "path: %s\n", path);
   ++s_open;
 
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-  RETURN_ON_ERROR(fs::file::open(static_cast<std::string>(path),
+
+  RETURN_ON_ERROR(fs::File::Open(static_cast<std::string>(path),
                                  (file_info->flags & O_TRUNC)
-                                     ? s3::fs::OPEN_TRUNCATE_TO_ZERO
-                                     : s3::fs::OPEN_DEFAULT,
+                                     ? s3::fs::FileOpenMode::TRUNCATE_TO_ZERO
+                                     : s3::fs::FileOpenMode::DEFAULT,
                                  &file_info->fh));
 
   // successful open with O_TRUNC updates ctime and mtime
   if (file_info->flags & O_TRUNC) {
-    fs::file::from_handle(file_info->fh)->set_ctime();
-    fs::file::from_handle(file_info->fh)->set_mtime();
+    fs::File::FromHandle(file_info->fh)->set_ctime();
+    fs::File::FromHandle(file_info->fh)->set_mtime();
   }
 
   return 0;
+
   END_TRY;
 }
 
-int operations::read(const char *path, char *buffer, size_t size, off_t offset,
+int Operations::read(const char *path, char *buffer, size_t size, off_t offset,
                      fuse_file_info *file_info) {
   BEGIN_TRY;
-  return fs::file::from_handle(file_info->fh)->read(buffer, size, offset);
+  return fs::File::FromHandle(file_info->fh)->Read(buffer, size, offset);
   END_TRY;
 }
 
-int operations::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
+int Operations::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
                         off_t, fuse_file_info *file_info) {
   S3_LOG(LOG_DEBUG, "readdir", "path: %s\n", path);
   ++s_readdir;
@@ -562,63 +540,60 @@ int operations::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-  GET_OBJECT_AS(fs::directory, S_IFDIR, dir, path);
-
-  return dir->read(bind(&dir_filler, filler, buf, std::placeholders::_1));
+  GET_OBJECT_AS(fs::Directory, S_IFDIR, dir, path);
+  return dir->Read([filler, buf](const std::string &path) {
+      filler(buf, path.c_str(), nullptr, 0); });
   END_TRY;
 }
 
-int operations::readlink(const char *path, char *buffer, size_t max_size) {
+int Operations::readlink(const char *path, char *buffer, size_t max_size) {
   S3_LOG(LOG_DEBUG, "readlink", "path: %s, max_size: %zu\n", path, max_size);
   ++s_readlink;
 
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-  GET_OBJECT_AS(fs::symlink, S_IFLNK, link, path);
+
+  GET_OBJECT_AS(fs::Symlink, S_IFLNK, link, path);
 
   std::string target;
-
-  RETURN_ON_ERROR(link->read(&target));
+  RETURN_ON_ERROR(link->Read(&target));
 
   // leave room for the terminating null
   max_size--;
-
   if (target.size() < max_size)
     max_size = target.size();
-
   memcpy(buffer, target.c_str(), max_size);
   buffer[max_size] = '\0';
 
   return 0;
+
   END_TRY;
 }
 
-int operations::release(const char *path, fuse_file_info *file_info) {
-  fs::file *f = fs::file::from_handle(file_info->fh);
+int Operations::release(const char *path, fuse_file_info *file_info) {
+  auto *f = fs::File::FromHandle(file_info->fh);
 
-  S3_LOG(LOG_DEBUG, "release", "path: %s\n", f->get_path().c_str());
+  S3_LOG(LOG_DEBUG, "release", "path: %s\n", f->path().c_str());
 
   BEGIN_TRY;
-  return f->release();
+  return f->Release();
   END_TRY;
 }
 
-int operations::removexattr(const char *path, const char *name) {
+int Operations::removexattr(const char *path, const char *name) {
   S3_LOG(LOG_DEBUG, "removexattr", "path: %s, name: %s\n", path, name);
 
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
   GET_OBJECT(obj, path);
-
-  RETURN_ON_ERROR(obj->remove_metadata(name));
-
-  return obj->commit();
+  RETURN_ON_ERROR(obj->RemoveMetadata(name));
+  return obj->Commit();
   END_TRY;
 }
 
-int operations::rename(const char *from, const char *to) {
+int Operations::rename(const char *from, const char *to) {
   S3_LOG(LOG_DEBUG, "rename", "from: %s, to: %s\n", from, to);
   ++s_rename;
 
@@ -626,35 +601,32 @@ int operations::rename(const char *from, const char *to) {
   ASSERT_VALID_PATH(to);
 
   BEGIN_TRY;
+
   GET_OBJECT(from_obj, from);
 
   // not using GET_OBJECT() here because we don't want to fail if "to"
   // doesn't exist
-  fs::object::ptr to_obj = fs::cache::get(to);
+  auto to_obj = fs::Cache::Get(to);
 
-  invalidate(get_parent(from));
-  invalidate(get_parent(to));
+  Invalidate(GetParent(from));
+  Invalidate(GetParent(to));
 
   if (to_obj) {
-    if (to_obj->get_type() == S_IFDIR) {
-      if (from_obj->get_type() != S_IFDIR)
+    if (to_obj->type() == S_IFDIR) {
+      if (from_obj->type() != S_IFDIR)
         return -EISDIR;
-
-      if (!std::dynamic_pointer_cast<fs::directory>(to_obj)->is_empty())
+      if (!std::dynamic_pointer_cast<fs::Directory>(to_obj)->IsEmpty())
         return -ENOTEMPTY;
-
-    } else if (from_obj->get_type() == S_IFDIR) {
+    } else if (from_obj->type() == S_IFDIR) {
       return -ENOTDIR;
     }
-
-    RETURN_ON_ERROR(to_obj->remove());
+    RETURN_ON_ERROR(to_obj->Remove());
   }
 
-  RETURN_ON_ERROR(from_obj->rename(to));
+  RETURN_ON_ERROR(from_obj->Rename(to));
 
-  for (int i = 0; i < base::config::get_max_inconsistent_state_retries(); i++) {
-    to_obj = fs::cache::get(to);
-
+  for (int i = 0; i < base::Config::max_inconsistent_state_retries(); i++) {
+    to_obj = fs::Cache::Get(to);
     if (to_obj)
       break;
 
@@ -663,7 +635,7 @@ int operations::rename(const char *from, const char *to) {
     ++s_rename_attempts;
 
     // sleep a bit instead of retrying more times than necessary
-    base::timer::sleep(i + 1);
+    base::Timer::Sleep(i + 1);
   }
 
   // TODO: fail if ctime/mtime can't be set? maybe have a strict posix
@@ -675,15 +647,16 @@ int operations::rename(const char *from, const char *to) {
 
   to_obj->set_ctime();
 
-  return to_obj->commit();
+  return to_obj->Commit();
+
   END_TRY;
 }
 
 #ifdef __APPLE__
-int operations::setxattr(const char *path, const char *name, const char *value,
+int Operations::setxattr(const char *path, const char *name, const char *value,
                          size_t size, int flags, uint32_t position)
 #else
-int operations::setxattr(const char *path, const char *name, const char *value,
+int Operations::setxattr(const char *path, const char *name, const char *value,
                          size_t size, int flags)
 #endif
 {
@@ -695,17 +668,15 @@ int operations::setxattr(const char *path, const char *name, const char *value,
   BEGIN_TRY;
   bool needs_commit = false;
   GET_OBJECT(obj, path);
-
-  RETURN_ON_ERROR(obj->set_metadata(name, value, size, flags, &needs_commit));
-
-  return needs_commit ? obj->commit() : 0;
+  RETURN_ON_ERROR(obj->SetMetadata(name, value, size, flags, &needs_commit));
+  return needs_commit ? obj->Commit() : 0;
   END_TRY;
 }
 
-int operations::statfs(const char * /* ignored */, struct statvfs *s) {
+int Operations::statfs(const char * /* ignored */, struct statvfs *s) {
   s->f_namemax = 1024; // arbitrary
 
-  s->f_bsize = fs::object::get_block_size();
+  s->f_bsize = fs::Object::block_size();
 
   // the following members are all 64-bit, but on 32-bit systems we want to
   // return values that'll fit in 32 bits, otherwise we screw up tools like
@@ -720,43 +691,36 @@ int operations::statfs(const char * /* ignored */, struct statvfs *s) {
   return 0;
 }
 
-int operations::symlink(const char *target, const char *path) {
-  const fuse_context *ctx = fuse_get_context();
-
+int Operations::symlink(const char *target, const char *path) {
   S3_LOG(LOG_DEBUG, "symlink", "path: %s, target: %s\n", path, target);
   ++s_symlink;
 
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-  fs::symlink::ptr link;
-  std::string parent = get_parent(path);
 
-  if (fs::cache::get(path)) {
+  if (fs::Cache::Get(path)) {
     S3_LOG(LOG_WARNING, "symlink", "attempt to overwrite object at [%s]\n",
            path);
     return -EEXIST;
   }
 
-  invalidate(parent);
+  std::string parent = GetParent(path);
+  Invalidate(parent);
 
-  link.reset(new fs::symlink(path));
+  fs::Symlink link(path);
 
-  link->set_uid(ctx->uid);
-  link->set_gid(ctx->gid);
+  link.set_uid(fuse_get_context()->uid);
+  link.set_gid(fuse_get_context()->gid);
+  link.SetTarget(target);
+  RETURN_ON_ERROR(link.Commit());
 
-  link->set_target(target);
+  return Touch(parent);
 
-  RETURN_ON_ERROR(link->commit());
-
-  return touch(parent);
   END_TRY;
 }
 
-int operations::truncate(const char *path, off_t size) {
-  fs::file *f;
-  uint64_t handle;
-
+int Operations::truncate(const char *path, off_t size) {
   S3_LOG(LOG_DEBUG, "truncate", "path: %s, size: %ji\n", path,
          static_cast<intmax_t>(size));
   ++s_truncate;
@@ -764,70 +728,64 @@ int operations::truncate(const char *path, off_t size) {
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-  int r;
 
   // passing OPEN_TRUNCATE_TO_ZERO saves us from having to download the
   // entire file if we're just going to truncate it to zero anyway.
-
-  RETURN_ON_ERROR(fs::file::open(static_cast<std::string>(path),
-                                 (size == 0) ? s3::fs::OPEN_TRUNCATE_TO_ZERO
-                                             : s3::fs::OPEN_DEFAULT,
+  uint64_t handle;
+  RETURN_ON_ERROR(fs::File::Open(static_cast<std::string>(path),
+                                 (size == 0) ? s3::fs::FileOpenMode::TRUNCATE_TO_ZERO
+                                             : s3::fs::FileOpenMode::DEFAULT,
                                  &handle));
 
-  f = fs::file::from_handle(handle);
-
-  r = f->truncate(size);
-
+  auto *f = fs::File::FromHandle(handle);
+  int r = f->Truncate(size);
   if (!r) {
     // successful truncate updates ctime
     f->set_ctime();
-
-    r = f->flush();
+    r = f->Flush();
   }
-
-  f->release();
-
+  f->Release();
   return r;
+
   END_TRY;
 }
 
-int operations::unlink(const char *path) {
+int Operations::unlink(const char *path) {
   S3_LOG(LOG_DEBUG, "unlink", "path: %s\n", path);
   ++s_unlink;
 
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
-  std::string parent = get_parent(path);
 
   GET_OBJECT(obj, path);
 
-  invalidate(parent);
+  std::string parent = GetParent(path);
+  Invalidate(parent);
 
-  RETURN_ON_ERROR(obj->remove());
+  RETURN_ON_ERROR(obj->Remove());
 
-  return touch(parent);
+  return Touch(parent);
+
   END_TRY;
 }
 
-int operations::utimens(const char *path, const timespec times[2]) {
+int Operations::utimens(const char *path, const timespec times[2]) {
   S3_LOG(LOG_DEBUG, "utimens", "path: %s, time: %li\n", path, times[1].tv_sec);
 
   ASSERT_VALID_PATH(path);
 
   BEGIN_TRY;
   GET_OBJECT(obj, path);
-
   obj->set_mtime(times[1].tv_sec);
-
-  return obj->commit();
+  return obj->Commit();
   END_TRY;
 }
 
-int operations::write(const char *path, const char *buffer, size_t size,
+int Operations::write(const char *path, const char *buffer, size_t size,
                       off_t offset, fuse_file_info *file_info) {
   BEGIN_TRY;
-  return fs::file::from_handle(file_info->fh)->write(buffer, size, offset);
+  return fs::File::FromHandle(file_info->fh)->Write(buffer, size, offset);
   END_TRY;
 }
 

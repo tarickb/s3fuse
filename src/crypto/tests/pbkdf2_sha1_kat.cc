@@ -8,7 +8,7 @@ namespace crypto {
 namespace tests {
 
 namespace {
-struct known_answer {
+struct KnownAnswer {
   const char *password;
   const char *salt;
   int rounds;
@@ -16,7 +16,7 @@ struct known_answer {
   const char *output;
 };
 
-const known_answer TESTS[] = {
+const KnownAnswer TESTS[] = {
     // from http://tools.ietf.org/html/draft-josefsson-pbkdf2-test-vectors-06
     // (excluding the last test, since nulls in strings would complicate
     // matters)
@@ -34,17 +34,16 @@ const known_answer TESTS[] = {
      25, "3d2eec4fe41c849b80c8d83662c0e44a8b291a964cf2f07038"}};
 
 const int TEST_COUNT = sizeof(TESTS) / sizeof(TESTS[0]);
-} // namespace
+}  // namespace
 
-TEST(pbkdf2_sha1, known_answers) {
+TEST(Pbkdf2Sha1, KnownAnswers) {
   for (int test = 0; test < TEST_COUNT; test++) {
-    const known_answer *kat = TESTS + test;
+    const KnownAnswer *kat = TESTS + test;
     std::string key_out, pretty_kat;
-    buffer::ptr key;
 
-    key = pbkdf2_sha1::derive(kat->password, kat->salt, kat->rounds,
-                              kat->key_len);
-    key_out = key->to_string();
+    auto key =
+        Pbkdf2Sha1::Derive(kat->password, kat->salt, kat->rounds, kat->key_len);
+    key_out = key.ToHexString();
 
     EXPECT_EQ(std::string(kat->output), key_out)
         << "password: " << kat->password << ", "
@@ -54,6 +53,6 @@ TEST(pbkdf2_sha1, known_answers) {
   }
 }
 
-} // namespace tests
-} // namespace crypto
-} // namespace s3
+}  // namespace tests
+}  // namespace crypto
+}  // namespace s3

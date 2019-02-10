@@ -24,8 +24,8 @@
 
 namespace s3 {
 namespace fs {
-class metadata {
-public:
+class Metadata {
+ public:
   static const char *RESERVED_PREFIX;
   static const char *XATTR_PREFIX;
 
@@ -43,7 +43,7 @@ public:
   static const char *ENC_IV;
   static const char *ENC_METADATA;
 };
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

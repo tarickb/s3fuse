@@ -19,12 +19,13 @@
  * limitations under the License.
  */
 
+#include "services/impl.h"
+
 #include <atomic>
 
 #include "base/request.h"
 #include "base/statistics.h"
 #include "base/xml.h"
-#include "services/impl.h"
 
 namespace s3 {
 namespace services {
@@ -35,7 +36,7 @@ const char *REQ_TIMEOUT_XPATH = "/Error/Code[text() = 'RequestTimeout']";
 std::atomic_int s_internal_server_error(0), s_service_unavailable(0);
 std::atomic_int s_req_timeout(0), s_bad_request(0);
 
-void statistics_writer(std::ostream *o) {
+void StatsWriter(std::ostream *o) {
   *o << "common service base:\n"
         "  \"internal server error\": "
      << s_internal_server_error
@@ -50,13 +51,11 @@ void statistics_writer(std::ostream *o) {
      << s_bad_request << "\n";
 }
 
-base::statistics::writers::entry s_writer(statistics_writer, 0);
-} // namespace
+base::Statistics::Writers::Entry s_writer(StatsWriter, 0);
+}  // namespace
 
-impl::~impl() {}
-
-bool impl::should_retry(base::request *r, int iter) {
-  long rc = r->get_response_code();
+bool GenericShouldRetry(base::Request *r, int iter) {
+  int rc = r->response_code();
 
   if (rc == base::HTTP_SC_INTERNAL_SERVER_ERROR) {
     ++s_internal_server_error;
@@ -69,9 +68,13 @@ bool impl::should_retry(base::request *r, int iter) {
   }
 
   if (rc == base::HTTP_SC_BAD_REQUEST) {
-    if (base::xml::match(r->get_output_buffer(), REQ_TIMEOUT_XPATH)) {
-      ++s_req_timeout;
-      return true;
+    try {
+      auto xml = base::XmlDocument::Parse(r->GetOutputAsString());
+      if (xml->Match(REQ_TIMEOUT_XPATH)) {
+        ++s_req_timeout;
+        return true;
+      }
+    } catch (...) {
     }
 
     ++s_bad_request;
@@ -81,5 +84,5 @@ bool impl::should_retry(base::request *r, int iter) {
   return false;
 }
 
-} // namespace services
-} // namespace s3
+}  // namespace services
+}  // namespace s3

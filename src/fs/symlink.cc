@@ -20,6 +20,7 @@
  */
 
 #include "fs/symlink.h"
+
 #include "base/logger.h"
 #include "base/request.h"
 
@@ -28,59 +29,65 @@ namespace fs {
 
 namespace {
 const std::string CONTENT_TYPE = "text/symlink";
-
 const std::string CONTENT_PREFIX = "SYMLINK:";
-const char *CONTENT_PREFIX_CSTR = CONTENT_PREFIX.c_str();
-const size_t CONTENT_PREFIX_LEN = CONTENT_PREFIX.size();
 
-object *checker(const std::string &path, const base::request::ptr &req) {
-  if (req->get_response_header("Content-Type") != CONTENT_TYPE)
-    return NULL;
-
-  return new s3::fs::symlink(path);
+Object *Checker(const std::string &path, base::Request *req) {
+  if (req->response_header("Content-Type") != CONTENT_TYPE) return nullptr;
+  return new Symlink(path);
 }
 
-object::type_checker_list::entry s_checker_reg(checker, 100);
-} // namespace
+Object::TypeCheckers::Entry s_checker_reg(Checker, 100);
+}  // namespace
 
-symlink::symlink(const std::string &path) : object(path) {
+Symlink::Symlink(const std::string &path) : Object(path) {
   set_content_type(CONTENT_TYPE);
   set_type(S_IFLNK);
 }
 
-symlink::~symlink() {}
+int Symlink::Read(std::string *target) {
+  std::unique_lock<std::mutex> lock(mutex_);
 
-void symlink::set_request_body(const base::request::ptr &req) {
-  std::lock_guard<std::mutex> lock(_mutex);
+  if (target_.empty()) {
+    lock.unlock();
+    int r = threads::Pool::Call(
+        threads::PoolId::PR_REQ_0,
+        std::bind(&Symlink::DoRead, this, std::placeholders::_1));
+    if (r) return r;
+    lock.lock();
+  }
 
-  req->set_input_buffer(CONTENT_PREFIX + _target);
+  *target = target_;
+  return 0;
 }
 
-int symlink::internal_read(const base::request::ptr &req) {
-  std::unique_lock<std::mutex> lock(_mutex, std::defer_lock);
-  std::string output;
+void Symlink::SetTarget(const std::string &target) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  target_ = target;
+}
 
-  req->init(base::HTTP_GET);
-  req->set_url(get_url());
+void Symlink::SetRequestBody(base::Request *req) {
+  std::lock_guard<std::mutex> lock(mutex_);
+  req->SetInputBuffer(CONTENT_PREFIX + target_);
+}
 
-  req->run();
+int Symlink::DoRead(base::Request *req) {
+  req->Init(base::HttpMethod::GET);
+  req->SetUrl(url());
 
-  if (req->get_response_code() != base::HTTP_SC_OK)
-    return -EIO;
+  req->Run();
+  if (req->response_code() != base::HTTP_SC_OK) return -EIO;
 
-  output = req->get_output_string();
-
-  if (strncmp(output.c_str(), CONTENT_PREFIX_CSTR, CONTENT_PREFIX_LEN) != 0) {
-    S3_LOG(LOG_WARNING, "symlink::internal_read",
+  std::string output = req->GetOutputAsString();
+  if (output.substr(0, CONTENT_PREFIX.size()) != CONTENT_PREFIX) {
+    S3_LOG(LOG_WARNING, "Symlink::DoRead",
            "content prefix does not match: [%s]\n", output.c_str());
     return -EINVAL;
   }
 
-  lock.lock();
-  _target = output.c_str() + CONTENT_PREFIX_LEN;
-
+  std::lock_guard<std::mutex> lock(mutex_);
+  target_ = output.substr(CONTENT_PREFIX.size());
   return 0;
 }
 
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3

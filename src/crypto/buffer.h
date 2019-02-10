@@ -36,60 +36,44 @@
 
 namespace s3 {
 namespace crypto {
-class buffer {
-public:
-  typedef std::shared_ptr<buffer> ptr;
+class Buffer {
+ public:
+  inline static Buffer Empty() { return {std::vector<uint8_t>()}; }
 
-  inline static ptr zero(size_t len) {
-    ptr b(new buffer());
-
-    b->_buf.resize(len);
-    memset(&b->_buf[0], 0, len);
-
-    return b;
+  inline static Buffer Zero(size_t len) {
+    std::vector<uint8_t> zero(len, 0);
+    return {zero};
   }
 
-  inline static ptr generate(size_t len) {
-    ptr b(new buffer());
-
-    if (!len)
-      throw std::runtime_error("cannot generate empty buffer");
-
-    b->_buf.resize(len);
-
-    if (RAND_bytes(&b->_buf[0], len) == 0)
+  inline static Buffer Generate(size_t len) {
+    if (!len) throw std::runtime_error("cannot generate empty buffer");
+    std::vector<uint8_t> random(len);
+    if (RAND_bytes(&random[0], len) == 0)
       throw std::runtime_error("failed to generate random key");
-
-    return b;
+    return {random};
   }
 
-  inline static ptr from_string(const std::string &in) {
-    ptr b(new buffer());
-
-    encoder::decode<hex>(in, &b->_buf);
-
-    return b;
+  inline static Buffer FromHexString(const std::string &in) {
+    return {Encoder::Decode<Hex>(in)};
   }
 
-  inline static ptr from_vector(const std::vector<uint8_t> &bytes) {
-    ptr b(new buffer());
-
-    b->_buf = bytes;
-
-    return b;
+  inline static Buffer FromVector(const std::vector<uint8_t> &bytes) {
+    return {bytes};
   }
 
-  inline const uint8_t *get() const { return &_buf[0]; }
-  inline size_t size() const { return _buf.size(); }
+  inline const uint8_t *get() const { return &buf_[0]; }
+  inline size_t size() const { return buf_.size(); }
 
-  inline std::string to_string() { return encoder::encode<hex>(_buf); }
+  inline operator bool() const { return !buf_.empty(); }
 
-private:
-  inline buffer() {}
+  inline std::string ToHexString() const { return Encoder::Encode<Hex>(buf_); }
 
-  std::vector<uint8_t> _buf;
+ private:
+  inline Buffer(std::vector<uint8_t> buf) : buf_(buf) {}
+
+  std::vector<uint8_t> buf_;
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

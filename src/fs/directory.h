@@ -31,74 +31,28 @@
 
 namespace s3 {
 namespace fs {
-class directory : public object {
-public:
-  typedef std::shared_ptr<directory> ptr;
-  typedef std::function<void(const std::string &)> filler_function;
+class Directory : public Object {
+ public:
+  using Filler = std::function<void(const std::string &)>;
 
-  static std::string build_url(const std::string &path);
-  static void get_internal_objects(const std::shared_ptr<base::request> &req,
-                                   std::vector<std::string> *objects);
+  static std::string BuildUrl(const std::string &path);
+  static std::vector<std::string> GetInternalObjects(base::Request *req);
 
-  directory(const std::string &path);
-  virtual ~directory();
+  Directory(const std::string &path);
+  ~Directory() override = default;
 
-  inline ptr shared_from_this() {
-    return std::dynamic_pointer_cast<directory>(object::shared_from_this());
-  }
+  int Read(const Filler &filler);
 
-  inline int read(const filler_function &filler) {
-    std::unique_lock<std::mutex> lock(_mutex);
-    cache_list_ptr cache;
+  bool IsEmpty(base::Request *req);
+  bool IsEmpty();
 
-    cache = _cache;
-    lock.unlock();
+  int Remove(base::Request *req) override;
+  int Rename(base::Request *req, std::string to) override;
 
-    if (cache) {
-      // for POSIX compliance
-      filler(".");
-      filler("..");
-
-      for (cache_list::const_iterator itor = cache->begin();
-           itor != cache->end(); ++itor)
-        filler(*itor);
-
-      return 0;
-    } else {
-      return threads::pool::call(threads::PR_REQ_0,
-                                 bind(&directory::do_read, shared_from_this(),
-                                      std::placeholders::_1, filler));
-    }
-  }
-
-  bool is_empty(const std::shared_ptr<base::request> &req);
-
-  inline bool is_empty_wrapper(const std::shared_ptr<base::request> &req) {
-    return is_empty(req);
-  }
-
-  inline bool is_empty() {
-    return threads::pool::call(threads::PR_REQ_0,
-                               std::bind(&directory::is_empty_wrapper,
-                                         shared_from_this(),
-                                         std::placeholders::_1));
-  }
-
-  virtual int remove(const std::shared_ptr<base::request> &req);
-  virtual int rename(const std::shared_ptr<base::request> &req,
-                     const std::string &to);
-
-private:
-  typedef std::list<std::string> cache_list;
-  typedef std::shared_ptr<cache_list> cache_list_ptr;
-
-  int do_read(const std::shared_ptr<base::request> &req,
-              const filler_function &filler);
-
-  std::mutex _mutex;
-  cache_list_ptr _cache;
+ private:
+  int Read(base::Request *req, const Filler &filler);
 };
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

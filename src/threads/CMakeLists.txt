@@ -7,6 +7,7 @@ set(threads_SOURCES
   pool.h
   request_worker.cc
   request_worker.h
+  work_item.cc
   work_item.h
   work_item_queue.h
   worker.cc

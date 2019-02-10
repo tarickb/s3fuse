@@ -19,46 +19,75 @@
  * limitations under the License.
  */
 
+#include "services/service.h"
+
 #include <memory>
 #include <stdexcept>
 
+#include "base/config.h"
 #include "base/request.h"
 #include "base/request_hook.h"
-#include "services/service.h"
+#include "services/file_transfer.h"
+#ifdef WITH_AWS
+#include "services/aws/impl.h"
+#endif
+#ifdef WITH_FVS
+#include "services/fvs/impl.h"
+#endif
+#ifdef WITH_GS
+#include "services/gs/impl.h"
+#endif
 
 namespace s3 {
 namespace services {
+std::unique_ptr<Impl> Service::s_impl;
+std::unique_ptr<FileTransfer> Service::s_file_transfer;
 
-impl::ptr service::s_impl;
-std::shared_ptr<base::request_hook> service::s_hook;
-std::shared_ptr<file_transfer> service::s_file_transfer;
-
-namespace {
-class service_hook : public base::request_hook {
-public:
-  service_hook(const impl::ptr &impl) : _impl(impl) {}
-
-  virtual ~service_hook() {}
-
-  virtual std::string adjust_url(const std::string &url) {
-    return _impl->adjust_url(url);
-  }
-
-  virtual void pre_run(base::request *r, int iter) { _impl->pre_run(r, iter); }
-
-  virtual bool should_retry(base::request *r, int iter) {
-    return _impl->should_retry(r, iter);
-  }
-
-private:
-  impl::ptr _impl;
-};
-} // namespace
-
-void service::init(const impl::ptr &svc) {
-  s_impl = svc;
-  s_hook.reset(new service_hook(s_impl));
-  s_file_transfer = s_impl->build_file_transfer();
+void Service::Init() {
+#ifdef FIXED_SERVICE
+  Init(std::unique_ptr<Impl>(new services::FIXED_SERVICE::Impl()));
+  return;
+#else
+#define TEST_SVC(str, ns)                                    \
+  do {                                                       \
+    if (base::Config::service() == str) {                    \
+      Init(std::unique_ptr<Impl>(new services::ns::Impl())); \
+      return;                                                \
+    }                                                        \
+  } while (0)
+#ifdef WITH_AWS
+  TEST_SVC("aws", aws);
+#endif
+#ifdef WITH_FVS
+  TEST_SVC("fvs", fvs);
+#endif
+#ifdef WITH_GS
+  TEST_SVC("google-storage", gs);
+#endif
+#undef TEST_SVC
+  throw std::runtime_error("invalid service specified.");
+#endif
 }
-} // namespace services
-} // namespace s3
+
+void Service::Init(std::unique_ptr<Impl> impl) {
+  s_impl = std::move(impl);
+  base::RequestFactory::SetHook(s_impl.get());
+  s_file_transfer = s_impl->BuildFileTransfer();
+}
+
+std::string Service::GetEnabledServices() {
+  std::string svcs;
+#ifdef WITH_AWS
+  svcs += ", aws";
+#endif
+#ifdef WITH_FVS
+  svcs += ", fvs";
+#endif
+#ifdef WITH_GS
+  svcs += ", google-storage";
+#endif
+  return svcs.empty() ? std::string("(none)")
+                      : svcs.substr(2);  // strip leading ", "
+}
+}  // namespace services
+}  // namespace s3

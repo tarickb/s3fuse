@@ -28,48 +28,52 @@
 
 namespace s3 {
 namespace services {
-class file_transfer;
+class FileTransfer;
 
 namespace gs {
-class impl : public services::impl {
-public:
-  enum get_tokens_mode { GT_AUTH_CODE, GT_REFRESH };
+enum class GetTokensMode { AUTH_CODE, REFRESH };
 
-  static const std::string &get_new_token_url();
-  static void get_tokens(get_tokens_mode mode, const std::string &key,
-                         std::string *access_token, time_t *expiry,
-                         std::string *refresh_token);
+class Impl : public services::Impl {
+ public:
+  struct Tokens {
+    std::string access;
+    std::string refresh;
+    time_t expiry = 0;
+  };
 
-  static void write_token(const std::string &file, const std::string &token);
-  static std::string read_token(const std::string &file);
+  static std::string new_token_url();
 
-  impl();
+  static Tokens GetTokens(GetTokensMode mode, const std::string &key);
 
-  virtual ~impl() {}
+  static void WriteToken(const std::string &file, const std::string &token);
+  static std::string ReadToken(const std::string &file);
 
-  virtual const std::string &get_header_prefix();
-  virtual const std::string &get_header_meta_prefix();
+  Impl();
 
-  virtual const std::string &get_bucket_url();
+  ~Impl() override = default;
 
-  virtual bool is_next_marker_supported();
+  std::string header_prefix() const override;
+  std::string header_meta_prefix() const override;
+  std::string bucket_url() const override;
+  bool is_next_marker_supported() const override;
 
-  virtual std::string adjust_url(const std::string &url);
-  virtual void pre_run(base::request *r, int iter);
-  virtual bool should_retry(base::request *r, int iter);
+  std::unique_ptr<services::FileTransfer> BuildFileTransfer() override;
 
-  virtual std::shared_ptr<services::file_transfer> build_file_transfer();
+  std::string AdjustUrl(const std::string &url) override;
+  void PreRun(base::Request *r, int iter) override;
+  bool ShouldRetry(base::Request *r, int iter) override;
 
-private:
-  void sign(base::request *req, int iter);
-  void refresh(const std::lock_guard<std::mutex> &lock);
+ private:
+  void Sign(base::Request *req, int iter);
+  void Refresh();  // Call only with mutex_ held.
 
-  std::mutex _mutex;
-  std::string _access_token, _refresh_token, _bucket_url;
-  time_t _expiry;
+  std::string bucket_url_;
+
+  std::mutex mutex_;
+  Tokens tokens_;  // Protected by mutex_.
 };
-} // namespace gs
-} // namespace services
-} // namespace s3
+}  // namespace gs
+}  // namespace services
+}  // namespace s3
 
 #endif

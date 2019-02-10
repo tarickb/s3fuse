@@ -19,44 +19,42 @@
  * limitations under the License.
  */
 
-#include <stdexcept>
-
 #include "crypto/hex.h"
+
+#include <stdexcept>
 
 namespace s3 {
 namespace crypto {
 
 namespace {
-inline int hex_char_to_int(char c) {
+inline int HexCharToInt(char c) {
   return (c < 'a') ? (c - '0') : (c - 'a' + 10);
 }
-} // namespace
+}  // namespace
 
-std::string hex::encode(const uint8_t *input, size_t size) {
-  const char *HEX = "0123456789abcdef";
+std::string Hex::Encode(const uint8_t *input, size_t size) {
+  constexpr char HEX[] = "0123456789abcdef";
+
   std::string ret;
-
   ret.resize(size * 2);
-
   for (size_t i = 0; i < size; i++) {
     ret[2 * i + 0] = HEX[static_cast<uint8_t>(input[i]) / 16];
     ret[2 * i + 1] = HEX[static_cast<uint8_t>(input[i]) % 16];
   }
-
   return ret;
 }
 
-void hex::decode(const std::string &input, std::vector<uint8_t> *output) {
+std::vector<uint8_t> Hex::Decode(const std::string &input) {
   if (input.size() % 2)
     throw std::runtime_error(
         "cannot have odd number of hex characters to decode!");
 
-  output->resize(input.size() / 2);
-
-  for (size_t i = 0; i < output->size(); i++)
-    (*output)[i] = hex_char_to_int(input[2 * i + 0]) * 16 +
-                   hex_char_to_int(input[2 * i + 1]);
+  std::vector<uint8_t> output(input.size() / 2);
+  for (size_t i = 0; i < output.size(); i++)
+    output[i] =
+        HexCharToInt(input[2 * i + 0]) * 16 + HexCharToInt(input[2 * i + 1]);
+  return output;
 }
 
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3

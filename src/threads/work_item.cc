@@ -1,7 +1,7 @@
 /*
- * base/curl_easy_handle.h
+ * threads/work_item.cc
  * -------------------------------------------------------------------------
- * CURL easy handle wrapper
+ * Pool work item (implementation).
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
@@ -19,28 +19,26 @@
  * limitations under the License.
  */
 
-#ifndef S3_BASE_CURL_EASY_HANDLE_H
-#define S3_BASE_CURL_EASY_HANDLE_H
+#include "threads/work_item.h"
 
-#include <curl/curl.h>
+#include "base/logger.h"
 
 namespace s3 {
-namespace base {
-class curl_easy_handle {
-public:
-  curl_easy_handle();
-  ~curl_easy_handle();
+namespace threads {
 
-  curl_easy_handle(const curl_easy_handle &) = delete;
-  curl_easy_handle &operator=(const curl_easy_handle &) = delete;
+void WorkItem::Run(base::Request *req) {
+  int r;
+  try {
+    r = function_(req);
+  } catch (const std::exception &e) {
+    S3_LOG(LOG_WARNING, "WorkItem::Run", "caught exception: %s\n", e.what());
+    r = -ECANCELED;
+  } catch (...) {
+    S3_LOG(LOG_WARNING, "WorkItem::Run", "caught unknown exception.\n");
+    r = -ECANCELED;
+  }
+  on_completion_(r);
+}
 
-  inline operator const CURL *() const { return _handle; }
-  inline operator CURL *() { return _handle; }
-
-private:
-  CURL *_handle;
-};
-} // namespace base
-} // namespace s3
-
-#endif
+}  // namespace threads
+}  // namespace s3

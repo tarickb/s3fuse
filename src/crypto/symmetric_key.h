@@ -30,59 +30,57 @@
 
 namespace s3 {
 namespace crypto {
-class symmetric_key {
-public:
-  typedef std::shared_ptr<symmetric_key> ptr;
-
-  template <class cipher_type> inline static ptr generate() {
-    return create(buffer::generate(cipher_type::DEFAULT_KEY_LEN),
-                  buffer::generate(cipher_type::IV_LEN));
+class SymmetricKey {
+ public:
+  template <class CipherType>
+  inline static SymmetricKey Generate() {
+    return Create(Buffer::Generate(CipherType::DEFAULT_KEY_LEN),
+                  Buffer::Generate(CipherType::IV_LEN));
   }
 
-  template <class cipher_type> inline static ptr generate(size_t key_len) {
-    return create(buffer::generate(key_len),
-                  buffer::generate(cipher_type::IV_LEN));
+  template <class CipherType>
+  inline static SymmetricKey Generate(size_t key_len) {
+    return Create(Buffer::Generate(key_len),
+                  Buffer::Generate(CipherType::IV_LEN));
   }
 
-  template <class cipher_type>
-  inline static ptr generate(const buffer::ptr &key) {
-    return create(key, buffer::generate(cipher_type::IV_LEN));
+  template <class CipherType>
+  inline static SymmetricKey Generate(const Buffer &key) {
+    return Create(key, Buffer::Generate(CipherType::IV_LEN));
   }
 
-  inline static ptr from_string(const std::string &str) {
-    size_t pos;
-
-    pos = str.find(':');
-
+  inline static SymmetricKey FromString(const std::string &str) {
+    size_t pos = str.find(':');
     if (pos == std::string::npos)
       throw std::runtime_error("malformed symmetric key string");
-
-    return create(buffer::from_string(str.substr(0, pos)),
-                  buffer::from_string(str.substr(pos + 1)));
+    return Create(Buffer::FromHexString(str.substr(0, pos)),
+                  Buffer::FromHexString(str.substr(pos + 1)));
   }
 
-  inline static ptr create(const buffer::ptr &key, const buffer::ptr &iv) {
-    ptr sk(new symmetric_key());
-
-    sk->_key = key;
-    sk->_iv = iv;
-
-    return sk;
+  inline static SymmetricKey Create(const Buffer &key, const Buffer &iv) {
+    return {key, iv};
   }
 
-  inline const buffer::ptr &get_key() { return _key; }
-  inline const buffer::ptr &get_iv() { return _iv; }
-
-  inline std::string to_string() {
-    return _key->to_string() + ":" + _iv->to_string();
+  inline static SymmetricKey Empty() {
+    return {Buffer::Empty(), Buffer::Empty()};
   }
 
-private:
-  inline symmetric_key() {}
+  inline const Buffer &key() const { return key_; }
+  inline const Buffer &iv() const { return iv_; }
 
-  buffer::ptr _key, _iv;
+  inline operator bool() const { return key_ && iv_; }
+
+  inline std::string ToString() const {
+    return key_.ToHexString() + ":" + iv_.ToHexString();
+  }
+
+ private:
+  inline SymmetricKey(const Buffer &key, const Buffer &iv)
+      : key_(key), iv_(iv) {}
+
+  Buffer key_, iv_;
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

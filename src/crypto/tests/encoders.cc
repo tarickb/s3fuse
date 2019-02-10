@@ -26,35 +26,35 @@ const int TEST_SIZES[] = {1,    2,     3,       4,       5,      1023,
                           2048, 12345, 1048575, 1048576, 9999999};
 const int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
 
-template <class encoding> void encode_kat(const char **kat) {
+template <class Encoding>
+void EncodeKat(const char **kat) {
   for (size_t i = 0; i < KAT_COUNT; i++)
-    EXPECT_EQ(std::string(kat[i]), encoder::encode<encoding>(KAT_INPUT[i]));
+    EXPECT_EQ(std::string(kat[i]), Encoder::Encode<Encoding>(KAT_INPUT[i]));
 }
 
-template <class encoding> void decode_kat(const char **kat) {
+template <class Encoding>
+void DecodeKat(const char **kat) {
   for (size_t i = 0; i < KAT_COUNT; i++) {
-    std::vector<uint8_t> dec;
-
-    encoder::decode<encoding>(kat[i], &dec);
+    const auto dec = Encoder::Decode<Encoding>(kat[i]);
     EXPECT_STREQ(KAT_INPUT[i], reinterpret_cast<const char *>(&dec[0]));
   }
 }
 
-template <class encoding> void run_random() {
+template <class Encoding>
+void RunRandom() {
   for (int test = 0; test < TEST_COUNT; test++) {
     int test_size = TEST_SIZES[test];
     std::vector<uint8_t> in(test_size), out;
     std::string enc;
     bool diff = false;
 
-    srand(time(NULL));
+    srand(time(nullptr));
 
     for (int i = 0; i < test_size; i++)
       in[i] = rand() % std::numeric_limits<uint8_t>::max();
 
-    enc = encoder::encode<encoding>(in);
-    encoder::decode<encoding>(enc, &out);
-
+    enc = Encoder::Encode<Encoding>(in);
+    out = Encoder::Decode<Encoding>(enc);
     ASSERT_EQ(in.size(), out.size()) << "with size = " << test_size;
 
     for (int i = 0; i < test_size; i++) {
@@ -63,41 +63,38 @@ template <class encoding> void run_random() {
         break;
       }
     }
-
     EXPECT_FALSE(diff) << "with size = " << test_size;
   }
 }
-} // namespace
+}  // namespace
 
-TEST(hex, encode_known_answers) { encode_kat<hex>(KAT_OUT_HEX); }
+TEST(Hex, EncodeKnownAnswers) { EncodeKat<Hex>(KAT_OUT_HEX); }
 
-TEST(hex, decode_known_answers) { decode_kat<hex>(KAT_OUT_HEX); }
+TEST(Hex, DecodeKnownAnswers) { DecodeKat<Hex>(KAT_OUT_HEX); }
 
-TEST(hex, random) { run_random<hex>(); }
+TEST(Hex, Random) { RunRandom<Hex>(); }
 
-TEST(hex_with_quotes, encode_known_answers) {
-  encode_kat<hex_with_quotes>(KAT_OUT_HEX_QUOTE);
+TEST(HexWithQuotes, EncodeKnownAnswers) {
+  EncodeKat<HexWithQuotes>(KAT_OUT_HEX_QUOTE);
 }
 
-TEST(hex_with_quotes, decode_known_answers) {
-  decode_kat<hex_with_quotes>(KAT_OUT_HEX_QUOTE);
+TEST(HexWithQuotes, DecodeKnownAnswers) {
+  DecodeKat<HexWithQuotes>(KAT_OUT_HEX_QUOTE);
 }
 
-TEST(hex_with_quotes, random) { run_random<hex_with_quotes>(); }
+TEST(HexWithQuotes, Random) { RunRandom<HexWithQuotes>(); }
 
-TEST(hex_with_quotes, decode_with_no_quotes) {
-  std::vector<uint8_t> out;
-
-  EXPECT_THROW(encoder::decode<hex_with_quotes>("input has no quotes", &out),
+TEST(HexWithQuotes, DecodeWithNoQuotes) {
+  EXPECT_THROW(Encoder::Decode<HexWithQuotes>("input has no quotes"),
                std::runtime_error);
 }
 
-TEST(base64, encode_known_answers) { encode_kat<base64>(KAT_OUT_B64); }
+TEST(Base64, EncodeKnownAnswers) { EncodeKat<Base64>(KAT_OUT_B64); }
 
-TEST(base64, decode_known_answers) { decode_kat<base64>(KAT_OUT_B64); }
+TEST(Base64, DecodeKnownAnswers) { DecodeKat<Base64>(KAT_OUT_B64); }
 
-TEST(base64, random) { run_random<base64>(); }
+TEST(Base64, Random) { RunRandom<Base64>(); }
 
-} // namespace tests
-} // namespace crypto
-} // namespace s3
+}  // namespace tests
+}  // namespace crypto
+}  // namespace s3

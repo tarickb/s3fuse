@@ -29,45 +29,43 @@
 namespace s3 {
 namespace services {
 namespace aws {
-class file_transfer : public services::file_transfer {
-public:
-  file_transfer();
+class FileTransfer : public services::FileTransfer {
+ public:
+  FileTransfer();
 
-  virtual size_t get_upload_chunk_size();
+  size_t upload_chunk_size() override;
 
-protected:
-  virtual int upload_multi(const std::string &url, size_t size,
-                           const read_chunk_fn &on_read,
-                           std::string *returned_etag);
+ protected:
+  int UploadMulti(const std::string &url, size_t size, const ReadChunk &on_read,
+                  std::string *returned_etag) override;
 
-private:
-  struct upload_range {
+ private:
+  struct UploadRange {
     int id;
     size_t size;
     off_t offset;
     std::string etag;
   };
 
-  int upload_part(const base::request::ptr &req, const std::string &url,
-                  const std::string &upload_id, const read_chunk_fn &on_read,
-                  upload_range *range, bool is_retry);
+  int UploadPart(base::Request *req, const std::string &url,
+                 const std::string &upload_id, const ReadChunk &on_read,
+                 UploadRange *range, bool is_retry);
 
-  int upload_multi_init(const base::request::ptr &req, const std::string &url,
-                        std::string *upload_id);
+  int UploadMultiInit(base::Request *req, const std::string &url,
+                      std::string *upload_id);
 
-  int upload_multi_cancel(const base::request::ptr &req, const std::string &url,
-                          const std::string &upload_id);
+  int UploadMultiCancel(base::Request *req, const std::string &url,
+                        const std::string &upload_id);
 
-  int upload_multi_complete(const base::request::ptr &req,
-                            const std::string &url,
-                            const std::string &upload_id,
-                            const std::string &upload_metadata,
-                            std::string *etag);
+  int UploadMultiComplete(base::Request *req, const std::string &url,
+                          const std::string &upload_id,
+                          const std::string &upload_metadata,
+                          std::string *etag);
 
-  size_t _upload_chunk_size;
+  size_t upload_chunk_size_;
 };
-} // namespace aws
-} // namespace services
-} // namespace s3
+}  // namespace aws
+}  // namespace services
+}  // namespace s3
 
 #endif

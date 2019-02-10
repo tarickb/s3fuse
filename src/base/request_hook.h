@@ -26,17 +26,17 @@
 
 namespace s3 {
 namespace base {
-class request;
+class Request;
 
-class request_hook {
-public:
-  virtual ~request_hook() {}
+class RequestHook {
+ public:
+  virtual ~RequestHook() = default;
 
-  virtual std::string adjust_url(const std::string &url) = 0;
-  virtual void pre_run(request *req, int iter) = 0;
-  virtual bool should_retry(request *req, int iter) = 0;
+  virtual std::string AdjustUrl(const std::string &url) = 0;
+  virtual void PreRun(Request *req, int iter) = 0;
+  virtual bool ShouldRetry(Request *req, int iter) = 0;
 };
-} // namespace base
-} // namespace s3
+}  // namespace base
+}  // namespace s3
 
 #endif

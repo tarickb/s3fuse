@@ -25,34 +25,26 @@
 #include <memory>
 #include <string>
 
+#include "base/request_hook.h"
+
 namespace s3 {
-namespace base {
-class request;
-}
-
 namespace services {
-class file_transfer;
+class FileTransfer;
 
-class impl {
-public:
-  typedef std::shared_ptr<impl> ptr;
+class Impl : public base::RequestHook {
+ public:
+  virtual ~Impl() = default;
 
-  virtual ~impl();
+  virtual std::string header_prefix() const = 0;
+  virtual std::string header_meta_prefix() const = 0;
+  virtual std::string bucket_url() const = 0;
+  virtual bool is_next_marker_supported() const = 0;
 
-  virtual const std::string &get_header_prefix() = 0;
-  virtual const std::string &get_header_meta_prefix() = 0;
-
-  virtual const std::string &get_bucket_url() = 0;
-
-  virtual bool is_next_marker_supported() = 0;
-
-  virtual std::string adjust_url(const std::string &url) = 0;
-  virtual void pre_run(base::request *r, int iter) = 0;
-  virtual bool should_retry(base::request *r, int iter);
-
-  virtual std::shared_ptr<file_transfer> build_file_transfer() = 0;
+  virtual std::unique_ptr<FileTransfer> BuildFileTransfer() = 0;
 };
-} // namespace services
-} // namespace s3
+
+bool GenericShouldRetry(base::Request *r, int iter);
+}  // namespace services
+}  // namespace s3
 
 #endif

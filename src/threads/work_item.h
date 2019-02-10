@@ -27,38 +27,32 @@
 
 namespace s3 {
 namespace base {
-class request;
+class Request;
 }
 
 namespace threads {
-class async_handle;
+class WorkItem {
+ public:
+  using WorkerFunction = std::function<int(base::Request *)>;
+  using CallbackFunction = std::function<void(int)>;
 
-class work_item {
-public:
-  typedef std::function<int(std::shared_ptr<base::request>)> worker_function;
+  inline WorkItem() = default;
 
-  inline work_item() : _retries(-1) {}
+  inline WorkItem(WorkerFunction function, CallbackFunction on_completion)
+      : valid_(true),
+        function_(std::move(function)),
+        on_completion_(std::move(on_completion)) {}
 
-  inline work_item(const worker_function &function,
-                   const std::shared_ptr<async_handle> &ah, int retries)
-      : _function(function), _ah(ah), _retries(retries) {}
+  inline bool valid() const { return valid_; }
 
-  inline bool is_valid() const { return _ah.get() != nullptr; }
-  inline bool has_retries_left() const { return _retries > 0; }
+  void Run(base::Request *req);
 
-  inline const std::shared_ptr<async_handle> &get_ah() const { return _ah; }
-  inline const worker_function &get_function() const { return _function; }
-
-  inline work_item decrement_retry_counter() const {
-    return work_item(_function, _ah, _retries - 1);
-  }
-
-private:
-  worker_function _function;
-  std::shared_ptr<async_handle> _ah;
-  int _retries;
+ private:
+  bool valid_ = false;
+  WorkerFunction function_;
+  CallbackFunction on_completion_;
 };
-} // namespace threads
-} // namespace s3
+}  // namespace threads
+}  // namespace s3
 
 #endif

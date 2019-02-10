@@ -10,12 +10,12 @@ namespace crypto {
 namespace tests {
 
 namespace {
-struct known_answer {
+struct KnownAnswer {
   const char *message;
   const char *hash;
 };
 
-const known_answer TESTS[] = {
+const KnownAnswer TESTS[] = {
     // tests from http://csrc.nist.gov/groups/STM/cavp/index.html
 
     // SHA256ShortMsg
@@ -6158,24 +6158,20 @@ const known_answer TESTS[] = {
      "33b6229592ca719e4e46f35b287617fedadd3b7c38be3c8c1c9f446d2d9085b3"}};
 
 const int TEST_COUNT = sizeof(TESTS) / sizeof(TESTS[0]);
-} // namespace
+}  // namespace
 
-TEST(sha256, known_answers) {
+TEST(Sha256, KnownAnswers) {
   for (int test = 0; test < TEST_COUNT; test++) {
-    const known_answer *kat = TESTS + test;
-    std::vector<uint8_t> in;
-    std::string hash;
+    const KnownAnswer *kat = TESTS + test;
 
-    encoder::decode<hex>(kat->message, &in);
-
+    auto in = Encoder::Decode<Hex>(kat->message);
     ASSERT_EQ(strlen(kat->message) / 2, in.size()) << "for kat = " << test;
 
-    hash = hash::compute<sha256, hex>(in);
-
+    std::string hash = Hash::Compute<Sha256, Hex>(in);
     EXPECT_EQ(std::string(kat->hash), hash) << "for kat = " << test;
   }
 }
 
-} // namespace tests
-} // namespace crypto
-} // namespace s3
+}  // namespace tests
+}  // namespace crypto
+}  // namespace s3

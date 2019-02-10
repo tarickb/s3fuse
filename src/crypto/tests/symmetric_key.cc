@@ -12,7 +12,7 @@ namespace {
 const int TEST_SIZES[] = {1, 2, 4, 8, 16, 32, 64};
 const int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
 
-void test_string(const std::string &str, size_t key_len, size_t iv_len) {
+void TestString(const std::string &str, size_t key_len, size_t iv_len) {
   size_t colon = str.find(':');
 
   ASSERT_FALSE(str.empty());
@@ -25,57 +25,55 @@ void test_string(const std::string &str, size_t key_len, size_t iv_len) {
   EXPECT_EQ(iv_len * 2, str.size() - colon - 1);
 }
 
-template <class cipher> void test_default() {
-  test_string(symmetric_key::generate<cipher>()->to_string(),
-              cipher::DEFAULT_KEY_LEN, cipher::IV_LEN);
+template <class Cipher>
+void TestDefault() {
+  TestString(SymmetricKey::Generate<Cipher>().ToString(),
+             Cipher::DEFAULT_KEY_LEN, Cipher::IV_LEN);
 }
 
-template <class cipher> void test_varying(int key_len) {
-  test_string(symmetric_key::generate<cipher>(key_len)->to_string(), key_len,
-              cipher::IV_LEN);
+template <class Cipher>
+void TestVarying(int key_len) {
+  TestString(SymmetricKey::Generate<Cipher>(key_len).ToString(), key_len,
+             Cipher::IV_LEN);
 }
-} // namespace
+}  // namespace
 
-TEST(symmetric_key, aes_cbc_256_no_zero) {
-  EXPECT_THROW(symmetric_key::generate<aes_cbc_256>(0), std::runtime_error);
-}
-
-TEST(symmetric_key, aes_ctr_256_no_zero) {
-  EXPECT_THROW(symmetric_key::generate<aes_ctr_256>(0), std::runtime_error);
+TEST(SymmetricKey, AesCbc256NoZero) {
+  EXPECT_THROW(SymmetricKey::Generate<AesCbc256>(0), std::runtime_error);
 }
 
-TEST(symmetric_key, invalid_string) {
-  EXPECT_THROW(symmetric_key::from_string(""), std::runtime_error);
+TEST(SymmetricKey, AesCtr256NoZero) {
+  EXPECT_THROW(SymmetricKey::Generate<AesCtr256>(0), std::runtime_error);
 }
 
-TEST(symmetric_key, aes_cbc_256_from_string) {
-  symmetric_key::ptr sk = symmetric_key::generate<aes_cbc_256>();
-  std::string str = sk->to_string();
-
-  EXPECT_EQ(str, symmetric_key::from_string(str)->to_string());
+TEST(SymmetricKey, InvalidString) {
+  EXPECT_THROW(SymmetricKey::FromString(""), std::runtime_error);
 }
 
-TEST(symmetric_key, aes_ctr_256_from_string) {
-  symmetric_key::ptr sk = symmetric_key::generate<aes_ctr_256>();
-  std::string str = sk->to_string();
-
-  EXPECT_EQ(str, symmetric_key::from_string(str)->to_string());
+TEST(SymmetricKey, AesCbc256FromString) {
+  auto sk = SymmetricKey::Generate<AesCbc256>();
+  std::string str = sk.ToString();
+  EXPECT_EQ(str, SymmetricKey::FromString(str).ToString());
 }
 
-TEST(symmetric_key, aes_cbc_256_default) { test_default<aes_cbc_256>(); }
-
-TEST(symmetric_key, aes_ctr_256_default) { test_default<aes_ctr_256>(); }
-
-TEST(symmetric_key, aes_cbc_256_varying) {
-  for (int i = 0; i < TEST_COUNT; i++)
-    test_varying<aes_cbc_256>(TEST_SIZES[i]);
+TEST(SymmetricKey, AesCtr256FromString) {
+  auto sk = SymmetricKey::Generate<AesCtr256>();
+  std::string str = sk.ToString();
+  EXPECT_EQ(str, SymmetricKey::FromString(str).ToString());
 }
 
-TEST(symmetric_key, aes_ctr_256_varying) {
-  for (int i = 0; i < TEST_COUNT; i++)
-    test_varying<aes_ctr_256>(TEST_SIZES[i]);
+TEST(SymmetricKey, AesCbc256Default) { TestDefault<AesCbc256>(); }
+
+TEST(SymmetricKey, AesCtr256Default) { TestDefault<AesCtr256>(); }
+
+TEST(SymmetricKey, AesCbc256Varying) {
+  for (int i = 0; i < TEST_COUNT; i++) TestVarying<AesCbc256>(TEST_SIZES[i]);
 }
 
-} // namespace tests
-} // namespace crypto
-} // namespace s3
+TEST(SymmetricKey, AesCtr256Varying) {
+  for (int i = 0; i < TEST_COUNT; i++) TestVarying<AesCtr256>(TEST_SIZES[i]);
+}
+
+}  // namespace tests
+}  // namespace crypto
+}  // namespace s3

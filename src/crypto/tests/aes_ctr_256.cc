@@ -7,27 +7,27 @@ namespace s3 {
 namespace crypto {
 namespace tests {
 
-TEST(aes_ctr_256, invalid_iv_len) {
-  uint8_t in[aes_ctr_256::BLOCK_LEN];
-  uint8_t out[aes_ctr_256::BLOCK_LEN];
+TEST(AesCtr256, InvalidIvLen) {
+  uint8_t in[AesCtr256::BLOCK_LEN];
+  uint8_t out[AesCtr256::BLOCK_LEN];
 
-  symmetric_key::ptr sk = symmetric_key::from_string("aabbccddeeff:aa");
+  const auto sk = SymmetricKey::FromString("aabbccddeeff:aa");
 
-  EXPECT_THROW(aes_ctr_256::encrypt(sk, in, aes_ctr_256::BLOCK_LEN, out),
+  EXPECT_THROW(AesCtr256::Encrypt(sk, in, AesCtr256::BLOCK_LEN, out),
                std::runtime_error);
 }
 
-TEST(aes_ctr_256, bad_byte_offset) {
-  uint8_t in[aes_ctr_256::BLOCK_LEN];
-  uint8_t out[aes_ctr_256::BLOCK_LEN];
+TEST(AesCtr256, BadByteOffset) {
+  uint8_t in[AesCtr256::BLOCK_LEN];
+  uint8_t out[AesCtr256::BLOCK_LEN];
 
-  symmetric_key::ptr sk = symmetric_key::generate<aes_ctr_256>();
+  const auto sk = SymmetricKey::Generate<AesCtr256>();
 
-  EXPECT_THROW(aes_ctr_256::encrypt_with_byte_offset(
-                   sk, 1, in, aes_ctr_256::BLOCK_LEN, out),
-               std::runtime_error);
+  EXPECT_THROW(
+      AesCtr256::EncryptWithByteOffset(sk, 1, in, AesCtr256::BLOCK_LEN, out),
+      std::runtime_error);
 }
 
-} // namespace tests
-} // namespace crypto
-} // namespace s3
+}  // namespace tests
+}  // namespace crypto
+}  // namespace s3

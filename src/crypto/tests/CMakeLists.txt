@@ -2,7 +2,7 @@ find_package(GTest)
 find_package(Threads)
 
 add_executable(${PROJECT_NAME}_crypto_passwords passwords.cc)
-target_link_libraries(${PROJECT_NAME}_crypto_passwords  ${PROJECT_NAME}_crypto)
+target_link_libraries(${PROJECT_NAME}_crypto_passwords ${PROJECT_NAME}_crypto)
 
 add_executable(${PROJECT_NAME}_crypto_tests
   aes_cbc_256.cc

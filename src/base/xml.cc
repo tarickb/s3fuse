@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#include "base/xml.h"
+
 #include <errno.h>
 #include <libxml/parser.h>
 #include <libxml/tree.h>
@@ -28,252 +30,178 @@
 #include <stdexcept>
 
 #include "base/logger.h"
-#include "base/xml.h"
 
 namespace s3 {
 namespace base {
 
 namespace {
-struct transform_pair {
+struct TransformPair {
   const std::regex expr;
   const std::string subst;
 };
 
 // strip out namespace declarations
-transform_pair TRANSFORMS[] = {{std::regex(" xmlns(:\\w*)?=\"[^\"]*\""), ""},
-                               {std::regex(" xmlns(:\\w*)?='[^']*'"), ""},
-                               {std::regex("<\\w*:"), "<"},
-                               {std::regex("</\\w*:"), "</"}};
+TransformPair TRANSFORMS[] = {{std::regex(" xmlns(:\\w*)?=\"[^\"]*\""), ""},
+                              {std::regex(" xmlns(:\\w*)?='[^']*'"), ""},
+                              {std::regex("<\\w*:"), "<"},
+                              {std::regex("</\\w*:"), "</"}};
 
-const int TRANSFORM_COUNT = sizeof(TRANSFORMS) / sizeof(TRANSFORMS[0]);
-
-std::string transform(std::string in) {
-  for (int i = 0; i < TRANSFORM_COUNT; i++)
-    in = std::regex_replace(in, TRANSFORMS[i].expr, TRANSFORMS[i].subst);
-
+std::string Transform(std::string in) {
+  for (const auto &t : TRANSFORMS) in = std::regex_replace(in, t.expr, t.subst);
   return in;
 }
 
-template <class T, void (*DTOR)(T *)> class libxml_ptr {
-public:
-  libxml_ptr() : _ptr(NULL) {}
+void FreeXmlChar(xmlChar *p) { xmlFree(p); }
 
-  explicit libxml_ptr(T *ptr) : _ptr(ptr) {}
+using XmlDocPtr = std::unique_ptr<xmlDoc, decltype(&xmlFreeDoc)>;
+using XPathContextPtr =
+    std::unique_ptr<xmlXPathContext, decltype(&xmlXPathFreeContext)>;
+using XPathObjectPtr =
+    std::unique_ptr<xmlXPathObject, decltype(&xmlXPathFreeObject)>;
+using XmlCharPtr = std::unique_ptr<xmlChar, decltype(&FreeXmlChar)>;
 
-  libxml_ptr(const libxml_ptr &) = delete;
-  libxml_ptr &operator=(const libxml_ptr &) = delete;
+class XmlDocumentImpl : public XmlDocument {
+ public:
+  XmlDocumentImpl(XmlDocPtr doc)
+      : doc_(std::move(doc)),
+        xpath_context_(xmlXPathNewContext(doc_.get()), &xmlXPathFreeContext) {}
 
-  virtual ~libxml_ptr() {
-    if (_ptr)
-      DTOR(_ptr);
+  ~XmlDocumentImpl() override = default;
+
+  int Find(const std::string &xpath, std::string *element) {
+    try {
+      auto result = EvalXPath(xpath);
+      if (!result) throw std::runtime_error("invalid xpath expression");
+
+      if (xmlXPathNodeSetIsEmpty(result->nodesetval))
+        throw std::runtime_error("no matching nodes.");
+
+      auto text = XPathNodeToString(result->nodesetval->nodeTab[0]);
+      if (text) *element = reinterpret_cast<const char *>(text.get());
+
+      return 0;
+    } catch (const std::exception &e) {
+      S3_LOG(LOG_WARNING, "XmlDocument::Find",
+             "caught exception while finding [%s]: %s\n", xpath.c_str(),
+             e.what());
+    }
+
+    return -EIO;
   }
 
-  inline operator T *() { return _ptr; }
+  int Find(const std::string &xpath, std::list<std::string> *elements) {
+    try {
+      auto result = EvalXPath(xpath);
+      if (!result) throw std::runtime_error("invalid xpath expression");
 
-  inline void operator=(T *ptr) {
-    if (_ptr)
-      DTOR(_ptr);
+      for (int i = 0; i < result->nodesetval->nodeNr; i++) {
+        auto text = XPathNodeToString(result->nodesetval->nodeTab[i]);
+        if (text)
+          elements->push_back(reinterpret_cast<const char *>(text.get()));
+      }
 
-    _ptr = ptr;
+      return 0;
+    } catch (const std::exception &e) {
+      S3_LOG(LOG_WARNING, "XmlDocument::Find",
+             "caught exception while finding [%s]: %s\n", xpath.c_str(),
+             e.what());
+    }
+
+    return -EIO;
   }
 
-  inline T *operator->() { return _ptr; }
+  int Find(const std::string &xpath,
+           std::list<std::map<std::string, std::string>> *list) {
+    try {
+      auto result = EvalXPath(xpath);
+      if (!result) throw std::runtime_error("invalid xpath expression");
 
-  inline bool is_null() { return (_ptr == NULL); }
+      for (int i = 0; i < result->nodesetval->nodeNr; i++) {
+        xmlNodePtr node = result->nodesetval->nodeTab[i];
+        std::map<std::string, std::string> elements;
 
-private:
-  T *_ptr;
+        for (xmlNodePtr child = node->children; child != nullptr;
+             child = child->next) {
+          if (child->type != XML_ELEMENT_NODE) continue;
+
+          auto text = XPathNodeToString(child);
+          if (text) {
+            const auto *name = reinterpret_cast<const char *>(child->name);
+            const auto *value = reinterpret_cast<const char *>(text.get());
+            elements[name] = value;
+          }
+        }
+
+        if (elements.find(MAP_NAME_KEY) == elements.end())
+          elements[MAP_NAME_KEY] = reinterpret_cast<const char *>(node->name);
+        else
+          S3_LOG(LOG_WARNING, "XmlDocument::Find",
+                 "unable to insert element name key.\n");
+
+        list->push_back(elements);
+      }
+
+      return 0;
+    } catch (const std::exception &e) {
+      S3_LOG(LOG_WARNING, "XmlDocument::Find",
+             "caught exception while finding [%s]: %s\n", xpath.c_str(),
+             e.what());
+    }
+
+    return -EIO;
+  }
+
+  bool Match(const std::string &xpath) {
+    try {
+      auto result = EvalXPath(xpath);
+      if (!result) throw std::runtime_error("invalid xpath expression");
+
+      return !xmlXPathNodeSetIsEmpty(result->nodesetval);
+    } catch (...) {
+    }
+
+    return false;
+  }
+
+ private:
+  XPathObjectPtr EvalXPath(const std::string &xpath) {
+    auto *result = xmlXPathEvalExpression(
+        reinterpret_cast<const xmlChar *>(xpath.c_str()), xpath_context_.get());
+    return {result, &xmlXPathFreeObject};
+  }
+
+  XmlCharPtr XPathNodeToString(xmlNodePtr node) {
+    return {xmlXPathCastNodeToString(node), FreeXmlChar};
+  }
+
+  XmlDocPtr doc_;
+  XPathContextPtr xpath_context_;
 };
+}  // namespace
 
-typedef libxml_ptr<xmlDoc, xmlFreeDoc> doc_wrapper;
-typedef libxml_ptr<xmlXPathContext, xmlXPathFreeContext> xpath_context_wrapper;
-typedef libxml_ptr<xmlXPathObject, xmlXPathFreeObject> xpath_object_wrapper;
+constexpr char XmlDocument::MAP_NAME_KEY[];
 
-xmlXPathObject *xpath_find(doc_wrapper *doc, const char *xpath) {
-  xpath_context_wrapper context;
-  xmlNodePtr root;
-
-  root = xmlDocGetRootElement(*doc);
-
-  if (!root)
-    throw std::runtime_error("cannot find root element");
-
-  context = xmlXPathNewContext(*doc);
-
-  return xmlXPathEvalExpression(reinterpret_cast<const xmlChar *>(xpath),
-                                context);
-}
-} // namespace
-
-const char *xml::MAP_NAME_KEY = "__element_name__";
-
-class xml::document : public doc_wrapper {
-public:
-  document(xmlDoc *doc) : doc_wrapper(doc) {}
-};
-
-void xml::init() {
+void XmlDocument::Init() {
   xmlInitParser();
   LIBXML_TEST_VERSION;
 }
 
-xml::document_ptr xml::parse(const std::string &data_) {
+std::unique_ptr<XmlDocument> XmlDocument::Parse(std::string data) {
   try {
-    std::string data = transform(data_);
-    document_ptr doc(new document(xmlParseMemory(data.c_str(), data.size())));
-
-    if (!doc)
-      throw std::runtime_error("error while parsing xml.");
-
-    if (!xmlDocGetRootElement(*doc))
+    data = Transform(data);
+    XmlDocPtr doc(xmlParseMemory(data.c_str(), data.size()), &xmlFreeDoc);
+    if (!doc) throw std::runtime_error("error while parsing xml.");
+    if (!xmlDocGetRootElement(doc.get()))
       throw std::runtime_error("document does not contain a root node.");
-
-    return doc;
-
+    return std::unique_ptr<XmlDocumentImpl>(
+        new XmlDocumentImpl(std::move(doc)));
+    ;
   } catch (const std::exception &e) {
-    S3_LOG(LOG_WARNING, "xml::parse", "caught exception: %s\n", e.what());
+    S3_LOG(LOG_WARNING, "XmlDocument::Parse", "caught exception: %s\n",
+           e.what());
   }
-
-  return document_ptr();
+  return {};
 }
 
-int xml::find(const xml::document_ptr &doc, const char *xpath,
-              std::string *element) {
-  try {
-    xpath_object_wrapper result;
-    xmlChar *text;
-
-    if (!doc)
-      throw std::runtime_error("cannot search empty document");
-
-    result = xpath_find(doc.get(), xpath);
-
-    if (result.is_null())
-      throw std::runtime_error("invalid xpath expression");
-
-    if (xmlXPathNodeSetIsEmpty(result->nodesetval))
-      throw std::runtime_error("no matching nodes.");
-
-    text = xmlXPathCastNodeToString(result->nodesetval->nodeTab[0]);
-
-    if (text) {
-      *element = reinterpret_cast<const char *>(text);
-      xmlFree(text);
-    }
-
-    return 0;
-
-  } catch (const std::exception &e) {
-    S3_LOG(LOG_WARNING, "xml::find",
-           "caught exception while finding [%s]: %s\n", xpath, e.what());
-  }
-
-  return -EIO;
-}
-
-int xml::find(const xml::document_ptr &doc, const char *xpath,
-              xml::element_list *list) {
-  try {
-    xpath_object_wrapper result;
-
-    if (!doc)
-      throw std::runtime_error("cannot search empty document");
-
-    result = xpath_find(doc.get(), xpath);
-
-    if (result.is_null())
-      throw std::runtime_error("invalid xpath expression");
-
-    for (int i = 0; i < result->nodesetval->nodeNr; i++) {
-      xmlChar *text;
-
-      text = xmlXPathCastNodeToString(result->nodesetval->nodeTab[i]);
-
-      if (text) {
-        list->push_back(std::string(reinterpret_cast<const char *>(text)));
-        xmlFree(text);
-      }
-    }
-
-    return 0;
-
-  } catch (const std::exception &e) {
-    S3_LOG(LOG_WARNING, "xml::find",
-           "caught exception while finding [%s]: %s\n", xpath, e.what());
-  }
-
-  return -EIO;
-}
-
-int xml::find(const xml::document_ptr &doc, const char *xpath,
-              xml::element_map_list *list) {
-  try {
-    xpath_object_wrapper result;
-
-    if (!doc)
-      throw std::runtime_error("cannot search empty document");
-
-    result = xpath_find(doc.get(), xpath);
-
-    if (result.is_null())
-      throw std::runtime_error("invalid xpath expression");
-
-    for (int i = 0; i < result->nodesetval->nodeNr; i++) {
-      xmlNodePtr node = result->nodesetval->nodeTab[i];
-      element_map elements;
-
-      for (xmlNodePtr child = node->children; child != NULL;
-           child = child->next) {
-        if (child->type != XML_ELEMENT_NODE)
-          continue;
-        xmlChar *text = xmlXPathCastNodeToString(child);
-        if (text) {
-          std::string name = reinterpret_cast<const char *>(child->name);
-          std::string value = reinterpret_cast<const char *>(text);
-          elements[name] = value;
-          xmlFree(text);
-        }
-      }
-
-      if (elements.find(MAP_NAME_KEY) == elements.end())
-        elements[MAP_NAME_KEY] = reinterpret_cast<const char *>(node->name);
-      else
-        S3_LOG(LOG_WARNING, "xml::find",
-               "unable to insert element name key.\n");
-
-      list->push_back(elements);
-    }
-
-    return 0;
-
-  } catch (const std::exception &e) {
-    S3_LOG(LOG_WARNING, "xml::find",
-           "caught exception while finding [%s]: %s\n", xpath, e.what());
-  }
-
-  return -EIO;
-}
-
-bool xml::match(const std::string &data, const char *xpath) {
-  try {
-    document_ptr doc = parse(data);
-    xpath_object_wrapper result;
-
-    if (!doc)
-      throw std::runtime_error("failed to parse xml");
-
-    result = xpath_find(doc.get(), xpath);
-
-    if (result.is_null())
-      throw std::runtime_error("invalid xpath expression");
-
-    return !xmlXPathNodeSetIsEmpty(result->nodesetval);
-
-  } catch (...) {
-  }
-
-  return false;
-}
-
-} // namespace base
-} // namespace s3
+}  // namespace base
+}  // namespace s3

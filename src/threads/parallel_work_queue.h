@@ -22,8 +22,10 @@
 #ifndef S3_THREADS_PARALLEL_WORK_QUEUE_H
 #define S3_THREADS_PARALLEL_WORK_QUEUE_H
 
+#include <functional>
 #include <iostream>
 #include <list>
+#include <memory>
 #include <vector>
 
 #include "base/config.h"
@@ -32,83 +34,75 @@
 
 namespace s3 {
 namespace base {
-class request;
+class Request;
 }
 
 namespace threads {
-template <class T> class parallel_work_queue {
-public:
-  typedef std::function<int(const std::shared_ptr<base::request> &, T *)>
-      process_part_fn;
-  typedef std::function<int(const std::shared_ptr<base::request> &, T *)>
-      retry_part_fn;
+template <class Part>
+class ParallelWorkQueue {
+ public:
+  using ProcessPartCallback = std::function<int(base::Request *, Part *)>;
+  using RetryPartCallback = std::function<int(base::Request *, Part *)>;
 
-  template <class iterator_type>
-  inline parallel_work_queue(iterator_type begin, iterator_type end,
-                             const process_part_fn &on_process_part,
-                             const retry_part_fn &on_retry_part,
-                             int max_retries = -1,
-                             int max_parts_in_progress = -1)
-      : _on_process_part(on_process_part), _on_retry_part(on_retry_part) {
+  template <class Iterator>
+  inline ParallelWorkQueue(Iterator begin, Iterator end,
+                           const ProcessPartCallback &on_process_part,
+                           const RetryPartCallback &on_retry_part,
+                           int max_retries = -1, int max_parts_in_progress = -1)
+      : on_process_part_(on_process_part), on_retry_part_(on_retry_part) {
     size_t id = 0;
 
-    for (iterator_type itor = begin; itor != end; ++itor) {
-      process_part p;
-
-      p.part = &(*itor);
+    for (Iterator iter = begin; iter != end; ++iter) {
+      PartInProgress p;
+      p.part = &(*iter);
       p.id = id++;
-
-      _parts.push_back(p);
+      parts_.push_back(std::move(p));
     }
 
-    _max_retries = (max_retries == -1)
-                       ? base::config::get_max_transfer_retries()
-                       : max_retries;
-    _max_parts_in_progress = (max_parts_in_progress == -1)
-                                 ? base::config::get_max_parts_in_progress()
+    max_retries_ = (max_retries == -1) ? base::Config::max_transfer_retries()
+                                       : max_retries;
+    max_parts_in_progress_ = (max_parts_in_progress == -1)
+                                 ? base::Config::max_parts_in_progress()
                                  : max_parts_in_progress;
   }
 
-  int process() {
+  int Process() {
     size_t last_part = 0;
-    std::list<process_part *> parts_in_progress;
+    std::list<PartInProgress *> parts_in_progress;
     int r = 0;
 
     for (last_part = 0;
-         last_part < std::min(_max_parts_in_progress, _parts.size());
+         last_part < std::min(max_parts_in_progress_, parts_.size());
          last_part++) {
-      process_part *part = &_parts[last_part];
+      PartInProgress *part = &parts_[last_part];
 
-      part->handle = threads::pool::post(
-          threads::PR_REQ_1,
-          bind(_on_process_part, std::placeholders::_1, part->part),
-          0 /* don't retry on timeout since we handle that here */);
+      part->handle = threads::Pool::Post(
+          PoolId::PR_REQ_1,
+          std::bind(on_process_part_, std::placeholders::_1, part->part));
 
       parts_in_progress.push_back(part);
     }
 
     while (!parts_in_progress.empty()) {
-      process_part *part = parts_in_progress.front();
-      int part_r;
-
+      PartInProgress *part = parts_in_progress.front();
       parts_in_progress.pop_front();
-      part_r = part->handle->wait();
+      int part_r = part->handle->Wait();
 
       if (part_r) {
-        S3_LOG(LOG_DEBUG, "parallel_work_queue::process",
+        S3_LOG(LOG_DEBUG, "ParallelWorkQueue::Process",
                "part %i returned status %i.\n", part->id, part_r);
 
         if ((part_r == -EAGAIN || part_r == -ETIMEDOUT) &&
-            part->retry_count < _max_retries) {
-          part->handle = threads::pool::post(
-              threads::PR_REQ_1,
-              bind(_on_retry_part, std::placeholders::_1, part->part), 0);
+            part->retry_count < max_retries_) {
+          part->handle = threads::Pool::Post(
+              PoolId::PR_REQ_1,
+              std::bind(on_retry_part_, std::placeholders::_1, part->part));
 
           part->retry_count++;
 
           parts_in_progress.push_back(part);
         } else {
-          if (r == 0) // only save the first non-successful return code
+          if (r == 0)  // only save the first non-successful return code
             r = part_r;
         }
       }
@@ -116,12 +110,12 @@ public:
       // keep collecting parts until we have nothing left pending
       // if one part fails, keep going but stop posting new parts
 
-      if (r == 0 && last_part < _parts.size()) {
-        part = &_parts[last_part++];
+      if (r == 0 && last_part < parts_.size()) {
+        part = &parts_[last_part++];
 
-        part->handle = threads::pool::post(
-            threads::PR_REQ_1,
-            bind(_on_process_part, std::placeholders::_1, part->part), 0);
+        part->handle = threads::Pool::Post(
+            PoolId::PR_REQ_1,
+            std::bind(on_process_part_, std::placeholders::_1, part->part));
 
         parts_in_progress.push_back(part);
       }
@@ -130,26 +124,23 @@ public:
     return r;
   }
 
-private:
-  struct process_part {
-    int id;
-    int retry_count;
-    threads::wait_async_handle::ptr handle;
-
-    T *part;
-
-    inline process_part() : id(-1), retry_count(0), part(NULL) {}
+ private:
+  struct PartInProgress {
+    Part *part = nullptr;
+    int id = -1;
+    int retry_count = -1;
+    std::unique_ptr<AsyncHandle> handle;
   };
 
-  std::vector<process_part> _parts;
+  std::vector<PartInProgress> parts_;
 
-  process_part_fn _on_process_part;
-  retry_part_fn _on_retry_part;
+  ProcessPartCallback on_process_part_;
+  RetryPartCallback on_retry_part_;
 
-  int _max_retries;
-  size_t _max_parts_in_progress;
+  int max_retries_;
+  size_t max_parts_in_progress_;
 };
-} // namespace threads
-} // namespace s3
+}  // namespace threads
+}  // namespace s3
 
 #endif

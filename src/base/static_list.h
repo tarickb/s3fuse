@@ -27,16 +27,17 @@
 
 namespace s3 {
 namespace base {
-template <class T> class static_list {
-private:
-  typedef typename std::multimap<int, T> priority_map;
+template <class T>
+class StaticList {
+ private:
+  using PriorityMap = typename std::multimap<int, T>;
 
-public:
-  typedef typename priority_map::const_iterator const_iterator;
+ public:
+  using const_iterator = typename PriorityMap::const_iterator;
 
-  class entry {
-  public:
-    inline entry(const T &t, int priority) { add(t, priority); }
+  class Entry {
+   public:
+    inline Entry(const T &t, int priority) { Add(t, priority); }
   };
 
   inline static const_iterator begin() {
@@ -46,20 +47,18 @@ public:
     return s_list ? s_list->end() : const_iterator();
   }
 
-private:
-  inline static void add(const T &t, int priority) {
-    if (!s_list)
-      s_list = new priority_map;
-
+ private:
+  inline static void Add(const T &t, int priority) {
+    if (!s_list) s_list = new PriorityMap;
     s_list->insert(std::make_pair(priority, t));
   }
 
-  static priority_map *s_list;
+  static PriorityMap *s_list;
 };
 
 template <class T>
-typename static_list<T>::priority_map *static_list<T>::s_list = NULL;
-} // namespace base
-} // namespace s3
+typename StaticList<T>::PriorityMap *StaticList<T>::s_list = nullptr;
+}  // namespace base
+}  // namespace s3
 
 #endif

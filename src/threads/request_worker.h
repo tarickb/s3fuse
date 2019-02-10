@@ -1,5 +1,5 @@
 /*
- * threads/request_worker.h
+ * threads/RequestWorker.h
  * -------------------------------------------------------------------------
  * Pool worker thread with attached request object.
  * -------------------------------------------------------------------------
@@ -19,8 +19,8 @@
  * limitations under the License.
  */
 
-#ifndef S3_THREADS_REQUEST_WORKER_H
-#define S3_THREADS_REQUEST_WORKER_H
+#ifndef S3_THREADS_RequestWorker_H
+#define S3_THREADS_RequestWorker_H
 
 #include <functional>
 #include <memory>
@@ -30,46 +30,28 @@
 
 namespace s3 {
 namespace base {
-class request;
+class Request;
 }
 
 namespace threads {
-class async_handle;
-class work_item_queue;
+class WorkItemQueue;
 
-class request_worker {
-public:
-  typedef std::shared_ptr<request_worker> ptr;
+class RequestWorker {
+ public:
+  static std::unique_ptr<RequestWorker> Create(WorkItemQueue *queue);
 
-  static ptr create(const std::shared_ptr<work_item_queue> &queue) {
-    ptr wt(new request_worker(queue));
+  ~RequestWorker();
 
-    // passing "wt", a shared_ptr, for "this" keeps the object alive so long as
-    // worker() hasn't returned
-    wt->_thread.reset(new std::thread(std::bind(&request_worker::work, wt)));
+ private:
+  RequestWorker(WorkItemQueue *queue);
 
-    return wt;
-  }
+  void Work();
 
-  ~request_worker();
-
-  bool check_timeout(); // return true if thread has hanged
-
-private:
-  request_worker(const std::shared_ptr<work_item_queue> &queue);
-
-  void work();
-
-  std::mutex _mutex;
-  std::shared_ptr<std::thread> _thread;
-  std::shared_ptr<base::request> _request;
-  double _time_in_function, _time_in_request;
-
-  // access controlled by _mutex
-  std::weak_ptr<work_item_queue> _queue;
-  work_item _current_item;
+  std::unique_ptr<base::Request> request_;
+  WorkItemQueue *queue_ = nullptr;
+  std::thread thread_;
 };
-} // namespace threads
-} // namespace s3
+}  // namespace threads
+}  // namespace s3
 
 #endif

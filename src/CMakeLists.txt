@@ -29,24 +29,9 @@ add_subdirectory(fs)
 add_subdirectory(services)
 add_subdirectory(threads)
 
-set(service_libs)
-
-if(EnableAwsS3)
-  list(APPEND service_libs ${PROJECT_NAME}_services_aws)
-endif()
-
-if(EnableFvs)
-  list(APPEND service_libs ${PROJECT_NAME}_services_fvs)
-endif()
-
-if(EnableGcs)
-  list(APPEND service_libs ${PROJECT_NAME}_services_gs)
-endif()
-
 # The order here matters. Libraries have to appear before their dependencies.
 set(libs
   ${PROJECT_NAME}_fs
-  ${service_libs}
   ${PROJECT_NAME}_threads
   ${PROJECT_NAME}_services
   ${PROJECT_NAME}_crypto
@@ -56,19 +41,17 @@ if(EnableTests)
   add_subdirectory(tests)
 endif()
 
-add_library(${PROJECT_NAME}_init init.h init.cc)
-target_link_libraries(${PROJECT_NAME}_init ${PROJECT_NAME}_crypto)
-add_dependencies(${PROJECT_NAME}_init ${PROJECT_NAME}_base)
-
 add_executable(${PROJECT_NAME} main.cc operations.cc operations.h)
-target_link_libraries(${PROJECT_NAME} ${PROJECT_NAME}_init ${libs} ${fuse_lib})
+target_link_libraries(${PROJECT_NAME} ${libs} ${fuse_lib})
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${FUSE_INCLUDE_DIRS})
 
-add_executable(${PROJECT_NAME}_gs_get_token gs_get_token.cc)
-target_link_libraries(${PROJECT_NAME}_gs_get_token ${libs})
+if(EnableGcs)
+  add_executable(${PROJECT_NAME}_gs_get_token gs_get_token.cc)
+  target_link_libraries(${PROJECT_NAME}_gs_get_token ${libs})
+endif()
 
 add_executable(${PROJECT_NAME}_sha256_sum sha256_sum.cc)
-target_link_libraries(${PROJECT_NAME}_sha256_sum ${libs})
+target_link_libraries(${PROJECT_NAME}_sha256_sum ${PROJECT_NAME}_crypto)
 
 add_executable(${PROJECT_NAME}_vol_key vol_key.cc)
-target_link_libraries(${PROJECT_NAME}_vol_key ${PROJECT_NAME}_init ${libs})
+target_link_libraries(${PROJECT_NAME}_vol_key ${libs})

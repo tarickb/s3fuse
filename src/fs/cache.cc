@@ -19,91 +19,64 @@
  * limitations under the License.
  */
 
+#include "fs/cache.h"
+
 #include <atomic>
 #include <mutex>
 
 #include "base/config.h"
 #include "base/logger.h"
+#include "base/lru_cache_map.h"
 #include "base/request.h"
-#include "fs/cache.h"
+#include "base/statistics.h"
 #include "fs/directory.h"
+#include "fs/object.h"
+#include "threads/pool.h"
 
 namespace s3 {
 namespace fs {
-
-std::mutex cache::s_mutex;
-std::unique_ptr<cache::cache_map> cache::s_cache_map;
-uint64_t cache::s_hits(0), cache::s_misses(0), cache::s_expiries(0);
-base::statistics::writers::entry cache::s_writer(cache::statistics_writer, 0);
-
 namespace {
+inline bool IsObjectRemovable(const std::shared_ptr<Object> &obj) {
+  return !obj || obj->IsRemovable();
+}
+
+std::mutex s_mutex;
+std::unique_ptr<
+    base::LruCacheMap<std::string, std::shared_ptr<Object>, IsObjectRemovable>>
+    s_cache_map;
 std::atomic_int s_get_failures(0);
+uint64_t s_hits = 0, s_misses = 0, s_expiries = 0;
 
-inline double percent(uint64_t a, uint64_t b) {
-  return static_cast<double>(a) / static_cast<double>(b) * 100.0;
-}
-} // namespace
-
-void cache::init() {
-  s_cache_map.reset(new cache_map(base::config::get_max_objects_in_cache()));
-}
-
-void cache::statistics_writer(std::ostream *o) {
-  uint64_t total = s_hits + s_misses + s_expiries;
-
-  if (total == 0)
-    total = 1; // avoid NaNs below
-
-  o->setf(std::ostream::fixed);
-  o->precision(2);
-
-  *o << "object cache:\n"
-        "  size: "
-     << s_cache_map->get_size()
-     << "\n"
-        "  hits: "
-     << s_hits << " (" << percent(s_hits, total)
-     << " %)\n"
-        "  misses: "
-     << s_misses << " (" << percent(s_misses, total)
-     << " %)\n"
-        "  expiries: "
-     << s_expiries << " (" << percent(s_expiries, total)
-     << " %)\n"
-        "  get failures: "
-     << s_get_failures << "\n";
-}
-
-int cache::fetch(const base::request::ptr &req, const std::string &path,
-                 int hints, object::ptr *obj) {
+int Fetch(base::Request *req, const std::string &path, CacheHints hints,
+          std::shared_ptr<Object> *obj) {
   if (!path.empty()) {
-    req->init(base::HTTP_HEAD);
+    req->Init(base::HttpMethod::HEAD);
 
-    if ((hints == HINT_NONE || hints & HINT_IS_DIR) &&
-        !object::is_versioned_path(path)) {
+    if ((hints == CacheHints::NONE || hints == CacheHints::IS_DIR) &&
+        !Object::IsVersionedPath(path)) {
       // see if the path is a directory (trailing /) first
-      req->set_url(directory::build_url(path));
-      req->run();
+      req->SetUrl(Directory::BuildUrl(path));
+      req->Run();
     }
 
-    if (hints & HINT_IS_FILE || req->get_response_code() != base::HTTP_SC_OK) {
+    if (hints == CacheHints::IS_FILE ||
+        req->response_code() != base::HTTP_SC_OK) {
       // it's not a directory
-      req->set_url(object::build_url(path));
-      req->run();
+      req->SetUrl(Object::BuildUrl(path));
+      req->Run();
     }
 
-    if (req->get_response_code() != base::HTTP_SC_OK) {
+    if (req->response_code() != base::HTTP_SC_OK) {
       ++s_get_failures;
       return 0;
     }
   }
 
-  *obj = object::create(path, req);
+  *obj = Object::Create(path, req);
 
   {
     std::lock_guard<std::mutex> lock(s_mutex);
-    object::ptr &map_obj = (*s_cache_map)[path];
-
+    auto &map_obj = (*s_cache_map)[path];
     if (map_obj) {
       // if the object is already in the map, don't overwrite it
       *obj = map_obj;
@@ -115,5 +88,104 @@ int cache::fetch(const base::request::ptr &req, const std::string &path,
 
   return 0;
 }
-} // namespace fs
-} // namespace s3
+
+inline double Percent(uint64_t a, uint64_t b) {
+  return static_cast<double>(a) / static_cast<double>(b) * 100.0;
+}
+
+void StatsWriter(std::ostream *o) {
+  uint64_t total = s_hits + s_misses + s_expiries;
+  if (total == 0) total = 1;  // avoid NaNs below
+  o->setf(std::ostream::fixed);
+  o->precision(2);
+  *o << "object cache:\n"
+        "  size: "
+     << s_cache_map->size()
+     << "\n"
+        "  hits: "
+     << s_hits << " (" << Percent(s_hits, total)
+     << " %)\n"
+        "  misses: "
+     << s_misses << " (" << Percent(s_misses, total)
+     << " %)\n"
+        "  expiries: "
+     << s_expiries << " (" << Percent(s_expiries, total)
+     << " %)\n"
+        "  get failures: "
+     << s_get_failures << "\n";
+}
+
+base::Statistics::Writers::Entry s_writer(StatsWriter, 0);
+}  // namespace
+
+void Cache::Init() {
+  s_cache_map.reset(new base::LruCacheMap<std::string, std::shared_ptr<Object>,
+                                          IsObjectRemovable>(
+      base::Config::max_objects_in_cache()));
+}
+std::shared_ptr<Object> Cache::Get(const std::string &path, CacheHints hints) {
+  std::shared_ptr<Object> obj;
+  {
+    std::lock_guard<std::mutex> lock(s_mutex);
+    s_cache_map->Find(path, &obj);
+    if (!obj) {
+      ++s_misses;
+    } else if (obj->expired() && obj->IsRemovable()) {
+      ++s_expiries;
+      s_cache_map->Erase(path);
+    } else {
+      s_hits++;
+    }
+  }
+  if (!obj) {
+    threads::Pool::Call(
+        threads::PoolId::PR_REQ_0,
+        std::bind(&Fetch, std::placeholders::_1, path, hints, &obj));
+  }
+  return obj;
+}
+
+int Cache::Preload(base::Request *req, const std::string &path,
+                   CacheHints hints) {
+  std::lock_guard<std::mutex> lock(s_mutex);
+  if (!s_cache_map->Find(path, nullptr)) Fetch(req, path, hints, nullptr);
+  return 0;
+}
+
+int Cache::Remove(const std::string &path) {
+  std::lock_guard<std::mutex> lock(s_mutex);
+  std::shared_ptr<Object> o;
+  if (!s_cache_map->Find(path, &o)) return 0;
+  if (!o->IsRemovable()) return -EBUSY;
+  s_cache_map->Erase(path);
+  return 0;
+}
+
+void Cache::LockObject(const std::string &path,
+                       const LockedObjectCallback &callback) {
+  std::unique_lock<std::mutex> lock(s_mutex, std::defer_lock);
+  std::shared_ptr<Object> obj;
+
+  // this puts the object at "path" in the cache if it isn't already there
+  Get(path);
+
+  // but we do the following anyway so that we pass callback() whatever happens
+  // to be in the cache.  it'll catch the (clearly pathological) case
+  // where:
+  //
+  //   1. Get(path) puts the object in the cache
+  //   2. lock.lock() takes longer than the object expiry time (or some
+  //      other delay occurs)
+  //   3. some other, concurrent call to Get(path) replaces the object
+  //      in the cache
+  //
+  // of course it's possible that s_cache_map[path] would have been pruned
+  // before we can call callback(), but then we'd be returning an empty object
+  // pointer, which callback() has to check for anyway.
+
+  lock.lock();
+  obj = (*s_cache_map)[path];
+  callback(obj);
+}
+}  // namespace fs
+}  // namespace s3

@@ -30,40 +30,35 @@
 
 namespace s3 {
 namespace services {
-class file_transfer {
-public:
-  typedef std::function<int(const char *, size_t, off_t)> write_chunk_fn;
-  typedef std::function<int(size_t, off_t, const base::char_vector_ptr &)>
-      read_chunk_fn;
+class FileTransfer {
+ public:
+  using WriteChunk = std::function<int(const char *, size_t, off_t)>;
+  using ReadChunk = std::function<int(size_t, off_t, std::vector<char> *)>;
 
-  virtual ~file_transfer();
+  virtual ~FileTransfer() = default;
 
-  virtual size_t get_download_chunk_size();
-  virtual size_t get_upload_chunk_size();
+  virtual size_t download_chunk_size();
+  virtual size_t upload_chunk_size();
 
-  int download(const std::string &url, size_t size,
-               const write_chunk_fn &on_write);
-  int upload(const std::string &url, size_t size, const read_chunk_fn &on_read,
+  int Download(const std::string &url, size_t size, const WriteChunk &on_write);
+  int Upload(const std::string &url, size_t size, const ReadChunk &on_read,
              std::string *returned_etag);
 
-protected:
-  virtual int download_single(const base::request::ptr &req,
-                              const std::string &url, size_t size,
-                              const write_chunk_fn &on_write);
+ protected:
+  virtual int DownloadSingle(base::Request *req, const std::string &url,
+                             size_t size, const WriteChunk &on_write);
 
-  virtual int download_multi(const std::string &url, size_t size,
-                             const write_chunk_fn &on_write);
+  virtual int DownloadMulti(const std::string &url, size_t size,
+                            const WriteChunk &on_write);
 
-  virtual int upload_single(const base::request::ptr &req,
-                            const std::string &url, size_t size,
-                            const read_chunk_fn &on_read,
-                            std::string *returned_etag);
-
-  virtual int upload_multi(const std::string &url, size_t size,
-                           const read_chunk_fn &on_read,
+  virtual int UploadSingle(base::Request *req, const std::string &url,
+                           size_t size, const ReadChunk &on_read,
                            std::string *returned_etag);
+
+  virtual int UploadMulti(const std::string &url, size_t size,
+                          const ReadChunk &on_read, std::string *returned_etag);
 };
-} // namespace services
-} // namespace s3
+}  // namespace services
+}  // namespace s3
 
 #endif

@@ -24,41 +24,36 @@ const int TEST_SIZES[] = {0,
                           1024 * 1024 - 1,
                           2 * 1024 * 1024};
 const int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
-} // namespace
+}  // namespace
 
-TEST(aes_cbc_256, random_data) {
+TEST(AesCbc256, RandomData) {
   for (int test = 0; test < TEST_COUNT; test++) {
-    symmetric_key::ptr sk;
-    std::vector<uint8_t> in, out_enc, out_dec;
-    bool diff = false;
+    std::vector<uint8_t> out_enc, out_dec;
     size_t size = TEST_SIZES[test];
 
-    sk = symmetric_key::generate<aes_cbc_256_with_pkcs>();
+    const auto sk = SymmetricKey::Generate<AesCbc256WithPkcs>();
 
-    random::read(size, &in);
-
+    const auto in = Random::Read(size);
     ASSERT_EQ(size, in.size()) << "with size = " << size;
 
-    cipher::encrypt<aes_cbc_256_with_pkcs>(sk, &in[0], in.size(), &out_enc);
-
+    out_enc = Cipher::Encrypt<AesCbc256WithPkcs>(sk, &in[0], in.size());
     ASSERT_GE(out_enc.size(), in.size()) << "with size = " << size;
 
-    cipher::decrypt<aes_cbc_256_with_pkcs>(sk, &out_enc[0], out_enc.size(),
-                                           &out_dec);
-
+    out_dec =
+        Cipher::Decrypt<AesCbc256WithPkcs>(sk, &out_enc[0], out_enc.size());
     ASSERT_EQ(in.size(), out_dec.size()) << "with size = " << size;
 
+    bool diff = false;
     for (size_t i = 0; i < in.size(); i++) {
       if (in[i] != out_dec[i]) {
         diff = true;
         break;
       }
     }
-
     ASSERT_FALSE(diff) << "with size = " << size;
   }
 }
 
-} // namespace tests
-} // namespace crypto
-} // namespace s3
+}  // namespace tests
+}  // namespace crypto
+}  // namespace s3

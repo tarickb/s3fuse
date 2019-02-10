@@ -19,24 +19,24 @@
  * limitations under the License.
  */
 
+#include "crypto/md5.h"
+
+#include <openssl/evp.h>
+#include <openssl/md5.h>
 #include <unistd.h>
 
 #include <stdexcept>
 
-#include <openssl/evp.h>
-#include <openssl/md5.h>
-
-#include "crypto/md5.h"
-
 namespace s3 {
 namespace crypto {
 
-void md5::compute(const uint8_t *input, size_t size, uint8_t *hash) {
+void Md5::Compute(const uint8_t *input, size_t size, uint8_t *hash) {
   MD5(input, size, hash);
 }
 
-void md5::compute(int fd, uint8_t *hash) {
-  const ssize_t BUF_LEN = 8 * 1024;
+void Md5::Compute(int fd, uint8_t *hash) {
+  constexpr ssize_t BUF_LEN = 8 * 1024;
+
   off_t offset = 0;
   char buf[BUF_LEN];
 
@@ -45,9 +45,7 @@ void md5::compute(int fd, uint8_t *hash) {
 
   try {
     while (true) {
-      ssize_t read_count;
-
-      read_count = pread(fd, buf, BUF_LEN, offset);
+      ssize_t read_count = pread(fd, buf, BUF_LEN, offset);
 
       if (read_count == -1)
         throw std::runtime_error("error while computing md5, in pread().");
@@ -56,8 +54,7 @@ void md5::compute(int fd, uint8_t *hash) {
 
       offset += read_count;
 
-      if (read_count < BUF_LEN)
-        break;
+      if (read_count < BUF_LEN) break;
     }
 
   } catch (...) {
@@ -65,9 +62,9 @@ void md5::compute(int fd, uint8_t *hash) {
     throw;
   }
 
-  EVP_DigestFinal(md5_ctx, hash, NULL);
+  EVP_DigestFinal(md5_ctx, hash, nullptr);
   EVP_MD_CTX_free(md5_ctx);
 }
 
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3

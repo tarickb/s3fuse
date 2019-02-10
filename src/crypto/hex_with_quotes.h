@@ -28,25 +28,24 @@
 
 namespace s3 {
 namespace crypto {
-class encoder;
+class Encoder;
 
-class hex_with_quotes {
-private:
-  friend class encoder;
+class HexWithQuotes {
+ private:
+  friend class Encoder;
 
-  inline static std::string encode(const uint8_t *input, size_t size) {
-    return std::string("\"") + hex::encode(input, size) + "\"";
+  inline static std::string Encode(const uint8_t *input, size_t size) {
+    return std::string("\"") + Hex::Encode(input, size) + "\"";
   }
 
-  inline static void decode(const std::string &input,
-                            std::vector<uint8_t> *output) {
-    if (input[0] != '"' || input[input.size() - 1] != '"')
+  inline static std::vector<uint8_t> Decode(const std::string &input) {
+    if (input.size() < 0) throw std::runtime_error("hex input is too short");
+    if (input[0] != '"' || input.back() != '"')
       throw std::runtime_error("hex input does not have surrounding quotes");
-
-    return hex::decode(input.substr(1, input.size() - 2), output);
+    return Hex::Decode(input.substr(1, input.size() - 2));
   }
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

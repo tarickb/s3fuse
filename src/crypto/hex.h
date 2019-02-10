@@ -29,18 +29,18 @@
 
 namespace s3 {
 namespace crypto {
-class encoder;
-class hex_with_quotes;
+class Encoder;
+class HexWithQuotes;
 
-class hex {
-private:
-  friend class encoder;
-  friend class hex_with_quotes;
+class Hex {
+ private:
+  friend class Encoder;
+  friend class HexWithQuotes;
 
-  static std::string encode(const uint8_t *input, size_t size);
-  static void decode(const std::string &input, std::vector<uint8_t> *output);
+  static std::string Encode(const uint8_t *input, size_t size);
+  static std::vector<uint8_t> Decode(const std::string &input);
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

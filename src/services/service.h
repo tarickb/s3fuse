@@ -28,42 +28,35 @@
 #include "services/impl.h"
 
 namespace s3 {
-namespace base {
-class request_hook;
-}
-
 namespace services {
-class service {
-public:
-  static void init(const impl::ptr &svc);
+class Service {
+ public:
+  static void Init(std::unique_ptr<Impl> impl);
 
-  inline static const std::string &get_header_prefix() {
-    return s_impl->get_header_prefix();
-  }
-  inline static const std::string &get_header_meta_prefix() {
-    return s_impl->get_header_meta_prefix();
+  // Uses whatever service is defined in the config file (or the default service
+  // if only one service is enabled).
+  static void Init();
+
+  static std::string GetEnabledServices();
+
+  inline static std::string header_prefix() { return s_impl->header_prefix(); }
+  inline static std::string header_meta_prefix() {
+    return s_impl->header_meta_prefix();
   }
 
-  inline static const std::string &get_bucket_url() {
-    return s_impl->get_bucket_url();
-  }
+  inline static std::string bucket_url() { return s_impl->bucket_url(); }
 
   inline static bool is_next_marker_supported() {
     return s_impl->is_next_marker_supported();
   }
 
-  inline static base::request_hook *get_request_hook() { return s_hook.get(); }
+  inline static FileTransfer *file_transfer() { return s_file_transfer.get(); }
 
-  inline static const std::shared_ptr<file_transfer> &get_file_transfer() {
-    return s_file_transfer;
-  }
-
-private:
-  static impl::ptr s_impl;
-  static std::shared_ptr<base::request_hook> s_hook;
-  static std::shared_ptr<file_transfer> s_file_transfer;
+ private:
+  static std::unique_ptr<Impl> s_impl;
+  static std::unique_ptr<FileTransfer> s_file_transfer;
 };
-} // namespace services
-} // namespace s3
+}  // namespace services
+}  // namespace s3
 
 #endif

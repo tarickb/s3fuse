@@ -19,20 +19,23 @@
  * limitations under the License.
  */
 
+#include "services/aws/impl.h"
+
 #include <iterator>
 #include <sstream>
 #include <vector>
 
 #include "base/config.h"
 #include "base/logger.h"
+#include "base/paths.h"
 #include "base/request.h"
 #include "base/timer.h"
+#include "base/url.h"
 #include "crypto/base64.h"
 #include "crypto/encoder.h"
 #include "crypto/hmac_sha1.h"
 #include "crypto/private_file.h"
 #include "services/aws/file_transfer.h"
-#include "services/aws/impl.h"
 
 namespace s3 {
 namespace services {
@@ -44,19 +47,19 @@ const std::string HEADER_META_PREFIX = "x-amz-meta-";
 
 const std::string EMPTY = "";
 
-const std::string &safe_find(const base::header_map &map, const char *key) {
-  base::header_map::const_iterator itor = map.find(key);
-
-  return (itor == map.end()) ? EMPTY : itor->second;
+const std::string &SafeFind(const base::HeaderMap &map, const char *key) {
+  const auto iter = map.find(key);
+  return (iter == map.end()) ? EMPTY : iter->second;
 }
-} // namespace
+}  // namespace
 
-impl::impl() {
+Impl::Impl() {
   std::ifstream f;
   std::string line;
 
-  crypto::private_file::open(base::config::get_aws_secret_file(), &f);
-  getline(f, line);
+  crypto::PrivateFile::Open(
+      base::Paths::Transform(base::Config::aws_secret_file()), &f);
+  std::getline(f, line);
 
   std::istringstream line_stream(line);
   std::vector<std::string> fields{
@@ -64,64 +67,64 @@ impl::impl() {
       std::istream_iterator<std::string>()};
 
   if (fields.size() != 2) {
-    S3_LOG(LOG_ERR, "impl::impl",
+    S3_LOG(LOG_ERR, "Impl::Impl",
            "expected 2 fields for aws_secret_file, found %i.\n", fields.size());
-
     throw std::runtime_error("error while parsing auth data for AWS.");
   }
 
-  _key = fields[0];
-  _secret = fields[1];
+  key_ = fields[0];
+  secret_ = fields[1];
 
-  _endpoint = base::config::get_aws_use_ssl() ? "https://" : "http://";
-  _endpoint += base::config::get_aws_service_endpoint();
+  endpoint_ = base::Config::aws_use_ssl() ? "https://" : "http://";
+  endpoint_ += base::Config::aws_service_endpoint();
 
-  _bucket_url = std::string("/") +
-                base::request::url_encode(base::config::get_bucket_name());
+  bucket_url_ =
+      std::string("/") + base::Url::Encode(base::Config::bucket_name());
 }
 
-const std::string &impl::get_header_prefix() { return HEADER_PREFIX; }
+std::string Impl::header_prefix() const { return HEADER_PREFIX; }
 
-const std::string &impl::get_header_meta_prefix() { return HEADER_META_PREFIX; }
+std::string Impl::header_meta_prefix() const { return HEADER_META_PREFIX; }
 
-const std::string &impl::get_bucket_url() { return _bucket_url; }
+std::string Impl::bucket_url() const { return bucket_url_; }
 
-bool impl::is_next_marker_supported() { return true; }
+bool Impl::is_next_marker_supported() const { return true; }
 
-void impl::sign(base::request *req) {
-  const base::header_map &headers = req->get_headers();
-  std::string date, to_sign;
-  uint8_t mac[crypto::hmac_sha1::MAC_LEN];
+void Impl::Sign(base::Request *req) {
+  const std::string date = base::Timer::GetHttpTime();
+  req->SetHeader("Date", date);
 
-  date = base::timer::get_http_time();
+  const auto &headers = req->headers();
+  std::string to_sign = req->method() + "\n" +
+                        SafeFind(headers, "Content-MD5") + "\n" +
+                        SafeFind(headers, "Content-Type") + "\n" + date + "\n";
 
-  req->set_header("Date", date);
+  for (const auto &header : headers)
+    if (!header.second.empty() &&
+        header.first.substr(0, HEADER_PREFIX.size()) == HEADER_PREFIX)
+      to_sign += header.first + ":" + header.second + "\n";
 
-  to_sign = req->get_method() + "\n" + safe_find(headers, "Content-MD5") +
-            "\n" + safe_find(headers, "Content-Type") + "\n" + date + "\n";
+  to_sign += req->url();
 
-  for (base::header_map::const_iterator itor = headers.begin();
-       itor != headers.end(); ++itor)
-    if (!itor->second.empty() &&
-        itor->first.substr(0, HEADER_PREFIX.size()) == HEADER_PREFIX)
-      to_sign += itor->first + ":" + itor->second + "\n";
-
-  to_sign += req->get_url();
-
-  crypto::hmac_sha1::sign(_secret, to_sign, mac);
-  req->set_header("Authorization", std::string("AWS ") + _key + ":" +
-                                       crypto::encoder::encode<crypto::base64>(
-                                           mac, crypto::hmac_sha1::MAC_LEN));
+  uint8_t mac[crypto::HmacSha1::MAC_LEN];
+  crypto::HmacSha1::Sign(secret_, to_sign, mac);
+  req->SetHeader("Authorization", std::string("AWS ") + key_ + ":" +
+                                      crypto::Encoder::Encode<crypto::Base64>(
+                                          mac, crypto::HmacSha1::MAC_LEN));
 }
 
-std::string impl::adjust_url(const std::string &url) { return _endpoint + url; }
+std::string Impl::AdjustUrl(const std::string &url) { return endpoint_ + url; }
 
-void impl::pre_run(base::request *r, int iter) { sign(r); }
+void Impl::PreRun(base::Request *r, int iter) { Sign(r); }
 
-std::shared_ptr<services::file_transfer> impl::build_file_transfer() {
-  return std::shared_ptr<file_transfer>(new aws::file_transfer());
+bool Impl::ShouldRetry(base::Request *r, int iter) {
+  return GenericShouldRetry(r, iter);
 }
 
-} // namespace aws
-} // namespace services
-} // namespace s3
+std::unique_ptr<services::FileTransfer> Impl::BuildFileTransfer() {
+  return std::unique_ptr<services::FileTransfer>(new aws::FileTransfer());
+}
+
+}  // namespace aws
+}  // namespace services
+}  // namespace s3

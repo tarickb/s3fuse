@@ -26,12 +26,12 @@
 
 namespace s3 {
 namespace fs {
-class mime_types {
-public:
-  static void init();
-  static std::string get_type_by_extension(std::string ext);
+class MimeTypes {
+ public:
+  static void Init();
+  static std::string GetTypeByExtension(std::string ext);
 };
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

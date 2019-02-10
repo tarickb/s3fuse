@@ -22,64 +22,32 @@
 #ifndef S3_FS_SYMLINK_H
 #define S3_FS_SYMLINK_H
 
-#include <functional>
 #include <mutex>
+#include <string>
 
 #include "fs/object.h"
 #include "threads/pool.h"
 
 namespace s3 {
 namespace fs {
-class symlink : public object {
-public:
-  typedef std::shared_ptr<symlink> ptr;
+class Symlink : public Object {
+ public:
+  Symlink(const std::string &path);
+  ~Symlink() override = default;
 
-  symlink(const std::string &path);
-  virtual ~symlink();
+  int Read(std::string *target);
+  void SetTarget(const std::string &target);
 
-  inline ptr shared_from_this() {
-    return std::dynamic_pointer_cast<symlink>(object::shared_from_this());
-  }
+ protected:
+  void SetRequestBody(base::Request *req) override;
 
-  inline int read(std::string *target) {
-    std::unique_lock<std::mutex> lock(_mutex);
+ private:
+  int DoRead(base::Request *req);
 
-    if (_target.empty()) {
-      int r;
-
-      lock.unlock();
-
-      r = threads::pool::call(threads::PR_REQ_0,
-                              std::bind(&symlink::internal_read,
-                                        shared_from_this(),
-                                        std::placeholders::_1));
-
-      if (r)
-        return r;
-
-      lock.lock();
-    }
-
-    *target = _target;
-    return 0;
-  }
-
-  inline void set_target(const std::string &target) {
-    std::lock_guard<std::mutex> lock(_mutex);
-
-    _target = target;
-  }
-
-protected:
-  virtual void set_request_body(const std::shared_ptr<base::request> &req);
-
-private:
-  int internal_read(const std::shared_ptr<base::request> &req);
-
-  std::mutex _mutex;
-  std::string _target;
+  std::mutex mutex_;
+  std::string target_;
 };
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

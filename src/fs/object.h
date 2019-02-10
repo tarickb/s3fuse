@@ -38,170 +38,138 @@
 
 namespace s3 {
 namespace base {
-class request;
+class Request;
 }
 
 namespace fs {
 #ifdef WITH_AWS
-class glacier;
+class Glacier;
 #endif
 
-class object : public std::enable_shared_from_this<object> {
-public:
-  typedef std::shared_ptr<object> ptr;
+class Object {
+ public:
+  using TypeChecker =
+      std::function<Object *(const std::string &path, base::Request *req)>;
+  using TypeCheckers = base::StaticList<TypeChecker>;
 
-  typedef object *(*type_checker_fn)(const std::string &path,
-                                     const std::shared_ptr<base::request> &req);
-  typedef base::static_list<type_checker_fn> type_checker_list;
+  static int block_size();
+  static std::string internal_prefix();
 
-  static int get_block_size();
+  static std::string BuildUrl(const std::string &path);
+  static std::string BuildInternalUrl(const std::string &key);
+  static bool IsInternalPath(const std::string &key);
+  static bool IsVersionedPath(const std::string &path);
 
-  static std::string build_url(const std::string &path);
-  static std::string build_internal_url(const std::string &key);
-  static bool is_internal_path(const std::string &key);
-  static bool is_versioned_path(const std::string &path);
-  static const std::string &get_internal_prefix();
+  static int RemoveByUrl(base::Request *req, const std::string &url);
+  static int CopyByPath(base::Request *req, const std::string &from,
+                        const std::string &to);
 
-  static ptr create(const std::string &path,
-                    const std::shared_ptr<base::request> &req);
+  static std::shared_ptr<Object> Create(const std::string &path,
+                                        base::Request *req);
 
-  static int remove_by_url(const std::shared_ptr<base::request> &req,
-                           const std::string &url);
-  static int copy_by_path(const std::shared_ptr<base::request> &req,
-                          const std::string &from, const std::string &to);
+  virtual ~Object();
 
-  virtual ~object();
+  virtual bool IsRemovable();
+  virtual int Remove(base::Request *req);
+  virtual int Rename(base::Request *req, std::string to);
 
-  inline bool is_intact() const { return _intact; }
-  inline bool is_expired() const {
-    return (_expiry == 0 || time(NULL) >= _expiry);
+  inline bool intact() const { return intact_; }
+  inline bool expired() const {
+    return (expiry_ == 0 || time(nullptr) >= expiry_);
   }
 
-  virtual bool is_removable();
+  inline std::string path() const { return path_; }
+  inline std::string content_type() const { return content_type_; }
+  inline std::string url() const { return url_; }
+  inline std::string etag() const { return etag_; }
+  inline mode_t mode() const { return stat_.st_mode; }
+  inline mode_t type() const { return stat_.st_mode & S_IFMT; }
+  inline uid_t uid() const { return stat_.st_uid; }
 
-  inline const std::string &get_path() const { return _path; }
-  inline const std::string &get_content_type() const { return _content_type; }
-  inline const std::string &get_url() const { return _url; }
-  inline const std::string &get_etag() const { return _etag; }
-  inline mode_t get_mode() const { return _stat.st_mode; }
-  inline mode_t get_type() const { return _stat.st_mode & S_IFMT; }
-  inline uid_t get_uid() const { return _stat.st_uid; }
+  inline void set_uid(uid_t uid) { stat_.st_uid = uid; }
+  inline void set_gid(gid_t gid) { stat_.st_gid = gid; }
 
-  void get_metadata_keys(std::vector<std::string> *keys);
-  int get_metadata(const std::string &key, char *buffer, size_t max_size);
-  int set_metadata(const std::string &key, const char *value, size_t size,
-                   int flags, bool *needs_commit);
-  int remove_metadata(const std::string &key);
+  inline void set_mtime(time_t mtime) { stat_.st_mtime = mtime; }
+  inline void set_mtime() { set_mtime(time(nullptr)); }
 
-  inline void set_uid(uid_t uid) { _stat.st_uid = uid; }
-  inline void set_gid(gid_t gid) { _stat.st_gid = gid; }
+  inline void set_ctime(time_t ctime) { stat_.st_ctime = ctime; }
+  inline void set_ctime() { set_ctime(time(nullptr)); }
 
-  inline void set_mtime(time_t mtime) { _stat.st_mtime = mtime; }
-  inline void set_mtime() { set_mtime(time(NULL)); }
+  std::vector<std::string> GetMetadataKeys();
+  int GetMetadata(const std::string &key, char *buffer, size_t max_size);
+  int SetMetadata(const std::string &key, const char *value, size_t size,
+                  int flags, bool *needs_commit);
+  int RemoveMetadata(const std::string &key);
 
-  inline void set_ctime(time_t ctime) { _stat.st_ctime = ctime; }
-  inline void set_ctime() { set_ctime(time(NULL)); }
+  void SetMode(mode_t mode);
 
-  void set_mode(mode_t mode);
-
-  inline void copy_stat(struct stat *s) {
-    update_stat();
-    memcpy(s, &_stat, sizeof(_stat));
+  inline void CopyStat(struct stat *s) {
+    UpdateStat();
+    memcpy(s, &stat_, sizeof(stat_));
   }
 
-  int commit(const std::shared_ptr<base::request> &req);
+  int Commit(base::Request *req);
+  int Commit();
 
-  virtual int remove(const std::shared_ptr<base::request> &req);
-  virtual int rename(const std::shared_ptr<base::request> &req,
-                     const std::string &to);
+  int Remove();
+  int Rename(std::string to);
 
-  inline int commit_wrapper(const std::shared_ptr<base::request> &req) {
-    return commit(req);
-  }
+ protected:
+  using MetadataMap = std::map<std::string, std::unique_ptr<XAttr>>;
 
-  inline int remove_wrapper(const std::shared_ptr<base::request> &req) {
-    return remove(req);
-  }
+  Object(const std::string &path);
 
-  inline int rename_wrapper(const std::shared_ptr<base::request> &req,
-                            const std::string &to) {
-    return rename(req, to);
-  }
+  virtual void Init(base::Request *req);
 
-  inline int commit() {
-    return threads::pool::call(threads::PR_REQ_0,
-                               std::bind(&object::commit_wrapper,
-                                         shared_from_this(),
-                                         std::placeholders::_1));
-  }
+  virtual void SetRequestHeaders(base::Request *req);
+  virtual void SetRequestBody(base::Request *req);
 
-  inline int remove() {
-    return threads::pool::call(threads::PR_REQ_0,
-                               std::bind(&object::remove_wrapper,
-                                         shared_from_this(),
-                                         std::placeholders::_1));
-  }
+  virtual void UpdateStat();
 
-  inline int rename(const std::string &to) {
-    return threads::pool::call(threads::PR_REQ_0,
-                               std::bind(&object::rename_wrapper,
-                                         shared_from_this(),
-                                         std::placeholders::_1, to));
-  }
+  inline struct stat *stat() { return &stat_; }
 
-protected:
-  object(const std::string &path);
-
-  virtual void init(const std::shared_ptr<base::request> &req);
-
-  virtual void set_request_headers(const std::shared_ptr<base::request> &req);
-  virtual void set_request_body(const std::shared_ptr<base::request> &req);
-
-  virtual void update_stat();
-
-  inline void set_url(const std::string &url) { _url = url; }
+  inline void set_url(const std::string &url) { url_ = url; }
   inline void set_content_type(const std::string &content_type) {
-    _content_type = content_type;
+    content_type_ = content_type;
   }
-  inline void set_etag(const std::string &etag) { _etag = etag; }
-
+  inline void set_etag(const std::string &etag) { etag_ = etag; }
   inline void set_type(mode_t mode) {
-    _stat.st_mode &= ~S_IFMT; // clear existing mode
-    _stat.st_mode |= mode & S_IFMT;
+    stat_.st_mode &= ~S_IFMT;  // clear existing mode
+    stat_.st_mode |= mode & S_IFMT;
   }
 
-  inline xattr_map *get_metadata() { return &_metadata; }
-  inline struct stat *get_stat() { return &_stat; }
+  inline void Expire() { expiry_ = 0; }
+  inline void ForceZeroSize() { stat_.st_size = 0; }
 
-  inline void expire() { _expiry = 0; }
-  inline void force_zero_size() { _stat.st_size = 0; }
+  MetadataMap::iterator UpdateMetadata(std::unique_ptr<XAttr> attr);
 
-private:
-  int get_all_versions(bool empties, std::string *out);
-  int fetch_all_versions(const std::shared_ptr<base::request> &req,
-                         bool empties, std::string *out);
+ private:
+  enum class VersionFetchOptions { NONE, WITH_EMPTIES };
 
-  std::mutex _mutex;
+  int FetchAllVersions(base::Request *req, VersionFetchOptions options,
+                       std::string *out);
+
+  std::mutex mutex_;
 
   // should only be modified during init()
-  std::string _path;
-  std::string _content_type;
-  std::string _url;
-  bool _intact;
+  std::string path_;
+  std::string content_type_;
+  std::string url_;
+  bool intact_;
 
 #ifdef WITH_AWS
-  std::shared_ptr<glacier> _glacier;
+  std::unique_ptr<Glacier> glacier_;
 #endif
 
   // unprotected
-  std::string _etag;
-  struct stat _stat;
-  time_t _expiry;
+  std::string etag_;
+  struct stat stat_;
+  time_t expiry_;
 
   // protected by _mutex
-  xattr_map _metadata;
+  MetadataMap metadata_;
 };
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

@@ -28,26 +28,19 @@
 
 namespace s3 {
 namespace fs {
-class special : public object {
-public:
-  typedef std::shared_ptr<special> ptr;
+class Special : public Object {
+ public:
+  Special(const std::string &path);
+  ~Special() override = default;
 
-  special(const std::string &path);
-  virtual ~special();
+  inline void set_type(mode_t mode) { Object::set_type(mode & S_IFMT); }
+  inline void set_device(dev_t dev) { stat()->st_rdev = dev; }
 
-  inline ptr shared_from_this() {
-    return std::dynamic_pointer_cast<special>(object::shared_from_this());
-  }
-
-  inline void set_type(mode_t mode) { object::set_type(mode & S_IFMT); }
-
-  inline void set_device(dev_t dev) { get_stat()->st_rdev = dev; }
-
-protected:
-  virtual void init(const std::shared_ptr<base::request> &req);
-  virtual void set_request_headers(const std::shared_ptr<base::request> &req);
+ protected:
+  void Init(base::Request *req) override;
+  void SetRequestHeaders(base::Request *req) override;
 };
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

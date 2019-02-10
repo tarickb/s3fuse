@@ -19,18 +19,18 @@
  * limitations under the License.
  */
 
-#include <openssl/hmac.h>
-
 #include "crypto/hmac_sha1.h"
+
+#include <openssl/hmac.h>
 
 namespace s3 {
 namespace crypto {
 
-void hmac_sha1::sign(const uint8_t *key, size_t key_len, const uint8_t *data,
-                     size_t data_len, uint8_t *mac) {
+void HmacSha1::Sign(const uint8_t *key, size_t key_len, const uint8_t *data,
+                    size_t data_len, uint8_t *mac) {
   HMAC(EVP_sha1(), reinterpret_cast<const void *>(key), key_len,
-       reinterpret_cast<const uint8_t *>(data), data_len, mac, NULL);
+       reinterpret_cast<const uint8_t *>(data), data_len, mac, nullptr);
 }
 
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3

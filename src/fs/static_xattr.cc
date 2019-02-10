@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#include "fs/static_xattr.h"
+
 #include <errno.h>
 #include <string.h>
 
@@ -31,7 +33,6 @@
 #include "crypto/hex.h"
 #include "crypto/md5.h"
 #include "fs/metadata.h"
-#include "fs/static_xattr.h"
 
 namespace s3 {
 namespace fs {
@@ -39,145 +40,120 @@ namespace fs {
 namespace {
 const size_t MAX_STRING_SCAN_LEN = 128;
 
-inline bool is_key_valid(const std::string &key) {
-  if (strncmp(key.c_str(), metadata::RESERVED_PREFIX,
-              strlen(metadata::RESERVED_PREFIX)) == 0)
+inline bool IsKeyValid(const std::string &key) {
+  if (strncmp(key.c_str(), Metadata::RESERVED_PREFIX,
+              strlen(Metadata::RESERVED_PREFIX)) == 0)
     return false;
-
-  if (strncmp(key.c_str(), metadata::XATTR_PREFIX,
-              strlen(metadata::XATTR_PREFIX)) == 0)
+  if (strncmp(key.c_str(), Metadata::XATTR_PREFIX,
+              strlen(Metadata::XATTR_PREFIX)) == 0)
     return false;
-
   for (size_t i = 0; i < key.length(); i++)
     if (key[i] != '.' && key[i] != '-' && key[i] != '_' && !isdigit(key[i]) &&
         !islower(key[i]))
       return false;
-
   return true;
 }
 
-inline bool is_value_valid(const char *value, size_t size) {
-  if (size > MAX_STRING_SCAN_LEN)
-    return false;
-
+inline bool IsValueValid(const char *value, size_t size) {
+  if (size > MAX_STRING_SCAN_LEN) return false;
   for (size_t i = 0; i < size; i++)
     if (value[i] < 32 ||
-        value[i] == 127) // see http://tools.ietf.org/html/rfc2616#section-2.2
+        value[i] == 127)  // see http://tools.ietf.org/html/rfc2616#section-2.2
       return false;
-
   return true;
 }
-} // namespace
+}  // namespace
 
-static_xattr::ptr static_xattr::from_header(const std::string &header_key,
-                                            const std::string &header_value,
-                                            int mode) {
-  ptr ret;
-  static_xattr *val = NULL;
+std::unique_ptr<StaticXAttr> StaticXAttr::FromHeader(
+    const std::string &header_key, const std::string &header_value, int mode) {
+  std::unique_ptr<StaticXAttr> ret;
 
-  if (strncmp(header_key.c_str(), metadata::XATTR_PREFIX,
-              strlen(metadata::XATTR_PREFIX)) == 0) {
-    std::vector<uint8_t> dec_key;
-    size_t separator = header_value.find(' ');
-
+  if (strncmp(header_key.c_str(), Metadata::XATTR_PREFIX,
+              strlen(Metadata::XATTR_PREFIX)) == 0) {
+    const size_t separator = header_value.find(' ');
     if (separator == std::string::npos)
       throw std::runtime_error("header string is malformed.");
 
-    crypto::encoder::decode<crypto::base64>(header_value.substr(0, separator),
-                                            &dec_key);
-
-    ret.reset(val = new static_xattr(reinterpret_cast<char *>(&dec_key[0]),
-                                     true, true, mode));
-
-    crypto::encoder::decode<crypto::base64>(header_value.substr(separator + 1),
-                                            &val->_value);
-
+    const auto dec_key = crypto::Encoder::Decode<crypto::Base64>(
+        header_value.substr(0, separator));
+    ret.reset(new StaticXAttr(reinterpret_cast<const char *>(&dec_key[0]), true,
+                              true, mode));
+    ret->value_ = crypto::Encoder::Decode<crypto::Base64>(
+        header_value.substr(separator + 1));
   } else {
     // we know the value doesn't need encoding because it came to us as a valid
     // HTTP string.
-    ret.reset(val = new static_xattr(header_key, false, false, mode));
-
-    val->_value.resize(header_value.size());
-    memcpy(&val->_value[0],
+    ret.reset(new StaticXAttr(header_key, false, false, mode));
+    ret->value_.resize(header_value.size());
+    memcpy(&ret->value_[0],
            reinterpret_cast<const uint8_t *>(header_value.c_str()),
            header_value.size());
   }
 
-  if (val->_hide_on_empty && val->_value.empty())
-    val->set_mode(val->get_mode() & ~XM_VISIBLE);
+  if (ret->hide_on_empty_ && ret->value_.empty())
+    ret->set_mode(ret->mode() & ~XM_VISIBLE);
 
   return ret;
 }
 
-static_xattr::ptr static_xattr::from_string(const std::string &key,
-                                            const std::string &value,
-                                            int mode) {
-  ptr ret = create(key, mode);
-
+std::unique_ptr<StaticXAttr> StaticXAttr::FromString(const std::string &key,
+                                                     const std::string &value,
+                                                     int mode) {
+  auto ret = Create(key, mode);
   // terminating nulls are not stored
-  ret->set_value(value.c_str(), value.size());
-
+  ret->SetValue(value.c_str(), value.size());
   return ret;
 }
 
-static_xattr::ptr static_xattr::create(const std::string &key, int mode) {
-  return ptr(new static_xattr(key, !is_key_valid(key), true, mode));
+std::unique_ptr<StaticXAttr> StaticXAttr::Create(const std::string &key,
+                                                 int mode) {
+  return std::unique_ptr<StaticXAttr>(
+      new StaticXAttr(key, !IsKeyValid(key), true, mode));
 }
 
-int static_xattr::set_value(const char *value, size_t size) {
-  _value.resize(size);
-  memcpy(&_value[0], reinterpret_cast<const uint8_t *>(value), size);
-
-  _encode_value = !is_value_valid(value, size);
-
-  if (_hide_on_empty)
-    set_mode(size ? (get_mode() | XM_VISIBLE) : (get_mode() & ~XM_VISIBLE));
-
+int StaticXAttr::SetValue(const char *value, size_t size) {
+  value_.resize(size);
+  memcpy(&value_[0], reinterpret_cast<const uint8_t *>(value), size);
+  encode_value_ = !IsValueValid(value, size);
+  if (hide_on_empty_)
+    set_mode(size ? (mode() | XM_VISIBLE) : (mode() & ~XM_VISIBLE));
   return 0;
 }
 
-int static_xattr::get_value(char *buffer, size_t max_size) {
-  size_t size = (_value.size() > max_size) ? max_size : _value.size();
-
+int StaticXAttr::GetValue(char *buffer, size_t max_size) const {
   // so this is a little convoluted, but:
   //
-  // if buffer == NULL, return the size of the value
-  // if buffer != NULL and value_size > max_size, copy up to max_size and return
-  // -ERANGE if buffer != NULL and value_size <= max_size, copy up to value_size
-  // and return value_size
+  // if buffer == nullptr, return the size of the value
+  // if buffer != nullptr and value_size > max_size, copy up to max_size and
+  // return -ERANGE if buffer != nullptr and value_size <= max_size, copy up to
+  // value_size and return value_size
 
-  if (buffer == NULL)
-    return _value.size();
-
-  memcpy(reinterpret_cast<uint8_t *>(buffer), &_value[0], size);
-
-  return (size == _value.size()) ? size : -ERANGE;
+  if (buffer == nullptr) return value_.size();
+  const size_t size = (value_.size() > max_size) ? max_size : value_.size();
+  memcpy(reinterpret_cast<uint8_t *>(buffer), &value_[0], size);
+  return (size == value_.size()) ? size : -ERANGE;
 }
 
-void static_xattr::to_header(std::string *header, std::string *value) {
-  if (_encode_key || _encode_value) {
-    *header = std::string(metadata::XATTR_PREFIX) +
-              crypto::hash::compute<crypto::md5, crypto::hex>(get_key());
-    *value = crypto::encoder::encode<crypto::base64>(get_key()) + " " +
-             crypto::encoder::encode<crypto::base64>(_value);
+void StaticXAttr::ToHeader(std::string *header, std::string *value) const {
+  if (encode_key_ || encode_value_) {
+    *header = std::string(Metadata::XATTR_PREFIX) +
+              crypto::Hash::Compute<crypto::Md5, crypto::Hex>(key());
+    *value = crypto::Encoder::Encode<crypto::Base64>(key()) + " " +
+             crypto::Encoder::Encode<crypto::Base64>(value_);
   } else {
-    *header = get_key();
-
-    value->resize(_value.size());
-    memcpy(&(*value)[0], &_value[0], _value.size());
+    *header = key();
+    value->resize(value_.size());
+    memcpy(&(*value)[0], &value_[0], value_.size());
   }
 }
 
-std::string static_xattr::to_string() {
+std::string StaticXAttr::ToString() const {
   std::string s;
-
-  if (_encode_value)
+  if (encode_value_)
     throw std::runtime_error("value cannot be represented as a string");
-
-  s.assign(reinterpret_cast<const char *>(&_value[0]), _value.size());
-
+  s.assign(reinterpret_cast<const char *>(&value_[0]), value_.size());
   return s;
 }
 
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3

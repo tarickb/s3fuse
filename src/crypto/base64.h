@@ -29,16 +29,16 @@
 
 namespace s3 {
 namespace crypto {
-class encoder;
+class Encoder;
 
-class base64 {
-private:
-  friend class encoder;
+class Base64 {
+ private:
+  friend class Encoder;
 
-  static std::string encode(const uint8_t *input, size_t size);
-  static void decode(const std::string &input, std::vector<uint8_t> *output);
+  static std::string Encode(const uint8_t *input, size_t size);
+  static std::vector<uint8_t> Decode(const std::string &input);
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

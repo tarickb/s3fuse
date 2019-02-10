@@ -26,11 +26,11 @@
 
 namespace s3 {
 namespace crypto {
-class passwords {
-public:
-  static std::string read_from_stdin(const std::string &prompt);
+class Passwords {
+ public:
+  static std::string ReadFromStdin(const std::string &prompt);
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

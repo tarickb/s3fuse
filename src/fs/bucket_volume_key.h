@@ -26,48 +26,41 @@
 
 #include "base/request.h"
 #include "crypto/aes_cbc_256.h"
+#include "crypto/buffer.h"
 
 namespace s3 {
-namespace crypto {
-class buffer;
-}
-
 namespace fs {
-class bucket_volume_key {
-public:
-  typedef crypto::aes_cbc_256_with_pkcs key_cipher;
+class BucketVolumeKey {
+ public:
+  using KeyCipherType = crypto::AesCbc256WithPkcs;
 
-  typedef std::shared_ptr<bucket_volume_key> ptr;
+  static std::unique_ptr<BucketVolumeKey> Fetch(base::Request *req,
+                                                const std::string &id);
+  static std::unique_ptr<BucketVolumeKey> Generate(base::Request *req,
+                                                   const std::string &id);
+  static std::vector<std::string> GetKeys(base::Request *req);
 
-  static ptr fetch(const base::request::ptr &req, const std::string &id);
-  static ptr generate(const base::request::ptr &req, const std::string &id);
-  static void get_keys(const base::request::ptr &req,
-                       std::vector<std::string> *keys);
+  inline const crypto::Buffer &volume_key() const { return volume_key_; }
+  inline std::string id() const { return id_; }
 
-  inline const std::shared_ptr<crypto::buffer> &get_volume_key() {
-    return _volume_key;
-  }
-  inline const std::string &get_id() { return _id; }
+  void Unlock(const crypto::Buffer &key);
+  void Remove(base::Request *req);
+  void Commit(base::Request *req, const crypto::Buffer &key);
 
-  void unlock(const std::shared_ptr<crypto::buffer> &key);
-  void remove(const base::request::ptr &req);
-  void commit(const base::request::ptr &req,
-              const std::shared_ptr<crypto::buffer> &key);
+  std::unique_ptr<BucketVolumeKey> Clone(const std::string &new_id) const;
 
-  ptr clone(const std::string &new_id);
+ private:
+  BucketVolumeKey(const std::string &id);
 
-private:
-  bucket_volume_key(const std::string &id);
+  inline bool is_present() const { return !encrypted_key_.empty(); }
 
-  inline bool is_present() { return !_encrypted_key.empty(); }
+  void Download(base::Request *req);
+  void Generate();
 
-  void download(const base::request::ptr &req);
-  void generate();
-
-  std::string _id, _encrypted_key;
-  std::shared_ptr<crypto::buffer> _volume_key;
+  std::string id_, encrypted_key_;
+  crypto::Buffer volume_key_;
 };
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

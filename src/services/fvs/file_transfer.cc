@@ -25,10 +25,10 @@ namespace s3 {
 namespace services {
 namespace fvs {
 
-size_t file_transfer::get_upload_chunk_size() {
-  return 0; // disabled
+size_t FileTransfer::upload_chunk_size() {
+  return 0;  // disabled
 }
 
-} // namespace fvs
-} // namespace services
-} // namespace s3
+}  // namespace fvs
+}  // namespace services
+}  // namespace s3

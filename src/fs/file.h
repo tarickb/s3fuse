@@ -34,124 +34,77 @@
 
 namespace s3 {
 namespace fs {
-enum file_open_mode { OPEN_DEFAULT = 0x0, OPEN_TRUNCATE_TO_ZERO = 0x1 };
+enum class FileOpenMode { DEFAULT, TRUNCATE_TO_ZERO };
 
-class file : public object {
-public:
-  typedef std::shared_ptr<file> ptr;
-
-  inline static file *from_handle(uint64_t handle) {
-    return reinterpret_cast<file *>(handle);
+class File : public Object {
+ public:
+  inline static File *FromHandle(uint64_t handle) {
+    return reinterpret_cast<File *>(handle);
   }
 
-  static void test_transfer_chunk_sizes();
-  static int open(const std::string &path, file_open_mode mode,
-                  uint64_t *handle);
+  static void TestTransferChunkSizes();
 
-  file(const std::string &path);
-  virtual ~file();
+  static int Open(const std::string &path, FileOpenMode mode, uint64_t *handle);
 
-  inline ptr shared_from_this() {
-    return std::dynamic_pointer_cast<file>(object::shared_from_this());
-  }
+  File(const std::string &path);
+  ~File() override = default;
 
-  virtual bool is_removable();
+  bool IsRemovable() override;
 
-  int release();
-  int flush();
-  int write(const char *buffer, size_t size, off_t offset);
-  int read(char *buffer, size_t size, off_t offset);
-  int truncate(off_t length);
+  int Release();
+  int Flush();
+  int Write(const char *buffer, size_t size, off_t offset);
+  int Read(char *buffer, size_t size, off_t offset);
+  int Truncate(off_t length);
 
-protected:
-  virtual void init(const std::shared_ptr<base::request> &req);
+ protected:
+  void Init(base::Request *req) override;
+  void SetRequestHeaders(base::Request *req) override;
+  void UpdateStat() override;
 
-  virtual int is_downloadable();
+  virtual int IsDownloadable();
 
-  virtual int write_chunk(const char *buffer, size_t size, off_t offset);
-  virtual int read_chunk(size_t size, off_t offset,
-                         const base::char_vector_ptr &buffer);
+  virtual int WriteChunk(const char *buffer, size_t size, off_t offset);
+  virtual int ReadChunk(size_t size, off_t offset, std::vector<char> *buffer);
 
-  virtual int prepare_download();
-  virtual int finalize_download();
+  virtual int PrepareDownload();
+  virtual int FinalizeDownload();
 
-  virtual int prepare_upload();
-  virtual int finalize_upload(const std::string &returned_etag);
+  virtual int PrepareUpload();
+  virtual int FinalizeUpload(const std::string &returned_etag);
 
-  virtual void set_request_headers(const std::shared_ptr<base::request> &req);
+  inline std::string sha256_hash() { return sha256_hash_; }
+  void SetSha256Hash(const std::string &hash);
 
-  virtual void update_stat();
-
-  inline const std::string &get_sha256_hash() { return _sha256_hash; }
-
-  void set_sha256_hash(const std::string &hash);
-
-private:
-  struct transfer_part {
-    int id;
-    off_t offset;
-    size_t size;
-    int retry_count;
-    bool success;
-    std::string etag;
-    threads::wait_async_handle::ptr handle;
-
-    inline transfer_part()
-        : id(0), offset(0), size(0), retry_count(0), success(false) {}
-  };
-
-  enum status {
+ private:
+  enum Status {
     FS_DOWNLOADING = 0x1,
     FS_UPLOADING = 0x2,
     FS_WRITING = 0x4,
     FS_DIRTY = 0x8
   };
 
-  static void open_locked_object(const object::ptr &obj, file_open_mode mode,
-                                 uint64_t *handle, int *status);
+  int Open(FileOpenMode mode, uint64_t *handle);
 
-  int open(file_open_mode mode, uint64_t *handle);
+  int Download(base::Request *);
+  void OnDownloadComplete(int ret);
+  int Upload(base::Request *);
 
-  int download(const std::shared_ptr<base::request> &);
+  size_t GetLocalSize();
 
-  int download_single(const std::shared_ptr<base::request> &req);
-  int download_multi();
-  int download_part(const std::shared_ptr<base::request> &req,
-                    const transfer_part *part);
+  void UpdateStat(const std::lock_guard<std::mutex> &);
 
-  int upload(const std::shared_ptr<base::request> &);
+  std::mutex fs_mutex_;
+  std::condition_variable condition_;
+  std::unique_ptr<crypto::HashList<crypto::Sha256>> hash_list_;
+  std::string sha256_hash_;
 
-  int upload_single(const std::shared_ptr<base::request> &req,
-                    std::string *returned_etag);
-  int upload_multi(std::string *returned_etag);
-  int upload_multi_init(const std::shared_ptr<base::request> &req,
-                        std::string *upload_id);
-  int upload_multi_cancel(const std::shared_ptr<base::request> &req,
-                          const std::string &upload_id);
-  int upload_multi_complete(const std::shared_ptr<base::request> &req,
-                            const std::string &upload_id,
-                            const std::string &upload_metadata,
-                            std::string *etag);
-  int upload_part(const std::shared_ptr<base::request> &req,
-                  const std::string &upload_id, transfer_part *part);
-
-  size_t get_local_size();
-
-  void on_download_complete(int ret);
-
-  void update_stat(const std::lock_guard<std::mutex> &);
-
-  std::mutex _fs_mutex;
-  std::condition_variable _condition;
-  crypto::hash_list<crypto::sha256>::ptr _hash_list;
-  std::string _sha256_hash;
-
-  // protected by _fs_mutex
-  int _fd, _status, _async_error;
-  bool _read_only;
-  uint64_t _ref_count;
+  // protected by fs_mutex_
+  int fd_ = -1, status_ = 0, async_error_ = 0;
+  bool read_only_ = false;
+  uint64_t ref_count_ = 0;
 };
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

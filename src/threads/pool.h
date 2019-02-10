@@ -27,49 +27,36 @@
 
 namespace s3 {
 namespace threads {
-enum pool_id { PR_0 = 0, PR_REQ_0 = 1, PR_REQ_1 = 2 };
+enum class PoolId { PR_0, PR_REQ_0, PR_REQ_1 };
 
-class pool {
-public:
-  typedef work_item::worker_function worker_function;
+class Pool {
+ public:
+  static void Init();
+  static void Terminate();
 
-  static const int DEFAULT_TIMEOUT_RETRIES = -1;
+  // This does the real work.
+  static void Post(PoolId p, WorkItem::WorkerFunction fn,
+                   WorkItem::CallbackFunction cb);
 
-  static void init();
-  static void terminate();
-
-  inline static wait_async_handle::ptr
-  post(pool_id p, const worker_function &fn,
-       int timeout_retries = DEFAULT_TIMEOUT_RETRIES) {
-    wait_async_handle::ptr ah(new wait_async_handle());
-
-    internal_post(p, fn, ah, timeout_retries);
-
+  // Convenience wrappers around Post() above.
+  inline static std::unique_ptr<AsyncHandle> Post(PoolId p,
+                                                  WorkItem::WorkerFunction fn) {
+    std::unique_ptr<AsyncHandle> ah(new AsyncHandle());
+    auto *const ah_raw = ah.get();
+    auto complete = [ah_raw](int r) { ah_raw->Complete(r); };
+    Post(p, fn, complete);
     return ah;
   }
 
-  inline static void post(pool_id p, const worker_function &fn,
-                          const callback_async_handle::callback_function &cb,
-                          int timeout_retries = DEFAULT_TIMEOUT_RETRIES) {
-    internal_post(p, fn, async_handle::ptr(new callback_async_handle(cb)),
-                  timeout_retries);
+  inline static int Call(PoolId p, WorkItem::WorkerFunction fn) {
+    return Post(p, fn)->Wait();
   }
 
-  inline static int call(pool_id p, const worker_function &fn,
-                         int timeout_retries = DEFAULT_TIMEOUT_RETRIES) {
-    return post(p, fn, timeout_retries)->wait();
+  inline static void CallAsync(PoolId p, WorkItem::WorkerFunction fn) {
+    Post(p, fn, {});
   }
-
-  inline static void call_async(pool_id p, const worker_function &fn,
-                                int timeout_retries = DEFAULT_TIMEOUT_RETRIES) {
-    post(p, fn, timeout_retries);
-  }
-
-private:
-  static void internal_post(pool_id p, const worker_function &fn,
-                            const async_handle::ptr &ah, int timeout_retries);
 };
-} // namespace threads
-} // namespace s3
+}  // namespace threads
+}  // namespace s3
 
 #endif

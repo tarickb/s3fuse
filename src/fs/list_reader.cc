@@ -19,13 +19,16 @@
  * limitations under the License.
  */
 
+#include "fs/list_reader.h"
+
 #include <errno.h>
 
 #include <string>
 
 #include "base/logger.h"
 #include "base/request.h"
-#include "fs/list_reader.h"
+#include "base/url.h"
+#include "base/xml.h"
 #include "services/service.h"
 
 namespace s3 {
@@ -36,78 +39,65 @@ const char *IS_TRUNCATED_XPATH = "/ListBucketResult/IsTruncated";
 const char *KEY_XPATH = "/ListBucketResult/Contents/Key";
 const char *NEXT_MARKER_XPATH = "/ListBucketResult/NextMarker";
 const char *PREFIX_XPATH = "/ListBucketResult/CommonPrefixes/Prefix";
-} // namespace
+}  // namespace
 
-list_reader::list_reader(const std::string &prefix, bool group_common_prefixes,
-                         int max_keys)
-    : _truncated(true), _prefix(prefix),
-      _group_common_prefixes(group_common_prefixes), _max_keys(max_keys) {}
+ListReader::ListReader(const std::string &prefix, bool group_common_prefixes,
+                       int max_keys)
+    : truncated_(true),
+      prefix_(prefix),
+      group_common_prefixes_(group_common_prefixes),
+      max_keys_(max_keys) {}
 
-int list_reader::read(const base::request::ptr &req,
-                      base::xml::element_list *keys,
-                      base::xml::element_list *prefixes) {
-  int r;
-  base::xml::document_ptr doc;
-  std::string temp;
-  std::string query;
-
-  if (!keys)
-    return -EINVAL;
-
+int ListReader::Read(base::Request *req, std::list<std::string> *keys,
+                     std::list<std::string> *prefixes) {
+  if (!keys) return -EINVAL;
   keys->clear();
+  if (prefixes) prefixes->clear();
 
-  if (prefixes)
-    prefixes->clear();
+  if (!truncated_) return 0;
 
-  req->init(base::HTTP_GET);
+  std::string query = std::string("prefix=") + base::Url::Encode(prefix_) +
+                      "&marker=" + marker_;
+  if (group_common_prefixes_) query += "&delimiter=/";
+  if (max_keys_ > 0)
+    query += std::string("&max-keys=") + std::to_string(max_keys_);
 
-  if (!_truncated)
-    return 0;
+  req->Init(base::HttpMethod::GET);
+  req->SetUrl(services::Service::bucket_url(), query);
+  req->Run();
 
-  query = std::string("prefix=") + base::request::url_encode(_prefix) +
-          "&marker=" + _marker;
+  if (req->response_code() != base::HTTP_SC_OK) return -EIO;
 
-  if (_group_common_prefixes)
-    query += "&delimiter=/";
-
-  if (_max_keys > 0)
-    query += std::string("&max-keys=") + std::to_string(_max_keys);
-
-  req->set_url(services::service::get_bucket_url(), query);
-  req->run();
-
-  if (req->get_response_code() != base::HTTP_SC_OK)
-    return -EIO;
-
-  doc = base::xml::parse(req->get_output_string());
-
+  auto doc = base::XmlDocument::Parse(req->GetOutputAsString());
   if (!doc) {
-    S3_LOG(LOG_WARNING, "list_reader::read", "failed to parse response.\n");
+    S3_LOG(LOG_WARNING, "ListReader::Read", "failed to parse response.\n");
     return -EIO;
   }
 
-  if ((r = base::xml::find(doc, IS_TRUNCATED_XPATH, &temp)))
-    return r;
+  std::string is_trunc;
+  int r = doc->Find(IS_TRUNCATED_XPATH, &is_trunc);
+  if (r) return r;
+  truncated_ = (is_trunc == "true");
 
-  _truncated = (temp == "true");
+  if (prefixes) {
+    r = doc->Find(PREFIX_XPATH, prefixes);
+    if (r) return r;
+  }
 
-  if (prefixes && (r = base::xml::find(doc, PREFIX_XPATH, prefixes)))
-    return r;
+  r = doc->Find(KEY_XPATH, keys);
+  if (r) return r;
 
-  if ((r = base::xml::find(doc, KEY_XPATH, keys)))
-    return r;
-
-  if (_truncated) {
-    if (services::service::is_next_marker_supported()) {
-      if ((r = base::xml::find(doc, NEXT_MARKER_XPATH, &_marker)))
-        return r;
+  if (truncated_) {
+    if (services::Service::is_next_marker_supported()) {
+      r = doc->Find(NEXT_MARKER_XPATH, &marker_);
+      if (r) return r;
     } else {
-      _marker = keys->back();
+      marker_ = keys->back();
     }
   }
 
   return keys->size() + (prefixes ? prefixes->size() : 0);
 }
 
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3

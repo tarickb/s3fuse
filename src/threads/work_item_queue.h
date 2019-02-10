@@ -32,49 +32,38 @@
 
 namespace s3 {
 namespace threads {
-class work_item_queue {
-public:
-  typedef std::shared_ptr<work_item_queue> ptr;
+class WorkItemQueue {
+ public:
+  inline WorkItemQueue() = default;
 
-  inline work_item_queue() : _done(false) {}
-
-  inline work_item get_next() {
-    std::unique_lock<std::mutex> lock(_mutex);
-    work_item item;
-
-    while (!_done && _queue.empty())
-      _condition.wait(lock);
-
-    if (_done)
-      return work_item(); // generates an invalid work item
-
-    item = _queue.front();
-    _queue.pop_front();
-
+  inline WorkItem GetNext() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    while (!done_ && queue_.empty()) condition_.wait(lock);
+    if (done_) return {};  // generates an invalid work item
+    auto item = queue_.front();
+    queue_.pop_front();
     return item;
   }
 
-  inline void post(const work_item &item) {
-    std::lock_guard<std::mutex> lock(_mutex);
-
-    _queue.push_back(item);
-    _condition.notify_all();
+  inline void Post(const WorkItem &item) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    queue_.push_back(item);
+    condition_.notify_all();
   }
 
-  inline void abort() {
-    std::lock_guard<std::mutex> lock(_mutex);
-
-    _done = true;
-    _condition.notify_all();
+  inline void Abort() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    done_ = true;
+    condition_.notify_all();
   }
 
-private:
-  std::mutex _mutex;
-  std::condition_variable _condition;
-  std::deque<work_item> _queue;
-  bool _done;
+ private:
+  std::mutex mutex_;
+  std::condition_variable condition_;
+  std::deque<WorkItem> queue_;
+  bool done_ = false;
 };
-} // namespace threads
-} // namespace s3
+}  // namespace threads
+}  // namespace s3
 
 #endif

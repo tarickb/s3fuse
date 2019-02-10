@@ -24,40 +24,45 @@
 #define S3_FS_CALLBACK_XATTR_H
 
 #include <functional>
+#include <memory>
 #include <string>
 
 #include "fs/xattr.h"
 
 namespace s3 {
 namespace fs {
-class callback_xattr : public xattr {
-public:
-  typedef std::function<int(std::string *)> get_value_function;
-  typedef std::function<int(std::string)> set_value_function;
+class CallbackXAttr : public XAttr {
+ public:
+  using GetValueCallback = std::function<int(std::string *)>;
+  using SetValueCallback = std::function<int(std::string)>;
 
-  inline static ptr create(const std::string &key,
-                           const get_value_function &get_fn,
-                           const set_value_function &set_fn, int mode) {
-    return xattr::ptr(new callback_xattr(key, get_fn, set_fn, mode));
+  inline static std::unique_ptr<CallbackXAttr> Create(
+      const std::string &key, const GetValueCallback &get_callback,
+      const SetValueCallback &set_callback, int mode) {
+    return std::unique_ptr<CallbackXAttr>(
+        new CallbackXAttr(key, get_callback, set_callback, mode));
   }
 
-  virtual ~callback_xattr() {}
+  ~CallbackXAttr() override = default;
 
-  virtual int set_value(const char *value, size_t size);
-  virtual int get_value(char *buffer, size_t max_size);
+  int SetValue(const char *value, size_t size) override;
+  int GetValue(char *buffer, size_t max_size) const override;
 
-  virtual void to_header(std::string *header, std::string *value);
+  void ToHeader(std::string *header, std::string *value) const override;
+  std::string ToString() const override;
 
-private:
-  inline callback_xattr(const std::string &key,
-                        const get_value_function &get_fn,
-                        const set_value_function &set_fn, int mode)
-      : xattr(key, mode), _get_fn(get_fn), _set_fn(set_fn) {}
+ private:
+  inline CallbackXAttr(const std::string &key,
+                       const GetValueCallback &get_callback,
+                       const SetValueCallback &set_callback, int mode)
+      : XAttr(key, mode),
+        get_callback_(get_callback),
+        set_callback_(set_callback) {}
 
-  get_value_function _get_fn;
-  set_value_function _set_fn;
+  const GetValueCallback get_callback_;
+  const SetValueCallback set_callback_;
 };
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

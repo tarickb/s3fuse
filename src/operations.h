@@ -29,10 +29,10 @@
 #include <string>
 
 namespace s3 {
-class operations {
+class Operations {
 public:
-  static void init(const std::string &mountpoint);
-  static void build_fuse_operations(fuse_operations *ops);
+  static void Init(const std::string &mountpoint);
+  static void BuildFuseOperations(fuse_operations *ops);
 
 private:
   static int chmod(const char *path, mode_t mode);

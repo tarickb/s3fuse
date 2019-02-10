@@ -9,10 +9,10 @@
 namespace s3 {
 namespace base {
 namespace tests {
-using void_fn_list = static_list<std::function<std::string()>>;
-using int_fn_list = static_list<std::function<std::string(int)>>;
-} // namespace tests
-} // namespace base
-} // namespace s3
+using VoidFunctionList = StaticList<std::function<std::string()>>;
+using IntFunctionList = StaticList<std::function<std::string(int)>>;
+}  // namespace tests
+}  // namespace base
+}  // namespace s3
 
 #endif

@@ -19,8 +19,15 @@
  * limitations under the License.
  */
 
+#include "base/request.h"
+
+#include <curl/curl.h>
 #include <stdint.h>
 #include <string.h>
+
+#ifdef HAVE_GNUTLS
+#include <gnutls/gnutls.h>
+#endif
 
 #include <atomic>
 #include <iomanip>
@@ -29,52 +36,32 @@
 
 #include "base/config.h"
 #include "base/logger.h"
-#include "base/request.h"
 #include "base/request_hook.h"
 #include "base/statistics.h"
 #include "base/timer.h"
 
-#define TEST_OK(x)                                                             \
-  do {                                                                         \
-    if ((x) != CURLE_OK)                                                       \
-      throw std::runtime_error("call to " #x " failed.");                      \
+#define TEST_OK(x)                                                           \
+  do {                                                                       \
+    if ((x) != CURLE_OK) throw std::runtime_error("call to " #x " failed."); \
   } while (0)
 
 namespace s3 {
 namespace base {
 
 namespace {
-class curl_slist_wrapper {
-public:
-  curl_slist_wrapper() : _list(NULL) {}
-
-  ~curl_slist_wrapper() {
-    if (_list)
-      curl_slist_free_all(_list);
-  }
-
-  inline void append(const char *item) {
-    _list = curl_slist_append(_list, item);
-  }
-
-  inline const curl_slist *get() const { return _list; }
-
-private:
-  curl_slist *_list;
-};
-
 const std::string USER_AGENT =
     std::string(PACKAGE_NAME) + " " + PACKAGE_VERSION_WITH_REV;
 
 uint64_t s_run_count = 0;
 uint64_t s_total_bytes = 0;
 double s_run_time = 0.0;
+
 std::atomic_int s_curl_failures(0), s_request_failures(0);
 std::atomic_int s_timeouts(0), s_aborts(0), s_hook_retries(0);
 std::atomic_int s_rewinds(0);
 std::mutex s_stats_mutex;
 
-void statistics_writer(std::ostream *o) {
+void StatsWriter(std::ostream *o) {
   o->setf(std::ostream::fixed);
 
   *o << "http requests:\n"
@@ -113,295 +100,302 @@ void statistics_writer(std::ostream *o) {
      << s_rewinds << "\n";
 }
 
-statistics::writers::entry s_writer(statistics_writer, 0);
-} // namespace
+Statistics::Writers::Entry s_writer(StatsWriter, 0);
 
-size_t request::header_process(char *data, size_t size, size_t items,
-                               void *context) {
-  request *req = static_cast<request *>(context);
-  const char *p1, *p2;
-  std::string name, value;
+RequestHook *s_request_hook = nullptr;
+}  // namespace
 
-  size *= items;
+class CurlSListWrapper {
+ public:
+  CurlSListWrapper() = default;
+  ~CurlSListWrapper() {
+    if (list_) curl_slist_free_all(list_);
+  }
 
-  if (req->_canceled)
-    return 0; // abort!
+  inline void Append(const std::string &item) {
+    list_ = curl_slist_append(list_, item.c_str());
+  }
 
-  if (data[size] != '\0')
-    return size; // we choose not to handle the case where data isn't
-                 // null-terminated
+  inline const curl_slist *get() const { return list_; }
 
-  p1 = strchr(data, ':');
+ private:
+  curl_slist *list_ = nullptr;
+};
 
-  if (!p1)
-    return size; // no colon means it's not a header we care about
+class Transport {
+ public:
+  Transport() {
+    {
+      std::lock_guard<std::mutex> lock(s_mutex);
+      if (s_refcount == 0) {
+        curl_global_init(CURL_GLOBAL_ALL);
+        auto *ver = curl_version_info(CURLVERSION_NOW);
+        if (!ver) throw std::runtime_error("curl_version_info() failed.");
+        S3_LOG(LOG_DEBUG, "Transport::Transport", "ssl version: %s\n",
+               ver->ssl_version);
+        if (!ver->ssl_version)
+          throw std::runtime_error(
+              "curl does not report an SSL library. cannot continue.");
+#ifdef HAVE_GNUTLS
+        if (strstr(ver->ssl_version, "GnuTLS")) {
+          if (gnutls_global_init() != GNUTLS_E_SUCCESS)
+            throw std::runtime_error("failed to initialize GnuTLS.");
+        }
+#endif
+      }
+      ++s_refcount;
+    }
 
-  name.insert(0, data, p1 - data);
+    curl_ = curl_easy_init();
+    if (!curl_) throw std::runtime_error("curl_easy_init() failed.");
+  }
 
-  if (*++p1 == ' ')
-    p1++;
+  ~Transport() {
+    curl_easy_cleanup(curl_);
 
-  // for some reason the ETag header (among others?) contains a carriage return
-  p2 = strpbrk(p1, "\r\n");
+    {
+      std::lock_guard<std::mutex> lock(s_mutex);
+      --s_refcount;
+      if (s_refcount == 0) {
+        curl_global_cleanup();
+      }
+    }
+  }
 
-  if (!p2)
-    p2 = p1 + strlen(p1);
+  inline CURL *curl() const { return curl_; }
 
-  value.insert(0, p1, p2 - p1);
+ private:
+  static std::mutex s_mutex;
+  static int s_refcount;
 
-  req->_response_headers[name] = value;
+  CURL *curl_ = nullptr;
+};
 
-  return size;
+std::mutex Transport::s_mutex;
+int Transport::s_refcount = 0;
+
+void RequestFactory::SetHook(RequestHook *hook) { s_request_hook = hook; }
+
+std::unique_ptr<Request> RequestFactory::New() {
+  return std::unique_ptr<Request>(new Request(s_request_hook));
 }
 
-size_t request::output_write(char *data, size_t size, size_t items,
-                             void *context) {
-  request *req = static_cast<request *>(context);
-  size_t old_size;
-
-  // why even bother with "items"?
-  size *= items;
-
-  if (req->_canceled)
-    return 0; // abort!
-
-  old_size = req->_output_buffer.size();
-  req->_output_buffer.resize(old_size + size);
-  memcpy(&req->_output_buffer[old_size], data, size);
-
-  return size;
+std::unique_ptr<Request> RequestFactory::NewNoHook() {
+  return std::unique_ptr<Request>(new Request(nullptr));
 }
 
-size_t request::input_read(char *data, size_t size, size_t items,
-                           void *context) {
-  size_t remaining;
-  request *req = static_cast<request *>(context);
-
-  size *= items;
-
-  if (req->_canceled)
-    return 0; // abort!
-
-  remaining = std::min(req->_input_remaining, size);
-
-  memcpy(data, req->_input_pos, remaining);
-
-  req->_input_pos += remaining;
-  req->_input_remaining -= remaining;
-
-  return remaining;
-}
-
-int request::input_seek(void *context, curl_off_t offset, int origin) {
-  request *req = static_cast<request *>(context);
-
-  S3_LOG(LOG_DEBUG, "request::input_seek",
-         "seek to [%" CURL_FORMAT_CURL_OFF_T "] from [%i] for [%s]\n", offset,
-         origin, req->_url.c_str());
-
-  if (origin != SEEK_SET || offset != 0)
-    return CURL_SEEKFUNC_FAIL;
-
-  req->rewind();
-  ++s_rewinds;
-
-  return CURL_SEEKFUNC_OK;
-}
-
-request::request()
-    : _hook(NULL), _current_run_time(0.0), _total_run_time(0.0), _run_count(0),
-      _total_bytes_transferred(0), _canceled(false), _timeout(0) {
+Request::Request(RequestHook *hook) : transport_(new Transport()), hook_(hook) {
   // stuff that's set in the ctor shouldn't be modified elsewhere, since the
   // call to init() won't reset it
 
-  TEST_OK(
-      curl_easy_setopt(_curl, CURLOPT_VERBOSE, config::get_verbose_requests()));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOPROGRESS, true));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_FOLLOWLOCATION, true));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_ERRORBUFFER, _curl_error));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_FILETIME, true));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOSIGNAL, true));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_HEADERFUNCTION,
-                           &request::header_process));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_HEADERDATA, this));
-  TEST_OK(
-      curl_easy_setopt(_curl, CURLOPT_WRITEFUNCTION, &request::output_write));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_WRITEDATA, this));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_READFUNCTION, &request::input_read));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_READDATA, this));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_SEEKFUNCTION, &request::input_seek));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_SEEKDATA, this));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_USERAGENT, USER_AGENT.c_str()));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_VERBOSE,
+                           Config::verbose_requests()));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_NOPROGRESS, false));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_FOLLOWLOCATION, true));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_ERRORBUFFER,
+                           transport_error_));
+  static_assert(sizeof(transport_error_) >= CURL_ERROR_SIZE,
+                "error buffer is too small.");
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_FILETIME, true));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_NOSIGNAL, true));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_HEADERFUNCTION,
+                           &Request::ProcessHeaderWrapper));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_HEADERDATA, this));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_WRITEFUNCTION,
+                           &Request::WriteOutputWrapper));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_WRITEDATA, this));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_READFUNCTION,
+                           &Request::ReadInputWrapper));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_READDATA, this));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_SEEKFUNCTION,
+                           &Request::SeekInputWrapper));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_SEEKDATA, this));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_XFERINFOFUNCTION,
+                           &Request::ProgressWrapper));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_XFERINFODATA, this));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_USERAGENT,
+                           USER_AGENT.c_str()));
 }
 
-request::~request() {
-  if (_total_bytes_transferred > 0) {
+Request::~Request() {
+  if (total_bytes_transferred_ > 0) {
     std::lock_guard<std::mutex> lock(s_stats_mutex);
 
-    s_run_count += _run_count;
-    s_run_time += _total_run_time;
-    s_total_bytes += _total_bytes_transferred;
+    s_run_count += run_count_;
+    s_run_time += total_run_time_;
+    s_total_bytes += total_bytes_transferred_;
   }
 }
 
-void request::init(http_method method) {
-  if (_canceled)
-    throw std::runtime_error("cannot reuse a canceled request.");
+void Request::Init(HttpMethod method) {
+  url_.clear();
+  transport_url_.clear();
+  response_headers_.clear();
+  output_buffer_.clear();
+  response_code_ = 0;
+  last_modified_ = 0;
+  headers_.clear();
+  input_buffer_.clear();
 
-  _curl_error[0] = '\0';
-  _url.clear();
-  _curl_url.clear();
-  _output_buffer.clear();
-  _response_headers.clear();
-  _response_code = 0;
-  _last_modified = 0;
-  _headers.clear();
-  _input_buffer.reset();
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_CUSTOMREQUEST, nullptr));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_UPLOAD, false));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_NOBODY, false));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_POST, false));
 
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, NULL));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_UPLOAD, false));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOBODY, false));
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_POST, false));
-
-  if (method == HTTP_DELETE) {
-    _method = "DELETE";
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_CUSTOMREQUEST, "DELETE"));
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOBODY, true));
-
-  } else if (method == HTTP_GET) {
-    _method = "GET";
-
-  } else if (method == HTTP_HEAD) {
-    _method = "HEAD";
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_NOBODY, true));
-
-  } else if (method == HTTP_POST) {
-    _method = "POST";
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_POST, true));
-
-  } else if (method == HTTP_PUT) {
-    _method = "PUT";
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_UPLOAD, true));
-
-  } else
+  if (method == HttpMethod::DELETE) {
+    method_ = "DELETE";
+    TEST_OK(
+        curl_easy_setopt(transport_->curl(), CURLOPT_CUSTOMREQUEST, "DELETE"));
+    TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_NOBODY, true));
+  } else if (method == HttpMethod::GET) {
+    method_ = "GET";
+  } else if (method == HttpMethod::HEAD) {
+    method_ = "HEAD";
+    TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_NOBODY, true));
+  } else if (method == HttpMethod::POST) {
+    method_ = "POST";
+    TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_POST, true));
+  } else if (method == HttpMethod::PUT) {
+    method_ = "PUT";
+    TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_UPLOAD, true));
+  } else {
     throw std::runtime_error("unsupported HTTP method.");
+  }
 }
 
-void request::set_url(const std::string &url, const std::string &query_string) {
-  _url = url;
-  _curl_url = _hook ? _hook->adjust_url(url) : url;
+std::string Request::GetOutputAsString() const {
+  if (output_buffer_.empty()) return "";
+  // we do this because output_buffer_ has no trailing null
+  std::string s;
+  s.assign(&output_buffer_[0], output_buffer_.size());
+  return s;
+}
 
+void Request::SetUrl(const std::string &url, const std::string &query_string) {
+  url_ = url;
+  transport_url_ = hook_ ? hook_->AdjustUrl(url) : url;
   if (!query_string.empty()) {
-    _curl_url += ((_curl_url.find('?') == std::string::npos) ? "?" : "&");
-    _curl_url += query_string;
+    transport_url_ +=
+        ((transport_url_.find('?') == std::string::npos) ? "?" : "&");
+    transport_url_ += query_string;
   }
 }
 
-bool request::check_timeout() {
-  if (_timeout && time(NULL) > _timeout) {
-    S3_LOG(LOG_WARNING, "request::check_timeout", "timed out on [%s] [%s].\n",
-           _method.c_str(), _url.c_str());
-
-    _canceled = true;
-    return true;
-  }
-
-  return false;
+void Request::SetHeader(const std::string &name, const std::string &value) {
+  headers_[name] = value;
 }
 
-void request::run(int timeout_in_s) {
-  int r = CURLE_OK;
-  int iter;
-  double elapsed_time = 0.0;
-  uint64_t bytes_transferred = 0;
+void Request::SetInputBuffer(std::vector<char> &&buffer) {
+  input_buffer_ = std::move(buffer);
+}
 
+void Request::SetInputBuffer(const std::string &str) {
+  input_buffer_.resize(str.size());
+  str.copy(&input_buffer_[0], str.size());
+}
+
+void Request::ResetCurrentRunTime() { current_run_time_ = 0.0; }
+
+void Request::Run(int timeout_in_s) {
   // sanity
-  if (_url.empty())
-    throw std::runtime_error("call set_url() first!");
+  if (method_.empty()) throw std::runtime_error("call Init() first!");
+  if (url_.empty()) throw std::runtime_error("call SetUrl() first!");
 
-  if (_method.empty())
-    throw std::runtime_error("call set_method() first!");
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_URL,
+                           transport_url_.c_str()));
 
-  if (_canceled)
-    throw std::runtime_error("cannot reuse a canceled request.");
-
-  TEST_OK(curl_easy_setopt(_curl, CURLOPT_URL, _curl_url.c_str()));
-
-  if (_method == "PUT")
-    TEST_OK(curl_easy_setopt(
-        _curl, CURLOPT_INFILESIZE_LARGE,
-        _input_buffer ? static_cast<curl_off_t>(_input_buffer->size()) : 0));
-  else if (_method == "POST")
-    TEST_OK(curl_easy_setopt(
-        _curl, CURLOPT_POSTFIELDSIZE_LARGE,
-        _input_buffer ? static_cast<curl_off_t>(_input_buffer->size()) : 0));
-  else if (_input_buffer && !_input_buffer->empty())
+  if (method_ == "PUT")
+    TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_INFILESIZE_LARGE,
+                             static_cast<curl_off_t>(input_buffer_.size())));
+  else if (method_ == "POST")
+    TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_POSTFIELDSIZE_LARGE,
+                             static_cast<curl_off_t>(input_buffer_.size())));
+  else if (!input_buffer_.empty())
     throw std::runtime_error(
         "can't set input data for non-POST/non-PUT request.");
 
-  for (iter = 0; iter < config::get_max_transfer_retries(); iter++) {
-    curl_slist_wrapper headers;
+  int r = CURLE_OK;
+  int iter = 0;
+  double elapsed_time = 0.0;
+  uint64_t bytes_transferred = 0;
+  std::string error;
+
+  for (; iter <= Config::max_transfer_retries(); iter++) {
+    if (hook_) hook_->PreRun(this, iter);
+
+    CurlSListWrapper headers;
     uint64_t request_size = 0;
-
-    _output_buffer.clear();
-    _response_headers.clear();
-
-    if (_hook)
-      _hook->pre_run(this, iter);
-
-    for (header_map::const_iterator itor = _headers.begin();
-         itor != _headers.end(); ++itor) {
-      std::string header = itor->first + ": " + itor->second;
-
-      headers.append(header.c_str());
+    for (const auto &pair : headers_) {
+      std::string header = pair.first + ": " + pair.second;
+      headers.Append(header);
       request_size += header.size();
     }
+    TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_HTTPHEADER,
+                             headers.get()));
 
-    TEST_OK(curl_easy_setopt(_curl, CURLOPT_HTTPHEADER, headers.get()));
+    request_size += input_buffer_.size();
 
-    if (_input_buffer)
-      request_size += _input_buffer->size();
+    Rewind();
 
-    rewind();
+    transport_error_[0] = '\0';
+    output_buffer_.clear();
+    response_headers_.clear();
 
-    _timeout = time(NULL) + ((timeout_in_s == DEFAULT_REQUEST_TIMEOUT)
-                                 ? config::get_request_timeout_in_s()
-                                 : timeout_in_s);
-    r = curl_easy_perform(_curl);
-    _timeout = 0; // reset this here so that subsequent calls to check_timeout()
-                  // don't fail
+    deadline_ = time(nullptr) + ((timeout_in_s == DEFAULT_REQUEST_TIMEOUT)
+                                     ? Config::request_timeout_in_s()
+                                     : timeout_in_s);
 
-    if (_canceled) {
-      ++s_timeouts;
-      throw std::runtime_error("request timed out.");
-    }
+    r = curl_easy_perform(transport_->curl());
 
-    if (r == CURLE_COULDNT_RESOLVE_PROXY || r == CURLE_COULDNT_RESOLVE_HOST ||
-        r == CURLE_COULDNT_CONNECT || r == CURLE_PARTIAL_FILE ||
-        r == CURLE_UPLOAD_FAILED || r == CURLE_OPERATION_TIMEDOUT ||
-        r == CURLE_SSL_CONNECT_ERROR || r == CURLE_GOT_NOTHING ||
-        r == CURLE_SEND_ERROR || r == CURLE_RECV_ERROR ||
-        r == CURLE_BAD_CONTENT_ENCODING) {
-      ++s_curl_failures;
-      S3_LOG(LOG_WARNING, "request::run", "got error [%s]. retrying.\n",
-             _curl_error);
-      timer::sleep(1);
+    switch (r) {
+      case CURLE_COULDNT_RESOLVE_PROXY:
+      case CURLE_COULDNT_RESOLVE_HOST:
+      case CURLE_COULDNT_CONNECT:
+      case CURLE_PARTIAL_FILE:
+      case CURLE_UPLOAD_FAILED:
+      case CURLE_OPERATION_TIMEDOUT:
+      case CURLE_SSL_CONNECT_ERROR:
+      case CURLE_GOT_NOTHING:
+      case CURLE_SEND_ERROR:
+      case CURLE_RECV_ERROR:
+      case CURLE_BAD_CONTENT_ENCODING: {
+        ++s_curl_failures;
+        error = std::string("Recoverable error: ") + transport_error_;
+        S3_LOG(LOG_WARNING, "Request::Run", "got error [%s]. retrying.\n",
+               transport_error_);
+        Timer::Sleep(1);
+        continue;
+      }
 
-      continue;
-    }
+      case CURLE_ABORTED_BY_CALLBACK: {
+        ++s_timeouts;
+        error = "Recoverable error: timed out";
+        S3_LOG(LOG_WARNING, "Request::Run", "timed out for [%s]. retrying.\n",
+               url_.c_str());
+        Timer::Sleep(1);
+        continue;
+      }
+
+      default:
+        // Do nothing.
+        error = std::string("Unrecoverable error: ") + transport_error_;
+        break;
+    };
 
     if (r == CURLE_OK) {
       double this_iter_et = 0.0;
 
-      TEST_OK(
-          curl_easy_getinfo(_curl, CURLINFO_RESPONSE_CODE, &_response_code));
-      TEST_OK(curl_easy_getinfo(_curl, CURLINFO_TOTAL_TIME, &this_iter_et));
-      TEST_OK(curl_easy_getinfo(_curl, CURLINFO_FILETIME, &_last_modified));
+      TEST_OK(curl_easy_getinfo(transport_->curl(), CURLINFO_RESPONSE_CODE,
+                                &response_code_));
+      TEST_OK(curl_easy_getinfo(transport_->curl(), CURLINFO_TOTAL_TIME,
+                                &this_iter_et));
+      TEST_OK(curl_easy_getinfo(transport_->curl(), CURLINFO_FILETIME,
+                                &last_modified_));
 
       elapsed_time += this_iter_et;
-      bytes_transferred += request_size + _output_buffer.size();
+      bytes_transferred += request_size + output_buffer_.size();
 
-      if (_hook && _hook->should_retry(this, iter)) {
+      if (hook_ && hook_->ShouldRetry(this, iter)) {
         ++s_hook_retries;
         continue;
       }
@@ -414,32 +408,100 @@ void request::run(int timeout_in_s) {
 
   if (r != CURLE_OK) {
     ++s_aborts;
-    throw std::runtime_error(_curl_error);
+    throw std::runtime_error(error);
   }
 
   // don't save the time for the first request since it's likely to be
   // disproportionately large
-  if (_run_count > 0) {
-    _total_run_time += elapsed_time;
-    _total_bytes_transferred += bytes_transferred;
+  if (run_count_ > 0) {
+    total_run_time_ += elapsed_time;
+    total_bytes_transferred_ += bytes_transferred;
   }
 
-  // but save it in _current_run_time since it's compared to overall function
+  // but save it in current_run_time_ since it's compared to overall function
   // time (i.e., it's relative)
-  _current_run_time += elapsed_time;
+  current_run_time_ += elapsed_time;
+  run_count_ += iter + 1;
 
-  _run_count += iter + 1;
-
-  if (_response_code >= HTTP_SC_BAD_REQUEST &&
-      _response_code != HTTP_SC_NOT_FOUND) {
+  if (response_code_ >= HTTP_SC_BAD_REQUEST &&
+      response_code_ != HTTP_SC_NOT_FOUND) {
     ++s_request_failures;
-
-    S3_LOG(LOG_WARNING, "request::run",
+    S3_LOG(LOG_WARNING, "Request::Run",
            "request for [%s] [%s] failed with code %i and response: %s\n",
-           _method.c_str(), _url.c_str(), _response_code,
-           get_output_string().c_str());
+           method_.c_str(), url_.c_str(), response_code_,
+           GetOutputAsString().c_str());
   }
 }
 
-} // namespace base
-} // namespace s3
+size_t Request::ProcessHeader(char *data, size_t size, size_t items) {
+  size *= items;
+  if (data[size] != '\0')
+    return size;  // we choose not to handle the case where data isn't
+                  // null-terminated
+
+  const char *p1 = strchr(data, ':');
+  if (!p1) return size;  // no colon means it's not a header we care about
+
+  std::string name(data, p1 - data);
+  if (*++p1 == ' ') p1++;
+
+  // for some reason the ETag header (among others?) contains a carriage return
+  const char *p2 = strpbrk(p1, "\r\n");
+  if (!p2) p2 = p1 + strlen(p1);
+
+  std::string value(p1, p2 - p1);
+  response_headers_[name] = value;
+
+  return size;
+}
+
+size_t Request::WriteOutput(char *data, size_t size, size_t items) {
+  // why even bother with "items"?
+  size *= items;
+
+  size_t old_size = output_buffer_.size();
+  output_buffer_.resize(old_size + size);
+  memcpy(&output_buffer_[old_size], data, size);
+
+  return size;
+}
+
+size_t Request::ReadInput(char *data, size_t size, size_t items) {
+  size *= items;
+
+  size_t remaining = std::min(input_remaining_, size);
+  memcpy(data, input_pos_, remaining);
+  input_pos_ += remaining;
+  input_remaining_ -= remaining;
+
+  return remaining;
+}
+
+int Request::SeekInput(off_t offset, int origin) {
+  S3_LOG(LOG_DEBUG, "Request::SeekInput", "seek to [%jd] from [%i] for [%s]\n",
+         static_cast<intmax_t>(offset), origin, url_.c_str());
+
+  if (origin != SEEK_SET || offset != 0) return CURL_SEEKFUNC_FAIL;
+
+  Rewind();
+  ++s_rewinds;
+  return CURL_SEEKFUNC_OK;
+}
+
+int Request::Progress(off_t dl_total, off_t dl_now, off_t ul_total,
+                      off_t ul_now) {
+  if (time(nullptr) > deadline_) {
+    S3_LOG(LOG_DEBUG, "Request::Progress", "time out for [%s]\n", url_.c_str());
+    return 1;
+  }
+
+  return 0;
+}
+
+void Request::Rewind() {
+  input_pos_ = input_buffer_.empty() ? nullptr : &input_buffer_[0];
+  input_remaining_ = input_buffer_.size();
+}
+
+}  // namespace base
+}  // namespace s3

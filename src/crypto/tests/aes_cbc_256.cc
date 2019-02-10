@@ -9,33 +9,33 @@ namespace s3 {
 namespace crypto {
 namespace tests {
 
-TEST(aes_cbc_256, invalid_iv_len) {
-  symmetric_key::ptr sk = symmetric_key::from_string("aabbccddeeff:aa");
+TEST(AesCbc256, InvalidIvLen) {
+  const auto sk = SymmetricKey::FromString("aabbccddeeff:aa");
 
   // parens required because of template-args-in-macros weirdness
-  EXPECT_THROW((cipher::encrypt<aes_cbc_256_with_pkcs, hex>(sk, "foo")),
+  EXPECT_THROW((Cipher::Encrypt<AesCbc256WithPkcs, Hex>(sk, "foo")),
                std::runtime_error);
 }
 
-TEST(aes_cbc_256, decrypt_on_invalid_size) {
-  symmetric_key::ptr sk = symmetric_key::generate<aes_cbc_256>();
+TEST(AesCbc256, DecryptOnInvalidSize) {
+  const auto sk = SymmetricKey::Generate<AesCbc256>();
 
-  EXPECT_THROW((cipher::decrypt<aes_cbc_256_with_pkcs, hex>(sk, "aa")),
+  EXPECT_THROW((Cipher::DecryptAsString<AesCbc256WithPkcs, Hex>(sk, "aa")),
                std::runtime_error);
 }
 
-TEST(aes_cbc_256, decode_non_null_terminated_string) {
-  uint8_t in[] = {0xaa, 0xbb, 0xcc}; // no terminating null
-  std::vector<uint8_t> out;
+TEST(AesCbc256, DecodeNonNullTerminatedString) {
+  uint8_t in[] = {0xaa, 0xbb, 0xcc};  // no terminating null
 
-  symmetric_key::ptr sk = symmetric_key::generate<aes_cbc_256>();
+  const auto sk = SymmetricKey::Generate<AesCbc256>();
 
-  cipher::encrypt<aes_cbc_256_with_pkcs>(sk, in, sizeof(in), &out);
+  auto out = Cipher::Encrypt<AesCbc256WithPkcs>(sk, in, sizeof(in));
 
-  EXPECT_THROW(cipher::decrypt<aes_cbc_256_with_pkcs>(sk, &out[0], out.size()),
-               std::runtime_error);
+  EXPECT_THROW(
+      Cipher::DecryptAsString<AesCbc256WithPkcs>(sk, &out[0], out.size()),
+      std::runtime_error);
 }
 
-} // namespace tests
-} // namespace crypto
-} // namespace s3
+}  // namespace tests
+}  // namespace crypto
+}  // namespace s3

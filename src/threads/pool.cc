@@ -1,7 +1,7 @@
 /*
  * threads/pool.cc
  * -------------------------------------------------------------------------
- * Implements a pool of worker threads which are monitored for timeouts.
+ * Implements a pool of worker threads.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
@@ -19,12 +19,12 @@
  * limitations under the License.
  */
 
-#include <list>
-
-#include "base/config.h"
-#include "base/logger.h"
-#include "base/statistics.h"
 #include "threads/pool.h"
+
+#include <list>
+#include <map>
+#include <memory>
+
 #include "threads/request_worker.h"
 #include "threads/work_item_queue.h"
 #include "threads/worker.h"
@@ -33,127 +33,55 @@ namespace s3 {
 namespace threads {
 
 namespace {
-static_assert(s3::threads::PR_0 == 0, "PR_0 == 0");
-static_assert(s3::threads::PR_REQ_0 == 1, "PR_REQ_0 == 1");
-static_assert(s3::threads::PR_REQ_1 == 2, "PR_REQ_1 == 2");
-
-const int POOL_COUNT = 3; // PR_0, PR_REQ_0, PR_REQ_1
 const int NUM_THREADS_PER_POOL = 8;
 
-void sleep_one_second() {
-  struct timespec ts;
+class _Pool {
+ public:
+  virtual ~_Pool() = default;
 
-  ts.tv_sec = 1;
-  ts.tv_nsec = 0;
-
-  nanosleep(&ts, NULL);
-}
-
-class _pool {
-public:
-  virtual ~_pool() {}
-
-  virtual void post(const work_item::worker_function &fn,
-                    const async_handle::ptr &ah, int timeout_retries) = 0;
+  virtual void Post(WorkItem::WorkerFunction fn,
+                    WorkItem::CallbackFunction cb) = 0;
 };
 
-template <class worker_type, bool use_watchdog>
-class _pool_impl : public _pool {
-public:
-  _pool_impl(const std::string &id)
-      : _queue(new work_item_queue()), _id(id), _respawn_counter(0),
-        _done(false) {
-    if (use_watchdog)
-      _watchdog_thread.reset(
-          new std::thread(std::bind(&_pool_impl::watchdog, this)));
-
+template <class WorkerType>
+class _PoolImpl : public _Pool {
+ public:
+  _PoolImpl(const std::string &id) : id_(id) {
     for (int i = 0; i < NUM_THREADS_PER_POOL; i++)
-      _threads.push_back(worker_type::create(_queue));
+      workers_.push_back(WorkerType::Create(&queue_));
   }
 
-  ~_pool_impl() {
-    _queue->abort();
-    _done = true;
-
-    if (use_watchdog) {
-      // shut watchdog down first so it doesn't use _threads
-      _watchdog_thread->join();
-    }
-
-    _threads.clear();
-
-    // give the threads precisely one second to clean up (and print debug info),
-    // otherwise skip them and move on
-    sleep_one_second();
-
-    if (use_watchdog)
-      base::statistics::write("thread pool", _id, "\n  respawn_counter: %i",
-                              _respawn_counter);
+  ~_PoolImpl() {
+    queue_.Abort();
+    workers_.clear();
   }
 
-  virtual void post(const work_item::worker_function &fn,
-                    const async_handle::ptr &ah, int timeout_retries) {
-    _queue->post(work_item(fn, ah, timeout_retries));
+  virtual void Post(WorkItem::WorkerFunction fn,
+                    WorkItem::CallbackFunction cb) {
+    queue_.Post({fn, cb});
   }
 
-private:
-  typedef std::list<typename worker_type::ptr> wt_list;
-
-  void watchdog() {
-    while (!_done) {
-      int respawn = 0;
-
-      for (typename wt_list::iterator itor = _threads.begin();
-           itor != _threads.end();
-           /* do nothing */) {
-        if (!(*itor)->check_timeout())
-          ++itor;
-        else {
-          respawn++;
-          itor = _threads.erase(itor);
-        }
-      }
-
-      for (int i = 0; i < respawn; i++)
-        _threads.push_back(worker_type::create(_queue));
-
-      _respawn_counter += respawn;
-      sleep_one_second();
-    }
-  }
-
-  work_item_queue::ptr _queue;
-  wt_list _threads;
-  std::unique_ptr<std::thread> _watchdog_thread;
-  std::string _id;
-  int _respawn_counter;
-  bool _done;
+ private:
+  std::string id_;
+  WorkItemQueue queue_;
+  std::list<std::unique_ptr<WorkerType>> workers_;
 };
 
-_pool *s_pools[POOL_COUNT];
-} // namespace
+std::map<PoolId, std::unique_ptr<_Pool>> s_pools;
+}  // namespace
 
-void pool::init() {
-  s_pools[PR_0] = new _pool_impl<worker, false>("PR_0");
-  s_pools[PR_REQ_0] = new _pool_impl<request_worker, true>("PR_REQ_0");
-  s_pools[PR_REQ_1] = new _pool_impl<request_worker, true>("PR_REQ_1");
+void Pool::Init() {
+  s_pools[PoolId::PR_0].reset(new _PoolImpl<Worker>("PR_0"));
+  s_pools[PoolId::PR_REQ_0].reset(new _PoolImpl<RequestWorker>("PR_REQ_0"));
+  s_pools[PoolId::PR_REQ_1].reset(new _PoolImpl<RequestWorker>("PR_REQ_1"));
 }
 
-void pool::terminate() {
-  for (int i = 0; i < POOL_COUNT; i++)
-    delete s_pools[i];
+void Pool::Terminate() { s_pools.clear(); }
+
+void Pool::Post(PoolId p, WorkItem::WorkerFunction fn,
+                WorkItem::CallbackFunction cb) {
+  s_pools[p]->Post(fn, cb);
 }
 
-void pool::internal_post(pool_id p, const work_item::worker_function &fn,
-                         const async_handle::ptr &ah, int timeout_retries) {
-  if (p >= POOL_COUNT)
-    throw std::runtime_error("invalid pool id.");
-
-  s_pools[p]->post(fn, ah,
-                   (timeout_retries == DEFAULT_TIMEOUT_RETRIES)
-                       ? base::config::get_timeout_retries()
-                       : timeout_retries);
-}
-
-} // namespace threads
-} // namespace s3
+}  // namespace threads
+}  // namespace s3

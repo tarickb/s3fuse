@@ -19,12 +19,13 @@
  * limitations under the License.
  */
 
+#include "base/config.h"
+
 #include <strings.h>
 
 #include <fstream>
 #include <stdexcept>
 
-#include "base/config.h"
 #include "base/logger.h"
 #include "base/paths.h"
 
@@ -36,19 +37,18 @@ const std::string DEFAULT_CONFIG_FILES[] = {
     "~/." PACKAGE_NAME "/" PACKAGE_NAME ".conf",
     SYSCONFDIR "/" PACKAGE_NAME ".conf"};
 
-const int DEFAULT_CONFIG_FILE_COUNT =
-    sizeof(DEFAULT_CONFIG_FILES) / sizeof(DEFAULT_CONFIG_FILES[0]);
-
-template <typename T> class option_parser_worker {
-public:
-  static void parse(const std::string &str, T *out) {
+template <typename T>
+class OptionParserWorker {
+ public:
+  static void Parse(const std::string &str, T *out) {
     throw std::runtime_error("unknown or invalid config variable type.");
   }
 };
 
-template <> class option_parser_worker<bool> {
-public:
-  static void parse(const std::string &_str, bool *out) {
+template <>
+class OptionParserWorker<bool> {
+ public:
+  static void Parse(const std::string &_str, bool *out) {
     const char *str = _str.c_str();
 
     if (!strcasecmp(str, "yes") || !strcasecmp(str, "true") ||
@@ -67,42 +67,44 @@ public:
   }
 };
 
-template <> class option_parser_worker<int> {
-public:
-  static void parse(const std::string &str, int *out) { *out = std::stoi(str); }
+template <>
+class OptionParserWorker<int> {
+ public:
+  static void Parse(const std::string &str, int *out) { *out = std::stoi(str); }
 };
 
-template <> class option_parser_worker<size_t> {
-public:
-  static void parse(const std::string &str, size_t *out) {
+template <>
+class OptionParserWorker<size_t> {
+ public:
+  static void Parse(const std::string &str, size_t *out) {
     *out = std::stoull(str);
   }
 };
 
-template <> class option_parser_worker<std::string> {
-public:
-  static void parse(const std::string &str, std::string *out) { *out = str; }
+template <>
+class OptionParserWorker<std::string> {
+ public:
+  static void Parse(const std::string &str, std::string *out) { *out = str; }
 };
 
-template <typename T> class option_parser {
-public:
-  static void parse(int line_number, const char *key, const char *type,
+template <typename T>
+class OptionParser {
+ public:
+  static void Parse(int line_number, const char *key, const char *type,
                     const std::string &str, T *out) {
     try {
-      option_parser_worker<T>::parse(str, out);
-
+      OptionParserWorker<T>::Parse(str, out);
     } catch (...) {
-      S3_LOG(LOG_ERR, "config::init",
+      S3_LOG(LOG_ERR, "Config::Init",
              "error at line %i: cannot parse [%s] for key [%s] of type %s.\n",
              line_number, str.c_str(), key, type);
-
       throw;
     }
   }
 };
-} // namespace
+}  // namespace
 
-#define CONFIG(type, name, def, desc) type config::s_##name = (def);
+#define CONFIG(type, name, def, desc) type Config::s_##name = (def);
 #define CONFIG_CONSTRAINT(x, y)
 #define CONFIG_KEY(x)
 #define CONFIG_SECTION(x)
@@ -114,65 +116,55 @@ __CONFIG_INC_GOES_HERE__
 #undef CONFIG_KEY
 #undef CONFIG_SECTION
 
-void config::init(const std::string &file) {
+void Config::Init(const std::string &file) {
   std::ifstream ifs;
-  int line_number = 0;
 
   if (file.empty()) {
-    for (int i = 0; i < DEFAULT_CONFIG_FILE_COUNT; i++) {
-      ifs.open(paths::transform(DEFAULT_CONFIG_FILES[i]).c_str());
-
-      if (ifs.good())
-        break;
+    for (const auto &path : DEFAULT_CONFIG_FILES) {
+      ifs.open(Paths::Transform(path).c_str());
+      if (ifs.good()) break;
     }
 
     if (ifs.fail()) {
-      for (int i = 0; i < DEFAULT_CONFIG_FILE_COUNT; i++)
-        S3_LOG(LOG_ERR, "config::init",
-               "unable to open configuration in [%s]\n",
-               DEFAULT_CONFIG_FILES[i].c_str());
-
+      for (const auto &path : DEFAULT_CONFIG_FILES)
+        S3_LOG(LOG_ERR, "Config::Init",
+               "unable to open configuration in [%s]\n", path.c_str());
       throw std::runtime_error("cannot open any default config files");
     }
   } else {
-    ifs.open(paths::transform(file).c_str());
-
+    ifs.open(Paths::Transform(file).c_str());
     if (ifs.fail()) {
-      S3_LOG(LOG_ERR, "config::init", "cannot open file [%s].\n", file.c_str());
+      S3_LOG(LOG_ERR, "Config::Init", "cannot open file [%s].\n", file.c_str());
       throw std::runtime_error("cannot open specified config file");
     }
   }
 
+  int line_number = 0;
+
   while (ifs.good()) {
-    std::string line, key, value;
-    size_t pos;
-
-    getline(ifs, line);
+    std::string line;
+    std::getline(ifs, line);
     line_number++;
-    pos = line.find('#');
 
-    if (pos != std::string::npos)
-      line = line.substr(0, pos);
-
-    if (line.empty())
-      continue;
+    size_t pos = line.find('#');
+    if (pos != std::string::npos) line = line.substr(0, pos);
+    if (line.empty()) continue;
 
     pos = line.find('=');
-
     if (pos == std::string::npos) {
-      S3_LOG(LOG_ERR, "config::init", "error at line %i: missing '='.\n",
+      S3_LOG(LOG_ERR, "Config::Init", "error at line %i: missing '='.\n",
              line_number);
       throw std::runtime_error("malformed config file");
     }
 
-    key = line.substr(0, pos);
-    value = line.substr(pos + 1);
+    std::string key = line.substr(0, pos);
+    std::string value = line.substr(pos + 1);
 
-#define CONFIG(type, name, def, desc)                                          \
-  if (key == #name) {                                                          \
-    option_parser<type>::parse(line_number, #name, #type, value, &s_##name);   \
-                                                                               \
-    continue;                                                                  \
+#define CONFIG(type, name, def, desc)                                       \
+  if (key == #name) {                                                       \
+    OptionParser<type>::Parse(line_number, #name, #type, value, &s_##name); \
+                                                                            \
+    continue;                                                               \
   }
 
 #define CONFIG_CONSTRAINT(x, y)
@@ -186,7 +178,7 @@ void config::init(const std::string &file) {
 #undef CONFIG_KEY
 #undef CONFIG_SECTION
 
-    S3_LOG(LOG_ERR, "config::init",
+    S3_LOG(LOG_ERR, "Config::Init",
            "error at line %i: unknown directive '%s'\n", line_number,
            key.c_str());
     throw std::runtime_error("malformed config file");
@@ -194,10 +186,10 @@ void config::init(const std::string &file) {
 
 #define CONFIG(type, name, def, desc)
 
-#define CONFIG_CONSTRAINT(test, message)                                       \
-  if (!(test)) {                                                               \
-    S3_LOG(LOG_ERR, "config::init", "%s\n", message);                          \
-    throw std::runtime_error("malformed config file");                         \
+#define CONFIG_CONSTRAINT(test, message)               \
+  if (!(test)) {                                       \
+    S3_LOG(LOG_ERR, "Config::Init", "%s\n", message);  \
+    throw std::runtime_error("malformed config file"); \
   }
 
 #define CONFIG_KEY(key) s_##key
@@ -211,5 +203,5 @@ void config::init(const std::string &file) {
 #undef CONFIG_SECTION
 }
 
-} // namespace base
-} // namespace s3
+}  // namespace base
+}  // namespace s3

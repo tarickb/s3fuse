@@ -1387,9 +1387,9 @@ const char *MD5[] = {
     "d41d8cd98f00b204e9800998ecf8427e", "8901cfeadaa3da45d4af4c402efb4d4e",
     "81252c8f4bc323feacd8b866d4a7187d", "341dcabe0a8b4fb8e182aaa30d26e321",
     "1375ddc2b2d4cdfeca7ca149e8043adb", "87d09ce40c5779de020a440aa7302a4f"};
-} // namespace
+}  // namespace
 
-TEST(md5, random_from_file) {
+TEST(Md5, random_from_file) {
   for (int test = 0; test < TEST_COUNT; test++) {
     char file_name[] = "/tmp/hash_test.XXXXXX";
     int fd = mkstemp(file_name);
@@ -1403,7 +1403,7 @@ TEST(md5, random_from_file) {
     ASSERT_EQ(write(fd, BYTES, size), size) << "with size = " << size;
     ASSERT_EQ(lseek(fd, 0, SEEK_SET), 0) << "with size = " << size;
 
-    computed_hash = hash::compute<md5, hex>(fd);
+    computed_hash = Hash::Compute<Md5, Hex>(fd);
 
     EXPECT_EQ(std::string(MD5[test]), computed_hash) << "with size = " << size;
 
@@ -1411,6 +1411,6 @@ TEST(md5, random_from_file) {
   }
 }
 
-} // namespace tests
-} // namespace crypto
-} // namespace s3
+}  // namespace tests
+}  // namespace crypto
+}  // namespace s3

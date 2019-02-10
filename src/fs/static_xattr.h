@@ -24,7 +24,7 @@
 
 #include <stdint.h>
 
-#include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -32,35 +32,38 @@
 
 namespace s3 {
 namespace fs {
-class static_xattr : public xattr {
-public:
-  static ptr from_header(const std::string &header_key,
-                         const std::string &header_value, int mode);
+class StaticXAttr : public XAttr {
+ public:
+  static std::unique_ptr<StaticXAttr> FromHeader(
+      const std::string &header_key, const std::string &header_value, int mode);
 
-  static ptr from_string(const std::string &key, const std::string &value,
-                         int mode);
+  static std::unique_ptr<StaticXAttr> FromString(const std::string &key,
+                                                 const std::string &value,
+                                                 int mode);
 
-  static ptr create(const std::string &key, int mode);
+  static std::unique_ptr<StaticXAttr> Create(const std::string &key, int mode);
 
-  virtual ~static_xattr() {}
+  ~StaticXAttr() override = default;
 
-  virtual int set_value(const char *value, size_t size);
-  virtual int get_value(char *buffer, size_t max_size);
+  int SetValue(const char *value, size_t size) override;
+  int GetValue(char *buffer, size_t max_size) const override;
 
-  virtual void to_header(std::string *header, std::string *value);
-  std::string to_string();
+  void ToHeader(std::string *header, std::string *value) const override;
+  std::string ToString() const override;
 
-private:
-  inline static_xattr(const std::string &key, bool encode_key,
-                      bool encode_value, int mode)
-      : xattr(key, mode), _encode_key(encode_key), _encode_value(encode_value),
-        _hide_on_empty(mode & XM_VISIBLE) {}
+ private:
+  inline StaticXAttr(const std::string &key, bool encode_key, bool encode_value,
+                     int mode)
+      : XAttr(key, mode),
+        encode_key_(encode_key),
+        encode_value_(encode_value),
+        hide_on_empty_(mode & XM_VISIBLE) {}
 
-  std::vector<uint8_t> _value;
-  bool _encode_key, _encode_value;
-  bool _hide_on_empty;
+  std::vector<uint8_t> value_;
+  bool encode_key_, encode_value_;
+  bool hide_on_empty_;
 };
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

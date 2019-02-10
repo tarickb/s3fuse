@@ -19,16 +19,16 @@
  * limitations under the License.
  */
 
-#include <openssl/sha.h>
-
 #include "crypto/sha256.h"
+
+#include <openssl/sha.h>
 
 namespace s3 {
 namespace crypto {
 
-void sha256::compute(const uint8_t *input, size_t size, uint8_t *hash) {
+void Sha256::Compute(const uint8_t *input, size_t size, uint8_t *hash) {
   SHA256(input, size, hash);
 }
 
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3

@@ -20,44 +20,30 @@
  */
 
 #include "threads/worker.h"
-#include "base/logger.h"
-#include "threads/async_handle.h"
+
+#include <memory>
+
 #include "threads/work_item_queue.h"
 
 namespace s3 {
 namespace threads {
 
-void worker::work() {
-  std::shared_ptr<base::request> null_req;
-
-  while (true) {
-    work_item item;
-    int r;
-
-    item = _queue->get_next();
-
-    if (!item.is_valid())
-      break;
-
-    try {
-      r = item.get_function()(null_req);
-
-    } catch (const std::exception &e) {
-      S3_LOG(LOG_WARNING, "worker::work", "caught exception: %s\n", e.what());
-      r = -ECANCELED;
-
-    } catch (...) {
-      S3_LOG(LOG_WARNING, "worker::work", "caught unknown exception.\n");
-      r = -ECANCELED;
-    }
-
-    item.get_ah()->complete(r);
-  }
-
-  // the thread in _thread holds a shared_ptr to this, and will keep it from
-  // being destructed
-  _thread.reset();
+std::unique_ptr<Worker> Worker::Create(WorkItemQueue *queue) {
+  return std::unique_ptr<Worker>(new Worker(queue));
 }
 
-} // namespace threads
-} // namespace s3
+Worker::Worker(WorkItemQueue *queue)
+    : queue_(queue), thread_(&Worker::Work, this) {}
+
+Worker::~Worker() { thread_.join(); }
+
+void Worker::Work() {
+  while (true) {
+    auto item = queue_->GetNext();
+    if (!item.valid()) break;
+    item.Run({});
+  }
+}
+
+}  // namespace threads
+}  // namespace s3

@@ -22,34 +22,30 @@
 #ifndef S3_FS_LIST_READER_H
 #define S3_FS_LIST_READER_H
 
-#include <memory>
+#include <list>
 #include <string>
-
-#include "base/xml.h"
 
 namespace s3 {
 namespace base {
-class request;
+class Request;
 };
 
 namespace fs {
-class list_reader {
-public:
-  typedef std::shared_ptr<list_reader> ptr;
+class ListReader {
+ public:
+  ListReader(const std::string &prefix, bool group_common_prefixes = true,
+             int max_keys = -1);
 
-  list_reader(const std::string &prefix, bool group_common_prefixes = true,
-              int max_keys = -1);
+  int Read(base::Request *req, std::list<std::string> *keys,
+           std::list<std::string> *prefixes);
 
-  int read(const std::shared_ptr<base::request> &req,
-           base::xml::element_list *keys, base::xml::element_list *prefixes);
-
-private:
-  bool _truncated;
-  std::string _prefix, _marker;
-  bool _group_common_prefixes;
-  int _max_keys;
+ private:
+  bool truncated_;
+  std::string prefix_, marker_;
+  bool group_common_prefixes_;
+  int max_keys_;
 };
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

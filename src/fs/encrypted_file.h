@@ -25,49 +25,38 @@
 #include <string>
 #include <vector>
 
+#include "crypto/symmetric_key.h"
 #include "fs/file.h"
 
 namespace s3 {
 namespace base {
-class request;
-}
-
-namespace crypto {
-class symmetric_key;
+class Request;
 }
 
 namespace fs {
-class encrypted_file : public file {
-public:
-  typedef std::shared_ptr<encrypted_file> ptr;
+class EncryptedFile : public File {
+ public:
+  EncryptedFile(const std::string &path);
+  ~EncryptedFile() override = default;
 
-  encrypted_file(const std::string &path);
-  virtual ~encrypted_file();
+ protected:
+  void Init(base::Request *req) override;
+  void SetRequestHeaders(base::Request *req) override;
 
-  inline ptr shared_from_this() {
-    return std::dynamic_pointer_cast<encrypted_file>(
-        object::shared_from_this());
-  }
+  int IsDownloadable() override;
 
-protected:
-  virtual void init(const std::shared_ptr<base::request> &req);
+  int WriteChunk(const char *buffer, size_t size, off_t offset) override;
+  int ReadChunk(size_t size, off_t offset, std::vector<char> *buffer) override;
 
-  virtual void set_request_headers(const std::shared_ptr<base::request> &req);
+  int PrepareUpload() override;
+  int FinalizeUpload(const std::string &returned_etag) override;
 
-  virtual int is_downloadable();
-
-  virtual int prepare_upload();
-  virtual int finalize_upload(const std::string &returned_etag);
-
-  virtual int read_chunk(size_t size, off_t offset,
-                         const base::char_vector_ptr &buffer);
-  virtual int write_chunk(const char *buffer, size_t size, off_t offset);
-
-private:
-  std::shared_ptr<crypto::symmetric_key> _meta_key, _data_key;
-  std::string _enc_iv, _enc_meta;
+ private:
+  crypto::SymmetricKey meta_key_ = crypto::SymmetricKey::Empty();
+  crypto::SymmetricKey data_key_ = crypto::SymmetricKey::Empty();
+  std::string enc_iv_, enc_meta_;
 };
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

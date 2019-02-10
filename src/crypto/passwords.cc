@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#include "crypto/passwords.h"
+
 #include <signal.h>
 #include <stdlib.h>
 #include <string.h>
@@ -28,21 +30,19 @@
 #include <iostream>
 #include <string>
 
-#include "crypto/passwords.h"
-
 namespace s3 {
 namespace crypto {
 
 namespace {
 termios s_term_flags_orig;
 
-void reset_term_attrs(int, siginfo_t *, void *) {
+void ResetTermAttrs(int, siginfo_t *, void *) {
   tcsetattr(STDIN_FILENO, TCSANOW, &s_term_flags_orig);
   exit(1);
 }
-} // namespace
+}  // namespace
 
-std::string passwords::read_from_stdin(const std::string &prompt) {
+std::string Passwords::ReadFromStdin(const std::string &prompt) {
   std::string line;
   termios term_flags;
   struct sigaction new_action, old_int_action, old_term_action;
@@ -51,7 +51,7 @@ std::string passwords::read_from_stdin(const std::string &prompt) {
   memset(&old_int_action, 0, sizeof(old_int_action));
   memset(&old_term_action, 0, sizeof(old_term_action));
 
-  new_action.sa_sigaction = reset_term_attrs;
+  new_action.sa_sigaction = ResetTermAttrs;
   new_action.sa_flags = SA_SIGINFO;
 
   tcgetattr(STDIN_FILENO, &s_term_flags_orig);
@@ -74,13 +74,13 @@ std::string passwords::read_from_stdin(const std::string &prompt) {
 
   tcsetattr(STDIN_FILENO, TCSANOW, &s_term_flags_orig);
 
-  sigaction(SIGINT, &old_int_action, NULL);
-  sigaction(SIGTERM, &old_term_action, NULL);
+  sigaction(SIGINT, &old_int_action, nullptr);
+  sigaction(SIGTERM, &old_term_action, nullptr);
 
   std::cout << std::endl;
 
   return line;
 }
 
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3

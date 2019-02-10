@@ -19,8 +19,6 @@ set(base_COPY_FROM_CONFIG
   config.h)
 
 set(base_SOURCES
-  curl_easy_handle.cc
-  curl_easy_handle.h
   logger.cc
   logger.h
   lru_cache_map.h
@@ -33,6 +31,8 @@ set(base_SOURCES
   statistics.cc
   statistics.h
   timer.h
+  url.cc
+  url.h
   xml.cc
   xml.h)
 

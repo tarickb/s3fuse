@@ -22,17 +22,13 @@
 #ifndef S3_FS_XATTR_H
 #define S3_FS_XATTR_H
 
-#include <map>
-#include <memory>
 #include <string>
 
 namespace s3 {
 namespace fs {
-class xattr {
-public:
-  typedef std::shared_ptr<xattr> ptr;
-
-  enum access_mode {
+class XAttr {
+ public:
+  enum AccessMode {
     XM_DEFAULT = 0x00,
     XM_WRITABLE = 0x01,
     XM_SERIALIZABLE = 0x02,
@@ -41,42 +37,33 @@ public:
     XM_COMMIT_REQUIRED = 0x10
   };
 
-  virtual ~xattr() {}
+  virtual ~XAttr() = default;
 
-  inline const std::string &get_key() const { return _key; }
+  inline std::string key() const { return key_; }
 
-  inline bool is_writable() const { return _mode & XM_WRITABLE; }
-  inline bool is_serializable() const { return _mode & XM_SERIALIZABLE; }
-  inline bool is_visible() const { return _mode & XM_VISIBLE; }
-  inline bool is_removable() const { return _mode & XM_REMOVABLE; }
-  inline bool is_commit_required() const { return _mode & XM_COMMIT_REQUIRED; }
+  inline bool is_writable() const { return mode_ & XM_WRITABLE; }
+  inline bool is_serializable() const { return mode_ & XM_SERIALIZABLE; }
+  inline bool is_visible() const { return mode_ & XM_VISIBLE; }
+  inline bool is_removable() const { return mode_ & XM_REMOVABLE; }
+  inline bool is_commit_required() const { return mode_ & XM_COMMIT_REQUIRED; }
 
-  inline int get_mode() const { return _mode; }
-  inline void set_mode(int mode) { _mode = mode; }
+  inline int mode() const { return mode_; }
+  inline void set_mode(int mode) { mode_ = mode; }
 
-  virtual int set_value(const char *value, size_t size) = 0;
-  virtual int get_value(char *buffer, size_t max_size) = 0;
+  virtual int SetValue(const char *value, size_t size) = 0;
+  virtual int GetValue(char *buffer, size_t max_size) const = 0;
 
-  virtual void to_header(std::string *header, std::string *value) = 0;
+  virtual void ToHeader(std::string *header, std::string *value) const = 0;
+  virtual std::string ToString() const = 0;
 
-protected:
-  inline xattr(const std::string &key, int mode) : _key(key), _mode(mode) {}
+ protected:
+  inline XAttr(const std::string &key, int mode) : key_(key), mode_(mode) {}
 
-private:
-  std::string _key;
-  int _mode;
+ private:
+  const std::string key_;
+  int mode_;
 };
-
-class xattr_map : public std::map<std::string, xattr::ptr> {
-public:
-  inline std::pair<iterator, bool> insert(const xattr::ptr &xa) {
-    return std::map<std::string, xattr::ptr>::insert(
-        std::make_pair(xa->get_key(), xa));
-  }
-
-  inline void replace(const xattr::ptr &xa) { (*this)[xa->get_key()] = xa; }
-};
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

@@ -37,85 +37,20 @@
 
 namespace s3 {
 namespace base {
-class statistics {
-public:
-  typedef std::function<void(std::ostream *)> writer_fn;
+class Statistics {
+ public:
+  using WriterCallback = std::function<void(std::ostream *)>;
+  using Writers = StaticList<WriterCallback>;
 
-  typedef static_list<writer_fn> writers;
+  static void Init(std::unique_ptr<std::ostream> output);
+  static void Init(std::string file);
 
-  inline static void init(const std::shared_ptr<std::ostream> &output) {
-    std::lock_guard<std::mutex> lock(s_mutex);
-
-    if (s_stream)
-      throw std::runtime_error("can't call statistics::init() more than once!");
-
-    s_stream = output;
-  }
-
-  inline static void init(const std::string &output_file) {
-    std::shared_ptr<std::ofstream> f(new std::ofstream());
-
-    f->open(paths::transform(output_file).c_str(), std::ofstream::trunc);
-
-    if (!f->good())
-      throw std::runtime_error("cannot open statistics target file for write");
-
-    init(f);
-  }
-
-  inline static void collect() {
-    std::lock_guard<std::mutex> lock(s_mutex);
-
-    if (!s_stream)
-      return;
-
-    for (writers::const_iterator itor = writers::begin();
-         itor != writers::end(); ++itor)
-      itor->second(s_stream.get());
-  }
-
-  inline static void flush() {
-    if (s_stream)
-      s_stream->flush();
-  }
-
-  inline static void write(const std::string &id, const char *format, ...) {
-    va_list args;
-
-    va_start(args, format);
-    write(id, format, args);
-    va_end(args);
-  }
-
-  inline static void write(const std::string &id, const std::string &tag,
-                           const char *format, ...) {
-    va_list args;
-
-    va_start(args, format);
-    write(id + "_" + tag, format, args);
-    va_end(args);
-  }
-
-private:
-  inline static void write(const std::string &id, const char *format,
-                           va_list args) {
-    const size_t BUF_LEN = 256;
-
-    char buf[BUF_LEN];
-    std::lock_guard<std::mutex> lock(s_mutex);
-
-    if (!s_stream)
-      return;
-
-    vsnprintf(buf, BUF_LEN, format, args);
-
-    (*s_stream) << id << ": " << buf << std::endl;
-  }
-
-  static std::mutex s_mutex;
-  static std::shared_ptr<std::ostream> s_stream;
+  static void Collect();
+  static void Flush();
+  static void Write(std::string id, const char *format, ...);
+  static void Write(std::string id, std::string tag, const char *format, ...);
 };
-} // namespace base
-} // namespace s3
+}  // namespace base
+}  // namespace s3
 
 #endif

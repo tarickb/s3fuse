@@ -10,12 +10,12 @@ namespace crypto {
 namespace tests {
 
 namespace {
-struct known_answer {
+struct KnownAnswer {
   const char *message;
   const char *hash;
 };
 
-const known_answer TESTS[] = {
+const KnownAnswer TESTS[] = {
     // tests from http://www.nsrl.nist.gov/testdata/
 
     {"", "d41d8cd98f00b204e9800998ecf8427e"},
@@ -30,24 +30,22 @@ const known_answer TESTS[] = {
 };
 
 const int TEST_COUNT = sizeof(TESTS) / sizeof(TESTS[0]);
-} // namespace
+}  // namespace
 
-TEST(md5, known_answers) {
+TEST(Md5, KnownAnswers) {
   for (int test = 0; test < TEST_COUNT; test++) {
-    const known_answer *kat = TESTS + test;
+    const KnownAnswer *kat = TESTS + test;
     std::vector<uint8_t> in;
     std::string hash;
 
-    encoder::decode<hex>(kat->message, &in);
-
+    in = Encoder::Decode<Hex>(kat->message);
     ASSERT_EQ(strlen(kat->message) / 2, in.size()) << "for kat = " << test;
 
-    hash = hash::compute<md5, hex>(in);
-
+    hash = Hash::Compute<Md5, Hex>(in);
     EXPECT_EQ(std::string(kat->hash), hash) << "for kat = " << test;
   }
 }
 
-} // namespace tests
-} // namespace crypto
-} // namespace s3
+}  // namespace tests
+}  // namespace crypto
+}  // namespace s3

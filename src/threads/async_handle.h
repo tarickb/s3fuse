@@ -1,7 +1,7 @@
 /*
  * threads/async_handle.h
  * -------------------------------------------------------------------------
- * Asynchronous event handles (wait and callback).
+ * Asynchronous event handle.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
@@ -29,64 +29,32 @@
 
 namespace s3 {
 namespace threads {
-class async_handle {
-public:
-  typedef std::shared_ptr<async_handle> ptr;
+class AsyncHandle {
+ public:
+  inline AsyncHandle() = default;
+  inline ~AsyncHandle() = default;
 
-  inline virtual ~async_handle() {}
-
-  virtual void complete(int return_code) = 0;
-};
-
-class wait_async_handle : public async_handle {
-public:
-  typedef std::shared_ptr<wait_async_handle> ptr;
-
-  inline wait_async_handle() : _return_code(0), _done(false) {}
-
-  inline virtual ~wait_async_handle() {}
-
-  inline virtual void complete(int return_code) {
-    std::lock_guard<std::mutex> lock(_mutex);
-
-    _return_code = return_code;
-    _done = true;
-
-    _condition.notify_all();
+  inline void Complete(int return_code) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return_code_ = return_code;
+    done_ = true;
+    condition_.notify_all();
   }
 
-  inline int wait() {
-    std::unique_lock<std::mutex> lock(_mutex);
-
-    while (!_done)
-      _condition.wait(lock);
-
-    return _return_code;
+  inline int Wait() {
+    std::unique_lock<std::mutex> lock(mutex_);
+    while (!done_) condition_.wait(lock);
+    return return_code_;
   }
 
-private:
-  std::mutex _mutex;
-  std::condition_variable _condition;
+ private:
+  std::mutex mutex_;
+  std::condition_variable condition_;
 
-  int _return_code;
-  bool _done;
+  int return_code_ = 0;
+  bool done_ = false;
 };
-
-class callback_async_handle : public async_handle {
-public:
-  typedef std::shared_ptr<callback_async_handle> ptr;
-  typedef std::function<void(int)> callback_function;
-
-  inline callback_async_handle(const callback_function &cb) : _cb(cb) {}
-
-  inline virtual ~callback_async_handle() {}
-
-  inline virtual void complete(int return_code) { _cb(return_code); }
-
-private:
-  callback_function _cb;
-};
-} // namespace threads
-} // namespace s3
+}  // namespace threads
+}  // namespace s3
 
 #endif

@@ -72,7 +72,6 @@ CONFIG(std::string, default_cache_control, "", "default Cache-Control header (ca
 
 CONFIG_SECTION("Cache Parameters");
 CONFIG(int, cache_expiry_in_s, 3 * 60, "time in seconds before objects in stats cache expire");
-CONFIG(bool, cache_directories, false, "cache directory listings if set to 'true'/'yes'");
 CONFIG(int, max_objects_in_cache, 1000, "maximum number of objects to hold in cache");
 CONFIG(bool, precache_on_readdir, true, "precache object attributes when listing directory contents (improves performance in interactive use); set to 'no'/'false' to disable");
 CONFIG_CONSTRAINT(CONFIG_KEY(max_objects_in_cache) > 0, "max_objects_in_cache must be greater than zero");
@@ -87,7 +86,7 @@ CONFIG(int, upload_chunk_size, -1, "override default upload chunk size (in bytes
 CONFIG(int, max_transfer_retries, 5, "maximum number of times a chunk transfer will be retried before failing");
 CONFIG(int, transfer_timeout_in_s, 5 * 60, "transfer timeout in seconds; should be long enough to transfer download_chunk_size/upload_chunk_size");
 CONFIG(int, max_parts_in_progress, 4, "maximum number of file chunks that should be transferred at a time");
-CONFIG_CONSTRAINT(CONFIG_KEY(max_transfer_retries) > 0, "max_transfer_retries must be greater than zero");
+CONFIG_CONSTRAINT(CONFIG_KEY(max_transfer_retries) >= 0, "max_transfer_retries must be greater than or equal to zero");
 CONFIG_CONSTRAINT(CONFIG_KEY(max_parts_in_progress) > 0, "max_parts_in_progress must be greater than zero");
 
 CONFIG_SECTION("Debug");
@@ -95,9 +94,7 @@ CONFIG(bool, verbose_requests, false, "set CURLOPT_VERBOSE (enable verbosity in 
 
 CONFIG_SECTION("Timeouts");
 CONFIG(int, request_timeout_in_s, 30, "request timeout in seconds (for all HTTP requests besides transfers)");
-CONFIG(int, timeout_retries, 5, "number of times to retry a request that times out (if zero; don't retry)");
 CONFIG(int, max_inconsistent_state_retries, 10, "number of times to retry an operation if an inconsistent state is encountered (must be >= 2)");
-CONFIG_CONSTRAINT(CONFIG_KEY(timeout_retries) >= 0, "timeout_retries must be greater than or equal to 0");
 CONFIG_CONSTRAINT(CONFIG_KEY(max_inconsistent_state_retries) >= 2, "max_inconsistent_state_retries must be greater than or equal to 2");
 
 #ifdef WITH_AWS

@@ -29,42 +29,40 @@
 namespace s3 {
 namespace services {
 namespace gs {
-class file_transfer : public services::file_transfer {
-public:
-  file_transfer();
+class FileTransfer : public services::FileTransfer {
+ public:
+  FileTransfer();
 
-  virtual size_t get_upload_chunk_size();
+  size_t upload_chunk_size() override;
 
-protected:
-  virtual int upload_multi(const std::string &url, size_t size,
-                           const read_chunk_fn &on_read,
-                           std::string *returned_etag);
+ protected:
+  int UploadMulti(const std::string &url, size_t size, const ReadChunk &on_read,
+                  std::string *returned_etag) override;
 
-private:
-  struct upload_range {
+ private:
+  struct UploadRange {
     size_t size;
     off_t offset;
   };
 
-  int read_and_upload(const base::request::ptr &req, const std::string &url,
-                      const read_chunk_fn &on_read, upload_range *range,
-                      size_t total_size);
+  int ReadAndUpload(base::Request *req, const std::string &url,
+                    const ReadChunk &on_read, UploadRange *range,
+                    size_t total_size);
 
-  int upload_part(const base::request::ptr &req, const std::string &url,
-                  const read_chunk_fn &on_read, upload_range *range,
-                  bool is_retry);
+  int UploadPart(base::Request *req, const std::string &url,
+                 const ReadChunk &on_read, UploadRange *range, bool is_retry);
 
-  int upload_last_part(const base::request::ptr &req, const std::string &url,
-                       const read_chunk_fn &on_read, upload_range *range,
-                       size_t total_size, std::string *returned_etag);
+  int UploadLastPart(base::Request *req, const std::string &url,
+                     const ReadChunk &on_read, UploadRange *range,
+                     size_t total_size, std::string *returned_etag);
 
-  int upload_multi_init(const base::request::ptr &req, const std::string &url,
-                        std::string *location);
+  int UploadMultiInit(base::Request *req, const std::string &url,
+                      std::string *location);
 
-  size_t _upload_chunk_size;
+  size_t upload_chunk_size_;
 };
-} // namespace gs
-} // namespace services
-} // namespace s3
+}  // namespace gs
+}  // namespace services
+}  // namespace s3
 
 #endif

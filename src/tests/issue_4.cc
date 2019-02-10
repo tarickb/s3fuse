@@ -9,24 +9,24 @@
 #define STR_(x) #x
 #define STR(x) STR_(x)
 
-#define T(x, e)                                                                \
-  do {                                                                         \
-    int r = (x);                                                               \
-    if (r != (e)) {                                                            \
-      perror(#x " on line " STR(__LINE__) " failed with error");               \
-      return 1;                                                                \
-    }                                                                          \
+#define T(x, e)                                                  \
+  do {                                                           \
+    int r = (x);                                                 \
+    if (r != (e)) {                                              \
+      perror(#x " on line " STR(__LINE__) " failed with error"); \
+      return 1;                                                  \
+    }                                                            \
   } while (0)
 #define TZ(x) T(x, 0)
 
 namespace {
 const char TEST_STRING[] = "this is a test!\n";
 const int TEST_STRING_LEN = sizeof(TEST_STRING);
-} // namespace
+}  // namespace
 
 int main(int argc, char **argv) {
   struct stat st;
-  const char *file = NULL;
+  const char *file = nullptr;
   int create_fd = -1, open_fd = -1;
 
   if (argc != 2) {

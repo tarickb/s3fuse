@@ -28,35 +28,33 @@
 
 namespace s3 {
 namespace base {
-class timer {
-public:
-  inline static double get_current_time() {
+class Timer {
+ public:
+  inline static double GetCurrentTime() {
     timeval t;
-
-    gettimeofday(&t, NULL);
-
-    return double(t.tv_sec) + double(t.tv_usec) / 1.0e6;
+    gettimeofday(&t, nullptr);
+    return static_cast<double>(t.tv_sec) +
+           static_cast<double>(t.tv_usec) / 1.0e6;
   }
 
-  inline static std::string get_http_time() {
+  inline static std::string GetHttpTime() {
     time_t sys_time;
-    tm gm_time;
-    char time_str[128];
-
     time(&sys_time);
-    gmtime_r(&sys_time, &gm_time);
-    strftime(time_str, 128, "%a, %d %b %Y %H:%M:%S GMT", &gm_time);
 
+    tm gm_time;
+    gmtime_r(&sys_time, &gm_time);
+
+    char time_str[128];
+    strftime(time_str, 128, "%a, %d %b %Y %H:%M:%S GMT", &gm_time);
     return time_str;
   }
 
-  inline static void sleep(int sec) {
+  inline static void Sleep(int sec) {
     struct timespec ts = {sec, 0};
-
-    nanosleep(&ts, NULL);
+    nanosleep(&ts, nullptr);
   }
 };
-} // namespace base
-} // namespace s3
+}  // namespace base
+}  // namespace s3
 
 #endif

@@ -20,6 +20,7 @@
  */
 
 #include "fs/bucket_volume_key.h"
+
 #include "base/request.h"
 #include "crypto/buffer.h"
 #include "crypto/cipher.h"
@@ -37,80 +38,60 @@ const std::string VOLUME_KEY_OBJECT_TEMP_PREFIX = "$temp$_";
 
 const std::string VOLUME_KEY_PREFIX = "s3fuse-00 ";
 
-inline std::string build_url(const std::string &id) {
-  return object::build_internal_url(VOLUME_KEY_OBJECT_PREFIX + id);
+inline std::string BuildUrl(const std::string &id) {
+  return Object::BuildInternalUrl(VOLUME_KEY_OBJECT_PREFIX + id);
 }
 
-inline bool is_temp_id(const std::string &id) {
+inline bool IsTemporaryId(const std::string &id) {
   return (id.substr(0, VOLUME_KEY_OBJECT_TEMP_PREFIX.size()) ==
           VOLUME_KEY_OBJECT_TEMP_PREFIX);
 }
-} // namespace
+}  // namespace
 
-bucket_volume_key::ptr bucket_volume_key::fetch(const base::request::ptr &req,
-                                                const std::string &id) {
-  bucket_volume_key::ptr key(new bucket_volume_key(id));
-
-  key->download(req);
-
-  if (!key->is_present())
-    key.reset();
-
+std::unique_ptr<BucketVolumeKey> BucketVolumeKey::Fetch(base::Request *req,
+                                                        const std::string &id) {
+  std::unique_ptr<BucketVolumeKey> key(new BucketVolumeKey(id));
+  key->Download(req);
+  if (!key->is_present()) key.reset();
   return key;
 }
 
-bucket_volume_key::ptr
-bucket_volume_key::generate(const base::request::ptr &req,
-                            const std::string &id) {
-  bucket_volume_key::ptr key;
-
-  if (is_temp_id(id))
-    throw std::runtime_error("invalid key id.");
-
-  key.reset(new bucket_volume_key(id));
-
-  key->download(req);
-
+std::unique_ptr<BucketVolumeKey> BucketVolumeKey::Generate(
+    base::Request *req, const std::string &id) {
+  if (IsTemporaryId(id)) throw std::runtime_error("invalid key id.");
+  std::unique_ptr<BucketVolumeKey> key(new BucketVolumeKey(id));
+  key->Download(req);
   if (key->is_present())
     throw std::runtime_error("key with specified id already exists.");
-
-  key->generate();
-
+  key->Generate();
   return key;
 }
 
-void bucket_volume_key::get_keys(const base::request::ptr &req,
-                                 std::vector<std::string> *keys) {
+std::vector<std::string> BucketVolumeKey::GetKeys(base::Request *req) {
   const size_t PREFIX_LEN = VOLUME_KEY_OBJECT_PREFIX.size();
-
-  std::vector<std::string> objs;
-
-  directory::get_internal_objects(req, &objs);
-
-  for (std::vector<std::string>::const_iterator itor = objs.begin();
-       itor != objs.end(); ++itor) {
-    if (itor->substr(0, PREFIX_LEN) == VOLUME_KEY_OBJECT_PREFIX) {
-      std::string key = itor->substr(PREFIX_LEN);
-
-      if (!is_temp_id(key))
-        keys->push_back(key);
+  std::vector<std::string> keys;
+  auto objs = Directory::GetInternalObjects(req);
+  for (const auto &obj : objs) {
+    if (obj.substr(0, PREFIX_LEN) == VOLUME_KEY_OBJECT_PREFIX) {
+      const std::string key = obj.substr(PREFIX_LEN);
+      if (!IsTemporaryId(key)) keys.push_back(key);
     }
   }
+  return keys;
 }
 
-bucket_volume_key::bucket_volume_key(const std::string &id) : _id(id) {}
+BucketVolumeKey::BucketVolumeKey(const std::string &id)
+    : id_(id), volume_key_(crypto::Buffer::Empty()) {}
 
-void bucket_volume_key::unlock(const crypto::buffer::ptr &key) {
-  std::string bucket_meta;
-
+void BucketVolumeKey::Unlock(const crypto::Buffer &key) {
   if (!is_present())
     throw std::runtime_error("cannot unlock a key that does not exist.");
-
+  std::string bucket_meta;
   try {
-    bucket_meta = crypto::cipher::decrypt<key_cipher, crypto::hex>(
-        crypto::symmetric_key::create(key,
-                                      crypto::buffer::zero(key_cipher::IV_LEN)),
-        _encrypted_key);
+    auto sk = crypto::SymmetricKey::Create(
+        key, crypto::Buffer::Zero(KeyCipherType::IV_LEN));
+    bucket_meta = crypto::Cipher::DecryptAsString<KeyCipherType, crypto::Hex>(
+        sk, encrypted_key_);
   } catch (...) {
     throw std::runtime_error("unable to unlock key.");
   }
@@ -118,103 +99,91 @@ void bucket_volume_key::unlock(const crypto::buffer::ptr &key) {
   if (bucket_meta.substr(0, VOLUME_KEY_PREFIX.size()) != VOLUME_KEY_PREFIX)
     throw std::runtime_error("unable to unlock key.");
 
-  _volume_key =
-      crypto::buffer::from_string(bucket_meta.substr(VOLUME_KEY_PREFIX.size()));
+  volume_key_ = crypto::Buffer::FromHexString(
+      bucket_meta.substr(VOLUME_KEY_PREFIX.size()));
 }
 
-void bucket_volume_key::remove(const base::request::ptr &req) {
-  req->init(base::HTTP_DELETE);
-  req->set_url(build_url(_id));
+void BucketVolumeKey::Remove(base::Request *req) {
+  req->Init(base::HttpMethod::DELETE);
+  req->SetUrl(BuildUrl(id_));
 
-  req->run();
+  req->Run();
 
-  if (req->get_response_code() != base::HTTP_SC_NO_CONTENT)
+  if (req->response_code() != base::HTTP_SC_NO_CONTENT)
     throw std::runtime_error("failed to delete volume key.");
 }
 
-bucket_volume_key::ptr bucket_volume_key::clone(const std::string &new_id) {
-  bucket_volume_key::ptr key;
-
-  if (is_temp_id(new_id))
-    throw std::runtime_error("invalid key id.");
-
-  if (!_volume_key)
-    throw std::runtime_error("unlock key before cloning.");
-
-  key.reset(new bucket_volume_key(new_id));
-
+std::unique_ptr<BucketVolumeKey> BucketVolumeKey::Clone(
+    const std::string &new_id) const {
+  if (IsTemporaryId(new_id)) throw std::runtime_error("invalid key id.");
+  if (!volume_key_) throw std::runtime_error("unlock key before cloning.");
+  std::unique_ptr<BucketVolumeKey> key(new BucketVolumeKey(new_id));
   if (key->is_present())
     throw std::runtime_error("key with specified id already exists.");
-
-  key->_volume_key = _volume_key;
-
+  key->volume_key_ = volume_key_;
   return key;
 }
 
-void bucket_volume_key::commit(const base::request::ptr &req,
-                               const crypto::buffer::ptr &key) {
-  std::string etag;
+void BucketVolumeKey::Commit(base::Request *req, const crypto::Buffer &key) {
+  if (!volume_key_) throw std::runtime_error("unlock key before committing.");
 
-  if (!_volume_key)
-    throw std::runtime_error("unlock key before committing.");
+  req->Init(base::HttpMethod::PUT);
+  req->SetUrl(BuildUrl(VOLUME_KEY_OBJECT_TEMP_PREFIX + id_));
+  req->SetInputBuffer(
+      crypto::Cipher::Encrypt<BucketVolumeKey::KeyCipherType, crypto::Hex>(
+          crypto::SymmetricKey::Create(
+              key,
+              crypto::Buffer::Zero(BucketVolumeKey::KeyCipherType::IV_LEN)),
+          VOLUME_KEY_PREFIX + volume_key_.ToHexString()));
 
-  req->init(base::HTTP_PUT);
-  req->set_url(build_url(VOLUME_KEY_OBJECT_TEMP_PREFIX + _id));
+  req->Run();
+  if (req->response_code() != base::HTTP_SC_OK)
+    throw std::runtime_error(
+        "failed to commit (create) volume key; the old "
+        "key should remain valid.");
 
-  req->set_input_buffer(
-      crypto::cipher::encrypt<bucket_volume_key::key_cipher, crypto::hex>(
-          crypto::symmetric_key::create(
-              key, crypto::buffer::zero(bucket_volume_key::key_cipher::IV_LEN)),
-          VOLUME_KEY_PREFIX + _volume_key->to_string()));
+  const std::string etag = req->response_header("ETag");
 
-  req->run();
-
-  if (req->get_response_code() != base::HTTP_SC_OK)
-    throw std::runtime_error("failed to commit (create) volume key; the old "
-                             "key should remain valid.");
-
-  etag = req->get_response_header("ETag");
-
-  req->init(base::HTTP_PUT);
-  req->set_url(build_url(_id));
+  req->Init(base::HttpMethod::PUT);
+  req->SetUrl(BuildUrl(id_));
 
   // only overwrite the volume key if our temporary copy is still valid
-  req->set_header(services::service::get_header_prefix() + "copy-source",
-                  build_url(VOLUME_KEY_OBJECT_TEMP_PREFIX + _id));
-  req->set_header(
-      services::service::get_header_prefix() + "copy-source-if-match", etag);
-  req->set_header(services::service::get_header_prefix() + "metadata-directive",
-                  "REPLACE");
+  req->SetHeader(services::Service::header_prefix() + "copy-source",
+                 BuildUrl(VOLUME_KEY_OBJECT_TEMP_PREFIX + id_));
+  req->SetHeader(services::Service::header_prefix() + "copy-source-if-match",
+                 etag);
+  req->SetHeader(services::Service::header_prefix() + "metadata-directive",
+                 "REPLACE");
 
-  req->run();
+  req->Run();
 
-  if (req->get_response_code() != base::HTTP_SC_OK)
+  if (req->response_code() != base::HTTP_SC_OK)
     throw std::runtime_error(
         "failed to commit (copy) volume key; the old key should remain valid.");
 
-  req->init(base::HTTP_DELETE);
-  req->set_url(build_url(VOLUME_KEY_OBJECT_TEMP_PREFIX + _id));
+  req->Init(base::HttpMethod::DELETE);
+  req->SetUrl(BuildUrl(VOLUME_KEY_OBJECT_TEMP_PREFIX + id_));
 
-  req->run();
+  req->Run();
 }
 
-void bucket_volume_key::download(const base::request::ptr &req) {
-  req->init(base::HTTP_GET);
-  req->set_url(build_url(_id));
+void BucketVolumeKey::Download(base::Request *req) {
+  req->Init(base::HttpMethod::GET);
+  req->SetUrl(BuildUrl(id_));
 
-  req->run();
+  req->Run();
 
-  if (req->get_response_code() == base::HTTP_SC_OK)
-    _encrypted_key = req->get_output_string();
-  else if (req->get_response_code() == base::HTTP_SC_NOT_FOUND)
-    _encrypted_key.clear();
+  if (req->response_code() == base::HTTP_SC_OK)
+    encrypted_key_ = req->GetOutputAsString();
+  else if (req->response_code() == base::HTTP_SC_NOT_FOUND)
+    encrypted_key_.clear();
   else
     throw std::runtime_error("request for volume key object failed.");
 }
 
-void bucket_volume_key::generate() {
-  _volume_key = crypto::buffer::generate(key_cipher::DEFAULT_KEY_LEN);
+void BucketVolumeKey::Generate() {
+  volume_key_ = crypto::Buffer::Generate(KeyCipherType::DEFAULT_KEY_LEN);
 }
 
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3

@@ -31,62 +31,59 @@
 
 namespace s3 {
 namespace crypto {
-class symmetric_key;
+class SymmetricKey;
 
-class aes_ctr_256 {
-public:
-  enum { BLOCK_LEN = AES_BLOCK_SIZE };
+class AesCtr256 {
+ public:
+  static constexpr int BLOCK_LEN = AES_BLOCK_SIZE;
 
-  enum { IV_LEN = BLOCK_LEN / 2 };
-  enum { DEFAULT_KEY_LEN = 32 }; // 256 bits
+  static constexpr int IV_LEN = BLOCK_LEN / 2;
+  static constexpr int DEFAULT_KEY_LEN = 32;  // 256 bits
 
-  inline static void
-  encrypt_with_byte_offset(const std::shared_ptr<symmetric_key> &key,
-                           uint64_t offset, const uint8_t *in, size_t size,
-                           uint8_t *out) {
+  inline static void EncryptWithByteOffset(const SymmetricKey &key,
+                                           uint64_t offset, const uint8_t *in,
+                                           size_t size, uint8_t *out) {
     if (offset % BLOCK_LEN)
       throw std::runtime_error("offset must be a multiple of BLOCK_LEN");
 
-    crypt(key, offset / BLOCK_LEN, in, size, out);
+    Crypt(key, offset / BLOCK_LEN, in, size, out);
   }
 
-  inline static void
-  decrypt_with_byte_offset(const std::shared_ptr<symmetric_key> &key,
-                           uint64_t offset, const uint8_t *in, size_t size,
-                           uint8_t *out) {
-    encrypt_with_byte_offset(key, offset, in, size, out);
+  inline static void DecryptWithByteOffset(const SymmetricKey &key,
+                                           uint64_t offset, const uint8_t *in,
+                                           size_t size, uint8_t *out) {
+    EncryptWithByteOffset(key, offset, in, size, out);
   }
 
-  inline static void
-  encrypt_with_starting_block(const std::shared_ptr<symmetric_key> &key,
-                              uint64_t starting_block, const uint8_t *in,
-                              size_t size, uint8_t *out) {
-    crypt(key, starting_block, in, size, out);
+  inline static void EncryptWithStartingBlock(const SymmetricKey &key,
+                                              uint64_t starting_block,
+                                              const uint8_t *in, size_t size,
+                                              uint8_t *out) {
+    Crypt(key, starting_block, in, size, out);
   }
 
-  inline static void
-  decrypt_with_starting_block(const std::shared_ptr<symmetric_key> &key,
-                              uint64_t starting_block, const uint8_t *in,
-                              size_t size, uint8_t *out) {
-    encrypt_with_starting_block(key, starting_block, in, size, out);
+  inline static void DecryptWithStartingBlock(const SymmetricKey &key,
+                                              uint64_t starting_block,
+                                              const uint8_t *in, size_t size,
+                                              uint8_t *out) {
+    EncryptWithStartingBlock(key, starting_block, in, size, out);
   }
 
-  inline static void encrypt(const std::shared_ptr<symmetric_key> &key,
-                             const uint8_t *in, size_t size, uint8_t *out) {
-    crypt(key, 0, in, size, out);
+  inline static void Encrypt(const SymmetricKey &key, const uint8_t *in,
+                             size_t size, uint8_t *out) {
+    Crypt(key, 0, in, size, out);
   }
 
-  inline static void decrypt(const std::shared_ptr<symmetric_key> &key,
-                             const uint8_t *in, size_t size, uint8_t *out) {
-    encrypt(key, in, size, out);
+  inline static void Decrypt(const SymmetricKey &key, const uint8_t *in,
+                             size_t size, uint8_t *out) {
+    Encrypt(key, in, size, out);
   }
 
-private:
-  static void crypt(const std::shared_ptr<symmetric_key> &key,
-                    uint64_t starting_block, const uint8_t *in, size_t size,
-                    uint8_t *out);
+ private:
+  static void Crypt(const SymmetricKey &key, uint64_t starting_block,
+                    const uint8_t *in, size_t size, uint8_t *out);
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

@@ -19,20 +19,19 @@
  * limitations under the License.
  */
 
-#include <string.h>
-
-#include <stdexcept>
+#include "crypto/base64.h"
 
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
 #include <openssl/evp.h>
+#include <string.h>
 
-#include "crypto/base64.h"
+#include <stdexcept>
 
 namespace s3 {
 namespace crypto {
 
-std::string base64::encode(const uint8_t *input, size_t size) {
+std::string Base64::Encode(const uint8_t *input, size_t size) {
   BIO *bio_b64 = BIO_new(BIO_f_base64());
   BIO *bio_mem = BIO_new(BIO_s_mem());
   BUF_MEM *mem;
@@ -52,7 +51,7 @@ std::string base64::encode(const uint8_t *input, size_t size) {
   return ret;
 }
 
-void base64::decode(const std::string &input, std::vector<uint8_t> *output) {
+std::vector<uint8_t> Base64::Decode(const std::string &input) {
   const size_t READ_CHUNK = 1024;
 
   BIO *bio_b64 = BIO_new(BIO_f_base64());
@@ -62,26 +61,28 @@ void base64::decode(const std::string &input, std::vector<uint8_t> *output) {
   BIO_set_flags(bio_b64, BIO_FLAGS_BASE64_NO_NL);
   bio_b64 = BIO_push(bio_b64, bio_input);
 
+  std::vector<uint8_t> output;
+
   while (true) {
     int r;
 
-    output->resize(total_bytes + READ_CHUNK);
-    r = BIO_read(bio_b64, &(*output)[total_bytes], READ_CHUNK);
+    output.resize(total_bytes + READ_CHUNK);
+    r = BIO_read(bio_b64, &output[total_bytes], READ_CHUNK);
 
     if (r < 0) {
       BIO_free_all(bio_b64);
       throw std::runtime_error("failed while decoding base64.");
     }
 
-    output->resize(total_bytes + r);
+    output.resize(total_bytes + r);
     total_bytes += r;
 
-    if (r == 0)
-      break;
+    if (r == 0) break;
   }
 
   BIO_free_all(bio_b64);
+  return output;
 }
 
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3

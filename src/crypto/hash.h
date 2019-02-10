@@ -31,92 +31,81 @@
 
 namespace s3 {
 namespace crypto {
-class hash {
-public:
-  template <class hash_type>
-  inline static void compute(const uint8_t *input, size_t size, uint8_t *hash) {
-    hash_type::compute(input, size, hash);
+class Hash {
+ public:
+  template <class HashType>
+  inline static void Compute(const uint8_t *input, size_t size, uint8_t *hash) {
+    HashType::Compute(input, size, hash);
   }
 
-  template <class hash_type>
-  inline static void compute(const char *input, size_t size, uint8_t *hash) {
-    hash_type::compute(reinterpret_cast<const uint8_t *>(input), size, hash);
+  template <class HashType>
+  inline static void Compute(const char *input, size_t size, uint8_t *hash) {
+    HashType::Compute(reinterpret_cast<const uint8_t *>(input), size, hash);
   }
 
-  template <class hash_type>
-  inline static void compute(const std::string &input, uint8_t *hash) {
-    compute<hash_type>(input.c_str(), input.size() + 1, hash);
+  template <class HashType>
+  inline static void Compute(const std::string &input, uint8_t *hash) {
+    Compute<HashType>(input.c_str(), input.size() + 1, hash);
   }
 
-  template <class hash_type>
-  inline static void compute(const std::vector<uint8_t> &input, uint8_t *hash) {
-    hash_type::compute(&input[0], input.size(), hash);
+  template <class HashType>
+  inline static void Compute(const std::vector<uint8_t> &input, uint8_t *hash) {
+    HashType::Compute(&input[0], input.size(), hash);
   }
 
-  template <class hash_type>
-  inline static void compute(const std::vector<char> &input, uint8_t *hash) {
-    compute<hash_type>(&input[0], input.size(), hash);
+  template <class HashType>
+  inline static void Compute(const std::vector<char> &input, uint8_t *hash) {
+    Compute<HashType>(&input[0], input.size(), hash);
   }
 
-  template <class hash_type> inline static void compute(int fd, uint8_t *hash) {
-    hash_type::compute(fd, hash);
+  template <class HashType>
+  inline static void Compute(int fd, uint8_t *hash) {
+    HashType::Compute(fd, hash);
   }
 
-  template <class hash_type, class encoder_type>
-  inline static std::string compute(const uint8_t *input, size_t size) {
-    uint8_t hash[hash_type::HASH_LEN];
-
-    hash_type::compute(input, size, hash);
-
-    return encoder::encode<encoder_type>(hash, hash_type::HASH_LEN);
+  template <class HashType, class EncoderType>
+  inline static std::string Compute(const uint8_t *input, size_t size) {
+    uint8_t hash[HashType::HASH_LEN];
+    HashType::Compute(input, size, hash);
+    return Encoder::Encode<EncoderType>(hash, HashType::HASH_LEN);
   }
 
-  template <class hash_type, class encoder_type>
-  inline static std::string compute(const std::string &input) {
-    uint8_t hash[hash_type::HASH_LEN];
-
-    compute<hash_type>(input, hash);
-
-    return encoder::encode<encoder_type>(hash, hash_type::HASH_LEN);
+  template <class HashType, class EncoderType>
+  inline static std::string Compute(const std::string &input) {
+    uint8_t hash[HashType::HASH_LEN];
+    Compute<HashType>(input, hash);
+    return Encoder::Encode<EncoderType>(hash, HashType::HASH_LEN);
   }
 
-  template <class hash_type, class encoder_type>
-  inline static std::string compute(const char *input, size_t size) {
-    uint8_t hash[hash_type::HASH_LEN];
-
-    compute<hash_type>(input, size, hash);
-
-    return encoder::encode<encoder_type>(hash, hash_type::HASH_LEN);
+  template <class HashType, class EncoderType>
+  inline static std::string Compute(const char *input, size_t size) {
+    uint8_t hash[HashType::HASH_LEN];
+    Compute<HashType>(input, size, hash);
+    return Encoder::Encode<EncoderType>(hash, HashType::HASH_LEN);
   }
 
-  template <class hash_type, class encoder_type>
-  inline static std::string compute(const std::vector<uint8_t> &input) {
-    uint8_t hash[hash_type::HASH_LEN];
-
-    compute<hash_type>(input, hash);
-
-    return encoder::encode<encoder_type>(hash, hash_type::HASH_LEN);
+  template <class HashType, class EncoderType>
+  inline static std::string Compute(const std::vector<uint8_t> &input) {
+    uint8_t hash[HashType::HASH_LEN];
+    Compute<HashType>(input, hash);
+    return Encoder::Encode<EncoderType>(hash, HashType::HASH_LEN);
   }
 
-  template <class hash_type, class encoder_type>
-  inline static std::string compute(const std::vector<char> &input) {
-    uint8_t hash[hash_type::HASH_LEN];
-
-    compute<hash_type>(input, hash);
-
-    return encoder::encode<encoder_type>(hash, hash_type::HASH_LEN);
+  template <class HashType, class EncoderType>
+  inline static std::string Compute(const std::vector<char> &input) {
+    uint8_t hash[HashType::HASH_LEN];
+    Compute<HashType>(input, hash);
+    return Encoder::Encode<EncoderType>(hash, HashType::HASH_LEN);
   }
 
-  template <class hash_type, class encoder_type>
-  inline static std::string compute(int fd) {
-    uint8_t hash[hash_type::HASH_LEN];
-
-    compute<hash_type>(fd, hash);
-
-    return encoder::encode<encoder_type>(hash, hash_type::HASH_LEN);
+  template <class HashType, class EncoderType>
+  inline static std::string Compute(int fd) {
+    uint8_t hash[HashType::HASH_LEN];
+    Compute<HashType>(fd, hash);
+    return Encoder::Encode<EncoderType>(hash, HashType::HASH_LEN);
   }
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

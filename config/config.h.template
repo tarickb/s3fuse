@@ -39,16 +39,17 @@
 
 namespace s3 {
 namespace base {
-class config {
-public:
-  static void init(const std::string &file = "");
+class Config {
+ public:
+  static void Init(const std::string &file = "");
 
-#define CONFIG(type, name, def, desc)                                          \
-private:                                                                       \
-  static type s_##name;                                                        \
-                                                                               \
-public:                                                                        \
-  inline static const type &get_##name() { return s_##name; }
+#define CONFIG(type, name, def, desc)                   \
+ private:                                               \
+  static type s_##name;                                 \
+                                                        \
+ public:                                                \
+  inline static const type &name() { return s_##name; } \
+  inline static void set_##name(const type &v) { s_##name = v; }
 
 #define CONFIG_CONSTRAINT(x, y)
 #define CONFIG_KEY(x)
@@ -61,7 +62,7 @@ public:                                                                        \
 #undef CONFIG_KEY
 #undef CONFIG_SECTION
 };
-} // namespace base
-} // namespace s3
+}  // namespace base
+}  // namespace s3
 
 #endif

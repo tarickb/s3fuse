@@ -11,14 +11,14 @@ namespace crypto {
 namespace tests {
 
 namespace {
-struct known_answer {
+struct KnownAnswer {
   const char *key;
   const char *iv;
-  const char *plaintext;
-  const char *ciphertext;
+  const char *plain_text;
+  const char *cipher_text;
 };
 
-const known_answer TESTS[] = {
+const KnownAnswer TESTS[] = {
     // tests from http://csrc.nist.gov/groups/STM/cavp/
 
     // CBCVarKey128
@@ -8298,38 +8298,37 @@ const known_answer TESTS[] = {
      "99d4b19bcb215d1bfdb36eda2c24"}};
 
 const int TEST_COUNT = sizeof(TESTS) / sizeof(TESTS[0]);
-} // namespace
+}  // namespace
 
-TEST(aes_cbc_256, known_answers) {
+TEST(AesCbc256, KnownAnswers) {
   for (int i = 0; i < TEST_COUNT; i++) {
-    const known_answer *kat = TESTS + i;
-    symmetric_key::ptr cs;
+    const KnownAnswer *kat = TESTS + i;
     std::vector<uint8_t> in_buf, out_buf;
     std::string in_enc, out_enc;
     std::string pretty_kat;
 
     pretty_kat = std::string("key: ") + kat->key + ", " + "iv: " + kat->iv +
-                 ", " + "plain text: " + kat->plaintext + ", " +
-                 "cipher text: " + kat->ciphertext;
+                 ", " + "plain text: " + kat->plain_text + ", " +
+                 "cipher text: " + kat->cipher_text;
 
-    cs = symmetric_key::from_string(std::string(kat->key) + ":" + kat->iv);
+    const auto cs =
+        SymmetricKey::FromString(std::string(kat->key) + ":" + kat->iv);
 
-    encoder::decode<hex>(kat->plaintext, &in_buf);
-    cipher::encrypt<aes_cbc_256_no_padding>(cs, &in_buf[0], in_buf.size(),
-                                            &out_buf);
-    out_enc = encoder::encode<hex>(out_buf);
+    in_buf = Encoder::Decode<Hex>(kat->plain_text);
+    out_buf =
+        Cipher::Encrypt<AesCbc256NoPadding>(cs, &in_buf[0], in_buf.size());
+    out_enc = Encoder::Encode<Hex>(out_buf);
 
-    EXPECT_EQ(std::string(kat->ciphertext), out_enc) << pretty_kat;
+    EXPECT_EQ(std::string(kat->cipher_text), out_enc) << pretty_kat;
 
-    in_buf.clear();
-    cipher::decrypt<aes_cbc_256_no_padding>(cs, &out_buf[0], out_buf.size(),
-                                            &in_buf);
-    in_enc = encoder::encode<hex>(in_buf);
+    in_buf =
+        Cipher::Decrypt<AesCbc256NoPadding>(cs, &out_buf[0], out_buf.size());
+    in_enc = Encoder::Encode<Hex>(in_buf);
 
-    EXPECT_EQ(std::string(kat->plaintext), in_enc) << pretty_kat;
+    EXPECT_EQ(std::string(kat->plain_text), in_enc) << pretty_kat;
   }
 }
 
-} // namespace tests
-} // namespace crypto
-} // namespace s3
+}  // namespace tests
+}  // namespace crypto
+}  // namespace s3

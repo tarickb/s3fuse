@@ -1,68 +1,75 @@
-#include <functional>
-#include <iostream>
-#include <vector>
+#include <gtest/gtest.h>
 
 #include "fs/callback_xattr.h"
 
-std::string s_val;
+namespace s3 {
+namespace fs {
+namespace tests {
 
-void test(const s3::fs::xattr::ptr &p) {
-  std::vector<char> buf;
-  int len;
-
-  len = p->get_value(NULL, 0);
-
-  if (len < 0) {
-    std::cout << "error: " << len << std::endl;
-    return;
-  }
-
-  buf.resize(len + 1);
-
-  if (p->get_value(&buf[0], len) != len) {
-    std::cout << "error in get_value()" << std::endl;
-    return;
-  }
-
-  buf[len] = '\0';
-
-  std::cout << p->get_key() << ": " << (p->is_writable() ? "(writable) " : "")
-            << (p->is_serializable() ? "(serializable) " : "")
-            << (p->is_visible() ? "(visible) " : "")
-            << (p->is_removable() ? "(removable) " : "") << &buf[0]
-            << std::endl;
+TEST(CallbackXAttr, GetAndSet) {
+  std::string val = "default";
+  auto xattr = CallbackXAttr::Create("test_key",
+                                     [&val](std::string *s) {
+                                       *s = val;
+                                       return 0;
+                                     },
+                                     [&val](std::string s) {
+                                       val = s;
+                                       return 0;
+                                     },
+                                     XAttr::XM_DEFAULT);
+  ASSERT_TRUE(xattr);
+  EXPECT_EQ(xattr->key(), "test_key");
+  char buf[256];
+  ASSERT_EQ(xattr->GetValue(buf, 256), val.size());
+  EXPECT_EQ(std::string(buf), "default");
+  std::string new_val = "new_val";
+  ASSERT_EQ(xattr->SetValue(new_val.c_str(), new_val.size()), 0);
+  EXPECT_EQ(val, new_val);
 }
 
-int get(std::string *val) {
-  std::cout << "get" << std::endl;
-  *val = s_val;
-
-  return 0;
+TEST(CallbackXAttr, Errors) {
+  auto xattr = CallbackXAttr::Create(
+      "test_key", [](std::string *s) { return -EIO; },
+      [](std::string s) { return -EEXIST; }, XAttr::XM_DEFAULT);
+  ASSERT_TRUE(xattr);
+  EXPECT_EQ(xattr->key(), "test_key");
+  EXPECT_EQ(xattr->GetValue(nullptr, 0), -EIO);
+  EXPECT_EQ(xattr->SetValue(nullptr, 0), -EEXIST);
 }
 
-int set(const std::string &val) {
-  std::cout << "set: value: " << val << std::endl;
-  s_val = val;
-
-  return 0;
+TEST(CallbackXAttr, GetReturnsLength) {
+  std::string val = "xyz";
+  auto xattr =
+      CallbackXAttr::Create("test_key",
+                            [val](std::string *s) {
+                              *s = val;
+                              return 0;
+                            },
+                            [](std::string s) { return 0; }, XAttr::XM_DEFAULT);
+  ASSERT_TRUE(xattr);
+  EXPECT_EQ(xattr->key(), "test_key");
+  EXPECT_EQ(xattr->GetValue(nullptr, 0), val.size());
+  char buf[2] = {0, 0};
+  EXPECT_EQ(xattr->GetValue(buf, 2), -ERANGE);
+  EXPECT_EQ(buf[0], val[0]);
+  EXPECT_EQ(buf[1], val[1]);
 }
 
-int main(int argc, char **argv) {
-  const std::string TEST = "test";
-  s3::fs::xattr::ptr p;
-
-  p = s3::fs::callback_xattr::create(
-      "cb_test_key", std::bind(get, std::placeholders::_1),
-      std::bind(set, std::placeholders::_1), s3::fs::xattr::XM_VISIBLE);
-
-  std::cout << "test 1" << std::endl;
-  test(p);
-
-  std::cout << "setting..." << std::endl;
-  p->set_value(TEST.c_str(), TEST.size());
-
-  std::cout << "test 2" << std::endl;
-  test(p);
-
-  return 0;
+TEST(CallbackXAttr, Serialization) {
+  auto xattr =
+      CallbackXAttr::Create("test_key",
+                            [](std::string *s) {
+                              *s = "abc";
+                              return 0;
+                            },
+                            [](std::string s) { return 0; }, XAttr::XM_DEFAULT);
+  ASSERT_TRUE(xattr);
+  EXPECT_THROW(xattr->ToString(), std::runtime_error);
+  std::string k, v;
+  EXPECT_THROW(xattr->ToHeader(&k, &v), std::runtime_error);
 }
+
+}  // namespace tests
+}  // namespace fs
+}  // namespace s3

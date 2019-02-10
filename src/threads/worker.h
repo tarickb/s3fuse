@@ -22,40 +22,28 @@
 #ifndef S3_THREADS_WORKER_H
 #define S3_THREADS_WORKER_H
 
-#include <functional>
 #include <memory>
 #include <thread>
 
 namespace s3 {
 namespace threads {
-class work_item_queue;
+class WorkItemQueue;
 
-class worker {
-public:
-  typedef std::shared_ptr<worker> ptr;
+class Worker {
+ public:
+  static std::unique_ptr<Worker> Create(WorkItemQueue *queue);
 
-  static ptr create(const std::shared_ptr<work_item_queue> &queue) {
-    ptr wt(new worker(queue));
+  ~Worker();
 
-    // passing "wt", a shared_ptr, for "this" keeps the object alive so long as
-    // worker() hasn't returned
-    wt->_thread.reset(new std::thread(std::bind(&worker::work, wt)));
+ private:
+  Worker(WorkItemQueue *queue);
 
-    return wt;
-  }
+  void Work();
 
-  inline bool check_timeout() const { return false; }
-
-private:
-  inline worker(const std::shared_ptr<work_item_queue> &queue)
-      : _queue(queue) {}
-
-  void work();
-
-  std::shared_ptr<std::thread> _thread;
-  std::shared_ptr<work_item_queue> _queue;
+  WorkItemQueue *queue_ = nullptr;
+  std::thread thread_;
 };
-} // namespace threads
-} // namespace s3
+}  // namespace threads
+}  // namespace s3
 
 #endif

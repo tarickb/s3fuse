@@ -23,151 +23,116 @@
 #ifndef S3_BASE_LRU_CACHE_MAP_H
 #define S3_BASE_LRU_CACHE_MAP_H
 
+#include <functional>
 #include <map>
 
 namespace s3 {
 namespace base {
-template <class T> inline bool default_removable_test(const T &t) {
+template <class T>
+inline bool DefaultRemovableTest(const T &t) {
   return true;
 }
 
-template <class key_type, class value_type,
-          bool (*is_removable_fn)(const value_type &v) =
-              default_removable_test<value_type>>
-class lru_cache_map {
-public:
-  typedef std::function<void(const key_type &, const value_type &)>
-      itor_callback_fn;
+template <class KeyType, class ValueType,
+          bool (*IsRemovableCallback)(const ValueType &v) =
+              DefaultRemovableTest<ValueType>>
+class LruCacheMap {
+ public:
+  using IteratorCallback =
+      std::function<void(const KeyType &, const ValueType &)>;
 
-  inline lru_cache_map(size_t max_size)
-      : _max_size(max_size), _newest(NULL), _oldest(NULL) {}
+  inline LruCacheMap(size_t max_size) : max_size_(max_size) {}
 
-  inline value_type &operator[](const key_type &key) {
-    entry *e = &_map[key];
-
+  inline ValueType &operator[](const KeyType &key) {
+    Entry *e = &map_[key];
     if (e->valid) {
-      unlink(e);
+      Unlink(e);
     } else {
       e->key = key;
       e->valid = true;
-
-      if (_map.size() > _max_size) {
-        entry *to_remove = get_removable();
-
-        if (to_remove)
-          erase(to_remove->key);
+      if (map_.size() > max_size_) {
+        Entry *to_remove = GetRemovable();
+        if (to_remove) Erase(to_remove->key);
       }
     }
-
-    make_newest(e);
-
+    MakeNewest(e);
     return e->value;
   }
 
-  inline void erase(const key_type &key) {
-    typename map::iterator itor = _map.find(key);
-    entry *e = NULL;
-
-    if (itor == _map.end())
-      return;
-
-    e = &itor->second;
-
-    unlink(e);
-    _map.erase(itor);
+  inline void Erase(const KeyType &key) {
+    auto iter = map_.find(key);
+    if (iter == map_.end()) return;
+    Entry *e = &iter->second;
+    Unlink(e);
+    map_.erase(iter);
   }
 
-  inline void for_each_newest(const itor_callback_fn &cb) const {
-    entry *e = _newest;
-
+  inline void ForEachNewest(const IteratorCallback &cb) const {
+    Entry *e = newest_;
     while (e) {
       cb(e->key, e->value);
-
       e = e->older;
     }
   }
 
-  inline void for_each_oldest(const itor_callback_fn &cb) const {
-    entry *e = _oldest;
-
+  inline void ForEachOldest(const IteratorCallback &cb) const {
+    Entry *e = oldest_;
     while (e) {
       cb(e->key, e->value);
-
       e = e->newer;
     }
   }
 
-  inline size_t get_size() { return _map.size(); }
+  inline size_t size() { return map_.size(); }
 
-  inline bool find(const key_type &key, value_type *t) {
-    typename map::iterator itor = _map.find(key);
-
-    if (itor == _map.end())
-      return false;
-
-    *t = itor->second.value;
-
+  inline bool Find(const KeyType &key, ValueType *t) {
+    auto iter = map_.find(key);
+    if (iter == map_.end()) return false;
+    if (t) *t = iter->second.value;
     return true;
   }
 
-private:
-  struct entry {
-    key_type key;
-    value_type value;
-    entry *older, *newer;
-    bool valid;
-
-    entry() : older(NULL), newer(NULL), valid(false) {}
+ private:
+  struct Entry {
+    KeyType key;
+    ValueType value;
+    Entry *older = nullptr;
+    Entry *newer = nullptr;
+    bool valid = false;
   };
 
-  typedef std::map<key_type, entry> map;
+  using Map = std::map<KeyType, Entry>;
 
-  inline void unlink(entry *e) {
-    if (e == _oldest)
-      _oldest = e->newer;
-
-    if (e == _newest)
-      _newest = e->older;
-
-    if (e->older)
-      e->older->newer = e->newer;
-
-    if (e->newer)
-      e->newer->older = e->older;
-
-    e->newer = e->older = NULL;
+  inline void Unlink(Entry *e) {
+    if (e == oldest_) oldest_ = e->newer;
+    if (e == newest_) newest_ = e->older;
+    if (e->older) e->older->newer = e->newer;
+    if (e->newer) e->newer->older = e->older;
+    e->newer = e->older = nullptr;
   }
 
-  inline void make_newest(entry *e) {
-    e->older = _newest;
-
-    if (_newest)
-      _newest->newer = e;
-
-    _newest = e;
-
-    if (!_oldest)
-      _oldest = e;
+  inline void MakeNewest(Entry *e) {
+    e->older = newest_;
+    if (newest_) newest_->newer = e;
+    newest_ = e;
+    if (!oldest_) oldest_ = e;
   }
 
-  inline entry *get_removable() {
-    entry *e = _oldest;
-
+  inline Entry *GetRemovable() {
+    Entry *e = oldest_;
     while (e) {
-      if (is_removable_fn(e->value))
-        break;
-
+      if (IsRemovableCallback(e->value)) break;
       e = e->newer;
     }
-
     return e;
   }
 
-  map _map;
-  size_t _max_size;
-  entry *_newest, *_oldest;
+  Map map_;
+  const size_t max_size_;
+  Entry *newest_ = nullptr;
+  Entry *oldest_ = nullptr;
 };
-} // namespace base
-} // namespace s3
+}  // namespace base
+}  // namespace s3
 
 #endif

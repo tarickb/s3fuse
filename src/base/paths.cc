@@ -19,19 +19,19 @@
  * limitations under the License.
  */
 
-#include <stdlib.h>
-
 #include "base/paths.h"
+
+#include <stdlib.h>
 
 namespace s3 {
 namespace base {
 
-std::string paths::transform(const std::string &path) {
+std::string Paths::Transform(const std::string &path) {
   if (!path.empty() && path[0] == '~')
     return std::string(getenv("HOME")) + (path.c_str() + 1);
   else
     return path;
 }
 
-} // namespace base
-} // namespace s3
+}  // namespace base
+}  // namespace s3

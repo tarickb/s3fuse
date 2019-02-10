@@ -21,88 +21,73 @@
 
 #include <getopt.h>
 
+#include <algorithm>
 #include <cstring>
 #include <fstream>
 #include <iostream>
 
 #include "base/config.h"
+#include "base/paths.h"
+#include "base/logger.h"
+#include "base/request.h"
+#include "base/xml.h"
 #include "crypto/buffer.h"
 #include "crypto/passwords.h"
 #include "crypto/private_file.h"
 #include "fs/bucket_volume_key.h"
 #include "fs/encryption.h"
-#include "init.h"
-#include "services/aws/impl.h"
-#include "services/gs/impl.h"
 #include "services/service.h"
 
+namespace s3 {
 namespace {
-typedef std::vector<std::string> string_vector;
-
 const char *SHORT_OPTIONS = ":c:i:o:";
 
-const option LONG_OPTIONS[] = {{"config-file", required_argument, NULL, 'c'},
-                               {"in-key", required_argument, NULL, 'i'},
-                               {"out-key", required_argument, NULL, 'o'},
-                               {NULL, 0, NULL, '\0'}};
+const option LONG_OPTIONS[] = {{"config-file", required_argument, nullptr, 'c'},
+                               {"in-key", required_argument, nullptr, 'i'},
+                               {"out-key", required_argument, nullptr, 'o'},
+                               {nullptr, 0, nullptr, '\0'}};
 
-s3::base::request::ptr s_request;
-
-const s3::base::request::ptr &get_request() {
-  if (!s_request) {
-    s_request.reset(new s3::base::request());
-
-    s_request->set_hook(s3::services::service::get_request_hook());
-  }
-
-  return s_request;
-}
-} // namespace
-
-void init(const std::string &config_file) {
-  s3::init::base(s3::init::IB_NONE, LOG_ERR, config_file);
-  s3::init::services();
+base::Request *GetRequest() {
+  static auto s_request = base::RequestFactory::New();
+  return s_request.get();
 }
 
-std::string to_lower(std::string in) {
-  std::string out(in);
-
-  for (std::string::iterator itor = out.begin(); itor != out.end(); ++itor)
-    *itor = tolower(*itor);
-
-  return out;
+void Init(const std::string &config_file) {
+  base::Logger::Init(LOG_ERR);
+  base::Config::Init(config_file);
+  base::XmlDocument::Init();
+  services::Service::Init();
 }
 
-void confirm_key_delete(const std::string &key_id) {
-  std::string line;
+void ToLower(std::string *in) {
+  std::transform(in->begin(), in->end(), in->begin(), [](char c) { return tolower(c); });
+}
 
+void ConfirmKeyDelete(const std::string &key_id) {
   std::cout << "You are going to delete volume encryption key [" << key_id
             << "] "
                "for bucket ["
-            << s3::base::config::get_bucket_name()
+            << base::Config::bucket_name()
             << "]. Are you sure?\n"
                "Enter \"yes\": ";
-
+  std::string line;
   std::getline(std::cin, line);
-
-  if (to_lower(line) != "yes")
+  ToLower(&line);
+  if (line != "yes")
     throw std::runtime_error("aborted");
 }
 
-void confirm_last_key_delete() {
-  std::string line;
-
+void ConfirmLastKeyDelete() {
   std::cout << "You are going to delete the last remaining volume encryption "
                "key for bucket:\n"
                "  "
-            << s3::base::config::get_bucket_name()
+            << base::Config::bucket_name()
             << "\n"
                "\n"
                "To confirm, enter the name of the bucket (case sensitive): ";
-
+  std::string line;
   std::getline(std::cin, line);
-
-  if (line != s3::base::config::get_bucket_name())
+  if (line != base::Config::bucket_name())
     throw std::runtime_error("aborted");
 
   std::cout
@@ -117,229 +102,165 @@ void confirm_last_key_delete() {
          "\n"
          "Do you understand that existing encrypted files will be lost "
          "forever? Type \"yes\": ";
-
   std::getline(std::cin, line);
-  line = to_lower(line);
-
+  ToLower(&line);
   if (line != "yes")
     throw std::runtime_error("aborted");
 
   std::cout << "Do you understand that this operation cannot be undone? Type "
                "\"yes\": ";
-
   std::getline(std::cin, line);
-  line = to_lower(line);
-
+  ToLower(&line);
   if (line != "yes")
     throw std::runtime_error("aborted");
 }
 
-s3::crypto::buffer::ptr prompt_for_current_password(const std::string &key_id) {
-  std::string current_password;
-
-  current_password = s3::crypto::passwords::read_from_stdin(
+crypto::Buffer PromptForCurrentPassword(const std::string &key_id) {
+  std::string current_password = crypto::Passwords::ReadFromStdin(
       std::string("Enter current password for [") + key_id + "]: ");
-
   if (current_password.empty())
     throw std::runtime_error("current password not specified");
-
-  return s3::fs::encryption::derive_key_from_password(current_password);
+  return fs::Encryption::DeriveKeyFromPassword(current_password);
 }
 
-s3::crypto::buffer::ptr prompt_for_new_password(const std::string &key_id) {
-  std::string new_password, confirm;
-
-  new_password = s3::crypto::passwords::read_from_stdin(
+crypto::Buffer PromptForNewPassword(const std::string &key_id) {
+  std::string new_password = crypto::Passwords::ReadFromStdin(
       std::string("Enter new password for [") + key_id + "]: ");
-
   if (new_password.empty())
     throw std::runtime_error("password cannot be empty");
-
-  confirm = s3::crypto::passwords::read_from_stdin(
+  std::string confirm = crypto::Passwords::ReadFromStdin(
       std::string("Confirm new password for [") + key_id + "]: ");
-
   if (confirm != new_password)
     throw std::runtime_error("passwords do not match");
-
-  return s3::fs::encryption::derive_key_from_password(new_password);
+  return fs::Encryption::DeriveKeyFromPassword(new_password);
 }
 
-s3::crypto::buffer::ptr read_key_from_file(const std::string &file) {
-  std::ifstream f;
-  std::string line;
-
+crypto::Buffer ReadKeyFromFile(const std::string &file) {
   std::cout << "Reading key from [" << file << "]..." << std::endl;
-  s3::crypto::private_file::open(file, &f);
+  std::ifstream f;
+  crypto::PrivateFile::Open(base::Paths::Transform(file), &f);
+
+  std::string line;
   std::getline(f, line);
 
-  return s3::crypto::buffer::from_string(line);
+  return crypto::Buffer::FromHexString(line);
 }
 
-s3::crypto::buffer::ptr generate_and_write(const std::string &file) {
-  std::ofstream f;
-  s3::crypto::buffer::ptr key;
-
-  key = s3::crypto::buffer::generate(
-      s3::fs::bucket_volume_key::key_cipher::DEFAULT_KEY_LEN);
-
+crypto::Buffer GenerateAndWrite(const std::string &file) {
+  auto key = crypto::Buffer::Generate(
+      fs::BucketVolumeKey::KeyCipherType::DEFAULT_KEY_LEN);
   std::cout << "Writing key to [" << file << "]..." << std::endl;
-  s3::crypto::private_file::open(file, &f);
-
-  f << key->to_string() << std::endl;
-
+  std::ofstream f;
+  crypto::PrivateFile::Open(base::Paths::Transform(file), &f);
+  f << key.ToHexString() << std::endl;
   return key;
 }
 
-void list_keys(const std::string &config_file) {
-  string_vector keys;
-
-  init(config_file);
-
-  s3::fs::bucket_volume_key::get_keys(get_request(), &keys);
-
+void ListKeys(const std::string &config_file) {
+  Init(config_file);
+  auto keys = fs::BucketVolumeKey::GetKeys(GetRequest());
   if (keys.empty()) {
     std::cout << "No keys found for bucket ["
-              << s3::base::config::get_bucket_name() << "]." << std::endl;
+              << base::Config::bucket_name() << "]." << std::endl;
     return;
   }
-
-  std::cout << "Keys for bucket [" << s3::base::config::get_bucket_name()
+  std::cout << "Keys for bucket [" << base::Config::bucket_name()
             << "]:" << std::endl;
-
-  for (string_vector::const_iterator itor = keys.begin(); itor != keys.end();
-       ++itor)
-    std::cout << "  " << *itor << std::endl;
+  for (const auto &key : keys)
+    std::cout << "  " << key << std::endl;
 }
 
-void generate_new_key(const std::string &config_file, const std::string &key_id,
+void GenerateNewKey(const std::string &config_file, const std::string &key_id,
                       const std::string &out_key_file) {
-  s3::crypto::buffer::ptr password_key;
-  string_vector keys;
-  s3::fs::bucket_volume_key::ptr volume_key;
-
-  init(config_file);
-
-  s3::fs::bucket_volume_key::get_keys(get_request(), &keys);
-
+  Init(config_file);
+  auto keys = fs::BucketVolumeKey::GetKeys(GetRequest());
   if (!keys.empty())
     throw std::runtime_error(
         "bucket already contains one or more keys. clone an existing key.");
-
   std::cout << "This bucket does not currently have an encryption key. We'll "
                "create one.\n"
                "\n";
-
+  auto password_key = crypto::Buffer::Empty();
   if (out_key_file.empty())
-    password_key = prompt_for_new_password(key_id);
+    password_key = PromptForNewPassword(key_id);
   else
-    password_key = generate_and_write(out_key_file);
-
+    password_key = GenerateAndWrite(out_key_file);
   std::cout << "Generating volume key [" << key_id << "] for bucket ["
-            << s3::base::config::get_bucket_name() << "]..." << std::endl;
-
-  volume_key = s3::fs::bucket_volume_key::generate(get_request(), key_id);
-  volume_key->commit(get_request(), password_key);
-
+            << base::Config::bucket_name() << "]..." << std::endl;
+  auto volume_key = fs::BucketVolumeKey::Generate(GetRequest(), key_id);
+  volume_key->Commit(GetRequest(), password_key);
   std::cout << "Done." << std::endl;
 }
 
-void clone_key(const std::string &config_file, const std::string &key_id,
+void CloneKey(const std::string &config_file, const std::string &key_id,
                const std::string &in_key_file, const std::string &new_id,
                const std::string &out_key_file) {
-  s3::crypto::buffer::ptr current_key, new_key;
-  s3::fs::bucket_volume_key::ptr volume_key, new_volume_key;
-
-  init(config_file);
-
-  volume_key = s3::fs::bucket_volume_key::fetch(get_request(), key_id);
-  new_volume_key = s3::fs::bucket_volume_key::fetch(get_request(), new_id);
-
+  Init(config_file);
+  auto volume_key = fs::BucketVolumeKey::Fetch(GetRequest(), key_id);
+  auto new_volume_key = fs::BucketVolumeKey::Fetch(GetRequest(), new_id);
   if (!volume_key)
     throw std::runtime_error("specified key does not exist.");
-
   if (new_volume_key)
     throw std::runtime_error(
         "a key already exists with that id. delete it first.");
-
+  auto current_key = crypto::Buffer::Empty();
   if (in_key_file.empty())
-    current_key = prompt_for_current_password(key_id);
+    current_key = PromptForCurrentPassword(key_id);
   else
-    current_key = read_key_from_file(in_key_file);
-
-  volume_key->unlock(current_key);
-  new_volume_key = volume_key->clone(new_id);
-
+    current_key = ReadKeyFromFile(in_key_file);
+  volume_key->Unlock(current_key);
+  new_volume_key = volume_key->Clone(new_id);
+  auto new_key = crypto::Buffer::Empty();
   if (out_key_file.empty())
-    new_key = prompt_for_new_password(new_id);
+    new_key = PromptForCurrentPassword(new_id);
   else
-    new_key = generate_and_write(out_key_file);
-
+    new_key = GenerateAndWrite(out_key_file);
   std::cout << "Cloning key..." << std::endl;
-  new_volume_key->commit(get_request(), new_key);
-
+  new_volume_key->Commit(GetRequest(), new_key);
   std::cout << "Done." << std::endl;
 }
 
-void reencrypt_key(const std::string &config_file, const std::string &key_id,
+void ReEncryptKey(const std::string &config_file, const std::string &key_id,
                    const std::string &in_key_file,
                    const std::string &out_key_file) {
-  s3::crypto::buffer::ptr current_key, new_key;
-  s3::fs::bucket_volume_key::ptr volume_key;
-
-  init(config_file);
-
-  volume_key = s3::fs::bucket_volume_key::fetch(get_request(), key_id);
-
+  Init(config_file);
+  auto volume_key = fs::BucketVolumeKey::Fetch(GetRequest(), key_id);
   if (!volume_key)
     throw std::runtime_error("specified key does not exist.");
-
+  auto current_key = crypto::Buffer::Empty();
   if (in_key_file.empty())
-    current_key = prompt_for_current_password(key_id);
+    current_key = PromptForCurrentPassword(key_id);
   else
-    current_key = read_key_from_file(in_key_file);
-
-  volume_key->unlock(current_key);
-
+    current_key = ReadKeyFromFile(in_key_file);
+  volume_key->Unlock(current_key);
+  auto new_key = crypto::Buffer::Empty();
   if (out_key_file.empty())
-    new_key = prompt_for_new_password(key_id);
+    new_key = PromptForCurrentPassword(key_id);
   else
-    new_key = generate_and_write(out_key_file);
-
+    new_key = GenerateAndWrite(out_key_file);
   std::cout << "Changing key..." << std::endl;
-  volume_key->commit(get_request(), new_key);
-
+  volume_key->Commit(GetRequest(), new_key);
   std::cout << "Done." << std::endl;
 }
 
-void delete_key(const std::string &config_file, const std::string &key_id) {
-  s3::fs::bucket_volume_key::ptr volume_key;
-  string_vector keys;
-
-  init(config_file);
-
-  volume_key = s3::fs::bucket_volume_key::fetch(get_request(), key_id);
-
+void DeleteKey(const std::string &config_file, const std::string &key_id) {
+  Init(config_file);
+  auto volume_key = fs::BucketVolumeKey::Fetch(GetRequest(), key_id);
   if (!volume_key)
     throw std::runtime_error("specified volume key does not exist");
-
-  s3::fs::bucket_volume_key::get_keys(get_request(), &keys);
-
+  auto keys = fs::BucketVolumeKey::GetKeys(GetRequest());
   if (keys.size() == 1)
-    confirm_last_key_delete();
+    ConfirmLastKeyDelete();
   else
-    confirm_key_delete(key_id);
-
+    ConfirmKeyDelete(key_id);
   std::cout << "Deleting key..." << std::endl;
-  volume_key->remove(get_request());
-
+  volume_key->Remove(GetRequest());
   std::cout << "Done." << std::endl;
 }
 
-void print_usage(const char *arg0) {
+void PrintUsage(const char *arg0) {
   const char *base_name = std::strrchr(arg0, '/');
-
   base_name = base_name ? base_name + 1 : arg0;
-
   std::cerr << "Usage: " << base_name
             << " [options] <command> [...]\n"
                "\n"
@@ -373,16 +294,15 @@ void print_usage(const char *arg0) {
                "See "
             << base_name << "(1) for examples and a more detailed explanation."
             << std::endl;
-
   exit(1);
+}
+} // namespace
 }
 
 int main(int argc, char **argv) {
-  int opt = 0, ret = 0;
+  int opt = 0;
   std::string config_file, in_key_file, out_key_file;
-  std::string command, key_id, new_id;
-
-  while ((opt = getopt_long(argc, argv, SHORT_OPTIONS, LONG_OPTIONS, NULL)) !=
+  while ((opt = getopt_long(argc, argv, s3::SHORT_OPTIONS, s3::LONG_OPTIONS, nullptr)) !=
          -1) {
     switch (opt) {
     case 'c':
@@ -398,7 +318,7 @@ int main(int argc, char **argv) {
       break;
 
     default:
-      print_usage(argv[0]);
+      s3::PrintUsage(argv[0]);
     }
   }
 
@@ -409,22 +329,24 @@ int main(int argc, char **argv) {
     }                                                                          \
   } while (0)
 
+  std::string command, key_id, new_id;
   GET_NEXT_ARG(command);
   GET_NEXT_ARG(key_id);
   GET_NEXT_ARG(new_id);
 
+  int ret = 0;
   try {
     if (command == "list") {
-      list_keys(config_file);
+      s3::ListKeys(config_file);
 
     } else if (command == "generate") {
       if (!in_key_file.empty())
-        print_usage(argv[0]);
+        s3::PrintUsage(argv[0]);
 
       if (key_id.empty())
         throw std::runtime_error("need key id to generate a new key.");
 
-      generate_new_key(config_file, key_id, out_key_file);
+      s3::GenerateNewKey(config_file, key_id, out_key_file);
 
     } else if (command == "clone") {
       if (key_id.empty())
@@ -433,35 +355,31 @@ int main(int argc, char **argv) {
       if (new_id.empty())
         throw std::runtime_error("need new key id.");
 
-      clone_key(config_file, key_id, in_key_file, new_id, out_key_file);
+      s3::CloneKey(config_file, key_id, in_key_file, new_id, out_key_file);
 
     } else if (command == "change") {
       if (key_id.empty())
         throw std::runtime_error("need key id.");
 
-      reencrypt_key(config_file, key_id, in_key_file, out_key_file);
+      s3::ReEncryptKey(config_file, key_id, in_key_file, out_key_file);
 
     } else if (command == "delete") {
       if (!in_key_file.empty() || !out_key_file.empty())
-        print_usage(argv[0]);
+        s3::PrintUsage(argv[0]);
 
       if (key_id.empty())
         throw std::runtime_error("specify which key id to delete.");
 
-      delete_key(config_file, key_id);
+      s3::DeleteKey(config_file, key_id);
 
     } else {
-      print_usage(argv[0]);
+      s3::PrintUsage(argv[0]);
     }
 
   } catch (const std::exception &e) {
     std::cout << "Caught exception: " << e.what() << std::endl;
     ret = 1;
   }
-
-  // do this here because request's dtor has dependencies on other static
-  // variables
-  s_request.reset();
 
   return ret;
 }

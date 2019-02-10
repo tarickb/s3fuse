@@ -33,67 +33,58 @@
 
 namespace s3 {
 namespace crypto {
-class symmetric_key;
+class SymmetricKey;
 
-class cipher {
-public:
-  template <class cipher_type>
-  inline static void encrypt(const std::shared_ptr<symmetric_key> &key,
-                             const uint8_t *input, size_t size,
-                             std::vector<uint8_t> *output) {
-    cipher_type::encrypt(key, input, size, output);
+class Cipher {
+ public:
+  template <class CipherType>
+  inline static std::vector<uint8_t> Encrypt(const SymmetricKey &key,
+                                             const uint8_t *input,
+                                             size_t size) {
+    return CipherType::Encrypt(key, input, size);
   }
 
-  template <class cipher_type, class encoder_type>
-  inline static std::string encrypt(const std::shared_ptr<symmetric_key> &key,
+  template <class CipherType, class EncoderType>
+  inline static std::string Encrypt(const SymmetricKey &key,
                                     const uint8_t *input, size_t size) {
-    std::vector<uint8_t> output;
-
-    cipher_type::encrypt(key, input, size, &output);
-
-    return encoder::encode<encoder_type>(output);
+    return Encoder::Encode<EncoderType>(CipherType::Encrypt(key, input, size));
   }
 
-  template <class cipher_type, class encoder_type>
-  inline static std::string encrypt(const std::shared_ptr<symmetric_key> &key,
+  template <class CipherType, class EncoderType>
+  inline static std::string Encrypt(const SymmetricKey &key,
                                     const std::string &input) {
-    return encrypt<cipher_type, encoder_type>(
+    return Encrypt<CipherType, EncoderType>(
         key, reinterpret_cast<const uint8_t *>(input.c_str()),
         input.size() + 1);
   }
 
-  template <class cipher_type>
-  inline static void decrypt(const std::shared_ptr<symmetric_key> &key,
-                             const uint8_t *input, size_t size,
-                             std::vector<uint8_t> *output) {
-    cipher_type::decrypt(key, input, size, output);
+  template <class CipherType>
+  inline static std::vector<uint8_t> Decrypt(const SymmetricKey &key,
+                                             const uint8_t *input,
+                                             size_t size) {
+    return CipherType::Decrypt(key, input, size);
   }
 
-  template <class cipher_type>
-  inline static std::string decrypt(const std::shared_ptr<symmetric_key> &key,
-                                    const uint8_t *input, size_t size) {
-    std::vector<uint8_t> output;
-
-    cipher_type::decrypt(key, input, size, &output);
-
-    if (output[output.size() - 1] != '\0')
+  template <class CipherType>
+  inline static std::string DecryptAsString(const SymmetricKey &key,
+                                            const uint8_t *input, size_t size) {
+    const auto output = CipherType::Decrypt(key, input, size);
+    if (output.empty())
+      throw std::runtime_error("decrypt resulted in an empty string.");
+    if (output.back() != '\0')
       throw std::runtime_error(
           "cannot decrypt to string if last byte is non-null");
-
-    return std::string(reinterpret_cast<char *>(&output[0]));
+    return std::string(reinterpret_cast<const char *>(&output[0]));
   }
 
-  template <class cipher_type, class encoder_type>
-  inline static std::string decrypt(const std::shared_ptr<symmetric_key> &key,
-                                    const std::string &input_) {
-    std::vector<uint8_t> input;
-
-    encoder::decode<encoder_type>(input_, &input);
-
-    return decrypt<cipher_type>(key, &input[0], input.size());
+  template <class CipherType, class EncoderType>
+  inline static std::string DecryptAsString(const SymmetricKey &key,
+                                            const std::string &input) {
+    auto decoded = Encoder::Decode<EncoderType>(input);
+    return DecryptAsString<CipherType>(key, &decoded[0], decoded.size());
   }
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

@@ -25,23 +25,24 @@
 #include <memory>
 #include <string>
 
+#include "crypto/buffer.h"
+
 namespace s3 {
 namespace crypto {
 class buffer;
 
-class pbkdf2_sha1 {
-public:
-  template <class cipher_type>
-  inline static std::shared_ptr<buffer>
-  derive(const std::string &password, const std::string &salt, int rounds) {
-    return derive(password, salt, rounds, cipher_type::DEFAULT_KEY_LEN);
+class Pbkdf2Sha1 {
+ public:
+  template <class CipherType>
+  inline static Buffer Derive(const std::string &password,
+                              const std::string &salt, int rounds) {
+    return Derive(password, salt, rounds, CipherType::DEFAULT_KEY_LEN);
   }
 
-  static std::shared_ptr<buffer> derive(const std::string &password,
-                                        const std::string &salt, int rounds,
-                                        size_t key_len);
+  static Buffer Derive(const std::string &password, const std::string &salt,
+                       int rounds, size_t key_len);
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

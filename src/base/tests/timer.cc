@@ -6,32 +6,28 @@ namespace s3 {
 namespace base {
 namespace tests {
 
-TEST(timer, sleep) {
-  double start, stop, diff;
+TEST(Timer, Sleep) {
+  double start = Timer::GetCurrentTime();
+  Timer::Sleep(1);
+  double stop = Timer::GetCurrentTime();
 
-  start = timer::get_current_time();
-  timer::sleep(1);
-  stop = timer::get_current_time();
-
-  diff = stop - start;
+  double diff = stop - start;
 
   EXPECT_GT(diff, 0.9);
   EXPECT_LT(diff, 1.1);
 }
 
-TEST(timer, current_time_et) {
-  double start, stop, diff;
-
-  start = timer::get_current_time();
+TEST(Timer, CurrentTimeEt) {
+  double start = Timer::GetCurrentTime();
   sleep(1);
-  stop = timer::get_current_time();
+  double stop = Timer::GetCurrentTime();
 
-  diff = stop - start;
+  double diff = stop - start;
 
   EXPECT_GT(diff, 0.9);
   EXPECT_LT(diff, 1.1);
 }
 
-} // namespace tests
-} // namespace base
-} // namespace s3
+}  // namespace tests
+}  // namespace base
+}  // namespace s3

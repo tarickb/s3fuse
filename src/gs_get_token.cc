@@ -27,32 +27,31 @@
 #include "services/gs/impl.h"
 
 int main(int argc, char **argv) {
-  std::string code, access_token, refresh_token;
-  time_t expiry;
-
   if (argc != 2) {
     const char *arg0 = std::strrchr(argv[0], '/');
-
     std::cerr << "Usage: " << (arg0 ? arg0 + 1 : argv[0]) << "<token-file-name>"
               << std::endl;
     return 1;
   }
 
   try {
-    using s3::services::gs::impl;
+    using s3::services::gs::GetTokensMode;
+    using s3::services::gs::Impl;
+
+    const char *file_name = argv[1];
 
     // make sure we can write to the token file before we run the request.
-    impl::write_token(argv[1], "");
+    Impl::WriteToken(file_name, "");
 
     std::cout << "Paste this URL into your browser:" << std::endl;
-    std::cout << impl::get_new_token_url() << std::endl << std::endl;
+    std::cout << Impl::new_token_url() << std::endl << std::endl;
 
     std::cout << "Please enter the authorization code: ";
-    getline(std::cin, code);
+    std::string code;
+    std::getline(std::cin, code);
 
-    impl::get_tokens(impl::GT_AUTH_CODE, code, &access_token, &expiry,
-                     &refresh_token);
-    impl::write_token(argv[1], refresh_token);
+    auto tokens = Impl::GetTokens(GetTokensMode::AUTH_CODE, code);
+    Impl::WriteToken(file_name, tokens.refresh);
 
   } catch (const std::exception &e) {
     std::cerr << "Failed to get tokens: " << e.what() << std::endl;
@@ -60,6 +59,5 @@ int main(int argc, char **argv) {
   }
 
   std::cout << "Done!" << std::endl;
-
   return 0;
 }

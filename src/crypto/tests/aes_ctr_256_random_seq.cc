@@ -26,18 +26,17 @@ const int TEST_SIZES[] = {0,
 const int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
 
 const size_t CHUNK_SIZE = 8 * 1024;
-} // namespace
+}  // namespace
 
-TEST(aes_ctr_256, random_data_sequential) {
+TEST(AesCtr256, RandomDataSequential) {
   for (int test = 0; test < TEST_COUNT; test++) {
-    symmetric_key::ptr sk;
     std::vector<uint8_t> in, out_enc, out_dec;
     bool diff = false;
     size_t size = TEST_SIZES[test];
 
-    sk = symmetric_key::generate<aes_ctr_256>();
+    const auto sk = SymmetricKey::Generate<AesCtr256>();
 
-    random::read(size, &in);
+    in = Random::Read(size);
 
     ASSERT_EQ(size, in.size()) << "with size = " << size;
 
@@ -48,14 +47,14 @@ TEST(aes_ctr_256, random_data_sequential) {
       size_t remaining = size - pos;
       size_t this_chunk = (remaining > CHUNK_SIZE) ? CHUNK_SIZE : remaining;
 
-      aes_ctr_256::encrypt(sk, &in[pos], this_chunk, &out_enc[pos]);
+      AesCtr256::Encrypt(sk, &in[pos], this_chunk, &out_enc[pos]);
     }
 
     for (size_t pos = 0; pos < size; pos += CHUNK_SIZE) {
       size_t remaining = size - pos;
       size_t this_chunk = (remaining > CHUNK_SIZE) ? CHUNK_SIZE : remaining;
 
-      aes_ctr_256::decrypt(sk, &out_enc[pos], this_chunk, &out_dec[pos]);
+      AesCtr256::Decrypt(sk, &out_enc[pos], this_chunk, &out_dec[pos]);
     }
 
     for (size_t i = 0; i < in.size(); i++) {
@@ -69,6 +68,6 @@ TEST(aes_ctr_256, random_data_sequential) {
   }
 }
 
-} // namespace tests
-} // namespace crypto
-} // namespace s3
+}  // namespace tests
+}  // namespace crypto
+}  // namespace s3

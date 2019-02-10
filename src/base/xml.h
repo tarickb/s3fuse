@@ -30,44 +30,35 @@
 
 namespace s3 {
 namespace base {
-class xml {
-private:
-  class document;
+class XmlDocument {
+ public:
+  static constexpr char MAP_NAME_KEY[] = "__element_name__";
 
-public:
-  static const char *MAP_NAME_KEY;
+  static void Init();
+  static std::unique_ptr<XmlDocument> Parse(std::string data);
 
-  typedef std::shared_ptr<document> document_ptr;
-  typedef std::list<std::string> element_list;
-  typedef std::map<std::string, std::string> element_map;
-  typedef std::list<element_map> element_map_list;
-
-  static void init();
-
-  static document_ptr parse(const std::string &data);
-
-  static int find(const document_ptr &doc, const char *xpath,
-                  std::string *element);
-  static int find(const document_ptr &doc, const char *xpath,
-                  element_list *elements);
-  static int find(const document_ptr &doc, const char *xpath,
-                  element_map_list *elements);
-
-  static bool match(const std::string &data, const char *xpath);
-
-  inline static bool match(const std::vector<char> &in, const char *xpath) {
-    return match(&in[0], in.size(), xpath);
-  }
-
-  inline static bool match(const char *in, size_t len, const char *xpath) {
+  inline static std::unique_ptr<XmlDocument> Parse(const char *in, size_t len) {
     std::string s;
-
     s.assign(in, len);
-
-    return match(s, xpath);
+    return Parse(s);
   }
+
+  inline static std::unique_ptr<XmlDocument> Parse(
+      const std::vector<char> &in) {
+    return Parse(&in[0], in.size());
+  }
+
+  virtual ~XmlDocument() = default;
+
+  virtual int Find(const std::string &xpath, std::string *element) = 0;
+  virtual int Find(const std::string &xpath,
+                   std::list<std::string> *elements) = 0;
+  virtual int Find(const std::string &xpath,
+                   std::list<std::map<std::string, std::string>> *list) = 0;
+
+  virtual bool Match(const std::string &xpath) = 0;
 };
-} // namespace base
-} // namespace s3
+}  // namespace base
+}  // namespace s3
 
 #endif

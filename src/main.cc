@@ -25,49 +25,98 @@
 
 #include "base/config.h"
 #include "base/logger.h"
+#include "base/request.h"
 #include "base/statistics.h"
-#include "init.h"
+#include "base/xml.h"
+#include "crypto/buffer.h"
+#include "fs/cache.h"
+#include "fs/encryption.h"
+#include "fs/file.h"
+#include "fs/list_reader.h"
+#include "fs/mime_types.h"
+#include "fs/object.h"
 #include "operations.h"
+#include "services/service.h"
 #include "threads/pool.h"
 
 namespace {
-const int DEFAULT_VERBOSITY = LOG_WARNING;
-const char *APP_DESCRIPTION = "FUSE driver for cloud object storage services";
-
-#ifdef __APPLE__
-const std::string OSX_MOUNTPOINT_PREFIX = "/volumes/" PACKAGE_NAME "_";
-#endif
-
-struct options {
-  const char *base_name;
+struct Options {
+  const char *base_name = nullptr;
   std::string config;
   std::string mountpoint;
-  int verbosity;
+  int verbosity = LOG_WARNING;
 
 #ifdef __APPLE__
   std::string volname;
 
-  bool noappledouble_set;
-  bool daemon_timeout_set;
-  bool volname_set;
+  bool noappledouble_set = false;
+  bool daemon_timeout_set = false;
+  bool volname_set = false;
 #endif
 
-  options(const char *arg0) {
-    verbosity = DEFAULT_VERBOSITY;
-
+  Options(const char *arg0) {
     base_name = std::strrchr(arg0, '/');
     base_name = base_name ? base_name + 1 : arg0;
-
-#ifdef __APPLE__
-    noappledouble_set = false;
-    daemon_timeout_set = false;
-    volname_set = false;
-#endif
   }
 };
-} // namespace
 
-int print_usage(const char *base_name) {
+void TestBucketAccess() {
+  const int BUCKET_TEST_MAX_RETRIES = 3;
+  const int BUCKET_TEST_ID_LEN = 16;
+
+  auto req = s3::base::RequestFactory::New();
+  s3::fs::ListReader reader("/", false, 1);
+
+  std::list<std::string> keys;
+  int r = reader.Read(req.get(), &keys, nullptr);
+  if (r)
+    throw std::runtime_error(
+        "unable to list bocket contents. check bucket name and credentials.");
+
+  int retry_count = 0;
+  while (retry_count++ < BUCKET_TEST_MAX_RETRIES) {
+    const auto rand_url = s3::fs::Object::BuildInternalUrl(
+        std::string("bucket_test_") +
+        s3::crypto::Buffer::Generate(BUCKET_TEST_ID_LEN).ToHexString());
+
+    req->Init(s3::base::HttpMethod::HEAD);
+    req->SetUrl(rand_url);
+    req->Run();
+
+    if (req->response_code() != s3::base::HTTP_SC_NOT_FOUND) {
+      S3_LOG(LOG_DEBUG, "::TestBucketAccess",
+             "test key exists. that's unusual.\n");
+      continue;
+    }
+
+    req->Init(s3::base::HttpMethod::PUT);
+    req->SetUrl(rand_url);
+    req->SetInputBuffer("this is a test.");
+    req->Run();
+
+    if (req->response_code() != s3::base::HTTP_SC_OK) {
+      S3_LOG(LOG_WARNING, "::TestBucketAccess",
+             "cannot commit test object to bucket. access to this bucket is "
+             "likely read-only. continuing anyway, but check permissions if "
+             "this is unexpected.\n");
+    } else {
+      req->Init(s3::base::HttpMethod::DELETE);
+      req->SetUrl(rand_url);
+      req->Run();
+
+      if (req->response_code() != s3::base::HTTP_SC_NO_CONTENT)
+        S3_LOG(LOG_WARNING, "::TestBucketAccess",
+               "unable to clean up test object. might be missing permission to "
+               "delete objects. continuing anyway.\n");
+    }
+
+    return;
+  }
+
+  throw std::runtime_error("unable to complete bucket access test.");
+}
+
+int PrintUsage(const char *base_name) {
   std::cerr
       << "Usage: " << base_name
       << " [options] <mountpoint>\n"
@@ -92,31 +141,28 @@ int print_usage(const char *base_name) {
          "  -vN, --verbose=N     set verbosity to N\n"
          "  -V, --version        print version and exit\n"
       << std::endl;
-
   return 0;
 }
 
-int print_version() {
-  std::cout << PACKAGE_NAME << ", " << PACKAGE_VERSION_WITH_REV << ", "
-            << APP_DESCRIPTION << std::endl;
-  std::cout << "enabled services: " << s3::init::get_enabled_services()
-            << std::endl;
-
+int PrintVersion() {
+  std::cout << PACKAGE_NAME << ", " << PACKAGE_VERSION_WITH_REV << ", " <<
+    "FUSE driver for cloud object storage services" << std::endl;
+  std::cout << "enabled services: " << s3::services::Service::GetEnabledServices() << std::endl;
   return 0;
 }
 
-int process_argument(void *data, const char *c_arg, int key,
+int ProcessArgument(void *data, const char *c_arg, int key,
                      struct fuse_args *out_args) {
-  options *opts = static_cast<options *>(data);
+  auto *opts = static_cast<Options *>(data);
   const std::string arg = c_arg;
 
   if (arg == "-V" || arg == "--version") {
-    print_version();
+    PrintVersion();
     exit(0);
   }
 
   if (arg == "-h" || arg == "--help") {
-    print_usage(opts->base_name);
+    PrintUsage(opts->base_name);
     exit(1);
   }
 
@@ -164,105 +210,107 @@ int process_argument(void *data, const char *c_arg, int key,
   return 1;
 }
 
-void *init(fuse_conn_info *info) {
+void *Init(fuse_conn_info *info) {
   if (info->capable & FUSE_CAP_ATOMIC_O_TRUNC) {
     info->want |= FUSE_CAP_ATOMIC_O_TRUNC;
-    S3_LOG(LOG_DEBUG, "operations::init", "enabling FUSE_CAP_ATOMIC_O_TRUNC\n");
+    S3_LOG(LOG_DEBUG, "::Init", "enabling FUSE_CAP_ATOMIC_O_TRUNC\n");
   } else {
-    S3_LOG(LOG_WARNING, "operations::init",
+    S3_LOG(LOG_WARNING, "::Init",
            "FUSE_CAP_ATOMIC_O_TRUNC not supported, will revert to "
            "truncate-then-open\n");
   }
 
   // this has to be here, rather than in main(), because the threads created
   // won't survive the fork in fuse_main().
-  s3::init::threads();
+  s3::threads::Pool::Init();
 
-  return NULL;
+  return nullptr;
 }
 
-void add_missing_options(options *opts, fuse_args *args) {
+void AddMissingOptions(Options *opts, fuse_args *args) {
 #ifdef __APPLE__
   opts->volname = "-ovolname=" PACKAGE_NAME " volume (" +
                   s3::base::config::get_bucket_name() + ")";
-
   if (!opts->daemon_timeout_set)
     fuse_opt_add_arg(args, "-odaemon_timeout=3600");
-
   if (!opts->noappledouble_set)
     fuse_opt_add_arg(args, "-onoappledouble");
-
   if (!opts->volname_set)
     fuse_opt_add_arg(args, opts->volname.c_str());
 #endif
 }
+} // namespace
 
 int main(int argc, char **argv) {
-  int r;
-  options opts(argv[0]);
-  fuse_operations opers;
+  Options opts(argv[0]);
   fuse_args args = FUSE_ARGS_INIT(argc, argv);
-
-  fuse_opt_parse(&args, &opts, NULL, process_argument);
+  fuse_opt_parse(&args, &opts, nullptr, ProcessArgument);
 
   if (opts.mountpoint.empty()) {
 #if defined(__APPLE__) && defined(OSX_BUNDLE)
     if (argc == 1) {
-      opts.mountpoint =
-          OSX_MOUNTPOINT_PREFIX + s3::base::config::get_bucket_name();
-
+      opts.mountpoint = std::string("/volumes/" PACKAGE_NAME "_") + s3::base::Config::bucket_name();
       mkdir(opts.mountpoint.c_str(), 0777);
-
       fuse_opt_add_arg(&args, opts.mountpoint.c_str());
     } else {
-      print_usage(opts.base_name);
+      PrintUsage(opts.base_name);
       return 1;
     }
 #else
-    print_usage(opts.base_name);
+    PrintUsage(opts.base_name);
     return 1;
 #endif
   }
 
+  fuse_operations opers;
+
   try {
-    s3::init::base(s3::init::IB_WITH_STATS, opts.verbosity, opts.config);
-    s3::init::services();
-    s3::init::fs();
+    s3::base::Logger::Init(opts.verbosity);
+    s3::base::Config::Init(opts.config);
+    s3::base::XmlDocument::Init();
 
-    s3::operations::init(opts.mountpoint);
-    s3::operations::build_fuse_operations(&opers);
+    if (!s3::base::Config::stats_file().empty())
+      s3::base::Statistics::Init(s3::base::Config::stats_file());
 
-    if (opers.init != NULL)
+    s3::services::Service::Init();
+
+    s3::fs::File::TestTransferChunkSizes();
+
+    s3::fs::Cache::Init();
+    s3::fs::Encryption::Init();
+    s3::fs::MimeTypes::Init();
+
+    TestBucketAccess();
+
+    s3::Operations::Init(opts.mountpoint);
+    s3::Operations::BuildFuseOperations(&opers);
+    if (opers.init != nullptr)
       throw std::runtime_error(
           "operations struct defined init when it shouldn't have.");
-
     // not an actual FS operation
-    opers.init = init;
+    opers.init = Init;
 
-    add_missing_options(&opts, &args);
+    AddMissingOptions(&opts, &args);
 
-    S3_LOG(LOG_INFO, "main", "%s version %s, initialized\n", PACKAGE_NAME,
+    S3_LOG(LOG_INFO, "::main", "%s version %s, initialized\n", PACKAGE_NAME,
            PACKAGE_VERSION_WITH_REV);
 
   } catch (const std::exception &e) {
-    S3_LOG(LOG_ERR, "main", "caught exception while initializing: %s\n",
+    S3_LOG(LOG_ERR, "::main", "caught exception while initializing: %s\n",
            e.what());
     return 1;
   }
 
-  r = fuse_main(args.argc, args.argv, &opers, NULL);
+  int r = fuse_main(args.argc, args.argv, &opers, nullptr);
 
   fuse_opt_free_args(&args);
-
   try {
-    s3::threads::pool::terminate();
-
+    s3::threads::Pool::Terminate();
     // these won't do anything if statistics::init() wasn't called
-    s3::base::statistics::collect();
-    s3::base::statistics::flush();
-
+    s3::base::Statistics::Collect();
+    s3::base::Statistics::Flush();
   } catch (const std::exception &e) {
-    S3_LOG(LOG_ERR, "main", "caught exception while cleaning up: %s\n",
+    S3_LOG(LOG_ERR, "::main", "caught exception while cleaning up: %s\n",
            e.what());
   }
 

@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#include "services/gs/impl.h"
+
 #include <atomic>
 #include <memory>
 #include <mutex>
@@ -30,9 +32,9 @@
 #include "base/logger.h"
 #include "base/request.h"
 #include "base/statistics.h"
+#include "base/url.h"
 #include "crypto/private_file.h"
 #include "services/gs/file_transfer.h"
-#include "services/gs/impl.h"
 
 namespace s3 {
 namespace services {
@@ -63,7 +65,7 @@ const std::string NEW_TOKEN_URL =
 
 std::atomic_int s_refresh_on_fail(0), s_refresh_on_expiry(0);
 
-void statistics_writer(std::ostream *o) {
+void StatsWriter(std::ostream *o) {
   *o << "google storage service:\n"
         "  token refreshes due to request failure: "
      << s_refresh_on_fail
@@ -72,49 +74,46 @@ void statistics_writer(std::ostream *o) {
      << s_refresh_on_expiry << "\n";
 }
 
-base::statistics::writers::entry s_entry(statistics_writer, 0);
-} // namespace
+base::Statistics::Writers::Entry s_entry(StatsWriter, 0);
+}  // namespace
 
-const std::string &impl::get_new_token_url() { return NEW_TOKEN_URL; }
+std::string Impl::new_token_url() { return NEW_TOKEN_URL; }
 
-void impl::get_tokens(get_tokens_mode mode, const std::string &key,
-                      std::string *access_token, time_t *expiry,
-                      std::string *refresh_token) {
-  base::request req;
-  std::string data;
-  std::stringstream ss;
-  Json::Value tree;
+Impl::Tokens Impl::GetTokens(GetTokensMode mode, const std::string &key) {
+  std::string data = "client_id=" + CLIENT_ID +
+                     "&"
+                     "client_secret=" +
+                     CLIENT_SECRET + "&";
 
-  data = "client_id=" + CLIENT_ID +
-         "&"
-         "client_secret=" +
-         CLIENT_SECRET + "&";
-
-  if (mode == GT_AUTH_CODE)
+  if (mode == GetTokensMode::AUTH_CODE)
     data += "code=" + key +
             "&"
             "redirect_uri=urn:ietf:wg:oauth:2.0:oob&"
             "grant_type=authorization_code";
-  else if (mode == GT_REFRESH)
+  else if (mode == GetTokensMode::REFRESH)
     data += "refresh_token=" + key +
             "&"
             "grant_type=refresh_token";
   else
-    throw std::runtime_error("unrecognized get_tokens mode.");
+    throw std::runtime_error("unrecognized GetTokensMode.");
 
-  req.init(base::HTTP_POST);
-  req.set_url(EP_TOKEN);
-  req.set_input_buffer(data);
+  auto req = base::RequestFactory::NewNoHook();
+  req->Init(base::HttpMethod::POST);
+  req->SetUrl(EP_TOKEN);
+  req->SetInputBuffer(data);
 
-  req.run();
+  req->Run();
 
-  if (req.get_response_code() != base::HTTP_SC_OK) {
-    S3_LOG(LOG_ERR, "impl::get_tokens", "token endpoint returned %i.\n",
-           req.get_response_code());
+  if (req->response_code() != base::HTTP_SC_OK) {
+    S3_LOG(LOG_ERR, "Impl::GetTokens", "token endpoint returned %i.\n",
+           req->response_code());
     throw std::runtime_error("failed to get tokens.");
   }
 
-  ss << req.get_output_string();
+  std::stringstream ss;
+  ss << req->GetOutputAsString();
+
+  Json::Value tree;
   ss >> tree;
 
   if (!tree.isMember("access_token") || !tree.isMember("expires_in") ||
@@ -122,96 +121,90 @@ void impl::get_tokens(get_tokens_mode mode, const std::string &key,
     throw std::runtime_error("failed to parse response.");
   }
 
-  *access_token = tree["access_token"].asString();
-  *expiry = time(NULL) + tree["expires_in"].asInt();
-
-  if (mode == GT_AUTH_CODE)
-    *refresh_token = tree["refresh_token"].asString();
+  Tokens tokens;
+  tokens.access = "OAuth " + tree["access_token"].asString();
+  tokens.expiry = time(nullptr) + tree["expires_in"].asInt();
+  tokens.refresh = (mode == GetTokensMode::AUTH_CODE)
+                       ? tree["refresh_token"].asString()
+                       : key;
+  return tokens;
 }
 
-std::string impl::read_token(const std::string &file) {
+std::string Impl::ReadToken(const std::string &file) {
   std::ifstream f;
-  std::string token;
+  crypto::PrivateFile::Open(base::Paths::Transform(file), &f);
 
-  crypto::private_file::open(file, &f);
-  getline(f, token);
+  std::string token;
+  std::getline(f, token);
 
   return token;
 }
 
-void impl::write_token(const std::string &file, const std::string &token) {
+void Impl::WriteToken(const std::string &file, const std::string &token) {
   std::ofstream f;
-
-  crypto::private_file::open(file, &f, crypto::private_file::OM_OVERWRITE);
+  crypto::PrivateFile::Open(base::Paths::Transform(file), &f,
+                            crypto::PrivateFile::OpenMode::OVERWRITE);
   f << token << std::endl;
 }
 
-impl::impl() : _expiry(0) {
-  std::lock_guard<std::mutex> lock(_mutex);
+Impl::Impl() {
+  bucket_url_ =
+      std::string("/") + base::Url::Encode(base::Config::bucket_name());
 
-  _bucket_url = std::string("/") +
-                base::request::url_encode(base::config::get_bucket_name());
-
-  _refresh_token = impl::read_token(base::config::get_gs_token_file());
-  refresh(lock);
+  tokens_.refresh = Impl::ReadToken(base::Config::gs_token_file());
+  Refresh();
 }
 
-const std::string &impl::get_header_prefix() { return HEADER_PREFIX; }
+std::string Impl::header_prefix() const { return HEADER_PREFIX; }
 
-const std::string &impl::get_header_meta_prefix() { return HEADER_META_PREFIX; }
+std::string Impl::header_meta_prefix() const { return HEADER_META_PREFIX; }
 
-const std::string &impl::get_bucket_url() { return _bucket_url; }
+std::string Impl::bucket_url() const { return bucket_url_; }
 
-bool impl::is_next_marker_supported() { return true; }
+bool Impl::is_next_marker_supported() const { return true; }
 
-void impl::sign(base::request *req, int iter) {
-  std::lock_guard<std::mutex> lock(_mutex);
+void Impl::Sign(base::Request *req, int iter) {
+  std::lock_guard<std::mutex> lock(mutex_);
 
   if (iter > 0) {
     ++s_refresh_on_fail;
-    S3_LOG(LOG_DEBUG, "impl::sign", "last request failed. refreshing token.\n");
-    refresh(lock);
-  } else if (time(NULL) >= _expiry) {
+    S3_LOG(LOG_DEBUG, "Impl::Sign", "last request failed. refreshing token.\n");
+    Refresh();
+  } else if (time(nullptr) >= tokens_.expiry) {
     ++s_refresh_on_expiry;
-    S3_LOG(LOG_DEBUG, "impl::sign", "token expired. refreshing.\n");
-    refresh(lock);
+    S3_LOG(LOG_DEBUG, "Impl::Sign", "token expired. refreshing.\n");
+    Refresh();
   }
 
-  req->set_header("Authorization", _access_token);
-  req->set_header("x-goog-api-version", "2");
+  req->SetHeader("Authorization", tokens_.access);
+  req->SetHeader("x-goog-api-version", "2");
 
-  if (!base::config::get_gs_project_id().empty())
-    req->set_header("x-goog-project-id", base::config::get_gs_project_id());
+  if (!base::Config::gs_project_id().empty())
+    req->SetHeader("x-goog-project-id", base::Config::gs_project_id());
 }
 
-void impl::refresh(const std::lock_guard<std::mutex> &lock) {
-  impl::get_tokens(GT_REFRESH, _refresh_token, &_access_token, &_expiry, NULL);
-
-  S3_LOG(LOG_DEBUG, "impl::refresh",
+void Impl::Refresh() {
+  tokens_ = Impl::GetTokens(GetTokensMode::REFRESH, tokens_.refresh);
+  S3_LOG(LOG_DEBUG, "Impl::Refresh",
          "using refresh token [%s], got access token [%s].\n",
-         _refresh_token.c_str(), _access_token.c_str());
-
-  _access_token = "OAuth " + _access_token;
+         tokens_.refresh.c_str(), tokens_.access.c_str());
 }
 
-std::string impl::adjust_url(const std::string &url) {
-  return URL_PREFIX + url;
+std::unique_ptr<services::FileTransfer> Impl::BuildFileTransfer() {
+  return std::unique_ptr<FileTransfer>(new gs::FileTransfer());
 }
 
-void impl::pre_run(base::request *r, int iter) { sign(r, iter); }
+std::string Impl::AdjustUrl(const std::string &url) { return URL_PREFIX + url; }
 
-bool impl::should_retry(base::request *r, int iter) {
-  if (services::impl::should_retry(r, iter))
-    return true;
+void Impl::PreRun(base::Request *r, int iter) { Sign(r, iter); }
+
+bool Impl::ShouldRetry(base::Request *r, int iter) {
+  if (GenericShouldRetry(r, iter)) return true;
 
   // retry only on first unauthorized response
-  return (r->get_response_code() == base::HTTP_SC_UNAUTHORIZED && iter == 0);
+  return (r->response_code() == base::HTTP_SC_UNAUTHORIZED && iter == 0);
 }
 
-std::shared_ptr<services::file_transfer> impl::build_file_transfer() {
-  return std::shared_ptr<file_transfer>(new gs::file_transfer());
-}
-
-} // namespace gs
-} // namespace services
-} // namespace s3
+}  // namespace gs
+}  // namespace services
+}  // namespace s3

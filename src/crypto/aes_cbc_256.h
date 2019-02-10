@@ -32,62 +32,54 @@
 
 namespace s3 {
 namespace crypto {
-class cipher;
-class symmetric_key;
+class Cipher;
+class SymmetricKey;
 
-class aes_cbc_256 {
-public:
-  enum { BLOCK_LEN = AES_BLOCK_SIZE };
+class AesCbc256 {
+ public:
+  static constexpr int BLOCK_LEN = AES_BLOCK_SIZE;
 
-  enum { IV_LEN = BLOCK_LEN };
-  enum { DEFAULT_KEY_LEN = 32 }; // 256 bits
+  static constexpr int IV_LEN = BLOCK_LEN;
+  static constexpr int DEFAULT_KEY_LEN = 32;  // 256 bits
 
-protected:
-  enum crypt_mode {
-    M_ENCRYPT = 0x1,
-    M_DECRYPT = 0x2,
+ protected:
+  enum class Mode { ENCRYPT, DECRYPT };
 
-    M_NO_PAD = 0x1000
-  };
-
-  static void crypt(int mode, const std::shared_ptr<symmetric_key> &key,
-                    const uint8_t *in, size_t size, std::vector<uint8_t> *out);
+  static std::vector<uint8_t> Crypt(Mode mode, bool pad,
+                                    const SymmetricKey &key, const uint8_t *in,
+                                    size_t size);
 };
 
-class aes_cbc_256_with_pkcs : public aes_cbc_256 {
-private:
-  friend class cipher; // for encrypt() and decrypt()
+class AesCbc256WithPkcs : public AesCbc256 {
+ private:
+  friend class Cipher;  // for Encrypt() and Decrypt()
 
-  inline static void encrypt(const std::shared_ptr<symmetric_key> &key,
-                             const uint8_t *in, size_t size,
-                             std::vector<uint8_t> *out) {
-    crypt(M_ENCRYPT, key, in, size, out);
+  inline static std::vector<uint8_t> Encrypt(const SymmetricKey &key,
+                                             const uint8_t *in, size_t size) {
+    return Crypt(Mode::ENCRYPT, true, key, in, size);
   }
 
-  inline static void decrypt(const std::shared_ptr<symmetric_key> &key,
-                             const uint8_t *in, size_t size,
-                             std::vector<uint8_t> *out) {
-    crypt(M_DECRYPT, key, in, size, out);
+  inline static std::vector<uint8_t> Decrypt(const SymmetricKey &key,
+                                             const uint8_t *in, size_t size) {
+    return Crypt(Mode::DECRYPT, true, key, in, size);
   }
 };
 
-class aes_cbc_256_no_padding : public aes_cbc_256 {
-private:
-  friend class cipher; // for encrypt() and decrypt()
+class AesCbc256NoPadding : public AesCbc256 {
+ private:
+  friend class Cipher;  // for Encrypt() and Decrypt()
 
-  inline static void encrypt(const std::shared_ptr<symmetric_key> &key,
-                             const uint8_t *in, size_t size,
-                             std::vector<uint8_t> *out) {
-    crypt(M_ENCRYPT | M_NO_PAD, key, in, size, out);
+  inline static std::vector<uint8_t> Encrypt(const SymmetricKey &key,
+                                             const uint8_t *in, size_t size) {
+    return Crypt(Mode::ENCRYPT, false, key, in, size);
   }
 
-  inline static void decrypt(const std::shared_ptr<symmetric_key> &key,
-                             const uint8_t *in, size_t size,
-                             std::vector<uint8_t> *out) {
-    crypt(M_DECRYPT | M_NO_PAD, key, in, size, out);
+  inline static std::vector<uint8_t> Decrypt(const SymmetricKey &key,
+                                             const uint8_t *in, size_t size) {
+    return Crypt(Mode::DECRYPT, false, key, in, size);
   }
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

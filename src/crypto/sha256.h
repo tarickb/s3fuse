@@ -27,18 +27,18 @@
 
 namespace s3 {
 namespace crypto {
-class hash;
+class Hash;
 
-class sha256 {
-public:
-  enum { HASH_LEN = 256 / 8 };
+class Sha256 {
+ public:
+  static constexpr int HASH_LEN = 256 / 8;
 
-private:
-  friend class hash;
+ private:
+  friend class Hash;
 
-  static void compute(const uint8_t *data, size_t size, uint8_t *hash);
+  static void Compute(const uint8_t *data, size_t size, uint8_t *hash);
 };
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3
 
 #endif

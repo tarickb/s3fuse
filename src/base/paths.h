@@ -26,11 +26,11 @@
 
 namespace s3 {
 namespace base {
-class paths {
-public:
-  static std::string transform(const std::string &path);
+class Paths {
+ public:
+  static std::string Transform(const std::string &path);
 };
-} // namespace base
-} // namespace s3
+}  // namespace base
+}  // namespace s3
 
 #endif

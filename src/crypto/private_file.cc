@@ -19,24 +19,22 @@
  * limitations under the License.
  */
 
+#include "crypto/private_file.h"
+
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include <stdexcept>
 
-#include "base/paths.h"
-#include "crypto/private_file.h"
-
 namespace s3 {
 namespace crypto {
 
-void private_file::open(const std::string &file_, std::ofstream *f,
-                        open_mode mode) {
-  std::string file = base::paths::transform(file_);
+void PrivateFile::Open(const std::string &file, std::ofstream *f,
+                       OpenMode mode) {
   std::ifstream test_open(file.c_str(), std::ios::in);
 
-  if (test_open.good() && mode != OM_OVERWRITE)
+  if (test_open.good() && mode != OpenMode::OVERWRITE)
     throw std::runtime_error("file already exists");
 
   f->open(file.c_str(), std::ios::out | std::ios::trunc);
@@ -48,14 +46,12 @@ void private_file::open(const std::string &file_, std::ofstream *f,
     throw std::runtime_error("failed to set permissions on private file.");
 }
 
-void private_file::open(const std::string &file_, std::ifstream *f) {
-  std::string file = base::paths::transform(file_);
+void PrivateFile::Open(const std::string &file, std::ifstream *f) {
   struct stat s;
 
   f->open(file.c_str(), std::ios::in);
 
-  if (!f->good())
-    throw std::runtime_error("unable to open private file.");
+  if (!f->good()) throw std::runtime_error("unable to open private file.");
 
   if (stat(file.c_str(), &s))
     throw std::runtime_error("unable to stat private file.");
@@ -65,5 +61,5 @@ void private_file::open(const std::string &file_, std::ifstream *f) {
         "private file must be readable/writeable only by owner.");
 }
 
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3

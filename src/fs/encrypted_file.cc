@@ -19,6 +19,8 @@
  * limitations under the License.
  */
 
+#include "fs/encrypted_file.h"
+
 #include <atomic>
 
 #include "base/logger.h"
@@ -29,7 +31,6 @@
 #include "crypto/cipher.h"
 #include "crypto/hex.h"
 #include "crypto/symmetric_key.h"
-#include "fs/encrypted_file.h"
 #include "fs/encryption.h"
 #include "fs/metadata.h"
 #include "services/service.h"
@@ -39,20 +40,18 @@ namespace fs {
 
 namespace {
 const std::string CONTENT_TYPE =
-    "binary/encrypted-s3fuse-file_0100"; // version 1.0
+    "binary/encrypted-s3fuse-file_0100";  // version 1.0
 const std::string META_VERIFIER = "s3fuse_enc_meta ";
 
 std::atomic_int s_non_empty_but_not_intact(0), s_no_iv_or_meta(0),
     s_init_errors(0), s_open_without_key(0);
 
-object *checker(const std::string &path, const base::request::ptr &req) {
-  if (req->get_response_header("Content-Type") != CONTENT_TYPE)
-    return NULL;
-
-  return new encrypted_file(path);
+Object *Checker(const std::string &path, base::Request *req) {
+  if (req->response_header("Content-Type") != CONTENT_TYPE) return nullptr;
+  return new EncryptedFile(path);
 }
 
-void statistics_writer(std::ostream *o) {
+void StatsWriter(std::ostream *o) {
   *o << "encrypted files:\n"
         "  non-empty file that isn't intact: "
      << s_non_empty_but_not_intact
@@ -67,23 +66,18 @@ void statistics_writer(std::ostream *o) {
      << s_open_without_key << "\n";
 }
 
-object::type_checker_list::entry s_checker_reg(checker, 100);
-base::statistics::writers::entry s_writer(statistics_writer, 0);
-} // namespace
+Object::TypeCheckers::Entry s_checker_reg(Checker, 100);
+base::Statistics::Writers::Entry s_writer(StatsWriter, 0);
+}  // namespace
 
-encrypted_file::encrypted_file(const std::string &path) : file(path) {
+EncryptedFile::EncryptedFile(const std::string &path) : File(path) {
   set_content_type(CONTENT_TYPE);
 }
 
-encrypted_file::~encrypted_file() {}
+void EncryptedFile::Init(base::Request *req) {
+  File::Init(req);
 
-void encrypted_file::init(const base::request::ptr &req) {
-  const std::string &meta_prefix = services::service::get_header_meta_prefix();
-  std::string meta;
-
-  file::init(req);
-
-  // there are two cases where we'll encounter an encrypted_file that isn't
+  // there are two cases where we'll encounter an encrypted file that isn't
   // intact, or has no IV and/or no metadata:
   //
   // 1. the file is new, has size zero, and has yet to get metadata or an IV.
@@ -97,155 +91,126 @@ void encrypted_file::init(const base::request::ptr &req) {
   // forcing the size to zero has no effect in case #1 because a new file
   // always has size == 0.
 
-  if (!is_intact()) {
-    if (get_stat()->st_size > 0) {
-      S3_LOG(LOG_DEBUG, "encrypted_file::init", "file [%s] is not intact\n",
-             get_path().c_str());
-
-      force_zero_size();
+  if (!intact()) {
+    if (stat()->st_size > 0) {
+      S3_LOG(LOG_DEBUG, "EncryptedFile::Init", "file [%s] is not intact\n",
+             path().c_str());
+      stat()->st_size = 0;
       ++s_non_empty_but_not_intact;
     }
-
     return;
   }
 
-  _enc_iv = req->get_response_header(meta_prefix + metadata::ENC_IV);
-  _enc_meta = req->get_response_header(meta_prefix + metadata::ENC_METADATA);
+  const std::string meta_prefix = services::Service::header_meta_prefix();
+  enc_iv_ = req->response_header(meta_prefix + Metadata::ENC_IV);
+  enc_meta_ = req->response_header(meta_prefix + Metadata::ENC_METADATA);
 
-  if (_enc_iv.empty() || _enc_meta.empty()) {
-    S3_LOG(LOG_DEBUG, "encrypted_file::init", "file [%s] has no IV/metadata\n",
-           get_path().c_str());
-
-    force_zero_size();
+  if (enc_iv_.empty() || enc_meta_.empty()) {
+    S3_LOG(LOG_DEBUG, "EncryptedFile::Init", "file [%s] has no IV/metadata\n",
+           path().c_str());
+    stat()->st_size = 0;
     ++s_no_iv_or_meta;
-
     return;
   }
 
   try {
-    size_t pos;
+    meta_key_ = crypto::SymmetricKey::Create(
+        Encryption::volume_key(), crypto::Buffer::FromHexString(enc_iv_));
 
-    _meta_key = crypto::symmetric_key::create(
-        encryption::get_volume_key(), crypto::buffer::from_string(_enc_iv));
-
+    std::string meta;
     try {
-      meta =
-          crypto::cipher::decrypt<crypto::aes_cbc_256_with_pkcs, crypto::hex>(
-              _meta_key, _enc_meta);
+      meta = crypto::Cipher::DecryptAsString<crypto::AesCbc256WithPkcs,
+                                             crypto::Hex>(meta_key_, enc_meta_);
     } catch (...) {
-      throw std::runtime_error("failed to decrypt file metadata. this probably "
-                               "means the volume key is invalid.");
+      throw std::runtime_error(
+          "failed to decrypt file metadata. this probably "
+          "means the volume key is invalid.");
     }
-
     if (meta.substr(0, META_VERIFIER.size()) != META_VERIFIER)
-      throw std::runtime_error("file metadata not valid. this probably means "
-                               "the volume key is invalid.");
-
+      throw std::runtime_error(
+          "file metadata not valid. this probably means "
+          "the volume key is invalid.");
     meta = meta.substr(META_VERIFIER.size());
-    pos = meta.find('#');
-
+    size_t pos = meta.find('#');
     if (pos == std::string::npos)
       throw std::runtime_error("malformed encrypted file metadata");
+    data_key_ = crypto::SymmetricKey::FromString(meta.substr(0, pos));
 
-    _data_key = crypto::symmetric_key::from_string(meta.substr(0, pos));
-
-    set_sha256_hash(meta.substr(pos + 1));
+    SetSha256Hash(meta.substr(pos + 1));
 
   } catch (const std::exception &e) {
     ++s_init_errors;
-
-    S3_LOG(LOG_WARNING, "encrypted_file::init",
-           "caught exception while initializing [%s]: %s\n", get_path().c_str(),
+    S3_LOG(LOG_WARNING, "EncryptedFile::init",
+           "caught exception while initializing [%s]: %s\n", path().c_str(),
            e.what());
-
-    _meta_key.reset();
-    _data_key.reset();
+    meta_key_ = crypto::SymmetricKey::Empty();
+    data_key_ = crypto::SymmetricKey::Empty();
   }
 
   // by not throwing an exception when something goes wrong here, we leave a
   // usable object that can be renamed/moved/etc. but that cannot be opened.
 }
 
-void encrypted_file::set_request_headers(const base::request::ptr &req) {
-  const std::string &meta_prefix = services::service::get_header_meta_prefix();
+void EncryptedFile::SetRequestHeaders(base::Request *req) {
+  File::SetRequestHeaders(req);
 
-  file::set_request_headers(req);
-
+  const std::string meta_prefix = services::Service::header_meta_prefix();
   // hide the real hash
-  req->set_header(meta_prefix + metadata::SHA256, "");
-
-  req->set_header(meta_prefix + metadata::ENC_IV, _enc_iv);
-  req->set_header(meta_prefix + metadata::ENC_METADATA, _enc_meta);
+  req->SetHeader(meta_prefix + Metadata::SHA256, "");
+  req->SetHeader(meta_prefix + Metadata::ENC_IV, enc_iv_);
+  req->SetHeader(meta_prefix + Metadata::ENC_METADATA, enc_meta_);
 }
 
-int encrypted_file::is_downloadable() {
-  if (!_data_key) {
+int EncryptedFile::IsDownloadable() {
+  if (!data_key_) {
     ++s_open_without_key;
-
-    S3_LOG(LOG_WARNING, "encrypted_file::is_downloadable",
-           "cannot open [%s] without key\n", get_path().c_str());
-
+    S3_LOG(LOG_WARNING, "EncryptedFile::is_downloadable",
+           "cannot open [%s] without key\n", path().c_str());
     return -EACCES;
   }
-
   return 0;
 }
 
-int encrypted_file::prepare_upload() {
-  _meta_key = crypto::symmetric_key::generate<crypto::aes_cbc_256_with_pkcs>(
-      encryption::get_volume_key());
-  _data_key = crypto::symmetric_key::generate<crypto::aes_ctr_256>();
+int EncryptedFile::ReadChunk(size_t size, off_t offset,
+                             std::vector<char> *buffer) {
+  std::vector<char> temp;
+  int r = File::ReadChunk(size, offset, &temp);
+  if (r) return r;
 
-  _enc_iv.clear();
-  _enc_meta.clear();
-
-  return file::prepare_upload();
-}
-
-int encrypted_file::finalize_upload(const std::string &returned_etag) {
-  int r;
-
-  r = file::finalize_upload(returned_etag);
-
-  if (r)
-    return r;
-
-  _enc_iv = _meta_key->get_iv()->to_string();
-  _enc_meta =
-      crypto::cipher::encrypt<crypto::aes_cbc_256_with_pkcs, crypto::hex>(
-          _meta_key,
-          META_VERIFIER + _data_key->to_string() + "#" + get_sha256_hash());
-
+  buffer->resize(temp.size());
+  crypto::AesCtr256::EncryptWithByteOffset(
+      data_key_, offset, reinterpret_cast<const uint8_t *>(&temp[0]),
+      temp.size(), reinterpret_cast<uint8_t *>(&(*buffer)[0]));
   return 0;
 }
 
-int encrypted_file::read_chunk(size_t size, off_t offset,
-                               const base::char_vector_ptr &buffer) {
-  base::char_vector_ptr temp(new base::char_vector());
-  int r;
-
-  r = file::read_chunk(size, offset, temp);
-
-  if (r)
-    return r;
-
-  buffer->resize(temp->size());
-
-  crypto::aes_ctr_256::encrypt_with_byte_offset(
-      _data_key, offset, reinterpret_cast<const uint8_t *>(&(*temp)[0]),
-      temp->size(), reinterpret_cast<uint8_t *>(&(*buffer)[0]));
-
-  return 0;
-}
-
-int encrypted_file::write_chunk(const char *buffer, size_t size, off_t offset) {
+int EncryptedFile::WriteChunk(const char *buffer, size_t size, off_t offset) {
   std::vector<char> temp(size);
-
-  crypto::aes_ctr_256::decrypt_with_byte_offset(
-      _data_key, offset, reinterpret_cast<const uint8_t *>(buffer), size,
+  crypto::AesCtr256::DecryptWithByteOffset(
+      data_key_, offset, reinterpret_cast<const uint8_t *>(buffer), size,
       reinterpret_cast<uint8_t *>(&temp[0]));
-
-  return file::write_chunk(&temp[0], size, offset);
+  return File::WriteChunk(&temp[0], size, offset);
 }
-} // namespace fs
-} // namespace s3
+
+int EncryptedFile::PrepareUpload() {
+  meta_key_ = crypto::SymmetricKey::Generate<crypto::AesCbc256WithPkcs>(
+      Encryption::volume_key());
+  data_key_ = crypto::SymmetricKey::Generate<crypto::AesCtr256>();
+
+  enc_iv_.clear();
+  enc_meta_.clear();
+
+  return File::PrepareUpload();
+}
+
+int EncryptedFile::FinalizeUpload(const std::string &returned_etag) {
+  int r = File::FinalizeUpload(returned_etag);
+  if (r) return r;
+  enc_iv_ = meta_key_.iv().ToHexString();
+  enc_meta_ = crypto::Cipher::Encrypt<crypto::AesCbc256WithPkcs, crypto::Hex>(
+      meta_key_, META_VERIFIER + data_key_.ToString() + "#" + sha256_hash());
+  return 0;
+}
+
+}  // namespace fs
+}  // namespace s3

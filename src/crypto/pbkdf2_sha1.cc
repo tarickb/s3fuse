@@ -19,31 +19,30 @@
  * limitations under the License.
  */
 
+#include "crypto/pbkdf2_sha1.h"
+
 #include <openssl/evp.h>
 
 #include <vector>
 
 #include "crypto/buffer.h"
-#include "crypto/pbkdf2_sha1.h"
 
 namespace s3 {
 namespace crypto {
 
-buffer::ptr pbkdf2_sha1::derive(const std::string &password,
-                                const std::string &salt, int rounds,
-                                size_t key_len) {
-  int r = 0;
+Buffer Pbkdf2Sha1::Derive(const std::string &password, const std::string &salt,
+                          int rounds, size_t key_len) {
   std::vector<uint8_t> key(key_len);
 
-  r = PKCS5_PBKDF2_HMAC_SHA1(password.c_str(), password.size(),
+  int r =
+      PKCS5_PBKDF2_HMAC_SHA1(password.c_str(), password.size(),
                              reinterpret_cast<const uint8_t *>(salt.c_str()),
                              salt.size(), rounds, key_len, &key[0]);
 
-  if (r != 1)
-    throw std::runtime_error("failed to derive key");
+  if (r != 1) throw std::runtime_error("failed to derive key");
 
-  return buffer::from_vector(key);
+  return Buffer::FromVector(key);
 }
 
-} // namespace crypto
-} // namespace s3
+}  // namespace crypto
+}  // namespace s3

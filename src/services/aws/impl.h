@@ -26,34 +26,33 @@
 
 namespace s3 {
 namespace services {
-class file_transfer;
+class FileTransfer;
 
 namespace aws {
-class impl : public services::impl {
-public:
-  impl();
+class Impl : public services::Impl {
+ public:
+  Impl();
 
-  virtual ~impl() {}
+  ~Impl() override = default;
 
-  virtual const std::string &get_header_prefix();
-  virtual const std::string &get_header_meta_prefix();
+  std::string header_prefix() const override;
+  std::string header_meta_prefix() const override;
+  std::string bucket_url() const override;
+  bool is_next_marker_supported() const override;
 
-  virtual const std::string &get_bucket_url();
+  std::unique_ptr<services::FileTransfer> BuildFileTransfer() override;
 
-  virtual bool is_next_marker_supported();
+  std::string AdjustUrl(const std::string &url) override;
+  void PreRun(base::Request *r, int iter) override;
+  bool ShouldRetry(base::Request *r, int iter) override;
 
-  virtual std::string adjust_url(const std::string &url);
-  virtual void pre_run(base::request *r, int iter);
+ private:
+  void Sign(base::Request *req);
 
-  virtual std::shared_ptr<services::file_transfer> build_file_transfer();
-
-private:
-  void sign(base::request *req);
-
-  std::string _key, _secret, _endpoint, _bucket_url;
+  std::string key_, secret_, endpoint_, bucket_url_;
 };
-} // namespace aws
-} // namespace services
-} // namespace s3
+}  // namespace aws
+}  // namespace services
+}  // namespace s3
 
 #endif

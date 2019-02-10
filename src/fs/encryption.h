@@ -25,22 +25,19 @@
 #include <memory>
 #include <string>
 
+#include "crypto/buffer.h"
+
 namespace s3 {
-namespace crypto {
-class buffer;
-}
-
 namespace fs {
-class encryption {
-public:
-  static void init();
+class Encryption {
+ public:
+  static void Init();
 
-  static std::shared_ptr<crypto::buffer> get_volume_key();
+  static const crypto::Buffer &volume_key();
 
-  static std::shared_ptr<crypto::buffer>
-  derive_key_from_password(const std::string &password);
+  static crypto::Buffer DeriveKeyFromPassword(const std::string &password);
 };
-} // namespace fs
-} // namespace s3
+}  // namespace fs
+}  // namespace s3
 
 #endif

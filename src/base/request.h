@@ -1,7 +1,7 @@
 /*
  * base/request.h
  * -------------------------------------------------------------------------
- * Mostly a wrapper around a libcurl handle.
+ * HTTP request.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
@@ -30,13 +30,11 @@
 #include <string>
 #include <vector>
 
-#include "base/curl_easy_handle.h"
-
 namespace s3 {
 namespace base {
-enum http_method { HTTP_DELETE, HTTP_GET, HTTP_HEAD, HTTP_POST, HTTP_PUT };
+enum class HttpMethod { DELETE, GET, HEAD, POST, PUT };
 
-enum http_status_code {
+enum HttpStatusCode {
   HTTP_SC_OK = 200,
   HTTP_SC_CREATED = 201,
   HTTP_SC_ACCEPTED = 202,
@@ -53,148 +51,124 @@ enum http_status_code {
   HTTP_SC_SERVICE_UNAVAILABLE = 503
 };
 
-typedef std::map<std::string, std::string> header_map;
-typedef std::vector<char> char_vector;
-typedef std::shared_ptr<char_vector> char_vector_ptr;
+class Request;
+class RequestHook;
+class Transport;
 
-class request_hook;
+class RequestFactory {
+ public:
+  static void SetHook(RequestHook *hook);
 
-class request {
-public:
-  static const int DEFAULT_REQUEST_TIMEOUT = -1;
-
-  typedef std::shared_ptr<request> ptr;
-
-  request(const request &) = delete;
-  request &operator=(const request &) = delete;
-
-  inline static std::string url_encode(const std::string &url) {
-    const char *HEX = "0123456789ABCDEF";
-    std::string ret;
-
-    ret.reserve(url.length());
-
-    for (size_t i = 0; i < url.length(); i++) {
-      if (url[i] == '/' || url[i] == '.' || url[i] == '-' || url[i] == '*' ||
-          url[i] == '_' || isalnum(url[i]))
-        ret += url[i];
-      else {
-        // allow spaces to be encoded as "%20" rather than "+" because Google
-        // Storage doesn't decode the same way AWS does
-
-        ret += '%';
-        ret += HEX[static_cast<uint8_t>(url[i]) / 16];
-        ret += HEX[static_cast<uint8_t>(url[i]) % 16];
-      }
-    }
-
-    return ret;
-  }
-
-  request();
-  ~request();
-
-  void init(http_method method);
-
-  inline const std::string &get_method() { return _method; }
-
-  inline void set_hook(request_hook *hook) { _hook = hook; }
-
-  void set_url(const std::string &url, const std::string &query_string = "");
-  inline const std::string &get_url() { return _url; }
-
-  inline const header_map &get_headers() { return _headers; }
-  inline void set_header(const std::string &name, const std::string &value) {
-    _headers[name] = value;
-  }
-
-  inline void
-  set_input_buffer(const char_vector_ptr &buffer = char_vector_ptr()) {
-    _input_buffer = buffer;
-  }
-
-  inline void set_input_buffer(const std::string &str) {
-    char_vector_ptr buffer(new char_vector(str.size()));
-
-    str.copy(&(*buffer)[0], str.size());
-
-    set_input_buffer(buffer);
-  }
-
-  inline const std::vector<char> &get_output_buffer() { return _output_buffer; }
-
-  inline std::string get_output_string() {
-    std::string s;
-
-    // we do this because _output_buffer has no trailing null
-    s.assign(&_output_buffer[0], _output_buffer.size());
-
-    return s;
-  }
-
-  inline const std::string &get_response_header(const std::string &key) {
-    return _response_headers[key];
-  }
-  inline const header_map &get_response_headers() { return _response_headers; }
-
-  inline long get_response_code() { return _response_code; }
-  inline time_t get_last_modified() { return _last_modified; }
-
-  inline void reset_current_run_time() { _current_run_time = 0.0; }
-  inline double get_current_run_time() { return _current_run_time; }
-
-  bool check_timeout();
-
-  void run(int timeout_in_s = DEFAULT_REQUEST_TIMEOUT);
-
-private:
-  static size_t header_process(char *data, size_t size, size_t items,
-                               void *context);
-  static size_t output_write(char *data, size_t size, size_t items,
-                             void *context);
-  static size_t input_read(char *data, size_t size, size_t items,
-                           void *context);
-  static int input_seek(void *context, curl_off_t offset, int origin);
-
-  inline void rewind() {
-    _input_pos = (_input_buffer ? &(*_input_buffer)[0] : NULL);
-    _input_remaining = (_input_buffer ? _input_buffer->size() : 0);
-  }
-
-  // not reset by init()
-  curl_easy_handle _curl;
-
-  request_hook *_hook;
-
-  double _current_run_time, _total_run_time;
-  uint64_t _run_count;
-  uint64_t _total_bytes_transferred;
-
-  bool _canceled;
-  time_t _timeout;
-
-  std::string _tag;
-
-  // should be reset by init()
-  char _curl_error[CURL_ERROR_SIZE];
-
-  std::string _method;
-  std::string _url, _curl_url;
-  header_map _response_headers;
-
-  std::vector<char> _output_buffer;
-
-  long _response_code;
-  time_t _last_modified;
-
-  header_map _headers; // assumptions: no duplicates, all header names are
-                       // always lower-case
-
-  char_vector_ptr _input_buffer;
-  const char *_input_pos;
-  size_t _input_remaining;
+  static std::unique_ptr<Request> New();
+  static std::unique_ptr<Request> NewNoHook();
 };
-} // namespace base
-} // namespace s3
+
+using HeaderMap = std::map<std::string, std::string>;
+
+class Request {
+ public:
+  static constexpr int DEFAULT_REQUEST_TIMEOUT = -1;
+
+  ~Request();
+
+  void Init(HttpMethod method);
+
+  inline std::string method() const { return method_; }
+  inline std::string url() const { return url_; }
+  inline const HeaderMap &headers() const { return headers_; }
+  inline const std::vector<char> &output_buffer() const {
+    return output_buffer_;
+  }
+  inline std::string response_header(const std::string &key) const {
+    auto iter = response_headers_.find(key);
+    return (iter == response_headers_.end()) ? "" : iter->second;
+  }
+  inline const HeaderMap &response_headers() const { return response_headers_; }
+  inline int response_code() const { return response_code_; }
+  inline time_t last_modified() const { return last_modified_; }
+  inline double current_run_time() const { return current_run_time_; }
+
+  std::string GetOutputAsString() const;
+
+  void SetUrl(const std::string &url, const std::string &query_string = "");
+  void SetHeader(const std::string &name, const std::string &value);
+  void SetInputBuffer(std::vector<char> &&buffer);
+  void SetInputBuffer(const std::string &str);
+
+  void ResetCurrentRunTime();
+
+  void Run(int timeout_in_s = DEFAULT_REQUEST_TIMEOUT);
+
+ private:
+  friend class RequestFactory;  // for ctor.
+
+  static size_t ProcessHeaderWrapper(char *data, size_t size, size_t items,
+                                     void *context) {
+    return static_cast<Request *>(context)->ProcessHeader(data, size, items);
+  }
+
+  static size_t WriteOutputWrapper(char *data, size_t size, size_t items,
+                                   void *context) {
+    return static_cast<Request *>(context)->WriteOutput(data, size, items);
+  }
+
+  static size_t ReadInputWrapper(char *data, size_t size, size_t items,
+                                 void *context) {
+    return static_cast<Request *>(context)->ReadInput(data, size, items);
+  }
+
+  static int SeekInputWrapper(off_t offset, int origin, void *context) {
+    return static_cast<Request *>(context)->SeekInput(offset, origin);
+  }
+
+  static int ProgressWrapper(void *context, off_t dl_total, off_t dl_now,
+                             off_t ul_total, off_t ul_now) {
+    return static_cast<Request *>(context)->Progress(dl_total, dl_now, ul_total,
+                                                     ul_now);
+  }
+
+  Request(RequestHook *hook);
+
+  size_t ProcessHeader(char *data, size_t size, size_t items);
+  size_t WriteOutput(char *data, size_t size, size_t items);
+  size_t ReadInput(char *data, size_t size, size_t items);
+  int SeekInput(off_t offset, int origin);
+  int Progress(off_t dl_total, off_t dl_now, off_t ul_total, off_t ul_now);
+
+  void Rewind();
+
+  // not reset by Init()
+  const std::unique_ptr<Transport> transport_;
+  RequestHook *const hook_ = nullptr;
+
+  double current_run_time_ = 0.0, total_run_time_ = 0.0;
+  uint64_t run_count_ = 0;
+  uint64_t total_bytes_transferred_ = 0;
+  time_t deadline_ = 0;
+
+  // should be reset by Init()
+  static constexpr int ERROR_MESSAGE_BUFFER_LEN = 256;
+  char transport_error_[ERROR_MESSAGE_BUFFER_LEN];
+
+  std::string method_;
+  std::string url_, transport_url_;
+  HeaderMap response_headers_;
+
+  std::vector<char> output_buffer_;
+
+  int response_code_ = 0;
+  time_t last_modified_ = 0;
+
+  // assumptions: no duplicates, all header names are always lower-case
+  HeaderMap headers_;
+
+  std::vector<char> input_buffer_;
+
+  // reset only by Rewind()
+  const char *input_pos_ = nullptr;
+  size_t input_remaining_ = 0;
+};
+}  // namespace base
+}  // namespace s3
 
 #endif

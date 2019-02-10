@@ -19,21 +19,38 @@
  * limitations under the License.
  */
 
-#include <limits.h>
-
 #include "base/logger.h"
+
+#include <limits>
 
 namespace s3 {
 namespace base {
 
+namespace {
 // log all messages unless instructed otherwise
-int logger::s_max_level = INT_MAX;
+int s_max_level = std::numeric_limits<int>::max();
+}  // namespace
 
-void logger::init(int max_level) {
+void Logger::Init(int max_level) {
   s_max_level = max_level;
-
   openlog(PACKAGE_NAME, 0, 0);
 }
 
-} // namespace base
-} // namespace s3
+void Logger::Log(int level, const char *message, ...) {
+  va_list args;
+
+  if (level <= s_max_level) {
+    va_start(args, message);
+    vfprintf(stderr, message, args);
+    va_end(args);
+
+    // can't reuse va_list
+
+    va_start(args, message);
+    vsyslog(level, message, args);
+    va_end(args);
+  }
+}
+
+}  // namespace base
+}  // namespace s3
