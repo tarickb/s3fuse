@@ -24,11 +24,14 @@
 
 #include <memory>
 
-#include "base/request.h"
 #include "crypto/aes_cbc_256.h"
 #include "crypto/buffer.h"
 
 namespace s3 {
+namespace base {
+class Request;
+}
+
 namespace fs {
 class BucketVolumeKey {
  public:

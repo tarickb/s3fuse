@@ -25,8 +25,6 @@
 
 #include <vector>
 
-#include "crypto/buffer.h"
-
 namespace s3 {
 namespace crypto {
 

@@ -27,7 +27,6 @@
 #include "base/logger.h"
 #include "base/paths.h"
 #include "base/request.h"
-#include "crypto/buffer.h"
 #include "crypto/passwords.h"
 #include "crypto/pbkdf2_sha1.h"
 #include "crypto/private_file.h"
