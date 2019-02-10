@@ -37,8 +37,8 @@ namespace s3 {
 namespace fs {
 
 namespace {
-const int DERIVATION_ROUNDS = 8192;
-const int PASSWORD_ATTEMPTS = 5;
+constexpr int DERIVATION_ROUNDS = 8192;
+constexpr int PASSWORD_ATTEMPTS = 5;
 
 crypto::Buffer InitFromFile() {
   std::ifstream f;

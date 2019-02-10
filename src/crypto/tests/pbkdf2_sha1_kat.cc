@@ -16,7 +16,7 @@ struct KnownAnswer {
   const char *output;
 };
 
-const KnownAnswer TESTS[] = {
+constexpr KnownAnswer TESTS[] = {
     // from http://tools.ietf.org/html/draft-josefsson-pbkdf2-test-vectors-06
     // (excluding the last test, since nulls in strings would complicate
     // matters)
@@ -32,24 +32,21 @@ const KnownAnswer TESTS[] = {
 
     {"passwordPASSWORDpassword", "saltSALTsaltSALTsaltSALTsaltSALTsalt", 4096,
      25, "3d2eec4fe41c849b80c8d83662c0e44a8b291a964cf2f07038"}};
-
-const int TEST_COUNT = sizeof(TESTS) / sizeof(TESTS[0]);
 }  // namespace
 
 TEST(Pbkdf2Sha1, KnownAnswers) {
-  for (int test = 0; test < TEST_COUNT; test++) {
-    const KnownAnswer *kat = TESTS + test;
+  for (const auto &kat : TESTS) {
     std::string key_out, pretty_kat;
 
     auto key =
-        Pbkdf2Sha1::Derive(kat->password, kat->salt, kat->rounds, kat->key_len);
+        Pbkdf2Sha1::Derive(kat.password, kat.salt, kat.rounds, kat.key_len);
     key_out = key.ToHexString();
 
-    EXPECT_EQ(std::string(kat->output), key_out)
-        << "password: " << kat->password << ", "
-        << "salt: " << kat->salt << ", "
-        << "rounds: " << kat->rounds << ", "
-        << "key len: " << kat->key_len;
+    EXPECT_EQ(std::string(kat.output), key_out)
+        << "password: " << kat.password << ", "
+        << "salt: " << kat.salt << ", "
+        << "rounds: " << kat.rounds << ", "
+        << "key len: " << kat.key_len;
   }
 }
 

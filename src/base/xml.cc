@@ -68,7 +68,7 @@ class XmlDocumentImpl : public XmlDocument {
 
   ~XmlDocumentImpl() override = default;
 
-  int Find(const std::string &xpath, std::string *element) {
+  int Find(const char *xpath, std::string *element) {
     try {
       auto result = EvalXPath(xpath);
       if (!result) throw std::runtime_error("invalid xpath expression");
@@ -82,14 +82,13 @@ class XmlDocumentImpl : public XmlDocument {
       return 0;
     } catch (const std::exception &e) {
       S3_LOG(LOG_WARNING, "XmlDocument::Find",
-             "caught exception while finding [%s]: %s\n", xpath.c_str(),
-             e.what());
+             "caught exception while finding [%s]: %s\n", xpath, e.what());
     }
 
     return -EIO;
   }
 
-  int Find(const std::string &xpath, std::list<std::string> *elements) {
+  int Find(const char *xpath, std::list<std::string> *elements) {
     try {
       auto result = EvalXPath(xpath);
       if (!result) throw std::runtime_error("invalid xpath expression");
@@ -103,14 +102,13 @@ class XmlDocumentImpl : public XmlDocument {
       return 0;
     } catch (const std::exception &e) {
       S3_LOG(LOG_WARNING, "XmlDocument::Find",
-             "caught exception while finding [%s]: %s\n", xpath.c_str(),
-             e.what());
+             "caught exception while finding [%s]: %s\n", xpath, e.what());
     }
 
     return -EIO;
   }
 
-  int Find(const std::string &xpath,
+  int Find(const char *xpath,
            std::list<std::map<std::string, std::string>> *list) {
     try {
       auto result = EvalXPath(xpath);
@@ -144,14 +142,13 @@ class XmlDocumentImpl : public XmlDocument {
       return 0;
     } catch (const std::exception &e) {
       S3_LOG(LOG_WARNING, "XmlDocument::Find",
-             "caught exception while finding [%s]: %s\n", xpath.c_str(),
-             e.what());
+             "caught exception while finding [%s]: %s\n", xpath, e.what());
     }
 
     return -EIO;
   }
 
-  bool Match(const std::string &xpath) {
+  bool Match(const char *xpath) {
     try {
       auto result = EvalXPath(xpath);
       if (!result) throw std::runtime_error("invalid xpath expression");
@@ -164,9 +161,9 @@ class XmlDocumentImpl : public XmlDocument {
   }
 
  private:
-  XPathObjectPtr EvalXPath(const std::string &xpath) {
+  XPathObjectPtr EvalXPath(const char *xpath) {
     auto *result = xmlXPathEvalExpression(
-        reinterpret_cast<const xmlChar *>(xpath.c_str()), xpath_context_.get());
+        reinterpret_cast<const xmlChar *>(xpath), xpath_context_.get());
     return {result, &xmlXPathFreeObject};
   }
 

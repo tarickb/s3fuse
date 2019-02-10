@@ -46,7 +46,7 @@ namespace s3 {
 namespace fs {
 
 namespace {
-const off_t TRUNCATE_LIMIT = 4ULL * 1024 * 1024 * 1024;  // 4 GB
+constexpr off_t TRUNCATE_LIMIT = 4ULL * 1024 * 1024 * 1024;  // 4 GB
 
 std::atomic_int s_sha256_mismatches(0), s_md5_mismatches(0),
     s_no_hash_checks(0);

@@ -35,9 +35,8 @@ namespace services {
 namespace gs {
 
 namespace {
-const size_t UPLOAD_CHUNK_SIZE = 256 * 1024;
-
-const std::string UPLOAD_ID_DELIM = "?upload_id=";
+constexpr size_t UPLOAD_CHUNK_SIZE = 256 * 1024;
+constexpr char UPLOAD_ID_DELIM[] = "?upload_id=";
 
 std::atomic_int s_uploads_multi_chunks_failed(0);
 

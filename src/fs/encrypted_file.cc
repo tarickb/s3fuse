@@ -39,7 +39,7 @@ namespace s3 {
 namespace fs {
 
 namespace {
-const std::string CONTENT_TYPE =
+constexpr char CONTENT_TYPE[] =
     "binary/encrypted-s3fuse-file_0100";  // version 1.0
 const std::string META_VERIFIER = "s3fuse_enc_meta ";
 

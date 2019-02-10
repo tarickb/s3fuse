@@ -50,13 +50,12 @@ class XmlDocument {
 
   virtual ~XmlDocument() = default;
 
-  virtual int Find(const std::string &xpath, std::string *element) = 0;
-  virtual int Find(const std::string &xpath,
-                   std::list<std::string> *elements) = 0;
-  virtual int Find(const std::string &xpath,
+  virtual int Find(const char *xpath, std::string *element) = 0;
+  virtual int Find(const char *xpath, std::list<std::string> *elements) = 0;
+  virtual int Find(const char *xpath,
                    std::list<std::map<std::string, std::string>> *list) = 0;
 
-  virtual bool Match(const std::string &xpath) = 0;
+  virtual bool Match(const char *xpath) = 0;
 };
 }  // namespace base
 }  // namespace s3

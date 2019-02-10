@@ -35,10 +35,10 @@ namespace s3 {
 namespace fs {
 
 namespace {
-const char *IS_TRUNCATED_XPATH = "/ListBucketResult/IsTruncated";
-const char *KEY_XPATH = "/ListBucketResult/Contents/Key";
-const char *NEXT_MARKER_XPATH = "/ListBucketResult/NextMarker";
-const char *PREFIX_XPATH = "/ListBucketResult/CommonPrefixes/Prefix";
+constexpr char IS_TRUNCATED_XPATH[] = "/ListBucketResult/IsTruncated";
+constexpr char KEY_XPATH[] = "/ListBucketResult/Contents/Key";
+constexpr char NEXT_MARKER_XPATH[] = "/ListBucketResult/NextMarker";
+constexpr char PREFIX_XPATH[] = "/ListBucketResult/CommonPrefixes/Prefix";
 }  // namespace
 
 ListReader::ListReader(const std::string &prefix, bool group_common_prefixes,

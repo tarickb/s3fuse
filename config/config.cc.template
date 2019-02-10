@@ -33,7 +33,7 @@ namespace s3 {
 namespace base {
 
 namespace {
-const std::string DEFAULT_CONFIG_FILES[] = {
+constexpr const char *DEFAULT_CONFIG_FILES[] = {
     "~/." PACKAGE_NAME "/" PACKAGE_NAME ".conf",
     SYSCONFDIR "/" PACKAGE_NAME ".conf"};
 
@@ -128,7 +128,7 @@ void Config::Init(const std::string &file) {
     if (ifs.fail()) {
       for (const auto &path : DEFAULT_CONFIG_FILES)
         S3_LOG(LOG_ERR, "Config::Init",
-               "unable to open configuration in [%s]\n", path.c_str());
+               "unable to open configuration in [%s]\n", path);
       throw std::runtime_error("cannot open any default config files");
     }
   } else {

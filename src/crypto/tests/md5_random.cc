@@ -11,7 +11,7 @@ namespace crypto {
 namespace tests {
 
 namespace {
-const uint8_t BYTES[] = {
+constexpr uint8_t BYTES[] = {
     0xfa, 0xc7, 0xf9, 0x24, 0xad, 0x82, 0x3a, 0x60, 0xff, 0x52, 0x38, 0x8d,
     0xf1, 0x88, 0xe3, 0xaf, 0x1d, 0xc5, 0xad, 0xd3, 0x38, 0x6e, 0xc7, 0x53,
     0x95, 0xae, 0xc9, 0x95, 0x2d, 0xe4, 0xdc, 0xbd, 0xcb, 0xc8, 0x80, 0xed,
@@ -1379,11 +1379,11 @@ const uint8_t BYTES[] = {
     0x1b, 0xbd, 0xe3, 0x5a, 0x01, 0x15, 0xd1, 0xe7, 0x3b, 0x1f, 0x86, 0xec,
     0xba, 0xf0, 0xbb, 0xad};
 
-const int TEST_SIZES[] = {0, 1, 1023, 4096, 16383, 16384};
+constexpr int TEST_SIZES[] = {0, 1, 1023, 4096, 16383, 16384};
 
-const int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
+constexpr int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
 
-const char *MD5[] = {
+constexpr const char *MD5[] = {
     "d41d8cd98f00b204e9800998ecf8427e", "8901cfeadaa3da45d4af4c402efb4d4e",
     "81252c8f4bc323feacd8b866d4a7187d", "341dcabe0a8b4fb8e182aaa30d26e321",
     "1375ddc2b2d4cdfeca7ca149e8043adb", "87d09ce40c5779de020a440aa7302a4f"};

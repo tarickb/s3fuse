@@ -40,10 +40,10 @@ namespace services {
 namespace aws {
 
 namespace {
-const size_t UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024;
+constexpr size_t UPLOAD_CHUNK_SIZE = 5 * 1024 * 1024;
 
-const char *MULTIPART_ETAG_XPATH = "/CompleteMultipartUploadResult/ETag";
-const char *MULTIPART_UPLOAD_ID_XPATH =
+constexpr char MULTIPART_ETAG_XPATH[] = "/CompleteMultipartUploadResult/ETag";
+constexpr char MULTIPART_UPLOAD_ID_XPATH[] =
     "/InitiateMultipartUploadResult/UploadId";
 
 std::atomic_int s_uploads_multi_chunks_failed(0);

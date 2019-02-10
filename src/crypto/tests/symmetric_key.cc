@@ -9,8 +9,8 @@ namespace crypto {
 namespace tests {
 
 namespace {
-const int TEST_SIZES[] = {1, 2, 4, 8, 16, 32, 64};
-const int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
+constexpr int TEST_SIZES[] = {1, 2, 4, 8, 16, 32, 64};
+constexpr int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
 
 void TestString(const std::string &str, size_t key_len, size_t iv_len) {
   size_t colon = str.find(':');

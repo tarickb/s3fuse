@@ -61,8 +61,8 @@ struct Options {
 };
 
 void TestBucketAccess() {
-  const int BUCKET_TEST_MAX_RETRIES = 3;
-  const int BUCKET_TEST_ID_LEN = 16;
+  constexpr int BUCKET_TEST_MAX_RETRIES = 3;
+  constexpr int BUCKET_TEST_ID_LEN = 16;
 
   auto req = s3::base::RequestFactory::New();
   s3::fs::ListReader reader("/", false, 1);
@@ -145,14 +145,15 @@ int PrintUsage(const char *base_name) {
 }
 
 int PrintVersion() {
-  std::cout << PACKAGE_NAME << ", " << PACKAGE_VERSION_WITH_REV << ", " <<
-    "FUSE driver for cloud object storage services" << std::endl;
-  std::cout << "enabled services: " << s3::services::Service::GetEnabledServices() << std::endl;
+  std::cout << PACKAGE_NAME << ", " << PACKAGE_VERSION_WITH_REV << ", "
+            << "FUSE driver for cloud object storage services" << std::endl;
+  std::cout << "enabled services: "
+            << s3::services::Service::GetEnabledServices() << std::endl;
   return 0;
 }
 
 int ProcessArgument(void *data, const char *c_arg, int key,
-                     struct fuse_args *out_args) {
+                    struct fuse_args *out_args) {
   auto *opts = static_cast<Options *>(data);
   const std::string arg = c_arg;
 
@@ -189,23 +190,23 @@ int ProcessArgument(void *data, const char *c_arg, int key,
 #ifdef __APPLE__
   if (arg.find("daemon_timeout=") == 0) {
     opts->daemon_timeout_set = true;
-    return 1; // continue processing
+    return 1;  // continue processing
   }
 
   if (arg.find("noappledouble") == 0) {
     opts->noappledouble_set = true;
-    return 1; // continue processing
+    return 1;  // continue processing
   }
 
   if (arg.find("volname=") == 0) {
     opts->volname_set = true;
-    return 1; // continue processing
+    return 1;  // continue processing
   }
 #endif
 
   if (key == FUSE_OPT_KEY_NONOPT)
     opts->mountpoint =
-        c_arg; // assume that the mountpoint is the only non-option
+        c_arg;  // assume that the mountpoint is the only non-option
 
   return 1;
 }
@@ -233,13 +234,11 @@ void AddMissingOptions(Options *opts, fuse_args *args) {
                   s3::base::config::get_bucket_name() + ")";
   if (!opts->daemon_timeout_set)
     fuse_opt_add_arg(args, "-odaemon_timeout=3600");
-  if (!opts->noappledouble_set)
-    fuse_opt_add_arg(args, "-onoappledouble");
-  if (!opts->volname_set)
-    fuse_opt_add_arg(args, opts->volname.c_str());
+  if (!opts->noappledouble_set) fuse_opt_add_arg(args, "-onoappledouble");
+  if (!opts->volname_set) fuse_opt_add_arg(args, opts->volname.c_str());
 #endif
 }
-} // namespace
+}  // namespace
 
 int main(int argc, char **argv) {
   Options opts(argv[0]);
@@ -249,7 +248,8 @@ int main(int argc, char **argv) {
   if (opts.mountpoint.empty()) {
 #if defined(__APPLE__) && defined(OSX_BUNDLE)
     if (argc == 1) {
-      opts.mountpoint = std::string("/volumes/" PACKAGE_NAME "_") + s3::base::Config::bucket_name();
+      opts.mountpoint = std::string("/volumes/" PACKAGE_NAME "_") +
+                        s3::base::Config::bucket_name();
       mkdir(opts.mountpoint.c_str(), 0777);
       fuse_opt_add_arg(&args, opts.mountpoint.c_str());
     } else {

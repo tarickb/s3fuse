@@ -33,7 +33,7 @@ namespace s3 {
 namespace threads {
 
 namespace {
-const int NUM_THREADS_PER_POOL = 8;
+constexpr int NUM_THREADS_PER_POOL = 8;
 
 class _Pool {
  public:

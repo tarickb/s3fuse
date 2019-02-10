@@ -67,7 +67,7 @@ constexpr char VERSION_XPATH[] =
     "/ListVersionsResult/Version|/ListVersionsResult/DeleteMarker";
 
 // echo -n "" | md5sum
-const char *EMPTY_VERSION_ETAG = "\"d41d8cd98f00b204e9800998ecf8427e\"";
+constexpr char EMPTY_VERSION_ETAG[] = "\"d41d8cd98f00b204e9800998ecf8427e\"";
 
 #ifdef NEED_XATTR_PREFIX
 const std::string XATTR_PREFIX = "user.";
@@ -76,24 +76,24 @@ const size_t XATTR_PREFIX_LEN = XATTR_PREFIX.size();
 const size_t XATTR_PREFIX_LEN = 0;
 #endif
 
-const std::string CONTENT_TYPE_XATTR = PACKAGE_NAME "content_type_";
-const std::string ETAG_XATTR = PACKAGE_NAME "etag_";
-const std::string CACHE_CONTROL_XATTR = PACKAGE_NAME "_cache_control";
-const std::string CURRENT_VERSION_XATTR = PACKAGE_NAME "_current_version";
-const std::string ALL_VERSIONS_XATTR = PACKAGE_NAME "_all_versions";
-const std::string ALL_VERSIONS_INCL_EMPTY_XATTR =
+constexpr char CONTENT_TYPE_XATTR[] = PACKAGE_NAME "content_type_";
+constexpr char ETAG_XATTR[] = PACKAGE_NAME "etag_";
+constexpr char CACHE_CONTROL_XATTR[] = PACKAGE_NAME "_cache_control";
+constexpr char CURRENT_VERSION_XATTR[] = PACKAGE_NAME "_current_version";
+constexpr char ALL_VERSIONS_XATTR[] = PACKAGE_NAME "_all_versions";
+constexpr char ALL_VERSIONS_INCL_EMPTY_XATTR[] =
     PACKAGE_NAME "_all_versions_incl_empty";
 
-const int USER_XATTR_FLAGS =
+constexpr int USER_XATTR_FLAGS =
     s3::fs::XAttr::XM_WRITABLE | s3::fs::XAttr::XM_SERIALIZABLE |
     s3::fs::XAttr::XM_VISIBLE | s3::fs::XAttr::XM_REMOVABLE |
     s3::fs::XAttr::XM_COMMIT_REQUIRED;
 
-const int META_XATTR_FLAGS =
+constexpr int META_XATTR_FLAGS =
     s3::fs::XAttr::XM_WRITABLE | s3::fs::XAttr::XM_VISIBLE |
     s3::fs::XAttr::XM_REMOVABLE | s3::fs::XAttr::XM_COMMIT_REQUIRED;
 
-const char VERSION_SEPARATOR = '#';
+constexpr char VERSION_SEPARATOR = '#';
 
 std::atomic_int s_precon_failed_commits(0), s_new_etag_on_commit(0);
 std::atomic_int s_commit_failures(0), s_precon_rescues(0),

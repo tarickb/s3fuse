@@ -12,7 +12,7 @@
 #include "crypto/sha256.h"
 #include "crypto/symmetric_key.h"
 
-const size_t HASH_BLOCK_SIZE =
+constexpr size_t HASH_BLOCK_SIZE =
     s3::crypto::HashList<s3::crypto::Sha256>::CHUNK_SIZE;
 
 int main(int argc, char **argv) {

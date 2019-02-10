@@ -13,24 +13,24 @@ namespace crypto {
 namespace tests {
 
 namespace {
-const int TEST_SIZES[] = {0,
-                          1,
-                          2,
-                          3,
-                          5,
-                          123,
-                          256,
-                          1023,
-                          1024,
-                          2 * 1024,
-                          64 * 1024 - 1,
-                          1024 * 1024 - 1,
-                          2 * 1024 * 1024,
-                          10 * 1024 * 1024};
-const int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
+constexpr int TEST_SIZES[] = {0,
+                              1,
+                              2,
+                              3,
+                              5,
+                              123,
+                              256,
+                              1023,
+                              1024,
+                              2 * 1024,
+                              64 * 1024 - 1,
+                              1024 * 1024 - 1,
+                              2 * 1024 * 1024,
+                              10 * 1024 * 1024};
+constexpr int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
 
-const size_t THREADS = 8;
-const size_t CHUNK_SIZE = 8 * 1024;
+constexpr size_t THREADS = 8;
+constexpr size_t CHUNK_SIZE = 8 * 1024;
 
 void RunThread(bool encrypt, const SymmetricKey &sk, uint8_t *in, uint8_t *out,
                off_t offset, size_t size) {

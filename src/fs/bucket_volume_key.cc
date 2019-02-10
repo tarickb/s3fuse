@@ -68,12 +68,12 @@ std::unique_ptr<BucketVolumeKey> BucketVolumeKey::Generate(
 }
 
 std::vector<std::string> BucketVolumeKey::GetKeys(base::Request *req) {
-  const size_t PREFIX_LEN = VOLUME_KEY_OBJECT_PREFIX.size();
+  const auto prefix_len = VOLUME_KEY_OBJECT_PREFIX.size();
   std::vector<std::string> keys;
   auto objs = Directory::GetInternalObjects(req);
   for (const auto &obj : objs) {
-    if (obj.substr(0, PREFIX_LEN) == VOLUME_KEY_OBJECT_PREFIX) {
-      const std::string key = obj.substr(PREFIX_LEN);
+    if (obj.substr(0, prefix_len) == VOLUME_KEY_OBJECT_PREFIX) {
+      const std::string key = obj.substr(prefix_len);
       if (!IsTemporaryId(key)) keys.push_back(key);
     }
   }

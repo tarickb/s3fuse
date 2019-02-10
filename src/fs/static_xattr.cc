@@ -38,7 +38,7 @@ namespace s3 {
 namespace fs {
 
 namespace {
-const size_t MAX_STRING_SCAN_LEN = 128;
+constexpr size_t MAX_STRING_SCAN_LEN = 128;
 
 inline bool IsKeyValid(const std::string &key) {
   if (strncmp(key.c_str(), Metadata::RESERVED_PREFIX,

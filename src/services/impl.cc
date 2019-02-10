@@ -31,7 +31,7 @@ namespace s3 {
 namespace services {
 
 namespace {
-const char *REQ_TIMEOUT_XPATH = "/Error/Code[text() = 'RequestTimeout']";
+constexpr char REQ_TIMEOUT_XPATH[] = "/Error/Code[text() = 'RequestTimeout']";
 
 std::atomic_int s_internal_server_error(0), s_service_unavailable(0);
 std::atomic_int s_req_timeout(0), s_bad_request(0);

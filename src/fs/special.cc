@@ -32,7 +32,7 @@ namespace s3 {
 namespace fs {
 
 namespace {
-const std::string CONTENT_TYPE = "binary/s3fuse-special_0100";  // version 1.0
+constexpr char CONTENT_TYPE[] = "binary/s3fuse-special_0100";  // version 1.0
 
 Object *Checker(const std::string &path, base::Request *req) {
   if (req->response_header("Content-Type") != CONTENT_TYPE) return nullptr;

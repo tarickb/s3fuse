@@ -27,8 +27,8 @@
 #include <iostream>
 
 #include "base/config.h"
-#include "base/paths.h"
 #include "base/logger.h"
+#include "base/paths.h"
 #include "base/request.h"
 #include "base/xml.h"
 #include "crypto/buffer.h"
@@ -40,12 +40,13 @@
 
 namespace s3 {
 namespace {
-const char *SHORT_OPTIONS = ":c:i:o:";
+constexpr char SHORT_OPTIONS[] = ":c:i:o:";
 
-const option LONG_OPTIONS[] = {{"config-file", required_argument, nullptr, 'c'},
-                               {"in-key", required_argument, nullptr, 'i'},
-                               {"out-key", required_argument, nullptr, 'o'},
-                               {nullptr, 0, nullptr, '\0'}};
+constexpr option LONG_OPTIONS[] = {
+    {"config-file", required_argument, nullptr, 'c'},
+    {"in-key", required_argument, nullptr, 'i'},
+    {"out-key", required_argument, nullptr, 'o'},
+    {nullptr, 0, nullptr, '\0'}};
 
 base::Request *GetRequest() {
   static auto s_request = base::RequestFactory::New();
@@ -60,7 +61,8 @@ void Init(const std::string &config_file) {
 }
 
 void ToLower(std::string *in) {
-  std::transform(in->begin(), in->end(), in->begin(), [](char c) { return tolower(c); });
+  std::transform(in->begin(), in->end(), in->begin(),
+                 [](char c) { return tolower(c); });
 }
 
 void ConfirmKeyDelete(const std::string &key_id) {
@@ -73,8 +75,7 @@ void ConfirmKeyDelete(const std::string &key_id) {
   std::string line;
   std::getline(std::cin, line);
   ToLower(&line);
-  if (line != "yes")
-    throw std::runtime_error("aborted");
+  if (line != "yes") throw std::runtime_error("aborted");
 }
 
 void ConfirmLastKeyDelete() {
@@ -87,8 +88,7 @@ void ConfirmLastKeyDelete() {
                "To confirm, enter the name of the bucket (case sensitive): ";
   std::string line;
   std::getline(std::cin, line);
-  if (line != base::Config::bucket_name())
-    throw std::runtime_error("aborted");
+  if (line != base::Config::bucket_name()) throw std::runtime_error("aborted");
 
   std::cout
       << "\n"
@@ -104,15 +104,13 @@ void ConfirmLastKeyDelete() {
          "forever? Type \"yes\": ";
   std::getline(std::cin, line);
   ToLower(&line);
-  if (line != "yes")
-    throw std::runtime_error("aborted");
+  if (line != "yes") throw std::runtime_error("aborted");
 
   std::cout << "Do you understand that this operation cannot be undone? Type "
                "\"yes\": ";
   std::getline(std::cin, line);
   ToLower(&line);
-  if (line != "yes")
-    throw std::runtime_error("aborted");
+  if (line != "yes") throw std::runtime_error("aborted");
 }
 
 crypto::Buffer PromptForCurrentPassword(const std::string &key_id) {
@@ -160,18 +158,17 @@ void ListKeys(const std::string &config_file) {
   Init(config_file);
   auto keys = fs::BucketVolumeKey::GetKeys(GetRequest());
   if (keys.empty()) {
-    std::cout << "No keys found for bucket ["
-              << base::Config::bucket_name() << "]." << std::endl;
+    std::cout << "No keys found for bucket [" << base::Config::bucket_name()
+              << "]." << std::endl;
     return;
   }
   std::cout << "Keys for bucket [" << base::Config::bucket_name()
             << "]:" << std::endl;
-  for (const auto &key : keys)
-    std::cout << "  " << key << std::endl;
+  for (const auto &key : keys) std::cout << "  " << key << std::endl;
 }
 
 void GenerateNewKey(const std::string &config_file, const std::string &key_id,
-                      const std::string &out_key_file) {
+                    const std::string &out_key_file) {
   Init(config_file);
   auto keys = fs::BucketVolumeKey::GetKeys(GetRequest());
   if (!keys.empty())
@@ -193,13 +190,12 @@ void GenerateNewKey(const std::string &config_file, const std::string &key_id,
 }
 
 void CloneKey(const std::string &config_file, const std::string &key_id,
-               const std::string &in_key_file, const std::string &new_id,
-               const std::string &out_key_file) {
+              const std::string &in_key_file, const std::string &new_id,
+              const std::string &out_key_file) {
   Init(config_file);
   auto volume_key = fs::BucketVolumeKey::Fetch(GetRequest(), key_id);
   auto new_volume_key = fs::BucketVolumeKey::Fetch(GetRequest(), new_id);
-  if (!volume_key)
-    throw std::runtime_error("specified key does not exist.");
+  if (!volume_key) throw std::runtime_error("specified key does not exist.");
   if (new_volume_key)
     throw std::runtime_error(
         "a key already exists with that id. delete it first.");
@@ -221,12 +217,11 @@ void CloneKey(const std::string &config_file, const std::string &key_id,
 }
 
 void ReEncryptKey(const std::string &config_file, const std::string &key_id,
-                   const std::string &in_key_file,
-                   const std::string &out_key_file) {
+                  const std::string &in_key_file,
+                  const std::string &out_key_file) {
   Init(config_file);
   auto volume_key = fs::BucketVolumeKey::Fetch(GetRequest(), key_id);
-  if (!volume_key)
-    throw std::runtime_error("specified key does not exist.");
+  if (!volume_key) throw std::runtime_error("specified key does not exist.");
   auto current_key = crypto::Buffer::Empty();
   if (in_key_file.empty())
     current_key = PromptForCurrentPassword(key_id);
@@ -296,37 +291,37 @@ void PrintUsage(const char *arg0) {
             << std::endl;
   exit(1);
 }
-} // namespace
-}
+}  // namespace
+}  // namespace s3
 
 int main(int argc, char **argv) {
   int opt = 0;
   std::string config_file, in_key_file, out_key_file;
-  while ((opt = getopt_long(argc, argv, s3::SHORT_OPTIONS, s3::LONG_OPTIONS, nullptr)) !=
-         -1) {
+  while ((opt = getopt_long(argc, argv, s3::SHORT_OPTIONS, s3::LONG_OPTIONS,
+                            nullptr)) != -1) {
     switch (opt) {
-    case 'c':
-      config_file = optarg;
-      break;
+      case 'c':
+        config_file = optarg;
+        break;
 
-    case 'i':
-      in_key_file = optarg;
-      break;
+      case 'i':
+        in_key_file = optarg;
+        break;
 
-    case 'o':
-      out_key_file = optarg;
-      break;
+      case 'o':
+        out_key_file = optarg;
+        break;
 
-    default:
-      s3::PrintUsage(argv[0]);
+      default:
+        s3::PrintUsage(argv[0]);
     }
   }
 
-#define GET_NEXT_ARG(arg)                                                      \
-  do {                                                                         \
-    if (optind < argc) {                                                       \
-      arg = argv[optind++];                                                    \
-    }                                                                          \
+#define GET_NEXT_ARG(arg)   \
+  do {                      \
+    if (optind < argc) {    \
+      arg = argv[optind++]; \
+    }                       \
   } while (0)
 
   std::string command, key_id, new_id;
@@ -340,8 +335,7 @@ int main(int argc, char **argv) {
       s3::ListKeys(config_file);
 
     } else if (command == "generate") {
-      if (!in_key_file.empty())
-        s3::PrintUsage(argv[0]);
+      if (!in_key_file.empty()) s3::PrintUsage(argv[0]);
 
       if (key_id.empty())
         throw std::runtime_error("need key id to generate a new key.");
@@ -349,17 +343,14 @@ int main(int argc, char **argv) {
       s3::GenerateNewKey(config_file, key_id, out_key_file);
 
     } else if (command == "clone") {
-      if (key_id.empty())
-        throw std::runtime_error("need existing key id.");
+      if (key_id.empty()) throw std::runtime_error("need existing key id.");
 
-      if (new_id.empty())
-        throw std::runtime_error("need new key id.");
+      if (new_id.empty()) throw std::runtime_error("need new key id.");
 
       s3::CloneKey(config_file, key_id, in_key_file, new_id, out_key_file);
 
     } else if (command == "change") {
-      if (key_id.empty())
-        throw std::runtime_error("need key id.");
+      if (key_id.empty()) throw std::runtime_error("need key id.");
 
       s3::ReEncryptKey(config_file, key_id, in_key_file, out_key_file);
 

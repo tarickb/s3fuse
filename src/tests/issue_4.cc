@@ -20,8 +20,8 @@
 #define TZ(x) T(x, 0)
 
 namespace {
-const char TEST_STRING[] = "this is a test!\n";
-const int TEST_STRING_LEN = sizeof(TEST_STRING);
+constexpr char TEST_STRING[] = "this is a test!\n";
+constexpr int TEST_STRING_LEN = sizeof(TEST_STRING);
 }  // namespace
 
 int main(int argc, char **argv) {

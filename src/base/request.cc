@@ -49,8 +49,7 @@ namespace s3 {
 namespace base {
 
 namespace {
-const std::string USER_AGENT =
-    std::string(PACKAGE_NAME) + " " + PACKAGE_VERSION_WITH_REV;
+constexpr char USER_AGENT[] = PACKAGE_NAME " " PACKAGE_VERSION_WITH_REV;
 
 uint64_t s_run_count = 0;
 uint64_t s_total_bytes = 0;
@@ -213,8 +212,7 @@ Request::Request(RequestHook *hook) : transport_(new Transport()), hook_(hook) {
   TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_XFERINFOFUNCTION,
                            &Request::ProgressWrapper));
   TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_XFERINFODATA, this));
-  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_USERAGENT,
-                           USER_AGENT.c_str()));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_USERAGENT, USER_AGENT));
 }
 
 Request::~Request() {

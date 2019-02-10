@@ -24,24 +24,23 @@
 namespace s3 {
 namespace fs {
 
-const char *Metadata::RESERVED_PREFIX = "s3fuse-";
+const char Metadata::RESERVED_PREFIX[];
 
-// this can't share a common prefix with RESERVED_PREFIX
-const char *Metadata::XATTR_PREFIX = "s3fuse_xattr_";
+const char Metadata::XATTR_PREFIX[];
 
-const char *Metadata::LAST_UPDATE_ETAG = "s3fuse-lu-etag";
-const char *Metadata::MODE = "s3fuse-mode";
-const char *Metadata::UID = "s3fuse-uid";
-const char *Metadata::GID = "s3fuse-gid";
-const char *Metadata::CREATED_TIME = "s3fuse-ctime";
-const char *Metadata::LAST_MODIFIED_TIME = "s3fuse-mtime";
+const char Metadata::LAST_UPDATE_ETAG[];
+const char Metadata::MODE[];
+const char Metadata::UID[];
+const char Metadata::GID[];
+const char Metadata::CREATED_TIME[];
+const char Metadata::LAST_MODIFIED_TIME[];
 
-const char *Metadata::FILE_TYPE = "s3fuse-file-type";
-const char *Metadata::DEVICE = "s3fuse-device";
+const char Metadata::FILE_TYPE[];
+const char Metadata::DEVICE[];
 
-const char *Metadata::SHA256 = "s3fuse-sha256";
-const char *Metadata::ENC_IV = "s3fuse-e-iv";
-const char *Metadata::ENC_METADATA = "s3fuse-e-meta";
+const char Metadata::SHA256[];
+const char Metadata::ENC_IV[];
+const char Metadata::ENC_METADATA[];
 
 }  // namespace fs
 }  // namespace s3

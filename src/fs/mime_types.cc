@@ -36,7 +36,7 @@ namespace s3 {
 namespace fs {
 
 namespace {
-const char *MAP_FILES[] = {
+constexpr const char *MAP_FILES[] = {
     "/etc/httpd/mime.types",
     "/private/etc/apache2/mime.types",  // this just happens to be where I found
                                         // the mime map on my OS X system

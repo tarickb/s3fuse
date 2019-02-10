@@ -14,7 +14,7 @@ TEST(Config, LoadFromInvalidFile) {
 }
 
 TEST(Config, LoadEmptyFile) {
-  const char *TEMP_FILE = "/tmp/" PACKAGE_NAME ".test-empty";
+  constexpr char TEMP_FILE[] = "/tmp/" PACKAGE_NAME ".test-empty";
 
   std::ofstream f(TEMP_FILE, std::ofstream::out | std::ofstream::trunc);
   EXPECT_THROW(Config::Init(TEMP_FILE), std::runtime_error);

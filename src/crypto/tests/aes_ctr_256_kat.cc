@@ -18,7 +18,7 @@ struct KnownAnswer {
   const char *cipher_text;
 };
 
-const KnownAnswer TESTS[] = {
+constexpr KnownAnswer TESTS[] = {
     // from http://tools.ietf.org/html/rfc3686
 
     {"ae6852f8121067cc4bf7a5765577f39e", "0000003000000000", "0000000000000001",
@@ -104,27 +104,24 @@ const KnownAnswer TESTS[] = {
      "23de94ce87017ba2d84988ddfc9c58db67aada613c2dd08457941a6",
      "6bc1bee22e409f96e93d7e117393172aae2d8a571e03ac9c9eb76fac45af8e5130c81c46a"
      "35ce411e5fbc1191a0a52eff69f2445df4f9b17ad2b417be66c3710"}};
-
-const int TEST_COUNT = sizeof(TESTS) / sizeof(TESTS[0]);
 }  // namespace
 
 TEST(AesCtr256, KnownAnswers) {
-  for (int test = 0; test < TEST_COUNT; test++) {
-    const KnownAnswer *kat = TESTS + test;
+  for (const auto &kat : TESTS) {
     std::vector<uint8_t> in_buf, out_buf;
     std::string in_enc, out_enc;
     uint64_t sb = 0;
     std::string pretty_kat;
 
-    pretty_kat = std::string("key: ") + kat->key + ", " + "iv: " + kat->iv +
-                 ", " + "starting block: " + kat->starting_block + ", " +
-                 "plain text: " + kat->plain_text + ", " +
-                 "cipher text: " + kat->cipher_text;
+    pretty_kat = std::string("key: ") + kat.key + ", " + "iv: " + kat.iv +
+                 ", " + "starting block: " + kat.starting_block + ", " +
+                 "plain text: " + kat.plain_text + ", " +
+                 "cipher text: " + kat.cipher_text;
 
     const auto cs =
-        SymmetricKey::FromString(std::string(kat->key) + ":" + kat->iv);
+        SymmetricKey::FromString(std::string(kat.key) + ":" + kat.iv);
 
-    in_buf = Encoder::Decode<Hex>(kat->starting_block);
+    in_buf = Encoder::Decode<Hex>(kat.starting_block);
     ASSERT_EQ(sizeof(sb), in_buf.size()) << pretty_kat;
 
     // reverse endianness of starting_block
@@ -133,18 +130,18 @@ TEST(AesCtr256, KnownAnswers) {
       out_buf[in_buf.size() - i - 1] = in_buf[i];
     memcpy(&sb, &out_buf[0], sizeof(sb));
 
-    in_buf = Encoder::Decode<Hex>(kat->plain_text);
+    in_buf = Encoder::Decode<Hex>(kat.plain_text);
     out_buf.resize(in_buf.size());
 
     AesCtr256::EncryptWithStartingBlock(cs, sb, &in_buf[0], in_buf.size(),
                                         &out_buf[0]);
     out_enc = Encoder::Encode<Hex>(out_buf);
-    EXPECT_EQ(std::string(kat->cipher_text), out_enc) << pretty_kat;
+    EXPECT_EQ(std::string(kat.cipher_text), out_enc) << pretty_kat;
 
     AesCtr256::DecryptWithStartingBlock(cs, sb, &out_buf[0], out_buf.size(),
                                         &in_buf[0]);
     in_enc = Encoder::Encode<Hex>(in_buf);
-    EXPECT_EQ(std::string(kat->plain_text), in_enc) << pretty_kat;
+    EXPECT_EQ(std::string(kat.plain_text), in_enc) << pretty_kat;
   }
 }
 

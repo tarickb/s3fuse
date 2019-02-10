@@ -28,7 +28,7 @@ namespace s3 {
 namespace fs {
 
 namespace {
-const std::string CONTENT_TYPE = "text/symlink";
+constexpr char CONTENT_TYPE[] = "text/symlink";
 const std::string CONTENT_PREFIX = "SYMLINK:";
 
 Object *Checker(const std::string &path, base::Request *req) {

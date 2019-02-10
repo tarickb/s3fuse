@@ -15,7 +15,7 @@ struct KnownAnswer {
   const char *hash;
 };
 
-const KnownAnswer TESTS[] = {
+constexpr KnownAnswer TESTS[] = {
     // tests from http://csrc.nist.gov/groups/STM/cavp/index.html
 
     // SHA256ShortMsg
@@ -6156,19 +6156,16 @@ const KnownAnswer TESTS[] = {
      "09db346ceb26c1b967cfac82ad574761443be3f0a910968239d23b11507ab978b3ce89e22"
      "b7d7283736b9786544ab4460f",
      "33b6229592ca719e4e46f35b287617fedadd3b7c38be3c8c1c9f446d2d9085b3"}};
-
-const int TEST_COUNT = sizeof(TESTS) / sizeof(TESTS[0]);
 }  // namespace
 
 TEST(Sha256, KnownAnswers) {
-  for (int test = 0; test < TEST_COUNT; test++) {
-    const KnownAnswer *kat = TESTS + test;
-
-    auto in = Encoder::Decode<Hex>(kat->message);
-    ASSERT_EQ(strlen(kat->message) / 2, in.size()) << "for kat = " << test;
+  for (const auto &kat : TESTS) {
+    auto in = Encoder::Decode<Hex>(kat.message);
+    ASSERT_EQ(strlen(kat.message) / 2, in.size())
+        << "for kat = " << kat.message;
 
     std::string hash = Hash::Compute<Sha256, Hex>(in);
-    EXPECT_EQ(std::string(kat->hash), hash) << "for kat = " << test;
+    EXPECT_EQ(std::string(kat.hash), hash) << "for kat = " << kat.message;
   }
 }
 

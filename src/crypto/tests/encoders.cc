@@ -11,39 +11,40 @@ namespace crypto {
 namespace tests {
 
 namespace {
-const char *KAT_INPUT[] = {"", "hello world!", "11" /* shouldn't pad */,
-                           "1234" /* should pad */};
-const char *KAT_OUT_HEX[] = {"00", "68656c6c6f20776f726c642100", "313100",
-                             "3132333400"};
-const char *KAT_OUT_HEX_QUOTE[] = {"\"00\"", "\"68656c6c6f20776f726c642100\"",
-                                   "\"313100\"", "\"3132333400\""};
-const char *KAT_OUT_B64[] = {"AA==", "aGVsbG8gd29ybGQhAA==", "MTEA",
-                             "MTIzNAA="};
+struct KnownAnswer {
+  const char *plain;
+  const char *hex;
+  const char *hex_quote;
+  const char *base64;
+};
 
-const size_t KAT_COUNT = sizeof(KAT_INPUT) / sizeof(KAT_INPUT[0]);
+constexpr KnownAnswer KAT_TESTS[] = {
+    {"", "00", "\"00\"", "AA=="},
+    {"hello world!", "68656c6c6f20776f726c642100",
+     "\"68656c6c6f20776f726c642100\"", "aGVsbG8gd29ybGQhAA=="},
+    {"11" /* shouldn't pad */, "313100", "\"313100\"", "MTEA"},
+    {"1234" /* should pad */, "3132333400", "\"3132333400\"", "MTIzNAA="}};
 
-const int TEST_SIZES[] = {1,    2,     3,       4,       5,      1023,
-                          2048, 12345, 1048575, 1048576, 9999999};
-const int TEST_COUNT = sizeof(TEST_SIZES) / sizeof(TEST_SIZES[0]);
+constexpr int TEST_SIZES[] = {1,    2,     3,       4,       5,      1023,
+                              2048, 12345, 1048575, 1048576, 9999999};
 
 template <class Encoding>
-void EncodeKat(const char **kat) {
-  for (size_t i = 0; i < KAT_COUNT; i++)
-    EXPECT_EQ(std::string(kat[i]), Encoder::Encode<Encoding>(KAT_INPUT[i]));
+void EncodeKat(const char *KnownAnswer::*output) {
+  for (const auto &kat : KAT_TESTS)
+    EXPECT_EQ(Encoder::Encode<Encoding>(kat.plain), kat.*output);
 }
 
 template <class Encoding>
-void DecodeKat(const char **kat) {
-  for (size_t i = 0; i < KAT_COUNT; i++) {
-    const auto dec = Encoder::Decode<Encoding>(kat[i]);
-    EXPECT_STREQ(KAT_INPUT[i], reinterpret_cast<const char *>(&dec[0]));
+void DecodeKat(const char *KnownAnswer::*input) {
+  for (const auto &kat : KAT_TESTS) {
+    const auto dec = Encoder::Decode<Encoding>(kat.*input);
+    EXPECT_STREQ(kat.plain, reinterpret_cast<const char *>(&dec[0]));
   }
 }
 
 template <class Encoding>
 void RunRandom() {
-  for (int test = 0; test < TEST_COUNT; test++) {
-    int test_size = TEST_SIZES[test];
+  for (const int test_size : TEST_SIZES) {
     std::vector<uint8_t> in(test_size), out;
     std::string enc;
     bool diff = false;
@@ -68,18 +69,18 @@ void RunRandom() {
 }
 }  // namespace
 
-TEST(Hex, EncodeKnownAnswers) { EncodeKat<Hex>(KAT_OUT_HEX); }
+TEST(Hex, EncodeKnownAnswers) { EncodeKat<Hex>(&KnownAnswer::hex); }
 
-TEST(Hex, DecodeKnownAnswers) { DecodeKat<Hex>(KAT_OUT_HEX); }
+TEST(Hex, DecodeKnownAnswers) { DecodeKat<Hex>(&KnownAnswer::hex); }
 
 TEST(Hex, Random) { RunRandom<Hex>(); }
 
 TEST(HexWithQuotes, EncodeKnownAnswers) {
-  EncodeKat<HexWithQuotes>(KAT_OUT_HEX_QUOTE);
+  EncodeKat<HexWithQuotes>(&KnownAnswer::hex_quote);
 }
 
 TEST(HexWithQuotes, DecodeKnownAnswers) {
-  DecodeKat<HexWithQuotes>(KAT_OUT_HEX_QUOTE);
+  DecodeKat<HexWithQuotes>(&KnownAnswer::hex_quote);
 }
 
 TEST(HexWithQuotes, Random) { RunRandom<HexWithQuotes>(); }
@@ -89,9 +90,9 @@ TEST(HexWithQuotes, DecodeWithNoQuotes) {
                std::runtime_error);
 }
 
-TEST(Base64, EncodeKnownAnswers) { EncodeKat<Base64>(KAT_OUT_B64); }
+TEST(Base64, EncodeKnownAnswers) { EncodeKat<Base64>(&KnownAnswer::base64); }
 
-TEST(Base64, DecodeKnownAnswers) { DecodeKat<Base64>(KAT_OUT_B64); }
+TEST(Base64, DecodeKnownAnswers) { DecodeKat<Base64>(&KnownAnswer::base64); }
 
 TEST(Base64, Random) { RunRandom<Base64>(); }
 

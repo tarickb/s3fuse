@@ -52,7 +52,7 @@ std::string Base64::Encode(const uint8_t *input, size_t size) {
 }
 
 std::vector<uint8_t> Base64::Decode(const std::string &input) {
-  const size_t READ_CHUNK = 1024;
+  constexpr size_t READ_CHUNK = 1024;
 
   BIO *bio_b64 = BIO_new(BIO_f_base64());
   BIO *bio_input = BIO_new_mem_buf(const_cast<char *>(input.c_str()), -1);

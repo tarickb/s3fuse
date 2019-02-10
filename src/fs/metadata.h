@@ -26,22 +26,24 @@ namespace s3 {
 namespace fs {
 class Metadata {
  public:
-  static const char *RESERVED_PREFIX;
-  static const char *XATTR_PREFIX;
+  static constexpr char RESERVED_PREFIX[] = "s3fuse-";
 
-  static const char *LAST_UPDATE_ETAG;
-  static const char *MODE;
-  static const char *UID;
-  static const char *GID;
-  static const char *CREATED_TIME;
-  static const char *LAST_MODIFIED_TIME;
+  // this can't share a common prefix with RESERVED_PREFIX
+  static constexpr char XATTR_PREFIX[] = "s3fuse_xattr_";
 
-  static const char *FILE_TYPE;
-  static const char *DEVICE;
+  static constexpr char LAST_UPDATE_ETAG[] = "s3fuse-lu-etag";
+  static constexpr char MODE[] = "s3fuse-mode";
+  static constexpr char UID[] = "s3fuse-uid";
+  static constexpr char GID[] = "s3fuse-gid";
+  static constexpr char CREATED_TIME[] = "s3fuse-ctime";
+  static constexpr char LAST_MODIFIED_TIME[] = "s3fuse-mtime";
 
-  static const char *SHA256;
-  static const char *ENC_IV;
-  static const char *ENC_METADATA;
+  static constexpr char FILE_TYPE[] = "s3fuse-file-type";
+  static constexpr char DEVICE[] = "s3fuse-device";
+
+  static constexpr char SHA256[] = "s3fuse-sha256";
+  static constexpr char ENC_IV[] = "s3fuse-e-iv";
+  static constexpr char ENC_METADATA[] = "s3fuse-e-meta";
 };
 }  // namespace fs
 }  // namespace s3
