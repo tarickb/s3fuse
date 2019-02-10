@@ -38,11 +38,11 @@ namespace s3 {
 namespace crypto {
 class Buffer {
  public:
-  inline static Buffer Empty() { return {std::vector<uint8_t>()}; }
+  inline static Buffer Empty() { return Buffer(std::vector<uint8_t>()); }
 
   inline static Buffer Zero(size_t len) {
     std::vector<uint8_t> zero(len, 0);
-    return {zero};
+    return Buffer(zero);
   }
 
   inline static Buffer Generate(size_t len) {
@@ -50,15 +50,15 @@ class Buffer {
     std::vector<uint8_t> random(len);
     if (RAND_bytes(&random[0], len) == 0)
       throw std::runtime_error("failed to generate random key");
-    return {random};
+    return Buffer(random);
   }
 
   inline static Buffer FromHexString(const std::string &in) {
-    return {Encoder::Decode<Hex>(in)};
+    return Buffer(Encoder::Decode<Hex>(in));
   }
 
   inline static Buffer FromVector(const std::vector<uint8_t> &bytes) {
-    return {bytes};
+    return Buffer(bytes);
   }
 
   inline const uint8_t *get() const { return &buf_[0]; }

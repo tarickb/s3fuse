@@ -48,7 +48,7 @@ void RunRandom() {
     std::vector<uint8_t> in(test_size), out;
     std::string enc;
     bool diff = false;
-    auto seed = time(nullptr);
+    unsigned int seed = time(nullptr);
 
     for (int i = 0; i < test_size; i++)
       in[i] = rand_r(&seed) % std::numeric_limits<uint8_t>::max();
