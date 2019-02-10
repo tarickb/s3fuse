@@ -36,7 +36,7 @@ class Request;
 namespace fs {
 class EncryptedFile : public File {
  public:
-  EncryptedFile(const std::string &path);
+  explicit EncryptedFile(const std::string &path);
   ~EncryptedFile() override = default;
 
  protected:

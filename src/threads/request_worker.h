@@ -43,7 +43,7 @@ class RequestWorker {
   ~RequestWorker();
 
  private:
-  RequestWorker(WorkItemQueue *queue);
+  explicit RequestWorker(WorkItemQueue *queue);
 
   void Work();
 

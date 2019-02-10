@@ -48,11 +48,10 @@ void RunRandom() {
     std::vector<uint8_t> in(test_size), out;
     std::string enc;
     bool diff = false;
-
-    srand(time(nullptr));
+    auto seed = time(nullptr);
 
     for (int i = 0; i < test_size; i++)
-      in[i] = rand() % std::numeric_limits<uint8_t>::max();
+      in[i] = rand_r(&seed) % std::numeric_limits<uint8_t>::max();
 
     enc = Encoder::Encode<Encoding>(in);
     out = Encoder::Decode<Encoding>(enc);

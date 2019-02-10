@@ -23,6 +23,8 @@
 #define S3_FS_BUCKET_VOLUME_KEY_H
 
 #include <memory>
+#include <string>
+#include <vector>
 
 #include "crypto/aes_cbc_256.h"
 #include "crypto/buffer.h"
@@ -53,7 +55,7 @@ class BucketVolumeKey {
   std::unique_ptr<BucketVolumeKey> Clone(const std::string &new_id) const;
 
  private:
-  BucketVolumeKey(const std::string &id);
+  explicit BucketVolumeKey(const std::string &id);
 
   inline bool is_present() const { return !encrypted_key_.empty(); }
 

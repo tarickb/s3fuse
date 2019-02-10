@@ -27,6 +27,7 @@
 #include <sys/time.h>
 
 #include <functional>
+#include <map>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -117,7 +118,7 @@ class Object {
  protected:
   using MetadataMap = std::map<std::string, std::unique_ptr<XAttr>>;
 
-  Object(const std::string &path);
+  explicit Object(const std::string &path);
 
   virtual void Init(base::Request *req);
 

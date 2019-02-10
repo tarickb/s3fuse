@@ -23,6 +23,7 @@
 #define S3_SERVICES_GS_IMPL_H
 
 #include <mutex>
+#include <string>
 
 #include "services/impl.h"
 

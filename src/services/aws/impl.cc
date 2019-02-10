@@ -23,6 +23,7 @@
 
 #include <iterator>
 #include <sstream>
+#include <string>
 #include <vector>
 
 #include "base/config.h"

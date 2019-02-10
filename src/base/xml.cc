@@ -62,7 +62,7 @@ using XmlCharPtr = std::unique_ptr<xmlChar, decltype(&FreeXmlChar)>;
 
 class XmlDocumentImpl : public XmlDocument {
  public:
-  XmlDocumentImpl(XmlDocPtr doc)
+  explicit XmlDocumentImpl(XmlDocPtr doc)
       : doc_(std::move(doc)),
         xpath_context_(xmlXPathNewContext(doc_.get()), &xmlXPathFreeContext) {}
 
@@ -192,7 +192,6 @@ std::unique_ptr<XmlDocument> XmlDocument::Parse(std::string data) {
       throw std::runtime_error("document does not contain a root node.");
     return std::unique_ptr<XmlDocumentImpl>(
         new XmlDocumentImpl(std::move(doc)));
-    ;
   } catch (const std::exception &e) {
     S3_LOG(LOG_WARNING, "XmlDocument::Parse", "caught exception: %s\n",
            e.what());

@@ -30,7 +30,7 @@ namespace s3 {
 namespace fs {
 class Special : public Object {
  public:
-  Special(const std::string &path);
+  explicit Special(const std::string &path);
   ~Special() override = default;
 
   inline void set_type(mode_t mode) { Object::set_type(mode & S_IFMT); }

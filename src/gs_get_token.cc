@@ -52,7 +52,6 @@ int main(int argc, char **argv) {
 
     auto tokens = Impl::GetTokens(GetTokensMode::AUTH_CODE, code);
     Impl::WriteToken(file_name, tokens.refresh);
-
   } catch (const std::exception &e) {
     std::cerr << "Failed to get tokens: " << e.what() << std::endl;
     return 1;

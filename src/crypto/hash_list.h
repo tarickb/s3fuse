@@ -37,7 +37,7 @@ class HashList {
  public:
   static const size_t CHUNK_SIZE = 128 * 1024;  // 128 KB
 
-  inline HashList(size_t total_size)
+  inline explicit HashList(size_t total_size)
       : hashes_((total_size + CHUNK_SIZE - 1) / CHUNK_SIZE *
                 HashType::HASH_LEN) {}
 

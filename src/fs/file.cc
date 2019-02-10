@@ -23,6 +23,8 @@
 
 #include <atomic>
 #include <mutex>
+#include <string>
+#include <vector>
 
 #include "base/config.h"
 #include "base/logger.h"

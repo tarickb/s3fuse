@@ -13,9 +13,9 @@ std::string Url::Encode(const std::string &url) {
 
   for (size_t i = 0; i < url.length(); i++) {
     if (url[i] == '/' || url[i] == '.' || url[i] == '-' || url[i] == '*' ||
-        url[i] == '_' || isalnum(url[i]))
+        url[i] == '_' || isalnum(url[i])) {
       ret += url[i];
-    else {
+    } else {
       // allow spaces to be encoded as "%20" rather than "+" because Google
       // Storage doesn't decode the same way AWS does
       ret += '%';

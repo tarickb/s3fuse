@@ -22,6 +22,7 @@
 #ifndef S3_THREADS_PARALLEL_WORK_QUEUE_H
 #define S3_THREADS_PARALLEL_WORK_QUEUE_H
 
+#include <algorithm>
 #include <functional>
 #include <iostream>
 #include <list>

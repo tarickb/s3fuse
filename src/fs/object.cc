@@ -25,6 +25,8 @@
 #include <sys/xattr.h>
 
 #include <atomic>
+#include <list>
+#include <map>
 #include <string>
 
 #include "base/config.h"
@@ -543,7 +545,7 @@ void Object::SetRequestHeaders(base::Request *req) {
   }
 
   char buf[16];
-  snprintf(buf, 16, "%#o", stat_.st_mode & ~S_IFMT);
+  snprintf(buf, sizeof(buf), "%#o", stat_.st_mode & ~S_IFMT);
   req->SetHeader(meta_prefix + Metadata::MODE, buf);
   req->SetHeader(meta_prefix + Metadata::UID, std::to_string(stat_.st_uid));
   req->SetHeader(meta_prefix + Metadata::GID, std::to_string(stat_.st_gid));

@@ -41,7 +41,7 @@ class LruCacheMap {
   using IteratorCallback =
       std::function<void(const KeyType &, const ValueType &)>;
 
-  inline LruCacheMap(size_t max_size) : max_size_(max_size) {}
+  inline explicit LruCacheMap(size_t max_size) : max_size_(max_size) {}
 
   inline ValueType &operator[](const KeyType &key) {
     Entry *e = &map_[key];

@@ -127,7 +127,7 @@ class Request {
                                                      ul_now);
   }
 
-  Request(RequestHook *hook);
+  explicit Request(RequestHook *hook);
 
   size_t ProcessHeader(char *data, size_t size, size_t items);
   size_t WriteOutput(char *data, size_t size, size_t items);

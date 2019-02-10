@@ -29,6 +29,7 @@
 #include <gnutls/gnutls.h>
 #endif
 
+#include <algorithm>
 #include <atomic>
 #include <iomanip>
 #include <mutex>
@@ -378,7 +379,7 @@ void Request::Run(int timeout_in_s) {
         // Do nothing.
         error = std::string("Unrecoverable error: ") + transport_error_;
         break;
-    };
+    }
 
     if (r == CURLE_OK) {
       double this_iter_et = 0.0;

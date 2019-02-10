@@ -23,6 +23,7 @@
 
 #include <atomic>
 #include <string>
+#include <vector>
 
 #include "base/config.h"
 #include "base/logger.h"

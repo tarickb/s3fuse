@@ -54,7 +54,7 @@ struct Options {
   bool volname_set = false;
 #endif
 
-  Options(const char *arg0) {
+  explicit Options(const char *arg0) {
     base_name = std::strrchr(arg0, '/');
     base_name = base_name ? base_name + 1 : arg0;
   }
@@ -294,7 +294,6 @@ int main(int argc, char **argv) {
 
     S3_LOG(LOG_INFO, "::main", "%s version %s, initialized\n", PACKAGE_NAME,
            PACKAGE_VERSION_WITH_REV);
-
   } catch (const std::exception &e) {
     S3_LOG(LOG_ERR, "::main", "caught exception while initializing: %s\n",
            e.what());

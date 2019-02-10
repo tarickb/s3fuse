@@ -97,7 +97,6 @@ std::vector<uint8_t> AesCbc256::Crypt(Mode mode, bool pad,
     }
 
     out.resize(updated + finalized);
-
   } catch (...) {
     EVP_CIPHER_CTX_free(ctx);
     throw;

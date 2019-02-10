@@ -56,7 +56,6 @@ void Md5::Compute(int fd, uint8_t *hash) {
 
       if (read_count < BUF_LEN) break;
     }
-
   } catch (...) {
     EVP_MD_CTX_free(md5_ctx);
     throw;

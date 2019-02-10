@@ -69,7 +69,7 @@ class Buffer {
   inline std::string ToHexString() const { return Encoder::Encode<Hex>(buf_); }
 
  private:
-  inline Buffer(std::vector<uint8_t> buf) : buf_(buf) {}
+  inline explicit Buffer(std::vector<uint8_t> buf) : buf_(buf) {}
 
   std::vector<uint8_t> buf_;
 };

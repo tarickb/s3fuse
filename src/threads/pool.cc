@@ -24,6 +24,7 @@
 #include <list>
 #include <map>
 #include <memory>
+#include <string>
 
 #include "threads/request_worker.h"
 #include "threads/work_item_queue.h"
@@ -46,7 +47,7 @@ class _Pool {
 template <class WorkerType>
 class _PoolImpl : public _Pool {
  public:
-  _PoolImpl(const std::string &id) : id_(id) {
+  explicit _PoolImpl(const std::string &id) : id_(id) {
     for (int i = 0; i < NUM_THREADS_PER_POOL; i++)
       workers_.push_back(WorkerType::Create(&queue_));
   }

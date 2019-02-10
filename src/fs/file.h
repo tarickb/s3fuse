@@ -25,6 +25,8 @@
 #include <condition_variable>
 #include <memory>
 #include <mutex>
+#include <string>
+#include <vector>
 
 #include "base/request.h"
 #include "crypto/hash_list.h"
@@ -46,7 +48,7 @@ class File : public Object {
 
   static int Open(const std::string &path, FileOpenMode mode, uint64_t *handle);
 
-  File(const std::string &path);
+  explicit File(const std::string &path);
   ~File() override = default;
 
   bool IsRemovable() override;

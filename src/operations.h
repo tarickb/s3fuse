@@ -30,11 +30,11 @@
 
 namespace s3 {
 class Operations {
-public:
+ public:
   static void Init(const std::string &mountpoint);
   static void BuildFuseOperations(fuse_operations *ops);
 
-private:
+ private:
   static int chmod(const char *path, mode_t mode);
   static int chown(const char *path, uid_t uid, gid_t gid);
   static int create(const char *path, mode_t mode, fuse_file_info *file_info);
@@ -80,6 +80,6 @@ private:
   static int write(const char *path, const char *buffer, size_t size,
                    off_t offset, fuse_file_info *file_info);
 };
-} // namespace s3
+}  // namespace s3
 
 #endif

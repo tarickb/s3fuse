@@ -69,7 +69,7 @@ void Special::SetRequestHeaders(base::Request *req) {
   Object::SetRequestHeaders(req);
 
   char buf[16];
-  snprintf(buf, 16, "%#o", stat()->st_mode & S_IFMT);
+  snprintf(buf, sizeof(buf), "%#o", stat()->st_mode & S_IFMT);
   req->SetHeader(meta_prefix + Metadata::FILE_TYPE, buf);
 
   req->SetHeader(meta_prefix + Metadata::DEVICE,

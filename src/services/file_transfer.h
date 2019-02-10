@@ -25,6 +25,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "base/request.h"
 

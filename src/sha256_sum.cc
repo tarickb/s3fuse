@@ -80,7 +80,6 @@ int main(int argc, char **argv) {
     }
 
     std::cout << hash.GetRootHash<s3::crypto::Hex>() << std::endl;
-
   } catch (const std::exception &e) {
     std::cerr << "Caught exception " << e.what() << " while hashing ["
               << file_name << "]" << std::endl;

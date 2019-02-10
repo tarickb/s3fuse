@@ -23,6 +23,8 @@
 #define S3_CRYPTO_HEX_WITH_QUOTES_H
 
 #include <stdexcept>
+#include <string>
+#include <vector>
 
 #include "crypto/hex.h"
 

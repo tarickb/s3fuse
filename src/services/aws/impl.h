@@ -22,6 +22,8 @@
 #ifndef S3_SERVICES_AWS_IMPL_H
 #define S3_SERVICES_AWS_IMPL_H
 
+#include <string>
+
 #include "services/impl.h"
 
 namespace s3 {

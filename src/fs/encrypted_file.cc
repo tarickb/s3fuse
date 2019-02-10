@@ -137,7 +137,6 @@ void EncryptedFile::Init(base::Request *req) {
     data_key_ = crypto::SymmetricKey::FromString(meta.substr(0, pos));
 
     SetSha256Hash(meta.substr(pos + 1));
-
   } catch (const std::exception &e) {
     ++s_init_errors;
     S3_LOG(LOG_WARNING, "EncryptedFile::init",

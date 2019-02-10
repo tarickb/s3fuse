@@ -50,17 +50,14 @@ inline std::string GetParent(const std::string &path) {
 }
 
 inline void Invalidate(const std::string &path) {
-  if (!path.empty())
-    fs::Cache::Remove(path);
+  if (!path.empty()) fs::Cache::Remove(path);
 }
 
 int Touch(const std::string &path) {
-  if (path.empty())
-    return 0; // succeed if path is root
+  if (path.empty()) return 0;  // succeed if path is root
 
   auto obj = fs::Cache::Get(path);
-  if (!obj)
-    return -ENOENT;
+  if (!obj) return -ENOENT;
 
   obj->set_ctime();
   obj->set_mtime();
@@ -123,83 +120,78 @@ void StatsWriter(std::ostream *o) {
 
 int s_mountpoint_mode = 0;
 base::Statistics::Writers::Entry s_entry(StatsWriter, 0);
-} // namespace
+}  // namespace
 
 // also adjust path by skipping leading slash
-#define ASSERT_VALID_PATH(str)                                                 \
-  do {                                                                         \
-    const char *last_slash = nullptr;                                             \
-                                                                               \
-    if ((str)[0] != '/') {                                                     \
-      S3_LOG(LOG_WARNING, "ASSERT_VALID_PATH",                                 \
-             "expected leading slash: [%s]\n", (str));                         \
-      return -EINVAL;                                                          \
-    }                                                                          \
-                                                                               \
-    if ((str)[1] != '\0' && (str)[strlen(str) - 1] == '/') {                   \
-      S3_LOG(LOG_WARNING, "ASSERT_VALID_PATH",                                 \
-             "invalid trailing slash: [%s]\n", (str));                         \
-      return -EINVAL;                                                          \
-    }                                                                          \
-                                                                               \
-    last_slash = strrchr((str), '/');                                          \
-                                                                               \
-    if (last_slash && strlen(last_slash + 1) > NAME_MAX) {                     \
-      S3_LOG(LOG_DEBUG, "ASSERT_VALID_PATH",                                   \
-             "final component [%s] exceeds %i characters\n", last_slash,       \
-             NAME_MAX);                                                        \
-      return -ENAMETOOLONG;                                                    \
-    }                                                                          \
-                                                                               \
-    (str)++;                                                                   \
+#define ASSERT_VALID_PATH(str)                                           \
+  do {                                                                   \
+    const char *last_slash = nullptr;                                    \
+                                                                         \
+    if ((str)[0] != '/') {                                               \
+      S3_LOG(LOG_WARNING, "ASSERT_VALID_PATH",                           \
+             "expected leading slash: [%s]\n", (str));                   \
+      return -EINVAL;                                                    \
+    }                                                                    \
+                                                                         \
+    if ((str)[1] != '\0' && (str)[strlen(str) - 1] == '/') {             \
+      S3_LOG(LOG_WARNING, "ASSERT_VALID_PATH",                           \
+             "invalid trailing slash: [%s]\n", (str));                   \
+      return -EINVAL;                                                    \
+    }                                                                    \
+                                                                         \
+    last_slash = strrchr((str), '/');                                    \
+                                                                         \
+    if (last_slash && strlen(last_slash + 1) > NAME_MAX) {               \
+      S3_LOG(LOG_DEBUG, "ASSERT_VALID_PATH",                             \
+             "final component [%s] exceeds %i characters\n", last_slash, \
+             NAME_MAX);                                                  \
+      return -ENAMETOOLONG;                                              \
+    }                                                                    \
+                                                                         \
+    (str)++;                                                             \
   } while (0)
 
-#define CHECK_OWNER(obj)                                                       \
-  do {                                                                         \
-    uid_t curr_uid = fuse_get_context()->uid;                                  \
-                                                                               \
-    if (curr_uid && curr_uid != (obj)->uid())                              \
-      return -EPERM;                                                           \
+#define CHECK_OWNER(obj)                                     \
+  do {                                                       \
+    uid_t curr_uid = fuse_get_context()->uid;                \
+                                                             \
+    if (curr_uid && curr_uid != (obj)->uid()) return -EPERM; \
   } while (0)
 
 #define BEGIN_TRY try {
-
-#define END_TRY                                                                \
-  }                                                                            \
-  catch (const std::exception &e) {                                            \
-    S3_LOG(LOG_WARNING, "END_TRY", "caught exception: %s (at line %i)\n",      \
-           e.what(), __LINE__);                                                \
-    return -ECANCELED;                                                         \
-  }                                                                            \
-  catch (...) {                                                                \
-    S3_LOG(LOG_WARNING, "END_TRY", "caught unknown exception (at line %i)\n",  \
-           __LINE__);                                                          \
-    return -ECANCELED;                                                         \
+#define END_TRY                                                               \
+  }                                                                           \
+  catch (const std::exception &e) {                                           \
+    S3_LOG(LOG_WARNING, "END_TRY", "caught exception: %s (at line %i)\n",     \
+           e.what(), __LINE__);                                               \
+    return -ECANCELED;                                                        \
+  }                                                                           \
+  catch (...) {                                                               \
+    S3_LOG(LOG_WARNING, "END_TRY", "caught unknown exception (at line %i)\n", \
+           __LINE__);                                                         \
+    return -ECANCELED;                                                        \
   }
 
-#define GET_OBJECT(var, path)                                                  \
-  auto var = fs::Cache::Get(path);                                  \
-  if (!var)                                                                    \
-    return -ENOENT;
+#define GET_OBJECT(var, path)      \
+  auto var = fs::Cache::Get(path); \
+  if (!var) return -ENOENT;
 
-#define GET_OBJECT_AS(obj_type, mode, var, path)                                   \
-  auto var = std::dynamic_pointer_cast<obj_type>(fs::Cache::Get(path));       \
-  if (!var)                                                                    \
-    return -ENOENT;                                                            \
+#define GET_OBJECT_AS(obj_type, mode, var, path)                           \
+  auto var = std::dynamic_pointer_cast<obj_type>(fs::Cache::Get(path));    \
+  if (!var) return -ENOENT;                                                \
   if (var->type() != (mode)) {                                             \
-    S3_LOG(LOG_WARNING, "GET_OBJECT_AS",                                       \
-           "could not get [%s] as type [%s] (requested mode %i, reported "     \
-           "mode %i, at line %i)\n",                                           \
-           static_cast<const char *>(path), #obj_type, mode, var->type(),      \
-           __LINE__);                                                          \
-    return -EINVAL;                                                            \
+    S3_LOG(LOG_WARNING, "GET_OBJECT_AS",                                   \
+           "could not get [%s] as type [%s] (requested mode %i, reported " \
+           "mode %i, at line %i)\n",                                       \
+           static_cast<const char *>(path), #obj_type, mode, var->type(),  \
+           __LINE__);                                                      \
+    return -EINVAL;                                                        \
   }
 
-#define RETURN_ON_ERROR(op)                                                    \
-  do {                                                                         \
-    int ret_val = (op);                                                        \
-    if (ret_val)                                                               \
-      return ret_val;                                                          \
+#define RETURN_ON_ERROR(op)      \
+  do {                           \
+    int ret_val = (op);          \
+    if (ret_val) return ret_val; \
   } while (0)
 
 void Operations::Init(const std::string &mountpoint) {
@@ -270,10 +262,8 @@ int Operations::chown(const char *path, uid_t uid, gid_t gid) {
   GET_OBJECT(obj, path);
   CHECK_OWNER(obj);
 
-  if (uid != static_cast<uid_t>(-1))
-    obj->set_uid(uid);
-  if (gid != static_cast<gid_t>(-1))
-    obj->set_gid(gid);
+  if (uid != static_cast<uid_t>(-1)) obj->set_uid(uid);
+  if (gid != static_cast<gid_t>(-1)) obj->set_gid(gid);
   // chown updates ctime
   obj->set_ctime();
 
@@ -302,8 +292,7 @@ int Operations::create(const char *path, mode_t mode,
 
   std::unique_ptr<fs::File> f;
 
-  if (base::Config::use_encryption() &&
-      base::Config::encrypt_new_files())
+  if (base::Config::use_encryption() && base::Config::encrypt_new_files())
     f.reset(new fs::EncryptedFile(path));
   else
     f.reset(new fs::File(path));
@@ -320,10 +309,9 @@ int Operations::create(const char *path, mode_t mode,
   int r = 0, last_error = 0;
   for (int i = 0; i < base::Config::max_inconsistent_state_retries(); i++) {
     last_error = r;
-    r = fs::File::Open(static_cast<std::string>(path), s3::fs::FileOpenMode::DEFAULT,
-                       &file_info->fh);
-    if (r != -ENOENT)
-      break;
+    r = fs::File::Open(static_cast<std::string>(path),
+                       s3::fs::FileOpenMode::DEFAULT, &file_info->fh);
+    if (r != -ENOENT) break;
     S3_LOG(LOG_WARNING, "create", "retrying open on [%s] because of error %i\n",
            path, r);
     ++s_reopen_attempts;
@@ -331,10 +319,8 @@ int Operations::create(const char *path, mode_t mode,
     base::Timer::Sleep(i + 1);
   }
 
-  if (!r && last_error == -ENOENT)
-    ++s_reopen_rescues;
-  if (r == -ENOENT)
-    ++s_reopen_fails;
+  if (!r && last_error == -ENOENT) ++s_reopen_rescues;
+  if (r == -ENOENT) ++s_reopen_fails;
 
   return r;
 
@@ -355,8 +341,8 @@ int Operations::ftruncate(const char *path, off_t offset,
                           fuse_file_info *file_info) {
   auto *f = fs::File::FromHandle(file_info->fh);
 
-  S3_LOG(LOG_DEBUG, "ftruncate", "path: %s, offset: %ji\n",
-         f->path().c_str(), static_cast<intmax_t>(offset));
+  S3_LOG(LOG_DEBUG, "ftruncate", "path: %s, offset: %ji\n", f->path().c_str(),
+         static_cast<intmax_t>(offset));
 
   BEGIN_TRY;
   RETURN_ON_ERROR(f->Truncate(offset));
@@ -375,11 +361,11 @@ int Operations::getattr(const char *path, struct stat *s) {
 
   memset(s, 0, sizeof(*s));
 
-  if (path[0] == '\0') { // root path
+  if (path[0] == '\0') {  // root path
     s->st_uid = geteuid();
     s->st_gid = getegid();
     s->st_mode = s_mountpoint_mode;
-    s->st_nlink = 1; // because calculating nlink is hard! (see FUSE FAQ)
+    s->st_nlink = 1;  // because calculating nlink is hard! (see FUSE FAQ)
 
     return 0;
   }
@@ -421,15 +407,12 @@ int Operations::listxattr(const char *path, char *buffer, size_t size) {
   const auto attrs = obj->GetMetadataKeys();
 
   size_t required_size = 0;
-  for (const auto& attr : attrs)
-    required_size += attr.size() + 1;
+  for (const auto &attr : attrs) required_size += attr.size() + 1;
 
-  if (buffer == nullptr || size == 0)
-    return required_size;
-  if (required_size > size)
-    return -ERANGE;
+  if (buffer == nullptr || size == 0) return required_size;
+  if (required_size > size) return -ERANGE;
 
-  for (const auto& attr : attrs) {
+  for (const auto &attr : attrs) {
     strcpy(buffer, attr.c_str());
     buffer += attr.size() + 1;
   }
@@ -542,7 +525,8 @@ int Operations::readdir(const char *path, void *buf, fuse_fill_dir_t filler,
   BEGIN_TRY;
   GET_OBJECT_AS(fs::Directory, S_IFDIR, dir, path);
   return dir->Read([filler, buf](const std::string &path) {
-      filler(buf, path.c_str(), nullptr, 0); });
+    filler(buf, path.c_str(), nullptr, 0);
+  });
   END_TRY;
 }
 
@@ -561,8 +545,7 @@ int Operations::readlink(const char *path, char *buffer, size_t max_size) {
 
   // leave room for the terminating null
   max_size--;
-  if (target.size() < max_size)
-    max_size = target.size();
+  if (target.size() < max_size) max_size = target.size();
   memcpy(buffer, target.c_str(), max_size);
   buffer[max_size] = '\0';
 
@@ -613,8 +596,7 @@ int Operations::rename(const char *from, const char *to) {
 
   if (to_obj) {
     if (to_obj->type() == S_IFDIR) {
-      if (from_obj->type() != S_IFDIR)
-        return -EISDIR;
+      if (from_obj->type() != S_IFDIR) return -EISDIR;
       if (!std::dynamic_pointer_cast<fs::Directory>(to_obj)->IsEmpty())
         return -ENOTEMPTY;
     } else if (from_obj->type() == S_IFDIR) {
@@ -627,8 +609,7 @@ int Operations::rename(const char *from, const char *to) {
 
   for (int i = 0; i < base::Config::max_inconsistent_state_retries(); i++) {
     to_obj = fs::Cache::Get(to);
-    if (to_obj)
-      break;
+    if (to_obj) break;
 
     S3_LOG(LOG_WARNING, "rename",
            "newly-renamed object [%s] not available at new path\n", to);
@@ -674,7 +655,7 @@ int Operations::setxattr(const char *path, const char *name, const char *value,
 }
 
 int Operations::statfs(const char * /* ignored */, struct statvfs *s) {
-  s->f_namemax = 1024; // arbitrary
+  s->f_namemax = 1024;  // arbitrary
 
   s->f_bsize = fs::Object::block_size();
 
@@ -733,8 +714,9 @@ int Operations::truncate(const char *path, off_t size) {
   // entire file if we're just going to truncate it to zero anyway.
   uint64_t handle;
   RETURN_ON_ERROR(fs::File::Open(static_cast<std::string>(path),
-                                 (size == 0) ? s3::fs::FileOpenMode::TRUNCATE_TO_ZERO
-                                             : s3::fs::FileOpenMode::DEFAULT,
+                                 (size == 0)
+                                     ? s3::fs::FileOpenMode::TRUNCATE_TO_ZERO
+                                     : s3::fs::FileOpenMode::DEFAULT,
                                  &handle));
 
   auto *f = fs::File::FromHandle(handle);
@@ -789,4 +771,4 @@ int Operations::write(const char *path, const char *buffer, size_t size,
   END_TRY;
 }
 
-} // namespace s3
+}  // namespace s3

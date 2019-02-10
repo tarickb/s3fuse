@@ -32,7 +32,7 @@ namespace s3 {
 namespace fs {
 class Symlink : public Object {
  public:
-  Symlink(const std::string &path);
+  explicit Symlink(const std::string &path);
   ~Symlink() override = default;
 
   int Read(std::string *target);

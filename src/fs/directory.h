@@ -25,6 +25,8 @@
 #include <functional>
 #include <list>
 #include <mutex>
+#include <string>
+#include <vector>
 
 #include "fs/object.h"
 #include "threads/pool.h"
@@ -38,7 +40,7 @@ class Directory : public Object {
   static std::string BuildUrl(const std::string &path);
   static std::vector<std::string> GetInternalObjects(base::Request *req);
 
-  Directory(const std::string &path);
+  explicit Directory(const std::string &path);
   ~Directory() override = default;
 
   int Read(const Filler &filler);

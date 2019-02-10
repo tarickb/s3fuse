@@ -115,7 +115,6 @@ int main(int argc, char **argv) {
 
     fprintf(stderr, "done\n");
     return 0;
-
   } catch (const std::exception &e) {
     fprintf(stderr, "caught exception: %s\n", e.what());
   }

@@ -36,7 +36,7 @@ class Worker {
   ~Worker();
 
  private:
-  Worker(WorkItemQueue *queue);
+  explicit Worker(WorkItemQueue *queue);
 
   void Work();
 

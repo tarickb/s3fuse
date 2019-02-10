@@ -366,7 +366,6 @@ int main(int argc, char **argv) {
     } else {
       s3::PrintUsage(argv[0]);
     }
-
   } catch (const std::exception &e) {
     std::cout << "Caught exception: " << e.what() << std::endl;
     ret = 1;

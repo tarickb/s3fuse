@@ -23,6 +23,7 @@
 
 #include <atomic>
 #include <string>
+#include <vector>
 
 #include "base/config.h"
 #include "base/logger.h"
@@ -157,7 +158,7 @@ int FileTransfer::Upload(const std::string &url, size_t size,
 
 int FileTransfer::DownloadSingle(base::Request *req, const std::string &url,
                                  size_t size, const WriteChunk &on_write) {
-  long rc = 0;
+  int rc = 0;
 
   req->Init(base::HttpMethod::GET);
   req->SetUrl(url);
