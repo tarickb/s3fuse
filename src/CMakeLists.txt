@@ -44,14 +44,18 @@ endif()
 add_executable(${PROJECT_NAME} main.cc operations.cc operations.h)
 target_link_libraries(${PROJECT_NAME} ${libs} ${fuse_lib})
 target_include_directories(${PROJECT_NAME} SYSTEM PRIVATE ${FUSE_INCLUDE_DIRS})
+install(TARGETS ${PROJECT_NAME} RUNTIME DESTINATION usr/bin)
 
 if(EnableGcs)
   add_executable(${PROJECT_NAME}_gs_get_token gs_get_token.cc)
   target_link_libraries(${PROJECT_NAME}_gs_get_token ${libs})
+  install(TARGETS ${PROJECT_NAME}_gs_get_token RUNTIME DESTINATION usr/bin)
 endif()
 
 add_executable(${PROJECT_NAME}_sha256_sum sha256_sum.cc)
 target_link_libraries(${PROJECT_NAME}_sha256_sum ${PROJECT_NAME}_crypto)
+install(TARGETS ${PROJECT_NAME}_sha256_sum RUNTIME DESTINATION usr/bin)
 
 add_executable(${PROJECT_NAME}_vol_key vol_key.cc)
 target_link_libraries(${PROJECT_NAME}_vol_key ${libs})
+install(TARGETS ${PROJECT_NAME}_vol_key RUNTIME DESTINATION usr/bin)

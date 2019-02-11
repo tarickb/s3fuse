@@ -77,3 +77,9 @@ endif()
 add_subdirectory(config)
 add_subdirectory(man)
 add_subdirectory(src)
+
+set(CPACK_SOURCE_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${CHANGELOG_VERSION}")
+set(CPACK_SOURCE_GENERATOR "TGZ")
+set(CPACK_SOURCE_IGNORE_FILES "/build/;/.git/;.clang-format;~$;${CPACK_SOURCE_IGNORE_FILES}")
+
+include(CPack)
