@@ -22,6 +22,7 @@
 #include "fs/file.h"
 
 #include <atomic>
+#include <functional>
 #include <mutex>
 #include <string>
 #include <vector>
@@ -176,7 +177,8 @@ int File::Flush() {
 
   lock.unlock();
   async_error_ = threads::Pool::Call(
-      threads::PoolId::PR_0, bind(&File::Upload, this, std::placeholders::_1));
+      threads::PoolId::PR_0,
+      std::bind(&File::Upload, this, std::placeholders::_1));
   lock.lock();
 
   status_ = 0;
@@ -370,8 +372,8 @@ int File::Open(FileOpenMode mode, uint64_t *handle) {
         status_ = FS_DOWNLOADING;
         threads::Pool::Post(
             threads::PoolId::PR_0,
-            bind(&File::Download, this, std::placeholders::_1),
-            bind(&File::OnDownloadComplete, this, std::placeholders::_1));
+            std::bind(&File::Download, this, std::placeholders::_1),
+            std::bind(&File::OnDownloadComplete, this, std::placeholders::_1));
       }
     }
   } else {
@@ -390,8 +392,8 @@ int File::Download(base::Request * /* ignored */) {
 
   r = services::Service::file_transfer()->Download(
       url(), GetLocalSize(),
-      bind(&File::WriteChunk, this, std::placeholders::_1,
-           std::placeholders::_2, std::placeholders::_3));
+      std::bind(&File::WriteChunk, this, std::placeholders::_1,
+                std::placeholders::_2, std::placeholders::_3));
   if (r) return r;
 
   return FinalizeDownload();
@@ -418,8 +420,8 @@ int File::Upload(base::Request * /* ignored */) {
   std::string returned_etag;
   r = services::Service::file_transfer()->Upload(
       url(), GetLocalSize(),
-      bind(&File::ReadChunk, this, std::placeholders::_1, std::placeholders::_2,
-           std::placeholders::_3),
+      std::bind(&File::ReadChunk, this, std::placeholders::_1,
+                std::placeholders::_2, std::placeholders::_3),
       &returned_etag);
   if (r) return r;
   r = FinalizeUpload(returned_etag);
