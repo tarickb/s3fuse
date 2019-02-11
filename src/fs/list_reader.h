@@ -40,10 +40,11 @@ class ListReader {
            std::list<std::string> *prefixes);
 
  private:
-  bool truncated_;
-  std::string prefix_, marker_;
-  bool group_common_prefixes_;
-  int max_keys_;
+  const std::string prefix_;
+  const bool group_common_prefixes_;
+  const int max_keys_;
+  std::string marker_;
+  bool truncated_ = true;
 };
 }  // namespace fs
 }  // namespace s3

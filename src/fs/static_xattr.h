@@ -61,7 +61,7 @@ class StaticXAttr : public XAttr {
 
   std::vector<uint8_t> value_;
   bool encode_key_, encode_value_;
-  bool hide_on_empty_;
+  const bool hide_on_empty_;
 };
 }  // namespace fs
 }  // namespace s3

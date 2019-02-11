@@ -43,8 +43,7 @@ constexpr char PREFIX_XPATH[] = "/ListBucketResult/CommonPrefixes/Prefix";
 
 ListReader::ListReader(const std::string &prefix, bool group_common_prefixes,
                        int max_keys)
-    : truncated_(true),
-      prefix_(prefix),
+    : prefix_(prefix),
       group_common_prefixes_(group_common_prefixes),
       max_keys_(max_keys) {}
 

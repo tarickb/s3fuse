@@ -40,7 +40,7 @@ class Worker {
 
   void Work();
 
-  WorkItemQueue *queue_ = nullptr;
+  WorkItemQueue *const queue_ = nullptr;
   std::thread thread_;
 };
 }  // namespace threads

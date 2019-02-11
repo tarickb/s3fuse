@@ -47,8 +47,8 @@ class RequestWorker {
 
   void Work();
 
-  std::unique_ptr<base::Request> request_;
-  WorkItemQueue *queue_ = nullptr;
+  const std::unique_ptr<base::Request> request_;
+  WorkItemQueue *const queue_ = nullptr;
   std::thread thread_;
 };
 }  // namespace threads

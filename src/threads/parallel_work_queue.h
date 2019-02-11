@@ -135,8 +135,8 @@ class ParallelWorkQueue {
 
   std::vector<PartInProgress> parts_;
 
-  ProcessPartCallback on_process_part_;
-  RetryPartCallback on_retry_part_;
+  const ProcessPartCallback on_process_part_;
+  const RetryPartCallback on_retry_part_;
 
   int max_retries_;
   size_t max_parts_in_progress_;

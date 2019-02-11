@@ -62,7 +62,8 @@ class BucketVolumeKey {
   void Download(base::Request *req);
   void Generate();
 
-  std::string id_, encrypted_key_;
+  const std::string id_;
+  std::string encrypted_key_;
   crypto::Buffer volume_key_;
 };
 }  // namespace fs

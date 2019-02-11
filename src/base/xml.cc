@@ -171,8 +171,8 @@ class XmlDocumentImpl : public XmlDocument {
     return {xmlXPathCastNodeToString(node), FreeXmlChar};
   }
 
-  XmlDocPtr doc_;
-  XPathContextPtr xpath_context_;
+  const XmlDocPtr doc_;
+  const XPathContextPtr xpath_context_;
 };
 }  // namespace
 

@@ -63,7 +63,7 @@ class _PoolImpl : public _Pool {
   }
 
  private:
-  std::string id_;
+  const std::string id_;
   WorkItemQueue queue_;
   std::list<std::unique_ptr<WorkerType>> workers_;
 };

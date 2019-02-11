@@ -49,8 +49,8 @@ class WorkItem {
 
  private:
   bool valid_ = false;
-  WorkerFunction function_;
-  CallbackFunction on_completion_;
+  const WorkerFunction function_;
+  const CallbackFunction on_completion_;
 };
 }  // namespace threads
 }  // namespace s3
