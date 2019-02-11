@@ -1,45 +1,25 @@
-Building s3fuse
-===============
+Building and Installing s3fuse
+==============================
 
-From a Distribution Tarball
----------------------------
+From Source
+-----------
 
-To build from a distribution tarball (s3fuse-*.tar.gz):
+In general CMake will complain if dependencies are missing, so iterate with the
+following until building succeeds:
 
-  ./configure
-  make
-  make install
+$ mkdir build && cd build
+$ cmake ..
+$ make
 
-Working Copies
---------------
+For macOS, some dependencies may not be automatically detected. In my
+environment, OpenSSL (need version 1.1, at least) and googletest needed special
+handling:
 
-To build a working copy in the source directory:
+$ export PKG_CONFIG_PATH=/path/to/openssl/lib/pkgconfig:/usr/local/lib/pkgconfig
+$ export GTEST=/path/to/googletest
+$ cmake -DGTEST_INCLUDE_DIR=$GTEST/include -DGTEST_LIBRARY=$GTEST/lib/libgtest.dylib -DGTEST_MAIN_LIBRARY=$GTEST/lib/libgtest_main.dylib ..
+$ make
 
-  ./build.sh
-  make
+Then, after building:
 
-build.sh will invoke "autoreconf" to build the configure scripts, then call 
-"./configure".
-
-Debian Packages
----------------
-
-To build a Debian package (.deb), from the packages directory:
-
-  scripts/build-debian.sh <dist-tarball>
-
-RPMs
-----
-
-To build an RPM, from the packages directory:
-
-  scripts/build-redhat.sh <dist-tarball>
-
-Installing s3fuse
-=================
-
-To install (after building a working copy):
-
-  make install
-
-See README for notes on configuring s3fuse.
+$ make install
