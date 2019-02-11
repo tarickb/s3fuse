@@ -70,7 +70,7 @@ bool GenericShouldRetry(base::Request *r, int iter) {
   if (rc == base::HTTP_SC_BAD_REQUEST) {
     try {
       auto xml = base::XmlDocument::Parse(r->GetOutputAsString());
-      if (xml->Match(REQ_TIMEOUT_XPATH)) {
+      if (xml && xml->Match(REQ_TIMEOUT_XPATH)) {
         ++s_req_timeout;
         return true;
       }
