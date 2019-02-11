@@ -145,10 +145,12 @@ class Object {
   MetadataMap::iterator UpdateMetadata(std::unique_ptr<XAttr> attr);
 
  private:
+#ifdef WITH_AWS
   enum class VersionFetchOptions { NONE, WITH_EMPTIES };
 
   int FetchAllVersions(base::Request *req, VersionFetchOptions options,
                        std::string *out);
+#endif
 
   std::mutex mutex_;
 

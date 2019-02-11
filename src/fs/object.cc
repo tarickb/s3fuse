@@ -81,10 +81,13 @@ const size_t XATTR_PREFIX_LEN = 0;
 constexpr char CONTENT_TYPE_XATTR[] = PACKAGE_NAME "_content_type";
 constexpr char ETAG_XATTR[] = PACKAGE_NAME "_etag";
 constexpr char CACHE_CONTROL_XATTR[] = PACKAGE_NAME "_cache_control";
+
+#ifdef WITH_AWS
 constexpr char CURRENT_VERSION_XATTR[] = PACKAGE_NAME "_current_version";
 constexpr char ALL_VERSIONS_XATTR[] = PACKAGE_NAME "_all_versions";
 constexpr char ALL_VERSIONS_INCL_EMPTY_XATTR[] =
     PACKAGE_NAME "_all_versions_incl_empty";
+#endif
 
 constexpr int USER_XATTR_FLAGS =
     s3::fs::XAttr::XM_WRITABLE | s3::fs::XAttr::XM_SERIALIZABLE |
@@ -467,6 +470,7 @@ void Object::Init(base::Request *req) {
                                          XAttr::XM_VISIBLE));
   UpdateMetadata(StaticXAttr::FromString(ETAG_XATTR, etag_, XAttr::XM_VISIBLE));
 
+#ifdef WITH_AWS
   const auto version_iter = req->response_headers().find(
       services::Service::header_prefix() + "version-id");
   if (version_iter == req->response_headers().end())
@@ -474,6 +478,7 @@ void Object::Init(base::Request *req) {
   else
     UpdateMetadata(StaticXAttr::FromString(
         CURRENT_VERSION_XATTR, version_iter->second, XAttr::XM_VISIBLE));
+#endif
 
   const std::string cache_control = req->response_header("Cache-Control");
   if (cache_control.empty())
@@ -571,6 +576,7 @@ Object::MetadataMap::iterator Object::UpdateMetadata(
   return metadata_.insert(std::make_pair(attr->key(), std::move(attr))).first;
 }
 
+#ifdef WITH_AWS
 int Object::FetchAllVersions(base::Request *req, VersionFetchOptions options,
                              std::string *out) {
   req->Init(base::HttpMethod::GET);
@@ -627,6 +633,7 @@ int Object::FetchAllVersions(base::Request *req, VersionFetchOptions options,
   *out = versions_str;
   return 0;
 }
+#endif
 
 }  // namespace fs
 }  // namespace s3
