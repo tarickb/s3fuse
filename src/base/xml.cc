@@ -68,7 +68,7 @@ class XmlDocumentImpl : public XmlDocument {
 
   ~XmlDocumentImpl() override = default;
 
-  int Find(const char *xpath, std::string *element) {
+  int Find(const char *xpath, std::string *element) override {
     try {
       auto result = EvalXPath(xpath);
       if (!result) throw std::runtime_error("invalid xpath expression");
@@ -88,7 +88,7 @@ class XmlDocumentImpl : public XmlDocument {
     return -EIO;
   }
 
-  int Find(const char *xpath, std::list<std::string> *elements) {
+  int Find(const char *xpath, std::list<std::string> *elements) override {
     try {
       auto result = EvalXPath(xpath);
       if (!result) throw std::runtime_error("invalid xpath expression");
@@ -109,7 +109,7 @@ class XmlDocumentImpl : public XmlDocument {
   }
 
   int Find(const char *xpath,
-           std::list<std::map<std::string, std::string>> *list) {
+           std::list<std::map<std::string, std::string>> *list) override {
     try {
       auto result = EvalXPath(xpath);
       if (!result) throw std::runtime_error("invalid xpath expression");
@@ -148,7 +148,7 @@ class XmlDocumentImpl : public XmlDocument {
     return -EIO;
   }
 
-  bool Match(const char *xpath) {
+  bool Match(const char *xpath) override {
     try {
       auto result = EvalXPath(xpath);
       if (!result) throw std::runtime_error("invalid xpath expression");

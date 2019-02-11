@@ -94,7 +94,7 @@ std::list<std::unique_ptr<XAttr>> Glacier::BuildXAttrs() {
 
   xattrs.push_back(CallbackXAttr::Create(
       PACKAGE_NAME "_request_restore",
-      [this](std::string *out) {
+      [](std::string *out) {
         *out = "Set this attribute to N to restore for N days.";
         return 0;
       },
@@ -189,7 +189,7 @@ int Glacier::StartRestore(base::Request *req, int days) {
   if (req->response_code() != base::HTTP_SC_OK &&
       req->response_code() != base::HTTP_SC_ACCEPTED) {
     S3_LOG(LOG_WARNING, "Glacier::StartRestore",
-           "restore request failed for [%s] with status %i\n", path_,
+           "restore request failed for [%s] with status %i\n", path_.c_str(),
            req->response_code());
     return -EIO;
   }
@@ -201,7 +201,7 @@ int Glacier::StartRestore(base::Request *req, int days) {
   if (req->response_code() != base::HTTP_SC_OK) {
     S3_LOG(LOG_WARNING, "Glacier::StartRestore",
            "failed to retrieve object metadata for [%s] with status %i\n",
-           path_, req->response_code());
+           path_.c_str(), req->response_code());
     return -EIO;
   }
 
