@@ -65,11 +65,13 @@ namespace {
 constexpr int BLOCK_SIZE = 512;
 constexpr char INTERNAL_OBJECT_PREFIX[] = "$s3fuse$_";
 constexpr char COMMIT_ETAG_XPATH[] = "/CopyObjectResult/ETag";
+
+#ifdef WITH_AWS
 constexpr char VERSION_XPATH[] =
     "/ListVersionsResult/Version|/ListVersionsResult/DeleteMarker";
-
 // echo -n "" | md5sum
 constexpr char EMPTY_VERSION_ETAG[] = "\"d41d8cd98f00b204e9800998ecf8427e\"";
+#endif
 
 #ifdef NEED_XATTR_PREFIX
 const std::string XATTR_PREFIX = "user.";
