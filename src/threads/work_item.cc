@@ -21,6 +21,8 @@
 
 #include "threads/work_item.h"
 
+#include <errno.h>
+
 #include "base/logger.h"
 
 namespace s3 {
@@ -37,8 +39,7 @@ void WorkItem::Run(base::Request *req) {
     S3_LOG(LOG_WARNING, "WorkItem::Run", "caught unknown exception.\n");
     r = -ECANCELED;
   }
-  if (on_completion_)
-    on_completion_(r);
+  if (on_completion_) on_completion_(r);
 }
 
 }  // namespace threads
