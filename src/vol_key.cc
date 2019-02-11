@@ -208,7 +208,7 @@ void CloneKey(const std::string &config_file, const std::string &key_id,
   new_volume_key = volume_key->Clone(new_id);
   auto new_key = crypto::Buffer::Empty();
   if (out_key_file.empty())
-    new_key = PromptForCurrentPassword(new_id);
+    new_key = PromptForNewPassword(new_id);
   else
     new_key = GenerateAndWrite(out_key_file);
   std::cout << "Cloning key..." << std::endl;
@@ -230,7 +230,7 @@ void ReEncryptKey(const std::string &config_file, const std::string &key_id,
   volume_key->Unlock(current_key);
   auto new_key = crypto::Buffer::Empty();
   if (out_key_file.empty())
-    new_key = PromptForCurrentPassword(key_id);
+    new_key = PromptForNewPassword(key_id);
   else
     new_key = GenerateAndWrite(out_key_file);
   std::cout << "Changing key..." << std::endl;
