@@ -1,3 +1,16 @@
+s3fuse (0.21) unstable; urgency=low
+
+  * Add support for object versioning on AWS S3.
+  * Remove support for caching directory lists (and related "cache_directories"
+    configuration option).
+  * Remove "timeout_retries" configuration option.
+  * Move to CMake.
+  * Move to C++11.
+  * Remove dependencies on Boost.
+  * Large number of code cleanups.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Sun, 10 Feb 2019 22:34:00 -0800
+
 s3fuse (0.20) unstable; urgency=low
 
   * Undo overly-aggressive removal of OpenSSL init code.
