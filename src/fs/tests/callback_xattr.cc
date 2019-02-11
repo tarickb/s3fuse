@@ -20,7 +20,7 @@ TEST(CallbackXAttr, GetAndSet) {
                                      XAttr::XM_DEFAULT);
   ASSERT_TRUE(xattr);
   EXPECT_EQ(xattr->key(), "test_key");
-  char buf[256];
+  char buf[256] = { 0 };
   ASSERT_EQ(xattr->GetValue(buf, 256), val.size());
   EXPECT_EQ(std::string(buf), "default");
   std::string new_val = "new_val";

@@ -11,7 +11,7 @@ TEST(StaticXAttr, GetAndSet) {
   auto xattr = StaticXAttr::FromString("test_key", val, XAttr::XM_VISIBLE);
   ASSERT_TRUE(xattr);
   EXPECT_EQ(xattr->key(), "test_key");
-  char buf[256];
+  char buf[256] = { 0 };
   ASSERT_EQ(xattr->GetValue(buf, 256), val.size());
   EXPECT_EQ(std::string(buf), val);
   std::string new_val = "new_val";
