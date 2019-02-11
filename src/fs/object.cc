@@ -78,8 +78,8 @@ const size_t XATTR_PREFIX_LEN = XATTR_PREFIX.size();
 const size_t XATTR_PREFIX_LEN = 0;
 #endif
 
-constexpr char CONTENT_TYPE_XATTR[] = PACKAGE_NAME "content_type_";
-constexpr char ETAG_XATTR[] = PACKAGE_NAME "etag_";
+constexpr char CONTENT_TYPE_XATTR[] = PACKAGE_NAME "_content_type";
+constexpr char ETAG_XATTR[] = PACKAGE_NAME "_etag";
 constexpr char CACHE_CONTROL_XATTR[] = PACKAGE_NAME "_cache_control";
 constexpr char CURRENT_VERSION_XATTR[] = PACKAGE_NAME "_current_version";
 constexpr char ALL_VERSIONS_XATTR[] = PACKAGE_NAME "_all_versions";
