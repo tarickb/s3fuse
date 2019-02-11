@@ -72,19 +72,19 @@ int Fetch(base::Request *req, const std::string &path, CacheHints hints,
     }
   }
 
-  *obj = Object::Create(path, req);
-
+  auto new_obj = Object::Create(path, req);
   {
     std::lock_guard<std::mutex> lock(s_mutex);
     auto &map_obj = (*s_cache_map)[path];
     if (map_obj) {
       // if the object is already in the map, don't overwrite it
-      *obj = map_obj;
+      new_obj = map_obj;
     } else {
       // otherwise, save it
-      map_obj = *obj;
+      map_obj = new_obj;
     }
   }
+  if (obj) *obj = new_obj;
 
   return 0;
 }
@@ -123,6 +123,7 @@ void Cache::Init() {
                                           IsObjectRemovable>(
       base::Config::max_objects_in_cache()));
 }
+
 std::shared_ptr<Object> Cache::Get(const std::string &path, CacheHints hints) {
   std::shared_ptr<Object> obj;
   {
@@ -147,9 +148,11 @@ std::shared_ptr<Object> Cache::Get(const std::string &path, CacheHints hints) {
 
 int Cache::Preload(base::Request *req, const std::string &path,
                    CacheHints hints) {
-  std::lock_guard<std::mutex> lock(s_mutex);
-  if (!s_cache_map->Find(path, nullptr)) Fetch(req, path, hints, nullptr);
-  return 0;
+  {
+    std::lock_guard<std::mutex> lock(s_mutex);
+    if (s_cache_map->Find(path, nullptr)) return 0;
+  }
+  return Fetch(req, path, hints, nullptr);
 }
 
 int Cache::Remove(const std::string &path) {

@@ -37,7 +37,8 @@ void WorkItem::Run(base::Request *req) {
     S3_LOG(LOG_WARNING, "WorkItem::Run", "caught unknown exception.\n");
     r = -ECANCELED;
   }
-  on_completion_(r);
+  if (on_completion_)
+    on_completion_(r);
 }
 
 }  // namespace threads
