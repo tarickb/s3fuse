@@ -231,7 +231,7 @@ void *Init(fuse_conn_info *info) {
 void AddMissingOptions(Options *opts, fuse_args *args) {
 #ifdef __APPLE__
   opts->volname = "-ovolname=" PACKAGE_NAME " volume (" +
-                  s3::base::config::get_bucket_name() + ")";
+                  s3::base::Config::bucket_name() + ")";
   if (!opts->daemon_timeout_set)
     fuse_opt_add_arg(args, "-odaemon_timeout=3600");
   if (!opts->noappledouble_set) fuse_opt_add_arg(args, "-onoappledouble");
