@@ -111,15 +111,20 @@ Impl::Tokens Impl::GetTokens(GetTokensMode mode, const std::string &key) {
     throw std::runtime_error("failed to get tokens.");
   }
 
+  const std::string resp = req->GetOutputAsString();
   std::stringstream ss;
-  ss << req->GetOutputAsString();
+  ss << resp;
 
   Json::Value tree;
   ss >> tree;
 
-  if (!tree.isMember("access_token") || !tree.isMember("expires_in") ||
-      !tree.isMember("refresh_token")) {
-    throw std::runtime_error("failed to parse response.");
+  if (!tree.isMember("access_token") || !tree.isMember("expires_in")) {
+    S3_LOG(LOG_WARNING, "Impl::GetTokens", "parse error: %s\n", resp.c_str());
+    throw std::runtime_error("response didn't contain access token or expiry.");
+  }
+  if (mode == GetTokensMode::AUTH_CODE && !tree.isMember("refresh_token")) {
+    S3_LOG(LOG_WARNING, "Impl::GetTokens", "parse error: %s\n", resp.c_str());
+    throw std::runtime_error("response didn't contain refresh token.");
   }
 
   Tokens tokens;
