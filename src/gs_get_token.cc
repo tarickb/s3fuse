@@ -29,7 +29,7 @@
 int main(int argc, char **argv) {
   if (argc != 2) {
     const char *arg0 = std::strrchr(argv[0], '/');
-    std::cerr << "Usage: " << (arg0 ? arg0 + 1 : argv[0]) << "<token-file-name>"
+    std::cerr << "Usage: " << (arg0 ? arg0 + 1 : argv[0]) << " <token-file-name>"
               << std::endl;
     return 1;
   }
