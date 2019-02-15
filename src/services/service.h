@@ -54,6 +54,8 @@ class Service {
     return s_impl->file_transfer();
   }
 
+  inline static Versioning *versioning() { return s_impl->versioning(); }
+
  private:
   static std::unique_ptr<Impl> s_impl;
 };

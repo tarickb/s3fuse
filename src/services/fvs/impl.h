@@ -48,6 +48,7 @@ class Impl : public services::Impl,
 
   base::RequestHook *hook() override;
   services::FileTransfer *file_transfer() override;
+  services::Versioning *versioning() override;
   // END services::Impl
 
   // BEGIN services::FileTransfer

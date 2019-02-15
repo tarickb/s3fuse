@@ -37,6 +37,7 @@
 #include "crypto/hmac_sha1.h"
 #include "crypto/private_file.h"
 #include "services/aws/file_transfer.h"
+#include "services/aws/versioning.h"
 #include "services/utils.h"
 
 namespace s3 {
@@ -77,6 +78,7 @@ Impl::Impl() {
       std::string("/") + base::Url::Encode(base::Config::bucket_name());
 
   file_transfer_.reset(new FileTransfer());
+  versioning_.reset(new Versioning(this));
 }
 
 std::string Impl::header_prefix() const { return HEADER_PREFIX; }
@@ -90,6 +92,8 @@ bool Impl::is_next_marker_supported() const { return true; }
 base::RequestHook *Impl::hook() { return this; }
 
 services::FileTransfer *Impl::file_transfer() { return file_transfer_.get(); }
+
+services::Versioning *Impl::versioning() { return versioning_.get(); }
 
 std::string Impl::AdjustUrl(const std::string &url) { return endpoint_ + url; }
 

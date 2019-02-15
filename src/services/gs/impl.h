@@ -27,12 +27,11 @@
 
 #include "base/request_hook.h"
 #include "services/gs/file_transfer.h"
+#include "services/gs/versioning.h"
 #include "services/impl.h"
 
 namespace s3 {
 namespace services {
-class FileTransfer;
-
 namespace gs {
 enum class GetTokensMode { AUTH_CODE, REFRESH };
 
@@ -64,6 +63,7 @@ class Impl : public services::Impl, public base::RequestHook {
 
   base::RequestHook *hook() override;
   services::FileTransfer *file_transfer() override;
+  services::Versioning *versioning() override;
   // END services::Impl
 
   // BEGIN base::RequestHook
@@ -78,6 +78,7 @@ class Impl : public services::Impl, public base::RequestHook {
 
   std::string bucket_url_;
   std::unique_ptr<FileTransfer> file_transfer_;
+  std::unique_ptr<Versioning> versioning_;
 
   std::mutex mutex_;
   Tokens tokens_;  // Protected by mutex_.

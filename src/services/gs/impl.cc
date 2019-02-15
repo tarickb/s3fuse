@@ -163,6 +163,7 @@ Impl::Impl() {
   Refresh();
 
   file_transfer_.reset(new FileTransfer());
+  versioning_.reset(new Versioning(this));
 }
 
 std::string Impl::header_prefix() const { return HEADER_PREFIX; }
@@ -176,6 +177,8 @@ bool Impl::is_next_marker_supported() const { return true; }
 base::RequestHook *Impl::hook() { return this; }
 
 services::FileTransfer *Impl::file_transfer() { return file_transfer_.get(); }
+
+services::Versioning *Impl::versioning() { return versioning_.get(); }
 
 std::string Impl::AdjustUrl(const std::string &url) { return URL_PREFIX + url; }
 

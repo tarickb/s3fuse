@@ -31,6 +31,7 @@ class RequestHook;
 
 namespace services {
 class FileTransfer;
+class Versioning;
 
 class Impl {
  public:
@@ -44,6 +45,7 @@ class Impl {
 
   virtual base::RequestHook *hook() = 0;
   virtual FileTransfer *file_transfer() = 0;
+  virtual Versioning *versioning() = 0;
 };
 }  // namespace services
 }  // namespace s3

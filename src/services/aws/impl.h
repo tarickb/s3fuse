@@ -26,6 +26,7 @@
 
 #include "base/request_hook.h"
 #include "services/aws/file_transfer.h"
+#include "services/aws/versioning.h"
 #include "services/impl.h"
 
 namespace s3 {
@@ -46,6 +47,7 @@ class Impl : public services::Impl, public base::RequestHook {
 
   base::RequestHook *hook() override;
   services::FileTransfer *file_transfer() override;
+  services::Versioning *versioning() override;
   // END services::Impl
 
   // BEGIN base::RequestHook
@@ -59,6 +61,7 @@ class Impl : public services::Impl, public base::RequestHook {
 
   std::string key_, secret_, endpoint_, bucket_url_;
   std::unique_ptr<FileTransfer> file_transfer_;
+  std::unique_ptr<Versioning> versioning_;
 };
 }  // namespace aws
 }  // namespace services

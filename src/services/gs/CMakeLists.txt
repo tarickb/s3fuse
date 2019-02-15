@@ -4,7 +4,9 @@ set(gs_SOURCES
   file_transfer.cc
   file_transfer.h
   impl.cc
-  impl.h)
+  impl.h
+  versioning.cc
+  versioning.h)
 
 add_library(${PROJECT_NAME}_services_gs ${gs_SOURCES})
 target_include_directories(${PROJECT_NAME}_services_gs SYSTEM PRIVATE jsoncpp_lib)

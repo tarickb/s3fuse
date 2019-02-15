@@ -89,6 +89,8 @@ base::RequestHook *Impl::hook() { return this; }
 
 services::FileTransfer *Impl::file_transfer() { return this; }
 
+services::Versioning *Impl::versioning() { return nullptr; }
+
 size_t Impl::upload_chunk_size() {
   return 0;  // disabled
 }

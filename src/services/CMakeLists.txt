@@ -5,7 +5,8 @@ set(services_SOURCES
   service.cc
   service.h
   utils.h
-  utils.cc)
+  utils.cc
+  versioning.h)
 
 set(service_libs)
 
