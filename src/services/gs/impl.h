@@ -25,6 +25,8 @@
 #include <mutex>
 #include <string>
 
+#include "base/request_hook.h"
+#include "services/gs/file_transfer.h"
 #include "services/impl.h"
 
 namespace s3 {
@@ -34,7 +36,7 @@ class FileTransfer;
 namespace gs {
 enum class GetTokensMode { AUTH_CODE, REFRESH };
 
-class Impl : public services::Impl {
+class Impl : public services::Impl, public base::RequestHook {
  public:
   struct Tokens {
     std::string access;
@@ -53,22 +55,29 @@ class Impl : public services::Impl {
 
   ~Impl() override = default;
 
+  // BEGIN services::Impl
   std::string header_prefix() const override;
   std::string header_meta_prefix() const override;
   std::string bucket_url() const override;
+
   bool is_next_marker_supported() const override;
 
-  std::unique_ptr<services::FileTransfer> BuildFileTransfer() override;
+  base::RequestHook *hook() override;
+  services::FileTransfer *file_transfer() override;
+  // END services::Impl
 
+  // BEGIN base::RequestHook
   std::string AdjustUrl(const std::string &url) override;
   void PreRun(base::Request *r, int iter) override;
   bool ShouldRetry(base::Request *r, int iter) override;
+  // END base::RequestHook
 
  private:
   void Sign(base::Request *req, int iter);
   void Refresh();  // Call only with mutex_ held.
 
   std::string bucket_url_;
+  std::unique_ptr<FileTransfer> file_transfer_;
 
   std::mutex mutex_;
   Tokens tokens_;  // Protected by mutex_.

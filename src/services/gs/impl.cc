@@ -36,6 +36,7 @@
 #include "base/url.h"
 #include "crypto/private_file.h"
 #include "services/gs/file_transfer.h"
+#include "services/utils.h"
 
 namespace s3 {
 namespace services {
@@ -44,6 +45,7 @@ namespace gs {
 namespace {
 const std::string HEADER_PREFIX = "x-goog-";
 const std::string HEADER_META_PREFIX = "x-goog-meta-";
+
 const std::string URL_PREFIX = "https://commondatastorage.googleapis.com";
 
 const std::string EP_TOKEN = "https://accounts.google.com/o/oauth2/token";
@@ -159,6 +161,8 @@ Impl::Impl() {
 
   tokens_.refresh = Impl::ReadToken(base::Config::gs_token_file());
   Refresh();
+
+  file_transfer_.reset(new FileTransfer());
 }
 
 std::string Impl::header_prefix() const { return HEADER_PREFIX; }
@@ -168,6 +172,21 @@ std::string Impl::header_meta_prefix() const { return HEADER_META_PREFIX; }
 std::string Impl::bucket_url() const { return bucket_url_; }
 
 bool Impl::is_next_marker_supported() const { return true; }
+
+base::RequestHook *Impl::hook() { return this; }
+
+services::FileTransfer *Impl::file_transfer() { return file_transfer_.get(); }
+
+std::string Impl::AdjustUrl(const std::string &url) { return URL_PREFIX + url; }
+
+void Impl::PreRun(base::Request *r, int iter) { Sign(r, iter); }
+
+bool Impl::ShouldRetry(base::Request *r, int iter) {
+  if (GenericShouldRetry(r, iter)) return true;
+
+  // retry only on first unauthorized response
+  return (r->response_code() == base::HTTP_SC_UNAUTHORIZED && iter == 0);
+}
 
 void Impl::Sign(base::Request *req, int iter) {
   std::lock_guard<std::mutex> lock(mutex_);
@@ -194,21 +213,6 @@ void Impl::Refresh() {
   S3_LOG(LOG_DEBUG, "Impl::Refresh",
          "using refresh token [%s], got access token [%s].\n",
          tokens_.refresh.c_str(), tokens_.access.c_str());
-}
-
-std::unique_ptr<services::FileTransfer> Impl::BuildFileTransfer() {
-  return std::unique_ptr<FileTransfer>(new gs::FileTransfer());
-}
-
-std::string Impl::AdjustUrl(const std::string &url) { return URL_PREFIX + url; }
-
-void Impl::PreRun(base::Request *r, int iter) { Sign(r, iter); }
-
-bool Impl::ShouldRetry(base::Request *r, int iter) {
-  if (GenericShouldRetry(r, iter)) return true;
-
-  // retry only on first unauthorized response
-  return (r->response_code() == base::HTTP_SC_UNAUTHORIZED && iter == 0);
 }
 
 }  // namespace gs

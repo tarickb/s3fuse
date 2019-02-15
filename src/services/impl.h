@@ -22,28 +22,29 @@
 #ifndef S3_SERVICES_IMPL_H
 #define S3_SERVICES_IMPL_H
 
-#include <memory>
 #include <string>
 
-#include "base/request_hook.h"
-
 namespace s3 {
+namespace base {
+class RequestHook;
+}
+
 namespace services {
 class FileTransfer;
 
-class Impl : public base::RequestHook {
+class Impl {
  public:
   virtual ~Impl() = default;
 
   virtual std::string header_prefix() const = 0;
   virtual std::string header_meta_prefix() const = 0;
   virtual std::string bucket_url() const = 0;
+
   virtual bool is_next_marker_supported() const = 0;
 
-  virtual std::unique_ptr<FileTransfer> BuildFileTransfer() = 0;
+  virtual base::RequestHook *hook() = 0;
+  virtual FileTransfer *file_transfer() = 0;
 };
-
-bool GenericShouldRetry(base::Request *r, int iter);
 }  // namespace services
 }  // namespace s3
 

@@ -41,7 +41,6 @@
 namespace s3 {
 namespace services {
 std::unique_ptr<Impl> Service::s_impl;
-std::unique_ptr<FileTransfer> Service::s_file_transfer;
 
 void Service::Init() {
 #ifdef FIXED_SERVICE
@@ -71,8 +70,7 @@ void Service::Init() {
 
 void Service::Init(std::unique_ptr<Impl> impl) {
   s_impl = std::move(impl);
-  base::RequestFactory::SetHook(s_impl.get());
-  s_file_transfer = s_impl->BuildFileTransfer();
+  base::RequestFactory::SetHook(s_impl->hook());
 }
 
 std::string Service::GetEnabledServices() {

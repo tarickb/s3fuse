@@ -24,34 +24,41 @@
 
 #include <string>
 
+#include "base/request_hook.h"
+#include "services/aws/file_transfer.h"
 #include "services/impl.h"
 
 namespace s3 {
 namespace services {
-class FileTransfer;
-
 namespace aws {
-class Impl : public services::Impl {
+class Impl : public services::Impl, public base::RequestHook {
  public:
   Impl();
 
   ~Impl() override = default;
 
+  // BEGIN services::Impl
   std::string header_prefix() const override;
   std::string header_meta_prefix() const override;
   std::string bucket_url() const override;
+
   bool is_next_marker_supported() const override;
 
-  std::unique_ptr<services::FileTransfer> BuildFileTransfer() override;
+  base::RequestHook *hook() override;
+  services::FileTransfer *file_transfer() override;
+  // END services::Impl
 
+  // BEGIN base::RequestHook
   std::string AdjustUrl(const std::string &url) override;
   void PreRun(base::Request *r, int iter) override;
   bool ShouldRetry(base::Request *r, int iter) override;
+  // END base::RequestHook
 
  private:
   void Sign(base::Request *req);
 
   std::string key_, secret_, endpoint_, bucket_url_;
+  std::unique_ptr<FileTransfer> file_transfer_;
 };
 }  // namespace aws
 }  // namespace services

@@ -36,7 +36,7 @@
 #include "crypto/encoder.h"
 #include "crypto/hmac_sha1.h"
 #include "crypto/private_file.h"
-#include "services/fvs/file_transfer.h"
+#include "services/utils.h"
 
 namespace s3 {
 namespace services {
@@ -46,12 +46,6 @@ namespace {
 const std::string HEADER_PREFIX = "x-iijgio-";
 const std::string HEADER_META_PREFIX = "x-iijgio-meta-";
 
-const std::string EMPTY = "";
-
-const std::string &SafeFind(const base::HeaderMap &map, const char *key) {
-  const auto iter = map.find(key);
-  return (iter == map.end()) ? EMPTY : iter->second;
-}
 }  // namespace
 
 Impl::Impl() {
@@ -91,13 +85,29 @@ std::string Impl::bucket_url() const { return bucket_url_; }
 
 bool Impl::is_next_marker_supported() const { return false; }
 
+base::RequestHook *Impl::hook() { return this; }
+
+services::FileTransfer *Impl::file_transfer() { return this; }
+
+size_t Impl::upload_chunk_size() {
+  return 0;  // disabled
+}
+
+std::string Impl::AdjustUrl(const std::string &url) { return endpoint_ + url; }
+
+void Impl::PreRun(base::Request *r, int iter) { Sign(r); }
+
+bool Impl::ShouldRetry(base::Request *r, int iter) {
+  return GenericShouldRetry(r, iter);
+}
+
 void Impl::Sign(base::Request *req) {
   std::string date = base::Timer::GetHttpTime();
   req->SetHeader("Date", date);
 
   std::string to_sign =
-      req->method() + "\n" + SafeFind(req->headers(), "Content-MD5") + "\n" +
-      SafeFind(req->headers(), "Content-Type") + "\n" + date + "\n";
+      req->method() + "\n" + FindOrDefault(req->headers(), "Content-MD5") +
+      "\n" + FindOrDefault(req->headers(), "Content-Type") + "\n" + date + "\n";
   for (const auto &header : req->headers()) {
     if (!header.second.empty() &&
         header.first.substr(0, HEADER_PREFIX.size()) == HEADER_PREFIX)
@@ -110,18 +120,6 @@ void Impl::Sign(base::Request *req) {
   req->SetHeader("Authorization", std::string("IIJGIO ") + key_ + ":" +
                                       crypto::Encoder::Encode<crypto::Base64>(
                                           mac, crypto::HmacSha1::MAC_LEN));
-}
-
-std::unique_ptr<services::FileTransfer> Impl::BuildFileTransfer() {
-  return std::unique_ptr<FileTransfer>(new fvs::FileTransfer());
-}
-
-std::string Impl::AdjustUrl(const std::string &url) { return endpoint_ + url; }
-
-void Impl::PreRun(base::Request *r, int iter) { Sign(r); }
-
-bool Impl::ShouldRetry(base::Request *r, int iter) {
-  return GenericShouldRetry(r, iter);
 }
 
 }  // namespace fvs

@@ -1,7 +1,7 @@
 /*
- * services/impl.cc
+ * services/utils.cc
  * -------------------------------------------------------------------------
- * Service base class implementation.
+ * Common service implementation utilities.
  * -------------------------------------------------------------------------
  *
  * Copyright (c) 2012, Tarick Bedeir.
@@ -19,7 +19,7 @@
  * limitations under the License.
  */
 
-#include "services/impl.h"
+#include "services/utils.h"
 
 #include <atomic>
 

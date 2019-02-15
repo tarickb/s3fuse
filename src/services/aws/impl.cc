@@ -37,6 +37,7 @@
 #include "crypto/hmac_sha1.h"
 #include "crypto/private_file.h"
 #include "services/aws/file_transfer.h"
+#include "services/utils.h"
 
 namespace s3 {
 namespace services {
@@ -45,13 +46,6 @@ namespace aws {
 namespace {
 const std::string HEADER_PREFIX = "x-amz-";
 const std::string HEADER_META_PREFIX = "x-amz-meta-";
-
-const std::string EMPTY = "";
-
-const std::string &SafeFind(const base::HeaderMap &map, const char *key) {
-  const auto iter = map.find(key);
-  return (iter == map.end()) ? EMPTY : iter->second;
-}
 }  // namespace
 
 Impl::Impl() {
@@ -81,6 +75,8 @@ Impl::Impl() {
 
   bucket_url_ =
       std::string("/") + base::Url::Encode(base::Config::bucket_name());
+
+  file_transfer_.reset(new FileTransfer());
 }
 
 std::string Impl::header_prefix() const { return HEADER_PREFIX; }
@@ -91,14 +87,26 @@ std::string Impl::bucket_url() const { return bucket_url_; }
 
 bool Impl::is_next_marker_supported() const { return true; }
 
+base::RequestHook *Impl::hook() { return this; }
+
+services::FileTransfer *Impl::file_transfer() { return file_transfer_.get(); }
+
+std::string Impl::AdjustUrl(const std::string &url) { return endpoint_ + url; }
+
+void Impl::PreRun(base::Request *r, int iter) { Sign(r); }
+
+bool Impl::ShouldRetry(base::Request *r, int iter) {
+  return GenericShouldRetry(r, iter);
+}
+
 void Impl::Sign(base::Request *req) {
   const std::string date = base::Timer::GetHttpTime();
   req->SetHeader("Date", date);
 
   const auto &headers = req->headers();
-  std::string to_sign = req->method() + "\n" +
-                        SafeFind(headers, "Content-MD5") + "\n" +
-                        SafeFind(headers, "Content-Type") + "\n" + date + "\n";
+  std::string to_sign =
+      req->method() + "\n" + FindOrDefault(headers, "Content-MD5") + "\n" +
+      FindOrDefault(headers, "Content-Type") + "\n" + date + "\n";
 
   for (const auto &header : headers)
     if (!header.second.empty() &&
@@ -112,18 +120,6 @@ void Impl::Sign(base::Request *req) {
   req->SetHeader("Authorization", std::string("AWS ") + key_ + ":" +
                                       crypto::Encoder::Encode<crypto::Base64>(
                                           mac, crypto::HmacSha1::MAC_LEN));
-}
-
-std::string Impl::AdjustUrl(const std::string &url) { return endpoint_ + url; }
-
-void Impl::PreRun(base::Request *r, int iter) { Sign(r); }
-
-bool Impl::ShouldRetry(base::Request *r, int iter) {
-  return GenericShouldRetry(r, iter);
-}
-
-std::unique_ptr<services::FileTransfer> Impl::BuildFileTransfer() {
-  return std::unique_ptr<services::FileTransfer>(new aws::FileTransfer());
 }
 
 }  // namespace aws

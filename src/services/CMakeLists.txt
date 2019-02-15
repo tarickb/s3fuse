@@ -1,10 +1,11 @@
 set(services_SOURCES
   file_transfer.cc
   file_transfer.h
-  impl.cc
   impl.h
   service.cc
-  service.h)
+  service.h
+  utils.h
+  utils.cc)
 
 set(service_libs)
 

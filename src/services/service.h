@@ -50,11 +50,12 @@ class Service {
     return s_impl->is_next_marker_supported();
   }
 
-  inline static FileTransfer *file_transfer() { return s_file_transfer.get(); }
+  inline static FileTransfer *file_transfer() {
+    return s_impl->file_transfer();
+  }
 
  private:
   static std::unique_ptr<Impl> s_impl;
-  static std::unique_ptr<FileTransfer> s_file_transfer;
 };
 }  // namespace services
 }  // namespace s3
