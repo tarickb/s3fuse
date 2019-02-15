@@ -35,6 +35,7 @@
 
 #include "base/static_list.h"
 #include "fs/xattr.h"
+#include "services/versioning.h"
 #include "threads/pool.h"
 
 namespace s3 {
@@ -145,12 +146,8 @@ class Object {
   MetadataMap::iterator UpdateMetadata(std::unique_ptr<XAttr> attr);
 
  private:
-#ifdef WITH_AWS
-  enum class VersionFetchOptions { NONE, WITH_EMPTIES };
-
-  int FetchAllVersions(base::Request *req, VersionFetchOptions options,
-                       std::string *out);
-#endif
+  int FetchAllVersions(services::VersionFetchOptions options,
+                       base::Request *req, std::string *out);
 
   std::mutex mutex_;
 

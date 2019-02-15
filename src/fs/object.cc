@@ -66,13 +66,6 @@ constexpr int BLOCK_SIZE = 512;
 constexpr char INTERNAL_OBJECT_PREFIX[] = "$s3fuse$_";
 constexpr char COMMIT_ETAG_XPATH[] = "/CopyObjectResult/ETag";
 
-#ifdef WITH_AWS
-constexpr char VERSION_XPATH[] =
-    "/ListVersionsResult/Version|/ListVersionsResult/DeleteMarker";
-// echo -n "" | md5sum
-constexpr char EMPTY_VERSION_ETAG[] = "\"d41d8cd98f00b204e9800998ecf8427e\"";
-#endif
-
 #ifdef NEED_XATTR_PREFIX
 const std::string XATTR_PREFIX = "user.";
 const size_t XATTR_PREFIX_LEN = XATTR_PREFIX.size();
@@ -84,12 +77,10 @@ constexpr char CONTENT_TYPE_XATTR[] = PACKAGE_NAME "_content_type";
 constexpr char ETAG_XATTR[] = PACKAGE_NAME "_etag";
 constexpr char CACHE_CONTROL_XATTR[] = PACKAGE_NAME "_cache_control";
 
-#ifdef WITH_AWS
 constexpr char CURRENT_VERSION_XATTR[] = PACKAGE_NAME "_current_version";
 constexpr char ALL_VERSIONS_XATTR[] = PACKAGE_NAME "_all_versions";
 constexpr char ALL_VERSIONS_INCL_EMPTY_XATTR[] =
     PACKAGE_NAME "_all_versions_incl_empty";
-#endif
 
 constexpr int USER_XATTR_FLAGS =
     s3::fs::XAttr::XM_WRITABLE | s3::fs::XAttr::XM_SERIALIZABLE |
@@ -134,8 +125,7 @@ inline std::string BuildUrlForVersionedPath(const std::string &path) {
     throw std::runtime_error("can't build url for non-versioned path.");
   std::string base_path = path.substr(0, sep);
   std::string version = path.substr(sep + 1);
-  return services::Service::bucket_url() + "/" + base::Url::Encode(base_path) +
-         "?versionId=" + version;
+  return services::Service::versioning()->BuildVersionedUrl(base_path, version);
 }
 
 base::Statistics::Writers::Entry s_writer(StatsWriter, 0);
@@ -165,12 +155,9 @@ bool Object::IsInternalPath(const std::string &path) {
 }
 
 bool Object::IsVersionedPath(const std::string &path) {
-#ifdef WITH_AWS
   return base::Config::enable_versioning() &&
+         services::Service::versioning() != nullptr &&
          (path.find(VERSION_SEPARATOR) != std::string::npos);
-#else
-  return false;
-#endif
 }
 
 int Object::CopyByPath(base::Request *req, const std::string &from,
@@ -472,15 +459,16 @@ void Object::Init(base::Request *req) {
                                          XAttr::XM_VISIBLE));
   UpdateMetadata(StaticXAttr::FromString(ETAG_XATTR, etag_, XAttr::XM_VISIBLE));
 
-#ifdef WITH_AWS
-  const auto version_iter = req->response_headers().find(
-      services::Service::header_prefix() + "version-id");
-  if (version_iter == req->response_headers().end())
-    metadata_.erase(CURRENT_VERSION_XATTR);
-  else
-    UpdateMetadata(StaticXAttr::FromString(
-        CURRENT_VERSION_XATTR, version_iter->second, XAttr::XM_VISIBLE));
-#endif
+  if (services::Service::versioning()) {
+    const std::string version =
+        services::Service::versioning()->ExtractCurrentVersion(req);
+    if (version.empty()) {
+      metadata_.erase(CURRENT_VERSION_XATTR);
+    } else {
+      UpdateMetadata(StaticXAttr::FromString(CURRENT_VERSION_XATTR, version,
+                                             XAttr::XM_VISIBLE));
+    }
+  }
 
   const std::string cache_control = req->response_header("Cache-Control");
   if (cache_control.empty())
@@ -513,15 +501,16 @@ void Object::Init(base::Request *req) {
   }
 #endif
 
-#ifdef WITH_AWS
-  if (base::Config::enable_versioning()) {
+  if (base::Config::enable_versioning() &&
+      services::Service::versioning() != nullptr) {
     UpdateMetadata(CallbackXAttr::Create(
         ALL_VERSIONS_XATTR,
         [this](std::string *out) {
           return threads::Pool::Call(
               threads::PoolId::PR_REQ_1,
-              std::bind(&Object::FetchAllVersions, this, std::placeholders::_1,
-                        VersionFetchOptions::NONE, out));
+              std::bind(&Object::FetchAllVersions, this,
+                        services::VersionFetchOptions::NONE,
+                        std::placeholders::_1, out));
         },
         [](std::string) { return 0; }, XAttr::XM_VISIBLE));
 
@@ -530,12 +519,12 @@ void Object::Init(base::Request *req) {
         [this](std::string *out) {
           return threads::Pool::Call(
               threads::PoolId::PR_REQ_1,
-              std::bind(&Object::FetchAllVersions, this, std::placeholders::_1,
-                        VersionFetchOptions::WITH_EMPTIES, out));
+              std::bind(&Object::FetchAllVersions, this,
+                        services::VersionFetchOptions::WITH_EMPTIES,
+                        std::placeholders::_1, out));
         },
         [](std::string) { return 0; }, XAttr::XM_VISIBLE));
   }
-#endif
 }
 
 void Object::SetRequestHeaders(base::Request *req) {
@@ -578,64 +567,23 @@ Object::MetadataMap::iterator Object::UpdateMetadata(
   return metadata_.insert(std::make_pair(attr->key(), std::move(attr))).first;
 }
 
-#ifdef WITH_AWS
-int Object::FetchAllVersions(base::Request *req, VersionFetchOptions options,
-                             std::string *out) {
-  req->Init(base::HttpMethod::GET);
-  req->SetUrl(services::Service::bucket_url() + "?versions",
-              std::string("prefix=") + base::Url::Encode(path_));
-  req->Run();
-
-  if (req->response_code() != base::HTTP_SC_OK) return -EIO;
-
-  auto doc = base::XmlDocument::Parse(req->GetOutputAsString());
-  if (!doc) {
-    S3_LOG(LOG_WARNING, "Object::FetchAllVersions",
-           "failed to parse response.\n");
-    return -EIO;
-  }
-
-  std::list<std::map<std::string, std::string>> versions;
-  doc->Find(VERSION_XPATH, &versions);
-  std::string versions_str;
-  std::string latest_etag;
+int Object::FetchAllVersions(services::VersionFetchOptions options,
+                             base::Request *req, std::string *out) {
   int empty_count = 0;
 
-  for (auto &keys : versions) {
-    const std::string &key = keys["Key"];
-    if (key != path_) continue;
-    const std::string &etag = keys["ETag"];
-    if (etag == latest_etag) continue;
-    if (options != VersionFetchOptions::WITH_EMPTIES &&
-        etag == EMPTY_VERSION_ETAG) {
-      empty_count++;
-      continue;
-    }
-    latest_etag = etag;
-
-    if (keys[base::XmlDocument::MAP_NAME_KEY] == "Version") {
-      versions_str += "version=" + keys["VersionId"] +
-                      " mtime=" + keys["LastModified"] + " etag=" + etag +
-                      " size=" + keys["Size"] + "\n";
-    } else if (keys[base::XmlDocument::MAP_NAME_KEY] == "DeleteMarker") {
-      versions_str += "version=" + keys["VersionId"] +
-                      " mtime=" + keys["LastModified"] + " etag=" + etag +
-                      " deleted\n";
-    }
-  }
+  int r = services::Service::versioning()->FetchAllVersions(options, path_, req,
+                                                            out, &empty_count);
+  if (r) return r;
 
   if (empty_count) {
-    if (!versions_str.empty()) versions_str += "\n";
-    versions_str += "(" + std::to_string(empty_count) +
-                    " empty version(s) omitted. Request extended attribute \"" +
-                    ALL_VERSIONS_INCL_EMPTY_XATTR +
-                    "\" to see empty versions.)\n";
+    if (!out->empty()) (*out) += "\n";
+    *out += "(" + std::to_string(empty_count) +
+            " empty version(s) omitted. Request extended attribute \"" +
+            ALL_VERSIONS_INCL_EMPTY_XATTR + "\" to see empty versions.)\n";
   }
 
-  *out = versions_str;
   return 0;
 }
-#endif
 
 }  // namespace fs
 }  // namespace s3
