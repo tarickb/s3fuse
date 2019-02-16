@@ -1,0 +1,38 @@
+.\" man page for __PACKAGE_NAME__
+.TH __PACKAGE_NAME_UPPER___GS_OPERATIONS 1 __TODAY__ "__PACKAGE_NAME__ __PACKAGE_VERSION__" "__PACKAGE_NAME___gs_operations"
+
+.SH NAME
+\fB__PACKAGE_NAME___gs_operations\fR - Perform miscellaneous operations on
+Google Cloud Storage buckets.
+
+.SH SYNOPSIS
+\fB__PACKAGE_NAME___gs_operations\fR
+[\fB-c | --config-file\fR \fIpath\fR]
+\fIcommand\fR
+
+.SH DESCRIPTION
+\fB__PACKAGE_NAME___gs_operations\fR performs miscellaneous operations on the
+Google Cloud Storage bucket specified by the default configuration file (or the
+configuration file specified by \fB--config-file\fR) -- see
+\fB__PACKAGE_NAME__.conf\fR(5).
+
+.SH COMMANDS
+.TP
+.B get-versioning
+Get current object versioning status.
+
+.TP
+\fBversioning\fR [\fBon | off\fR]
+Turn object versioning on or off.
+
+.SH OPTIONS
+.TP
+.BI "-c | --config-file " path
+Read configuration from \fIpath\fR rather than the default paths. This file is
+described in \fB__PACKAGE_NAME__.conf\fR(5).
+
+.SH AUTHORS
+Tarick Bedeir <tarick@bedeir.com>
+
+.SH SEE ALSO
+\fB__PACKAGE_NAME__\fR(1)

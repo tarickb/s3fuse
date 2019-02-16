@@ -50,6 +50,10 @@ if(EnableGcs)
   add_executable(${PROJECT_NAME}_gs_get_token gs_get_token.cc)
   target_link_libraries(${PROJECT_NAME}_gs_get_token ${libs})
   install(TARGETS ${PROJECT_NAME}_gs_get_token RUNTIME DESTINATION bin)
+
+  add_executable(${PROJECT_NAME}_gs_operations gs_operations.cc)
+  target_link_libraries(${PROJECT_NAME}_gs_operations ${libs})
+  install(TARGETS ${PROJECT_NAME}_gs_operations RUNTIME DESTINATION bin)
 endif()
 
 add_executable(${PROJECT_NAME}_sha256_sum sha256_sum.cc)
