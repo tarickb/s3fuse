@@ -357,6 +357,38 @@ LIST request.  LIST requests are charged at 10x the rate of GET requests:
 
   http://aws.amazon.com/s3/pricing/
 
+Object Versioning
+-----------------
+
+s3fuse-0.23 adds support for object versioning on S3 (GCS support exists as of
+0.24). File objects have three new extended attributes:
+
+- s3fuse_current_version
+- s3fuse_all_versions
+- s3fuse_all_versions_incl_empty
+
+The first of these, when queried, will return the "current" (i.e., most recent)
+version of the file. Querying "s3fuse_all_versions" will return a list
+detailing the version identifiers, modification times, and sizes of all the
+versions of a file. "s3fuse_all_versions_incl_empty" also includes empty files,
+sometimes used as placeholders by s3fuse when committing encrypted files to S3.
+
+In addition, s3fuse allows the read-only opening of older versions by appending
+'#' and the version ID to the path name. For instance:
+
+$ xattr -p user.s3fuse_all_versions /mnt/test0
+version=00112233445566778899aabbccddeeff mtime=2019-01-01T01:01:01.000Z etag="0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b" size=18
+version=aabbccddeeff00112233445566778899 mtime=2019-01-01T00:00:01.000Z etag="0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a" size=18
+
+$ cat /mnt/test0#aabbccddeeff00112233445566778899
+this is version 0
+
+$ cat /mnt/test0#00112233445566778899aabbccddeeff
+this is version 1
+
+$ cat /mnt/test0
+this is version 1
+
 Running
 -------
 
