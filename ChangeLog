@@ -1,3 +1,11 @@
+s3fuse (0.24) unstable; urgency=low
+
+  * Add support for object versioning on Google Cloud Storage.
+  * Add tool to turn on/off versioning on GCS buckets.
+  * Fix bug when requesting tokens on GCS.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Thu, 21 Feb 2019 18:40:00 -0600
+
 s3fuse (0.23) unstable; urgency=low
 
   * Fix installation paths.
