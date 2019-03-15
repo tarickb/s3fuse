@@ -40,9 +40,11 @@ namespace s3 {
 namespace {
 std::atomic_int s_reopen_attempts(0), s_reopen_rescues(0), s_reopen_fails(0);
 std::atomic_int s_rename_attempts(0), s_rename_fails(0);
-std::atomic_int s_create(0), s_mkdir(0), s_mknod(0), s_open(0), s_rename(0),
-    s_symlink(0), s_truncate(0), s_unlink(0);
-std::atomic_int s_getattr(0), s_readdir(0), s_readlink(0);
+std::atomic_int s_chmod(0), s_chown(0), s_create(0), s_flush(0), s_ftruncate(0),
+    s_mkdir(0), s_mknod(0), s_open(0), s_removexattr(0), s_rename(0),
+    s_setxattr(0), s_symlink(0), s_truncate(0), s_unlink(0), s_utimens(0);
+std::atomic_int s_getattr(0), s_getxattr(0), s_listxattr(0), s_readdir(0),
+    s_readlink(0);
 std::atomic_int s_utimens_skipped(0);
 
 inline std::string GetParent(const std::string &path) {
@@ -84,8 +86,20 @@ void StatsWriter(std::ostream *o) {
      << s_rename_fails
      << "\n"
         "operations (modifiers):\n"
+        "  chmod: "
+     << s_chmod
+     << "\n"
+        "  chown: "
+     << s_chown
+     << "\n"
         "  create: "
      << s_create
+     << "\n"
+        "  flush: "
+     << s_flush
+     << "\n"
+        "  ftruncate: "
+     << s_ftruncate
      << "\n"
         "  mkdir: "
      << s_mkdir
@@ -96,8 +110,14 @@ void StatsWriter(std::ostream *o) {
         "  open: "
      << s_open
      << "\n"
+        "  removexattr: "
+     << s_removexattr
+     << "\n"
         "  rename: "
      << s_rename
+     << "\n"
+        "  setxattr: "
+     << s_setxattr
      << "\n"
         "  symlink: "
      << s_symlink
@@ -108,9 +128,18 @@ void StatsWriter(std::ostream *o) {
         "  unlink: "
      << s_unlink
      << "\n"
+        "  utimens: "
+     << s_utimens
+     << "\n"
         "operations (accessors):\n"
         "  getattr: "
      << s_getattr
+     << "\n"
+        "  getxattr: "
+     << s_getxattr
+     << "\n"
+        "  listxattr: "
+     << s_listxattr
      << "\n"
         "  readdir: "
      << s_readdir
@@ -242,6 +271,7 @@ void Operations::BuildFuseOperations(fuse_operations *ops) {
 
 int Operations::chmod(const char *path, mode_t mode) {
   S3_LOG(LOG_DEBUG, "chmod", "path: %s, mode: %i\n", path, mode);
+  ++s_chmod;
 
   ASSERT_VALID_PATH(path);
 
@@ -259,6 +289,7 @@ int Operations::chmod(const char *path, mode_t mode) {
 
 int Operations::chown(const char *path, uid_t uid, gid_t gid) {
   S3_LOG(LOG_DEBUG, "chown", "path: %s, user: %i, group: %i\n", path, uid, gid);
+  ++s_chown;
 
   ASSERT_VALID_PATH(path);
 
@@ -336,6 +367,7 @@ int Operations::flush(const char *path, fuse_file_info *file_info) {
   auto *f = fs::File::FromHandle(file_info->fh);
 
   S3_LOG(LOG_DEBUG, "flush", "path: %s\n", f->path().c_str());
+  ++s_flush;
 
   BEGIN_TRY;
   return f->Flush();
@@ -348,6 +380,7 @@ int Operations::ftruncate(const char *path, off_t offset,
 
   S3_LOG(LOG_DEBUG, "ftruncate", "path: %s, offset: %ji\n", f->path().c_str(),
          static_cast<intmax_t>(offset));
+  ++s_ftruncate;
 
   BEGIN_TRY;
   RETURN_ON_ERROR(f->Truncate(offset));
@@ -395,6 +428,7 @@ int Operations::getxattr(const char *path, const char *name, char *buffer,
 #endif
 {
   ASSERT_VALID_PATH(path);
+  ++s_getxattr;
 
   BEGIN_TRY;
   GET_OBJECT(obj, path);
@@ -404,6 +438,7 @@ int Operations::getxattr(const char *path, const char *name, char *buffer,
 
 int Operations::listxattr(const char *path, char *buffer, size_t size) {
   ASSERT_VALID_PATH(path);
+  ++s_listxattr;
 
   BEGIN_TRY;
 
@@ -573,6 +608,7 @@ int Operations::removexattr(const char *path, const char *name) {
   S3_LOG(LOG_DEBUG, "removexattr", "path: %s, name: %s\n", path, name);
 
   ASSERT_VALID_PATH(path);
+  ++s_removexattr;
 
   BEGIN_TRY;
   GET_OBJECT(obj, path);
@@ -650,6 +686,7 @@ int Operations::setxattr(const char *path, const char *name, const char *value,
          name, size);
 
   ASSERT_VALID_PATH(path);
+  ++s_setxattr;
 
   BEGIN_TRY;
   bool needs_commit = false;
@@ -761,6 +798,7 @@ int Operations::utimens(const char *path, const timespec times[2]) {
   S3_LOG(LOG_DEBUG, "utimens", "path: %s, time: %li\n", path, times[1].tv_sec);
 
   ASSERT_VALID_PATH(path);
+  ++s_utimens;
 
   BEGIN_TRY;
   GET_OBJECT(obj, path);
