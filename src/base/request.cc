@@ -61,6 +61,34 @@ std::atomic_int s_timeouts(0), s_aborts(0), s_hook_retries(0);
 std::atomic_int s_rewinds(0);
 std::mutex s_stats_mutex;
 
+class HttpMethodCounters {
+ public:
+  HttpMethodCounters() = default;
+
+  void Increment(s3::base::HttpMethod method) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    ++counters_[method];
+  }
+
+  void Write(std::ostream *o) {
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    *o << "http request methods:\n";
+    for (const auto &kv : counters_) {
+      *o << "  " << HttpMethodToString(kv.first) << ": " << kv.second << "\n";
+    }
+  }
+
+ private:
+  std::map<s3::base::HttpMethod, int> counters_;
+  std::mutex mutex_;
+};
+
+HttpMethodCounters *GetHttpMethodCounters() {
+  static auto *counters = new HttpMethodCounters();
+  return counters;
+}
+
 void StatsWriter(std::ostream *o) {
   o->setf(std::ostream::fixed);
 
@@ -98,6 +126,8 @@ void StatsWriter(std::ostream *o) {
      << "\n"
         "  rewinds: "
      << s_rewinds << "\n";
+
+  GetHttpMethodCounters()->Write(o);
 }
 
 Statistics::Writers::Entry s_writer(StatsWriter, 0);
@@ -174,6 +204,24 @@ class Transport {
 std::mutex Transport::s_mutex;
 int Transport::s_refcount = 0;
 
+const char *HttpMethodToString(HttpMethod method) {
+  switch (method) {
+    case HttpMethod::INVALID:
+      return "INVALID";
+    case HttpMethod::DELETE:
+      return "DELETE";
+    case HttpMethod::GET:
+      return "GET";
+    case HttpMethod::HEAD:
+      return "HEAD";
+    case HttpMethod::POST:
+      return "POST";
+    case HttpMethod::PUT:
+      return "PUT";
+  }
+  throw std::runtime_error("invalid HTTP method.");
+}
+
 void RequestFactory::SetHook(RequestHook *hook) { s_request_hook = hook; }
 
 std::unique_ptr<Request> RequestFactory::New() {
@@ -242,24 +290,18 @@ void Request::Init(HttpMethod method) {
   TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_POST, false));
 
   if (method == HttpMethod::DELETE) {
-    method_ = "DELETE";
     TEST_OK(
         curl_easy_setopt(transport_->curl(), CURLOPT_CUSTOMREQUEST, "DELETE"));
     TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_NOBODY, true));
-  } else if (method == HttpMethod::GET) {
-    method_ = "GET";
   } else if (method == HttpMethod::HEAD) {
-    method_ = "HEAD";
     TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_NOBODY, true));
   } else if (method == HttpMethod::POST) {
-    method_ = "POST";
     TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_POST, true));
   } else if (method == HttpMethod::PUT) {
-    method_ = "PUT";
     TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_UPLOAD, true));
-  } else {
-    throw std::runtime_error("unsupported HTTP method.");
   }
+
+  method_ = method;
 }
 
 std::string Request::GetOutputAsString() const {
@@ -297,16 +339,17 @@ void Request::ResetCurrentRunTime() { current_run_time_ = 0.0; }
 
 void Request::Run(int timeout_in_s) {
   // sanity
-  if (method_.empty()) throw std::runtime_error("call Init() first!");
+  if (method_ == HttpMethod::INVALID)
+    throw std::runtime_error("call Init() first!");
   if (url_.empty()) throw std::runtime_error("call SetUrl() first!");
 
   TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_URL,
                            transport_url_.c_str()));
 
-  if (method_ == "PUT")
+  if (method_ == HttpMethod::PUT)
     TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_INFILESIZE_LARGE,
                              static_cast<curl_off_t>(input_buffer_.size())));
-  else if (method_ == "POST")
+  else if (method_ == HttpMethod::POST)
     TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_POSTFIELDSIZE_LARGE,
                              static_cast<curl_off_t>(input_buffer_.size())));
   else if (!input_buffer_.empty())
@@ -344,6 +387,7 @@ void Request::Run(int timeout_in_s) {
                                      ? Config::request_timeout_in_s()
                                      : timeout_in_s);
 
+    GetHttpMethodCounters()->Increment(method_);
     r = curl_easy_perform(transport_->curl());
 
     switch (r) {
@@ -427,7 +471,7 @@ void Request::Run(int timeout_in_s) {
     ++s_request_failures;
     S3_LOG(LOG_WARNING, "Request::Run",
            "request for [%s] [%s] failed with code %i and response: %s\n",
-           method_.c_str(), url_.c_str(), response_code_,
+           HttpMethodToString(method_), url_.c_str(), response_code_,
            GetOutputAsString().c_str());
   }
 }

@@ -32,7 +32,7 @@
 
 namespace s3 {
 namespace base {
-enum class HttpMethod { DELETE, GET, HEAD, POST, PUT };
+enum class HttpMethod { INVALID, DELETE, GET, HEAD, POST, PUT };
 
 enum HttpStatusCode {
   HTTP_SC_OK = 200,
@@ -50,6 +50,8 @@ enum HttpStatusCode {
   HTTP_SC_INTERNAL_SERVER_ERROR = 500,
   HTTP_SC_SERVICE_UNAVAILABLE = 503
 };
+
+const char *HttpMethodToString(HttpMethod method);
 
 class Request;
 class RequestHook;
@@ -73,7 +75,7 @@ class Request {
 
   void Init(HttpMethod method);
 
-  inline std::string method() const { return method_; }
+  inline HttpMethod method() const { return method_; }
   inline std::string url() const { return url_; }
   inline const HeaderMap &headers() const { return headers_; }
   inline const std::vector<char> &output_buffer() const {
@@ -150,7 +152,7 @@ class Request {
   static constexpr int ERROR_MESSAGE_BUFFER_LEN = 256;
   char transport_error_[ERROR_MESSAGE_BUFFER_LEN];
 
-  std::string method_;
+  HttpMethod method_ = HttpMethod::INVALID;
   std::string url_, transport_url_;
   HeaderMap response_headers_;
 

@@ -107,9 +107,10 @@ void Impl::Sign(base::Request *req) {
   std::string date = base::Timer::GetHttpTime();
   req->SetHeader("Date", date);
 
-  std::string to_sign =
-      req->method() + "\n" + FindOrDefault(req->headers(), "Content-MD5") +
-      "\n" + FindOrDefault(req->headers(), "Content-Type") + "\n" + date + "\n";
+  std::string to_sign = std::string(HttpMethodToString(req->method())) + "\n" +
+                        FindOrDefault(req->headers(), "Content-MD5") + "\n" +
+                        FindOrDefault(req->headers(), "Content-Type") + "\n" +
+                        date + "\n";
   for (const auto &header : req->headers()) {
     if (!header.second.empty() &&
         header.first.substr(0, HEADER_PREFIX.size()) == HEADER_PREFIX)
