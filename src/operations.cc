@@ -43,6 +43,7 @@ std::atomic_int s_rename_attempts(0), s_rename_fails(0);
 std::atomic_int s_create(0), s_mkdir(0), s_mknod(0), s_open(0), s_rename(0),
     s_symlink(0), s_truncate(0), s_unlink(0);
 std::atomic_int s_getattr(0), s_readdir(0), s_readlink(0);
+std::atomic_int s_utimens_skipped(0);
 
 inline std::string GetParent(const std::string &path) {
   size_t last_slash = path.rfind('/');
@@ -115,7 +116,11 @@ void StatsWriter(std::ostream *o) {
      << s_readdir
      << "\n"
         "  readlink: "
-     << s_readlink << "\n";
+     << s_readlink
+     << "\n"
+        "operations (optimizations):\n"
+        "  utimens calls skipped: "
+     << s_utimens_skipped << "\n";
 }
 
 int s_mountpoint_mode = 0;
@@ -759,8 +764,15 @@ int Operations::utimens(const char *path, const timespec times[2]) {
 
   BEGIN_TRY;
   GET_OBJECT(obj, path);
+
+  if (obj->mtime() == times[1].tv_sec) {
+    ++s_utimens_skipped;
+    return 0;
+  }
+
   obj->set_mtime(times[1].tv_sec);
   return obj->Commit();
+
   END_TRY;
 }
 

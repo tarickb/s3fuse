@@ -91,6 +91,7 @@ class Object {
   inline void set_uid(uid_t uid) { stat_.st_uid = uid; }
   inline void set_gid(gid_t gid) { stat_.st_gid = gid; }
 
+  inline time_t mtime() const { return stat_.st_mtime; }
   inline void set_mtime(time_t mtime) { stat_.st_mtime = mtime; }
   inline void set_mtime() { set_mtime(time(nullptr)); }
 
