@@ -92,6 +92,7 @@ int Versioning::FetchAllVersions(VersionFetchOptions options, std::string path,
     if (keys[base::XmlDocument::MAP_NAME_KEY] == "Version") {
       versions_str += "version=" + keys["VersionId"] +
                       " mtime=" + keys["LastModified"] + " etag=" + etag +
+                      " class=" + keys["StorageClass"] +
                       " size=" + keys["Size"] + "\n";
     } else if (keys[base::XmlDocument::MAP_NAME_KEY] == "DeleteMarker") {
       versions_str += "version=" + keys["VersionId"] +
