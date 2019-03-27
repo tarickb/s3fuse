@@ -62,7 +62,7 @@ CONFIG(bool, allow_glacier_restores, false, "set to 'true'/'yes' to enable glaci
 #endif
 
 CONFIG_SECTION("Statistics");
-CONFIG(std::string, stats_file, "", "write statistics on various operations and exceptions to specified file if set");
+CONFIG(std::string, stats_file, "", "write statistics on various operations and exceptions to specified file if set (suffixed with date/time of launch)");
 
 CONFIG_SECTION("Default Object Attributes");
 CONFIG(int, default_uid, UID_MAX, "UID for files in S3 that don't have a UID set (defaults to process effective UID)");

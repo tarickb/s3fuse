@@ -21,6 +21,8 @@
 
 #include "base/statistics.h"
 
+#include <ctime>
+
 namespace s3 {
 namespace base {
 
@@ -37,6 +39,16 @@ void LogWrite(std::string id, const char *format, va_list args) {
   vsnprintf(buf, BUF_LEN, format, args);
   (*s_stream) << id << ": " << buf << std::endl;
 }
+
+std::string AddLaunchTimeSuffix(std::string path) {
+  std::time_t now = {};
+  std::time(&now);
+
+  constexpr size_t BUF_LEN = 256;
+  char buf[BUF_LEN];
+  std::strftime(buf, sizeof(buf), "%Y%m%d-%H%M%S", std::localtime(&now));
+  return path + "." + buf;
+}
 }  // namespace
 
 void Statistics::Init(std::unique_ptr<std::ostream> output) {
@@ -51,7 +63,8 @@ void Statistics::Init(std::string file) {
   if (s_stream)
     throw std::runtime_error("can't call statistics::init() more than once!");
   std::unique_ptr<std::ofstream> f(new std::ofstream());
-  f->open(Paths::Transform(file).c_str(), std::ofstream::trunc);
+  f->open(AddLaunchTimeSuffix(Paths::Transform(file)).c_str(),
+          std::ofstream::trunc);
   if (!f->good())
     throw std::runtime_error("cannot open statistics target file for write");
   s_stream = std::move(f);
