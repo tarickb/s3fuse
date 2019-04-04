@@ -1,3 +1,13 @@
+s3fuse (0.25) unstable; urgency=low
+
+  * Avoid copying objects when utimens is called with an unchanged time.
+  * Show storage class for object versions (S3 only).
+  * Add more statistics.
+  * Suffix statistics file with date and time of launch, to avoid overwriting
+    statistics from previous invocations.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Wed, 27 Mar 2019 10:15:00 -0700
+
 s3fuse (0.24) unstable; urgency=low
 
   * Add support for object versioning on Google Cloud Storage.
