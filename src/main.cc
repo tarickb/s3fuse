@@ -45,6 +45,8 @@ struct Options {
   std::string config;
   std::string mountpoint;
   int verbosity = LOG_WARNING;
+  bool uid_set = false;
+  bool gid_set = false;
 
 #ifdef __APPLE__
   std::string volname;
@@ -187,6 +189,16 @@ int ProcessArgument(void *data, const char *c_arg, int key,
     return 0;
   }
 
+  if (arg.find("uid=") == 0) {
+    opts->uid_set = true;
+    return 1;  // continue processing
+  }
+
+  if (arg.find("gid=") == 0) {
+    opts->gid_set = true;
+    return 1;  // continue processing
+  }
+
 #ifdef __APPLE__
   if (arg.find("daemon_timeout=") == 0) {
     opts->daemon_timeout_set = true;
@@ -249,6 +261,16 @@ void AddMissingOptions(Options *opts, fuse_args *args) {
   if (!opts->noappledouble_set) fuse_opt_add_arg(args, "-onoappledouble");
   if (!opts->volname_set) fuse_opt_add_arg(args, opts->volname.c_str());
 #endif
+  if (s3::base::Config::ignore_object_uid_gid()) {
+    if (!opts->uid_set) {
+      std::string uid_str = "-ouid=" + std::to_string(getuid());
+      fuse_opt_add_arg(args, strdup(uid_str.c_str()));
+    }
+    if (!opts->gid_set) {
+      std::string gid_str = "-ogid=" + std::to_string(getgid());
+      fuse_opt_add_arg(args, strdup(gid_str.c_str()));
+    }
+  }
 }
 }  // namespace
 
