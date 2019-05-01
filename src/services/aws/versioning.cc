@@ -21,6 +21,8 @@
 
 #include "services/aws/versioning.h"
 
+#include <errno.h>
+
 #include "base/logger.h"
 #include "base/request.h"
 #include "base/url.h"

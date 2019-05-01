@@ -23,6 +23,7 @@
 #define S3_SERVICES_UTILS_H
 
 #include <map>
+#include <string>
 
 namespace s3 {
 namespace base {
