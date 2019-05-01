@@ -230,6 +230,18 @@ void *Init(fuse_conn_info *info) {
 
 void AddMissingOptions(Options *opts, fuse_args *args) {
 #ifdef __APPLE__
+#ifdef OSX_BUNDLE
+  constexpr char DEFAULT_MOUNTPOINT_PREFIX[] =
+      "~/.s3fuse/volume_" PACKAGE_NAME "_";
+  if (opts->mountpoint.empty()) {
+    opts->mountpoint = s3::base::Paths::Transform(DEFAULT_MOUNTPOINT_PREFIX) +
+                       s3::base::Config::bucket_name();
+    mkdir(opts->mountpoint.c_str(), 0777);
+    S3_LOG(LOG_INFO, "main", "Using default mountpoint: %s\n",
+           opts->mountpoint.c_str());
+    fuse_opt_add_arg(args, opts->mountpoint.c_str());
+  }
+#endif
   opts->volname = "-ovolname=" PACKAGE_NAME " volume (" +
                   s3::base::Config::bucket_name() + ")";
   if (!opts->daemon_timeout_set)
@@ -247,12 +259,7 @@ int main(int argc, char **argv) {
 
   if (opts.mountpoint.empty()) {
 #if defined(__APPLE__) && defined(OSX_BUNDLE)
-    if (argc == 1) {
-      opts.mountpoint = std::string("/volumes/" PACKAGE_NAME "_") +
-                        s3::base::Config::bucket_name();
-      mkdir(opts.mountpoint.c_str(), 0777);
-      fuse_opt_add_arg(&args, opts.mountpoint.c_str());
-    } else {
+    if (argc != 1) {
       PrintUsage(opts.base_name);
       return 1;
     }
@@ -282,6 +289,8 @@ int main(int argc, char **argv) {
 
     TestBucketAccess();
 
+    AddMissingOptions(&opts, &args);
+
     s3::Operations::Init(opts.mountpoint);
     s3::Operations::BuildFuseOperations(&opers);
     if (opers.init != nullptr)
@@ -289,8 +298,6 @@ int main(int argc, char **argv) {
           "operations struct defined init when it shouldn't have.");
     // not an actual FS operation
     opers.init = Init;
-
-    AddMissingOptions(&opts, &args);
 
     S3_LOG(LOG_INFO, "::main", "%s version %s, initialized\n", PACKAGE_NAME,
            PACKAGE_VERSION_WITH_REV);
