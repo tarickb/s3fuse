@@ -1,3 +1,12 @@
+s3fuse (0.26) unstable; urgency=low
+
+  * Add configuration file option to override object UID/GIDs with effective
+    process UID/GID.
+  * Add configuration file option to mount bucket read-only.
+  * Fix default mountpoint on OS X.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Thu, 02 May 2019 03:24:00 +0300
+
 s3fuse (0.25) unstable; urgency=low
 
   * Avoid copying objects when utimens is called with an unchanged time.
