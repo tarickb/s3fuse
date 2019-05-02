@@ -70,6 +70,7 @@ CONFIG(int, default_gid, GID_MAX, "GID for files in S3 that don't have a GID set
 CONFIG(int, default_mode, 0755, "mode for files in S3 that don't have a mode set");
 CONFIG(std::string, default_cache_control, "", "default Cache-Control header (can be overriden with per-object extended attribute)");
 CONFIG(bool, ignore_object_uid_gid, false, "set to 'true'/'yes' to disable object UID/GID checks; will cause all object UID/GIDs to appear to be process effective UID/GID");
+CONFIG(bool, mount_readonly, false, "if 'true'/'yes', mounts the bucket in read-only mode");
 
 CONFIG_SECTION("Cache Parameters");
 CONFIG(int, cache_expiry_in_s, 3 * 60, "time in seconds before objects in stats cache expire");

@@ -271,6 +271,9 @@ void AddMissingOptions(Options *opts, fuse_args *args) {
       fuse_opt_add_arg(args, strdup(gid_str.c_str()));
     }
   }
+  if (s3::base::Config::mount_readonly()) {
+    fuse_opt_add_arg(args, "-oro");
+  }
 }
 }  // namespace
 
