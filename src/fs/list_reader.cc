@@ -62,7 +62,7 @@ int ListReader::Read(base::Request *req, std::list<std::string> *keys,
     query += std::string("&max-keys=") + std::to_string(max_keys_);
 
   req->Init(base::HttpMethod::GET);
-  req->SetUrl(services::Service::bucket_url(), query);
+  req->SetUrl(services::Service::bucket_url() + "/", query);
   req->Run();
 
   if (req->response_code() != base::HTTP_SC_OK) return -EIO;
