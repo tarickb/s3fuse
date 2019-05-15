@@ -1,3 +1,11 @@
+s3fuse (0.27) unstable; urgency=low
+
+  * Enable use of virtual-hosted bucket URLs on S3 by default.
+  * Add aws_use_virtual_hosted_url configuration file option to control use
+    of virtual-hosted bucket URLs.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Wed, 15 May 2019 14:48:00 +0200
+
 s3fuse (0.26) unstable; urgency=low
 
   * Add configuration file option to override object UID/GIDs with effective
