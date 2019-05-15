@@ -33,8 +33,9 @@ CONFIG_CONSTRAINT(CONFIG_KEY(service).size() > 0, "service must be specified");
 #ifdef WITH_AWS
 CONFIG_SECTION("AWS S3");
 CONFIG(std::string, aws_secret_file, "", "path to file containing AWS Access Key ID followed by a space followed by AWS Secret Access Key; file must not be group- or world-readable or -writable");
-CONFIG(std::string, aws_service_endpoint, "s3.amazonaws.com", "service endpoint for Amazon AWS (change to 's3-eu-west-1.amazonaws.com' for EU buckets)");
+CONFIG(std::string, aws_service_endpoint, "s3.amazonaws.com", "service endpoint for Amazon AWS (change to 's3-eu-west-1.amazonaws.com' for EU buckets), ignored if aws_use_virtual_hosted_url is true");
 CONFIG(bool, aws_use_ssl, true, "set to 'no'/'false' to disable SSL");
+CONFIG(bool, aws_use_virtual_hosted_url, true, "set to 'no'/'false' to disable virtual-hosted URLs (may be necessary if bucket name contains periods and SSL is enabled); if true, will ignore aws_service_endpoint")
 #endif
 
 #ifdef WITH_GS
