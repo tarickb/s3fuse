@@ -71,11 +71,16 @@ Impl::Impl() {
   key_ = fields[0];
   secret_ = fields[1];
 
-  endpoint_ = base::Config::aws_use_ssl() ? "https://" : "http://";
-  endpoint_ += base::Config::aws_service_endpoint();
-
   bucket_url_ =
       std::string("/") + base::Url::Encode(base::Config::bucket_name());
+
+  endpoint_ = base::Config::aws_use_ssl() ? "https://" : "http://";
+  if (base::Config::aws_use_virtual_hosted_url()) {
+    endpoint_ += base::Config::bucket_name() + ".s3.amazonaws.com";
+    strip_url_prefix_ = bucket_url_;
+  } else {
+    endpoint_ += base::Config::aws_service_endpoint();
+  }
 
   file_transfer_.reset(new FileTransfer());
   versioning_.reset(new Versioning(this));
@@ -95,7 +100,12 @@ services::FileTransfer *Impl::file_transfer() { return file_transfer_.get(); }
 
 services::Versioning *Impl::versioning() { return versioning_.get(); }
 
-std::string Impl::AdjustUrl(const std::string &url) { return endpoint_ + url; }
+std::string Impl::AdjustUrl(const std::string &url) {
+  if (url.find(strip_url_prefix_) == std::string::npos)
+    return endpoint_ + url;
+  else
+    return endpoint_ + url.substr(strip_url_prefix_.size());
+}
 
 void Impl::PreRun(base::Request *r, int iter) { Sign(r); }
 

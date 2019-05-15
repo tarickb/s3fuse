@@ -59,7 +59,8 @@ class Impl : public services::Impl, public base::RequestHook {
  private:
   void Sign(base::Request *req);
 
-  std::string key_, secret_, endpoint_, bucket_url_;
+  std::string key_, secret_;
+  std::string bucket_url_, endpoint_, strip_url_prefix_;
   std::unique_ptr<FileTransfer> file_transfer_;
   std::unique_ptr<Versioning> versioning_;
 };
