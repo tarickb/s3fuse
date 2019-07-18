@@ -92,7 +92,11 @@ std::string Passwords::GetBucketPassword(const std::string &service,
   prompt += "\" for service \"";
   prompt += service + "\": ";
 
-  return crypto::Passwords::ReadFromStdin(prompt);
+  std::string password = crypto::Passwords::ReadFromStdin(prompt);
+  if (password.empty())
+    throw std::runtime_error("cannot use empty password for file encryption.");
+
+  return password;
 }
 
 }  // namespace crypto
