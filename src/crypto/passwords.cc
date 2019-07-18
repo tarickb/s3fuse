@@ -82,5 +82,18 @@ std::string Passwords::ReadFromStdin(const std::string &prompt) {
   return line;
 }
 
+std::string Passwords::GetBucketPassword(const std::string &service,
+                                         const std::string &bucket_name,
+                                         const std::string &volume_key_id) {
+  std::string prompt = "password for key \"";
+  prompt += volume_key_id;
+  prompt += "\" in bucket \"";
+  prompt += bucket_name;
+  prompt += "\" for service \"";
+  prompt += service + "\": ";
+
+  return crypto::Passwords::ReadFromStdin(prompt);
+}
+
 }  // namespace crypto
 }  // namespace s3

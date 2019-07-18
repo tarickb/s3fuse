@@ -51,13 +51,9 @@ crypto::Buffer InitFromFile() {
 }
 
 crypto::Buffer InitFromPassword() {
-  std::string prompt = "password for key \"";
-  prompt += base::Config::volume_key_id();
-  prompt += "\" in bucket \"";
-  prompt += base::Config::bucket_name();
-  prompt += "\": ";
-
-  std::string password = crypto::Passwords::ReadFromStdin(prompt);
+  std::string password = crypto::Passwords::GetBucketPassword(
+      base::Config::service(), base::Config::bucket_name(),
+      base::Config::volume_key_id());
   if (password.empty())
     throw std::runtime_error("cannot use empty password for file encryption.");
 

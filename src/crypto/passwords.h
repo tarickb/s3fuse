@@ -29,6 +29,9 @@ namespace crypto {
 class Passwords {
  public:
   static std::string ReadFromStdin(const std::string &prompt);
+  static std::string GetBucketPassword(const std::string &service,
+                                       const std::string &bucket_name,
+                                       const std::string &volume_key_id);
 };
 }  // namespace crypto
 }  // namespace s3
