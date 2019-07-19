@@ -1,4 +1,13 @@
+set(crypto_LIBS)
+
 find_package(OpenSSL REQUIRED)
+list(APPEND crypto_LIBS ${OPENSSL_CRYPTO_LIBRARY})
+
+if(APPLE)
+  find_library(CORE_LIB CoreFoundation)
+  find_library(SECURITY_LIB Security)
+  list(APPEND crypto_LIBS ${CORE_LIB} ${SECURITY_LIB})
+endif()
 
 set(crypto_SOURCES
   aes_cbc_256.cc
@@ -17,6 +26,8 @@ set(crypto_SOURCES
   hex_with_quotes.h
   hmac_sha1.cc
   hmac_sha1.h
+  keychain.cc
+  keychain.h
   md5.cc
   md5.h
   passwords.cc
@@ -34,5 +45,6 @@ if(EnableTests)
 endif()
 
 add_library(${PROJECT_NAME}_crypto ${crypto_SOURCES})
-target_link_libraries(${PROJECT_NAME}_crypto ${OPENSSL_CRYPTO_LIBRARY})
+target_link_libraries(${PROJECT_NAME}_crypto ${crypto_LIBS})
+add_dependencies(${PROJECT_NAME}_crypto ${PROJECT_NAME}_base)
 target_include_directories(${PROJECT_NAME}_crypto SYSTEM PUBLIC ${OPENSSL_INCLUDE_DIR})

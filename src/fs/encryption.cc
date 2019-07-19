@@ -27,6 +27,7 @@
 #include "base/logger.h"
 #include "base/paths.h"
 #include "base/request.h"
+#include "crypto/keychain.h"
 #include "crypto/passwords.h"
 #include "crypto/pbkdf2_sha1.h"
 #include "crypto/private_file.h"
@@ -39,7 +40,9 @@ namespace {
 constexpr int DERIVATION_ROUNDS = 8192;
 constexpr int PASSWORD_ATTEMPTS = 5;
 
-crypto::Buffer InitFromFile() {
+std::unique_ptr<BucketVolumeKey> s_volume_key;
+
+void UnlockFromFile() {
   std::ifstream f;
   crypto::PrivateFile::Open(
       base::Paths::Transform(base::Config::volume_key_file()), &f);
@@ -47,17 +50,46 @@ crypto::Buffer InitFromFile() {
   std::string key;
   std::getline(f, key);
 
-  return crypto::Buffer::FromHexString(key);
+  s_volume_key->Unlock(crypto::Buffer::FromHexString(key));
 }
 
-crypto::Buffer InitFromPassword() {
-  std::string password = crypto::Passwords::GetBucketPassword(
+void UnlockFromPassword() {
+  int retry_count = 0;
+  std::string password;
+#ifdef __APPLE__
+  const std::string keychain_id = crypto::Keychain::BuildIdentifier(
       base::Config::service(), base::Config::bucket_name(),
       base::Config::volume_key_id());
-  return Encryption::DeriveKeyFromPassword(password);
+  if (crypto::Keychain::ReadPassword(keychain_id, &password)) {
+    try {
+      s_volume_key->Unlock(Encryption::DeriveKeyFromPassword(password));
+      return;
+    } catch (const std::exception &e) {
+      S3_LOG(LOG_ERR, "UnlockFromPassword",
+             "Failed to unlock with Keychain password: %s\n", e.what());
+    }
+  }
+#endif
+  while (true) {
+    try {
+      password = crypto::Passwords::GetBucketPassword(
+          base::Config::service(), base::Config::bucket_name(),
+          base::Config::volume_key_id());
+      s_volume_key->Unlock(Encryption::DeriveKeyFromPassword(password));
+      break;
+    } catch (...) {
+      retry_count++;
+      if (retry_count < PASSWORD_ATTEMPTS) {
+        std::cout << "incorrect password. please try again." << std::endl;
+      } else {
+        throw;
+      }
+    }
+  }
+#ifdef __APPLE__
+  crypto::Keychain::WritePassword(keychain_id, password);
+#endif
 }
-
-std::unique_ptr<BucketVolumeKey> s_volume_key;
 }  // namespace
 
 void Encryption::Init() {
@@ -76,22 +108,9 @@ void Encryption::Init() {
         "the configuration and/or run " PACKAGE_NAME "_vol_key.");
 
   if (base::Config::volume_key_file().empty()) {
-    int retry_count = 0;
-    while (true) {
-      try {
-        s_volume_key->Unlock(InitFromPassword());
-        break;
-      } catch (...) {
-        retry_count++;
-        if (retry_count < PASSWORD_ATTEMPTS) {
-          std::cout << "incorrect password. please try again." << std::endl;
-        } else {
-          throw;
-        }
-      }
-    }
+    UnlockFromPassword();
   } else {
-    s_volume_key->Unlock(InitFromFile());
+    UnlockFromFile();
   }
 
   S3_LOG(LOG_DEBUG, "Encryption::Init", "encryption enabled with id [%s]\n",

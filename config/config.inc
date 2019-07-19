@@ -56,6 +56,7 @@ CONFIG(bool, use_encryption, false, "encryption/decryption support will be enabl
 CONFIG(std::string, volume_key_id, "", "volume key identifier (required if use_encryption is 'true'/'yes')");
 CONFIG(bool, encrypt_new_files, true, "all newly-created files will be encrypted if set to 'true'/'yes'");
 CONFIG(std::string, volume_key_file, "", "name of file containing hex-encoded volume key. will prompt for password if blank.");
+CONFIG(bool, use_macos_keychain, true, "use macos keychain for volume key passwords if set to 'true'/'yes'");
 
 #ifdef WITH_AWS
 CONFIG_SECTION("Glacier");
