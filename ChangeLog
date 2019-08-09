@@ -1,3 +1,11 @@
+s3fuse (0.29) unstable; urgency=low
+
+  * Only log to stderr when running in the foreground (with "-f"), and only
+    log to syslog when daemonized.
+  * Fix bug preventing file versions from being listed on AWS.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Thu, 08 Aug 2019 18:19:00 -0700
+
 s3fuse (0.28) unstable; urgency=low
 
   * Optional support for macOS Keychain.
