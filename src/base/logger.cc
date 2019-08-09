@@ -29,26 +29,29 @@ namespace base {
 namespace {
 // log all messages unless instructed otherwise
 int s_max_level = std::numeric_limits<int>::max();
+Logger::Mode s_mode = Logger::Mode::SYSLOG;
 }  // namespace
 
-void Logger::Init(int max_level) {
+void Logger::Init(Mode mode, int max_level) {
   s_max_level = max_level;
-  openlog(PACKAGE_NAME, 0, 0);
+  s_mode = mode;
+  if (s_mode == Mode::SYSLOG) openlog(PACKAGE_NAME, 0, 0);
 }
 
 void Logger::Log(int level, const char *message, ...) {
   va_list args;
 
   if (level <= s_max_level) {
-    va_start(args, message);
-    vfprintf(stderr, message, args);
-    va_end(args);
-
     // can't reuse va_list
-
-    va_start(args, message);
-    vsyslog(level, message, args);
-    va_end(args);
+    if (s_mode == Mode::SYSLOG) {
+      va_start(args, message);
+      vsyslog(level, message, args);
+      va_end(args);
+    } else if (s_mode == Mode::STDERR) {
+      va_start(args, message);
+      vfprintf(stderr, message, args);
+      va_end(args);
+    }
   }
 }
 

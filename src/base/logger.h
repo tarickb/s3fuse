@@ -33,7 +33,9 @@ namespace s3 {
 namespace base {
 class Logger {
  public:
-  static void Init(int max_level);
+  enum class Mode { NONE, STDERR, SYSLOG };
+
+  static void Init(Mode mode, int max_level);
   static void Log(int level, const char *message, ...);
 };
 }  // namespace base

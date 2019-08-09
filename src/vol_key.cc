@@ -54,7 +54,7 @@ base::Request *GetRequest() {
 }
 
 void Init(const std::string &config_file) {
-  base::Logger::Init(LOG_ERR);
+  base::Logger::Init(base::Logger::Mode::STDERR, LOG_ERR);
   base::Config::Init(config_file);
   base::XmlDocument::Init();
   services::Service::Init();

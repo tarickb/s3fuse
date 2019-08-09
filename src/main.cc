@@ -47,6 +47,7 @@ struct Options {
   int verbosity = LOG_WARNING;
   bool uid_set = false;
   bool gid_set = false;
+  bool foreground = false;
 
 #ifdef __APPLE__
   std::string volname;
@@ -174,6 +175,11 @@ int ProcessArgument(void *data, const char *c_arg, int key,
     return 0;
   }
 
+  if (arg == "-f") {
+    opts->foreground = true;
+    return 1;  // continue processing
+  }
+
   if (arg.find("-v") == 0) {
     opts->verbosity = std::stoi(arg.substr(std::string("-v").length()));
     return 0;
@@ -297,7 +303,9 @@ int main(int argc, char **argv) {
   fuse_operations opers;
 
   try {
-    s3::base::Logger::Init(opts.verbosity);
+    auto log_mode = opts.foreground ? s3::base::Logger::Mode::STDERR
+                                    : s3::base::Logger::Mode::SYSLOG;
+    s3::base::Logger::Init(log_mode, opts.verbosity);
     s3::base::Config::Init(opts.config);
     s3::base::XmlDocument::Init();
 
