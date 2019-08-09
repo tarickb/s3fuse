@@ -61,7 +61,7 @@ int Versioning::FetchAllVersions(VersionFetchOptions options, std::string path,
                                  base::Request *req, std::string *out,
                                  int *empty_count) {
   req->Init(base::HttpMethod::GET);
-  req->SetUrl(service_->bucket_url() + "?versions",
+  req->SetUrl(service_->bucket_url() + "/?versions",
               std::string("prefix=") + base::Url::Encode(path));
   req->Run();
 
