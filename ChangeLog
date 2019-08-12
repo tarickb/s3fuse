@@ -1,3 +1,11 @@
+s3fuse (0.30) unstable; urgency=low
+
+  * For Google Cloud Storage, use client ID/secret from configuration file.
+  * Update gs_get_token tool to allow specifying client credentials on the
+    command line.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Sun, 11 Aug 2019 22:53:00 -0700
+
 s3fuse (0.29) unstable; urgency=low
 
   * Only log to stderr when running in the foreground (with "-f"), and only
