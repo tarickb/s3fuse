@@ -43,9 +43,9 @@ class Impl : public services::Impl, public base::RequestHook {
     time_t expiry = 0;
   };
 
-  static std::string new_token_url();
-
-  static Tokens GetTokens(GetTokensMode mode, const std::string &key);
+  static Tokens GetTokens(GetTokensMode mode, const std::string &client_id,
+                          const std::string &client_secret,
+                          const std::string &key);
 
   static void WriteToken(const std::string &file, const std::string &token);
   static std::string ReadToken(const std::string &file);

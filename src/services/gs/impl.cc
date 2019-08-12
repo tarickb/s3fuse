@@ -49,22 +49,6 @@ const std::string HEADER_META_PREFIX = "x-goog-meta-";
 const std::string URL_PREFIX = "https://commondatastorage.googleapis.com";
 
 const std::string EP_TOKEN = "https://accounts.google.com/o/oauth2/token";
-const std::string OAUTH_SCOPE =
-    "https%3a%2f%2fwww.googleapis.com%2fauth%2fdevstorage.full_control";
-
-const std::string CLIENT_ID = "591551582755.apps.googleusercontent.com";
-const std::string CLIENT_SECRET = "CQAaXZWfWJKdy_IV7TNZfO1P";
-
-const std::string NEW_TOKEN_URL =
-    "https://accounts.google.com/o/oauth2/auth?"
-    "client_id=" +
-    CLIENT_ID +
-    "&"
-    "redirect_uri=urn%3aietf%3awg%3aoauth%3a2.0%3aoob&"
-    "scope=" +
-    OAUTH_SCOPE +
-    "&"
-    "response_type=code";
 
 std::atomic_int s_refresh_on_fail(0), s_refresh_on_expiry(0);
 
@@ -80,13 +64,11 @@ void StatsWriter(std::ostream *o) {
 base::Statistics::Writers::Entry s_entry(StatsWriter, 0);
 }  // namespace
 
-std::string Impl::new_token_url() { return NEW_TOKEN_URL; }
-
-Impl::Tokens Impl::GetTokens(GetTokensMode mode, const std::string &key) {
-  std::string data = "client_id=" + CLIENT_ID +
-                     "&"
-                     "client_secret=" +
-                     CLIENT_SECRET + "&";
+Impl::Tokens Impl::GetTokens(GetTokensMode mode, const std::string &client_id,
+                             const std::string &client_secret,
+                             const std::string &key) {
+  std::string data =
+      "client_id=" + client_id + "&client_secret=" + client_secret + "&";
 
   if (mode == GetTokensMode::AUTH_CODE)
     data += "code=" + key +
@@ -212,7 +194,9 @@ void Impl::Sign(base::Request *req, int iter) {
 }
 
 void Impl::Refresh() {
-  tokens_ = Impl::GetTokens(GetTokensMode::REFRESH, tokens_.refresh);
+  tokens_ =
+      Impl::GetTokens(GetTokensMode::REFRESH, base::Config::gs_client_id(),
+                      base::Config::gs_client_secret(), tokens_.refresh);
   S3_LOG(LOG_DEBUG, "Impl::Refresh",
          "using refresh token [%s], got access token [%s].\n",
          tokens_.refresh.c_str(), tokens_.access.c_str());

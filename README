@@ -103,9 +103,14 @@ enables use of EU buckets:
 Google Storage
 --------------
 
-To use Google Storage with OAuth, run s3fuse_gs_get_token to obtain a token:
+To use Google Storage with OAuth, first generate a client ID and client secret
+using the Google Developer Console:
 
-  $ s3fuse_gs_get_token <path-to-token-file>
+  https://console.developers.google.com/
+
+Then run s3fuse_gs_get_token to obtain a token:
+
+  $ s3fuse_gs_get_token <client-id> <client-secret> <path-to-token-file>
 
 This utility will generate a URL that must be copied and pasted into the 
 address bar of a browser.  You will then be asked to sign into your Google
