@@ -133,6 +133,7 @@ std::shared_ptr<Object> Cache::Get(const std::string &path, CacheHints hints) {
       ++s_misses;
     } else if (obj->expired() && obj->IsRemovable()) {
       ++s_expiries;
+      obj.reset();
       s_cache_map->Erase(path);
     } else {
       s_hits++;
