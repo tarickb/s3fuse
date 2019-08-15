@@ -1,3 +1,10 @@
+s3fuse (0.31) unstable; urgency=low
+
+  * Fixed bug that prevented reopening a file immediately after closing it.
+  * Fixed directory-listing bug that resulted in an unnecessary warning.
+
+ -- Tarick Bedeir <tarick@bedeir.com>  Thu, 15 Aug 2019 08:02:00 -0700
+
 s3fuse (0.30) unstable; urgency=low
 
   * For Google Cloud Storage, use client ID/secret from configuration file.
