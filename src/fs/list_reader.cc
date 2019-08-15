@@ -87,7 +87,9 @@ int ListReader::Read(base::Request *req, std::list<std::string> *keys,
   if (r) return r;
 
   if (truncated_) {
-    if (services::Service::is_next_marker_supported()) {
+    // We only expect to get a next marker if we set a delimiter.
+    if (group_common_prefixes_ &&
+        services::Service::is_next_marker_supported()) {
       r = doc->Find(NEXT_MARKER_XPATH, &marker_);
       if (r) return r;
     } else {
