@@ -22,13 +22,23 @@
 #ifndef S3_SERVICES_VERSIONING_H
 #define S3_SERVICES_VERSIONING_H
 
+#include <list>
 #include <string>
 
 #include "base/request.h"
 
 namespace s3 {
 namespace services {
-enum class VersionFetchOptions { NONE, WITH_EMPTIES };
+enum class VersionFetchOptions { NONE, WITH_EMPTIES, ALL };
+
+struct ObjectVersion {
+  std::string version;
+  std::string last_modified;
+  std::string etag;
+  std::string storage_class;
+  size_t size = 0;
+  bool deleted = false;
+};
 
 class Versioning {
  public:
@@ -40,7 +50,8 @@ class Versioning {
   virtual std::string ExtractCurrentVersion(base::Request *req) = 0;
 
   virtual int FetchAllVersions(VersionFetchOptions options, std::string path,
-                               base::Request *req, std::string *out,
+                               base::Request *req,
+                               std::list<ObjectVersion> *out,
                                int *empty_count) = 0;
 };
 

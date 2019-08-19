@@ -39,7 +39,7 @@ class Versioning : public services::Versioning {
   std::string ExtractCurrentVersion(base::Request *req) override;
 
   int FetchAllVersions(VersionFetchOptions options, std::string path,
-                       base::Request *req, std::string *out,
+                       base::Request *req, std::list<ObjectVersion> *out,
                        int *empty_count) override;
 
  private:

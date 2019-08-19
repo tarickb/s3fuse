@@ -56,8 +56,11 @@ std::string Versioning::ExtractCurrentVersion(base::Request *req) {
 }
 
 int Versioning::FetchAllVersions(VersionFetchOptions options, std::string path,
-                                 base::Request *req, std::string *out,
+                                 base::Request *req,
+                                 std::list<ObjectVersion> *out,
                                  int *empty_count) {
+  out->clear();
+
   req->Init(base::HttpMethod::GET);
   req->SetUrl(service_->bucket_url() + "?versions",
               std::string("prefix=") + base::Url::Encode(path));
@@ -74,30 +77,30 @@ int Versioning::FetchAllVersions(VersionFetchOptions options, std::string path,
 
   std::list<std::map<std::string, std::string>> versions;
   doc->Find(VERSION_XPATH, &versions);
-  std::string versions_str;
   std::string latest_etag;
 
   for (auto &keys : versions) {
     const std::string &key = keys["Key"];
     if (key != path) continue;
     const std::string &etag = keys["ETag"];
-    if (etag == latest_etag) continue;
-    if (options != VersionFetchOptions::WITH_EMPTIES &&
+    if (options != VersionFetchOptions::ALL && etag == latest_etag) continue;
+    if (options != VersionFetchOptions::ALL &&
+        options != VersionFetchOptions::WITH_EMPTIES &&
         etag == EMPTY_VERSION_ETAG && empty_count != nullptr) {
       (*empty_count)++;
       continue;
     }
     latest_etag = etag;
 
-    const auto size = FindOrDefault(keys, "Size");
-    versions_str += "version=" + FindOrDefault(keys, "Generation") +
-                    " mtime=" + FindOrDefault(keys, "LastModified") +
-                    " etag=" + FindOrDefault(keys, "ETag") +
-                    (size == "0" ? " deleted" : std::string(" size=") + size) +
-                    "\n";
+    ObjectVersion version;
+    version.version = FindOrDefault(keys, "Generation");
+    version.last_modified = FindOrDefault(keys, "LastModified");
+    version.size = std::stol(FindOrDefault(keys, "Size"));
+    version.etag = FindOrDefault(keys, "ETag");
+    version.deleted = (version.size == 0);
+    out->push_back(version);
   }
 
-  *out = versions_str;
   return 0;
 }
 

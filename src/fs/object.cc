@@ -569,11 +569,26 @@ Object::MetadataMap::iterator Object::UpdateMetadata(
 
 int Object::FetchAllVersions(services::VersionFetchOptions options,
                              base::Request *req, std::string *out) {
+  std::list<services::ObjectVersion> versions;
   int empty_count = 0;
 
-  int r = services::Service::versioning()->FetchAllVersions(options, path_, req,
-                                                            out, &empty_count);
+  int r = services::Service::versioning()->FetchAllVersions(
+      options, path_, req, &versions, &empty_count);
   if (r) return r;
+
+  for (const auto &version : versions) {
+    *out += "version=" + version.version;
+    *out += " mtime=" + version.last_modified;
+    *out += " etag=" + version.etag;
+    if (version.deleted) {
+      *out += " deleted";
+    } else {
+      *out += " size=" + std::to_string(version.size);
+      if (!version.storage_class.empty())
+        *out += " class=" + version.storage_class;
+    }
+    *out += "\n";
+  }
 
   if (empty_count) {
     if (!out->empty()) (*out) += "\n";

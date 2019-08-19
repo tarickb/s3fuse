@@ -58,8 +58,11 @@ std::string Versioning::ExtractCurrentVersion(base::Request *req) {
 }
 
 int Versioning::FetchAllVersions(VersionFetchOptions options, std::string path,
-                                 base::Request *req, std::string *out,
+                                 base::Request *req,
+                                 std::list<ObjectVersion> *out,
                                  int *empty_count) {
+  out->clear();
+
   req->Init(base::HttpMethod::GET);
   req->SetUrl(service_->bucket_url() + "/?versions",
               std::string("prefix=") + base::Url::Encode(path));
@@ -76,34 +79,36 @@ int Versioning::FetchAllVersions(VersionFetchOptions options, std::string path,
 
   std::list<std::map<std::string, std::string>> versions;
   doc->Find(VERSION_XPATH, &versions);
-  std::string versions_str;
   std::string latest_etag;
 
   for (auto &keys : versions) {
     const std::string &key = keys["Key"];
     if (key != path) continue;
     const std::string &etag = keys["ETag"];
-    if (etag == latest_etag) continue;
-    if (options != VersionFetchOptions::WITH_EMPTIES &&
+    if (options != VersionFetchOptions::ALL && etag == latest_etag) continue;
+    if (options != VersionFetchOptions::ALL &&
+        options != VersionFetchOptions::WITH_EMPTIES &&
         etag == EMPTY_VERSION_ETAG && empty_count != nullptr) {
       (*empty_count)++;
       continue;
     }
     latest_etag = etag;
 
+    ObjectVersion version;
+    version.version = keys["VersionId"];
+    version.last_modified = keys["LastModified"];
+    version.etag = etag;
+
     if (keys[base::XmlDocument::MAP_NAME_KEY] == "Version") {
-      versions_str += "version=" + keys["VersionId"] +
-                      " mtime=" + keys["LastModified"] + " etag=" + etag +
-                      " class=" + keys["StorageClass"] +
-                      " size=" + keys["Size"] + "\n";
+      version.storage_class = keys["StorageClass"];
+      version.size = std::stol(keys["Size"]);
     } else if (keys[base::XmlDocument::MAP_NAME_KEY] == "DeleteMarker") {
-      versions_str += "version=" + keys["VersionId"] +
-                      " mtime=" + keys["LastModified"] + " etag=" + etag +
-                      " deleted\n";
+      version.deleted = true;
     }
+
+    out->push_back(version);
   }
 
-  *out = versions_str;
   return 0;
 }
 
