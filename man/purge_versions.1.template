@@ -1,0 +1,32 @@
+.\" man page for __PACKAGE_NAME__
+.TH __PACKAGE_NAME_UPPER___PURGE_VERSIONS 1 __TODAY__ "__PACKAGE_NAME__ __PACKAGE_VERSION__" "__PACKAGE_NAME___purge_versions"
+
+.SH NAME
+\fB__PACKAGE_NAME___purge_versions\fR - Purge all versions of all files under a prefix
+
+.SH SYNOPSIS
+\fB__PACKAGE_NAME___purge_versions\fR
+[\fB-c\fR \fIpath\fR]
+[\fB-n\fR]
+\fIprefix\fR
+
+.SH DESCRIPTION
+\fB__PACKAGE_NAME___purge_versions\fR will purge all versions of all files
+starting with \fIprefix\fR. This is permanent and irreversible (unless \fB-n\fR
+is specified). The user will NOT be prompted for confirmation.
+
+.SH OPTIONS
+.TP
+.BI "-c " path
+Read configuration from \fIpath\fR rather than the default paths. This file is
+described in \fB__PACKAGE_NAME__.conf\fR(5).
+
+.TP
+.BI "-n"
+Dry run. Don't actually delete anything.
+
+.SH AUTHORS
+Tarick Bedeir <tarick@bedeir.com>
+
+.SH SEE ALSO
+\fB__PACKAGE_NAME__\fR(1)

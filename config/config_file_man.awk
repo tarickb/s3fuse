@@ -33,5 +33,5 @@ BEGIN {
 
 END {
   print(".SH SEE ALSO");
-  print("\\fB" PACKAGE_NAME "\\fR(1), \\fB" PACKAGE_NAME "_gs_get_token\\fR(1), \\fB" PACKAGE_NAME "_vol_key\\fR(1)");
+  print("\\fB" PACKAGE_NAME "\\fR(1), \\fB" PACKAGE_NAME "_gs_get_token\\fR(1), \\fB" PACKAGE_NAME "_purge_versions\\fR(1), \\fB" PACKAGE_NAME "_vol_key\\fR(1)");
 }

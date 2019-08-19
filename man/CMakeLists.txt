@@ -2,6 +2,7 @@ set(man_1_SED_SOURCES
   1
   gs_get_token.1
   gs_operations.1
+  purge_versions.1
   sha256_sum.1
   vol_key.1)
 

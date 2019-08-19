@@ -76,5 +76,5 @@ See \fB__PACKAGE_NAME__.conf\fR(5).
 Tarick Bedeir <tarick@bedeir.com>
 
 .SH SEE ALSO
-\fB__PACKAGE_NAME__.conf\fR(5), \fB__PACKAGE_NAME___gs_get_token\fR(1), \fB__PACKAGE_NAME___gs_operations\fR(1),
+\fB__PACKAGE_NAME__.conf\fR(5), \fB__PACKAGE_NAME___gs_get_token\fR(1), \fB__PACKAGE_NAME___purge_versions\fR(1), \fB__PACKAGE_NAME___gs_operations\fR(1),
 \fB__PACKAGE_NAME___sha256_sum\fR(1), \fB__PACKAGE_NAME___vol_key\fR(1)
