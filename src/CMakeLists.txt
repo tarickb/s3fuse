@@ -63,3 +63,7 @@ install(TARGETS ${PROJECT_NAME}_sha256_sum RUNTIME DESTINATION bin)
 add_executable(${PROJECT_NAME}_vol_key vol_key.cc)
 target_link_libraries(${PROJECT_NAME}_vol_key ${libs})
 install(TARGETS ${PROJECT_NAME}_vol_key RUNTIME DESTINATION bin)
+
+add_executable(${PROJECT_NAME}_purge_versions purge_versions.cc)
+target_link_libraries(${PROJECT_NAME}_purge_versions ${libs})
+install(TARGETS ${PROJECT_NAME}_purge_versions RUNTIME DESTINATION bin)
