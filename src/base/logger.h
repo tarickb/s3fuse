@@ -22,11 +22,7 @@
 #ifndef S3_BASE_LOGGER_H
 #define S3_BASE_LOGGER_H
 
-#define __STDC_FORMAT_MACROS
-#include <inttypes.h>
 #include <stdarg.h>
-#include <stddef.h>
-#include <stdio.h>
 #include <syslog.h>
 
 namespace s3 {

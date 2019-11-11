@@ -21,6 +21,11 @@
 
 #include "base/logger.h"
 
+#define __STDC_FORMAT_MACROS
+#include <inttypes.h>
+#include <stddef.h>
+#include <stdio.h>
+
 #include <limits>
 
 namespace s3 {
