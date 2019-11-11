@@ -23,7 +23,6 @@
 #define S3_SERVICES_FILE_TRANSFER_H
 
 #include <functional>
-#include <memory>
 #include <string>
 #include <vector>
 
