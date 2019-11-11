@@ -36,7 +36,6 @@
 #include "base/static_list.h"
 #include "fs/xattr.h"
 #include "services/versioning.h"
-#include "threads/pool.h"
 
 namespace s3 {
 namespace base {

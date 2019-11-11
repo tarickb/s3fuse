@@ -41,6 +41,7 @@
 #include "fs/metadata.h"
 #include "fs/static_xattr.h"
 #include "services/service.h"
+#include "threads/pool.h"
 
 #ifdef WITH_AWS
 #include "fs/glacier.h"
