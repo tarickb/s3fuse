@@ -22,7 +22,6 @@
 #ifndef S3_THREADS_RequestWorker_H
 #define S3_THREADS_RequestWorker_H
 
-#include <functional>
 #include <memory>
 #include <thread>
 
