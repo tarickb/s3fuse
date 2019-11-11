@@ -25,7 +25,6 @@
 #include <deque>
 
 #include <condition_variable>
-#include <memory>
 #include <thread>
 
 #include "threads/work_item.h"
