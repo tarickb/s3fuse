@@ -31,6 +31,7 @@
 
 #include "base/config.h"
 #include "base/logger.h"
+#include "base/paths.h"
 #include "base/request.h"
 #include "base/statistics.h"
 #include "base/url.h"

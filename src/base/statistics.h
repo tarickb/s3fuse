@@ -24,15 +24,11 @@
 
 #include <stdarg.h>
 
-#include <fstream>
 #include <functional>
 #include <iostream>
 #include <memory>
-#include <mutex>
-#include <stdexcept>
 #include <string>
 
-#include "base/paths.h"
 #include "base/static_list.h"
 
 namespace s3 {

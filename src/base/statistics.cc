@@ -22,6 +22,11 @@
 #include "base/statistics.h"
 
 #include <ctime>
+#include <fstream>
+#include <mutex>
+#include <stdexcept>
+
+#include "base/paths.h"
 
 namespace s3 {
 namespace base {
