@@ -22,6 +22,7 @@
 #include "fs/directory.h"
 
 #include <atomic>
+#include <list>
 #include <string>
 #include <vector>
 

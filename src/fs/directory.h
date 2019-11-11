@@ -23,13 +23,10 @@
 #define S3_FS_DIRECTORY_H
 
 #include <functional>
-#include <list>
-#include <mutex>
 #include <string>
 #include <vector>
 
 #include "fs/object.h"
-#include "threads/pool.h"
 
 namespace s3 {
 namespace fs {
