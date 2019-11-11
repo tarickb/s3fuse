@@ -32,7 +32,6 @@
 #include "crypto/hash_list.h"
 #include "crypto/sha256.h"
 #include "fs/object.h"
-#include "threads/async_handle.h"
 
 namespace s3 {
 namespace fs {
