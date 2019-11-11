@@ -23,6 +23,7 @@
 
 #include "base/logger.h"
 #include "base/request.h"
+#include "threads/pool.h"
 
 namespace s3 {
 namespace fs {

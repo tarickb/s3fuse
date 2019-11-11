@@ -26,7 +26,6 @@
 #include <string>
 
 #include "fs/object.h"
-#include "threads/pool.h"
 
 namespace s3 {
 namespace fs {
