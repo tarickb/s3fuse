@@ -1,5 +1,7 @@
-#include <gtest/gtest.h>
+#include <functional>
 #include <thread>
+
+#include <gtest/gtest.h>
 
 #include "threads/async_handle.h"
 

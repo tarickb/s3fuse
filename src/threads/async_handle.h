@@ -23,8 +23,6 @@
 #define S3_THREADS_ASYNC_HANDLE_H
 
 #include <condition_variable>
-#include <functional>
-#include <memory>
 #include <mutex>
 
 namespace s3 {
