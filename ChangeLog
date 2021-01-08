@@ -1,8 +1,9 @@
 s3fuse (0.32) unstable; urgency=low
 
   * Add tool to purge all versions of all files under a given prefix.
+  * Fix CURL seek callback signature.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Mon, 19 Aug 2019 18:53:00 -0400
+ -- Tarick Bedeir <tarick@bedeir.com>  Thu, 07 Jan 2021 22:30:00 -0800
 
 s3fuse (0.31) unstable; urgency=low
 

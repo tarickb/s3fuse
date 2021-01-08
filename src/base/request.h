@@ -119,7 +119,7 @@ class Request {
     return static_cast<Request *>(context)->ReadInput(data, size, items);
   }
 
-  static int SeekInputWrapper(off_t offset, int origin, void *context) {
+  static int SeekInputWrapper(void *context, off_t offset, int origin) {
     return static_cast<Request *>(context)->SeekInput(offset, origin);
   }
 
