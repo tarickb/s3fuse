@@ -240,6 +240,8 @@ Request::Request(RequestHook *hook) : transport_(new Transport()), hook_(hook) {
                            Config::verbose_requests()));
   TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_NOPROGRESS, false));
   TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_FOLLOWLOCATION, true));
+  TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_UNRESTRICTED_AUTH,
+                           true));
   TEST_OK(curl_easy_setopt(transport_->curl(), CURLOPT_ERRORBUFFER,
                            transport_error_));
   static_assert(sizeof(transport_error_) >= CURL_ERROR_SIZE,
