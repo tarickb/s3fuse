@@ -74,7 +74,7 @@ void TestBucketAccess() {
   int r = reader.Read(req.get(), &keys, nullptr);
   if (r)
     throw std::runtime_error(
-        "unable to list bocket contents. check bucket name and credentials.");
+        "unable to list bucket contents. check bucket name and credentials.");
 
   int retry_count = 0;
   while (retry_count++ < BUCKET_TEST_MAX_RETRIES) {
