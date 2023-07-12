@@ -42,6 +42,7 @@ class Impl {
   virtual std::string bucket_url() const = 0;
 
   virtual bool is_next_marker_supported() const = 0;
+  virtual bool is_listobjectsv2_supported() const = 0;
 
   virtual base::RequestHook *hook() = 0;
   virtual FileTransfer *file_transfer() = 0;

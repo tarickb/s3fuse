@@ -157,6 +157,8 @@ std::string Impl::bucket_url() const { return bucket_url_; }
 
 bool Impl::is_next_marker_supported() const { return true; }
 
+bool Impl::is_listobjectsv2_supported() const { return false; }
+
 base::RequestHook *Impl::hook() { return this; }
 
 services::FileTransfer *Impl::file_transfer() { return file_transfer_.get(); }

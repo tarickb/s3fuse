@@ -45,6 +45,7 @@ class Impl : public services::Impl,
   std::string bucket_url() const override;
 
   bool is_next_marker_supported() const override;
+  bool is_listobjectsv2_supported() const override;
 
   base::RequestHook *hook() override;
   services::FileTransfer *file_transfer() override;

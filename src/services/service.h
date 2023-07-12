@@ -50,6 +50,10 @@ class Service {
     return s_impl->is_next_marker_supported();
   }
 
+  inline static bool is_listobjectsv2_supported() {
+    return s_impl->is_listobjectsv2_supported();
+  }
+
   inline static FileTransfer *file_transfer() {
     return s_impl->file_transfer();
   }
