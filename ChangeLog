@@ -1,4 +1,4 @@
-s3fuse (0.34) unstable; urgency=low [NOT YET RELEASED]
+s3fuse (0.34) unstable; urgency=low
 
   * Fix errors in config template that prevented correct auto-generation
     of the default s3fuse.conf.
