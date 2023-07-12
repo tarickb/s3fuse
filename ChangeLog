@@ -1,11 +1,12 @@
-[NOT YET RELEASED] s3fuse (0.34) unstable; urgency=low
+s3fuse (0.34) unstable; urgency=low [NOT YET RELEASED]
 
   * Fix errors in config template that prevented correct auto-generation
     of the default s3fuse.conf.
   * Allowed reusing auth headers when following redirects; necessary when
     attempting to mount newly-created S3 buckets.
+  * Enable use of ListObjectsV2 for AWS.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Tue, 09 May 2023 00:32:00 -0700
+ -- Tarick Bedeir <tarick@bedeir.com>  Tue, 11 Jul 2023 17:28:00 -0700
 
 s3fuse (0.33) unstable; urgency=low
 
