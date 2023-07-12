@@ -105,13 +105,13 @@ int main(int argc, char **argv) {
     const std::string prefix = prefixes.front();
     prefixes.pop_front();
 
-    s3::fs::ListReader reader(prefix);
+    auto reader = s3::fs::ListReader::Create(prefix);
     std::list<std::string> keys;
     std::list<std::string> new_prefixes;
 
     std::cout << "prefix: [" << prefix << "]" << std::endl;
     while (true) {
-      int r = reader.Read(request.get(), &keys, &new_prefixes);
+      int r = reader->Read(request.get(), &keys, &new_prefixes);
       if (r == 0) break;
       if (r < 0) throw std::runtime_error("failed to list bucket objects.");
 

@@ -91,11 +91,11 @@ std::string Directory::BuildUrl(const std::string &path) {
 
 std::vector<std::string> Directory::GetInternalObjects(base::Request *req) {
   const std::string prefix = Object::internal_prefix();
-  ListReader reader(prefix);
+  auto reader = ListReader::Create(prefix);
   std::list<std::string> keys;
   std::vector<std::string> objects;
   int r;
-  while ((r = reader.Read(req, &keys, nullptr)) > 0) {
+  while ((r = reader->Read(req, &keys, nullptr)) > 0) {
     for (const auto &key : keys) objects.push_back(key.substr(prefix.size()));
   }
   if (r) throw std::runtime_error("failed to list bucket objects.");
@@ -121,11 +121,11 @@ int Directory::Read(base::Request *req, const Filler &filler) {
   std::string dir_path = path() + (path().empty() ? "" : "/");
   const size_t path_len = dir_path.size();
 
-  ListReader reader(dir_path);
+  auto reader = ListReader::Create(dir_path);
   std::list<std::string> keys, prefixes;
   int r;
 
-  while ((r = reader.Read(req, &keys, &prefixes)) > 0) {
+  while ((r = reader->Read(req, &keys, &prefixes)) > 0) {
     for (const auto &prefix : prefixes) {
       // strip trailing slash
       std::string relative_path =
@@ -164,9 +164,9 @@ bool Directory::IsEmpty(base::Request *req) {
   if (path().empty()) return false;
 
   // set max_keys to two because GET will always return the path we request
-  ListReader reader(path() + "/", false, 2);
+  auto reader = ListReader::Create(path() + "/", false, 2);
   std::list<std::string> keys;
-  return (reader.Read(req, &keys, nullptr) == 1);
+  return (reader->Read(req, &keys, nullptr) == 1);
 }
 
 bool Directory::IsEmpty() {
@@ -189,13 +189,13 @@ int Directory::Rename(base::Request *req, std::string to) {
   const size_t from_len = from.size();
 
   Cache::Remove(path());
-  ListReader reader(from, false);
+  auto reader = ListReader::Create(from, false);
 
   std::list<std::string> relative_paths;
   std::list<std::string> keys;
   int r;
 
-  while ((r = reader.Read(req, &keys, nullptr)) > 0) {
+  while ((r = reader->Read(req, &keys, nullptr)) > 0) {
     for (const auto &key : keys) {
       int rm_r = Cache::Remove(key);
       if (rm_r) return rm_r;

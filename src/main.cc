@@ -68,10 +68,10 @@ void TestBucketAccess() {
   constexpr int BUCKET_TEST_ID_LEN = 16;
 
   auto req = s3::base::RequestFactory::New();
-  s3::fs::ListReader reader("/", false, 1);
+  auto reader = s3::fs::ListReader::Create("/", false, 1);
 
   std::list<std::string> keys;
-  int r = reader.Read(req.get(), &keys, nullptr);
+  int r = reader->Read(req.get(), &keys, nullptr);
   if (r)
     throw std::runtime_error(
         "unable to list bucket contents. check bucket name and credentials.");

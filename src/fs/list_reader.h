@@ -23,6 +23,7 @@
 #define S3_FS_LIST_READER_H
 
 #include <list>
+#include <memory>
 #include <string>
 
 namespace s3 {
@@ -33,18 +34,12 @@ class Request;
 namespace fs {
 class ListReader {
  public:
-  ListReader(const std::string &prefix, bool group_common_prefixes = true,
-             int max_keys = -1);
+  static std::unique_ptr<ListReader> Create(const std::string &prefix,
+                                            bool group_common_prefixes = true,
+                                            int max_keys = -1);
 
-  int Read(base::Request *req, std::list<std::string> *keys,
-           std::list<std::string> *prefixes);
-
- private:
-  const std::string prefix_;
-  const bool group_common_prefixes_;
-  const int max_keys_;
-  std::string marker_;
-  bool truncated_ = true;
+  virtual int Read(base::Request *req, std::list<std::string> *keys,
+                   std::list<std::string> *prefixes) = 0;
 };
 }  // namespace fs
 }  // namespace s3

@@ -23,6 +23,7 @@
 
 #include <errno.h>
 
+#include <memory>
 #include <string>
 
 #include "base/logger.h"
@@ -41,14 +42,27 @@ constexpr char NEXT_MARKER_XPATH[] = "/ListBucketResult/NextMarker";
 constexpr char PREFIX_XPATH[] = "/ListBucketResult/CommonPrefixes/Prefix";
 }  // namespace
 
-ListReader::ListReader(const std::string &prefix, bool group_common_prefixes,
-                       int max_keys)
-    : prefix_(prefix),
-      group_common_prefixes_(group_common_prefixes),
-      max_keys_(max_keys) {}
+class ListReaderV1 : public ListReader {
+ public:
+  ListReaderV1(const std::string &prefix, bool group_common_prefixes = true,
+               int max_keys = -1)
+      : prefix_(prefix),
+        group_common_prefixes_(group_common_prefixes),
+        max_keys_(max_keys) {}
 
-int ListReader::Read(base::Request *req, std::list<std::string> *keys,
-                     std::list<std::string> *prefixes) {
+  int Read(base::Request *req, std::list<std::string> *keys,
+           std::list<std::string> *prefixes) override;
+
+ private:
+  const std::string prefix_;
+  const bool group_common_prefixes_;
+  const int max_keys_;
+  std::string marker_;
+  bool truncated_ = true;
+};
+
+int ListReaderV1::Read(base::Request *req, std::list<std::string> *keys,
+                       std::list<std::string> *prefixes) {
   if (!keys) return -EINVAL;
   keys->clear();
   if (prefixes) prefixes->clear();
@@ -69,7 +83,7 @@ int ListReader::Read(base::Request *req, std::list<std::string> *keys,
 
   auto doc = base::XmlDocument::Parse(req->GetOutputAsString());
   if (!doc) {
-    S3_LOG(LOG_WARNING, "ListReader::Read", "failed to parse response.\n");
+    S3_LOG(LOG_WARNING, "ListReaderV1::Read", "failed to parse response.\n");
     return -EIO;
   }
 
@@ -98,6 +112,13 @@ int ListReader::Read(base::Request *req, std::list<std::string> *keys,
   }
 
   return keys->size() + (prefixes ? prefixes->size() : 0);
+}
+
+std::unique_ptr<ListReader> ListReader::Create(const std::string &prefix,
+                                               bool group_common_prefixes,
+                                               int max_keys) {
+  return std::make_unique<ListReaderV1>(prefix, group_common_prefixes,
+                                        max_keys);
 }
 
 }  // namespace fs
