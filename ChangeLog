@@ -5,8 +5,9 @@ s3fuse (0.34) unstable; urgency=low [NOT YET RELEASED]
   * Allowed reusing auth headers when following redirects; necessary when
     attempting to mount newly-created S3 buckets.
   * Enable use of ListObjectsV2 for AWS.
+  * Fix naming of Glacier extended attributes.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Tue, 11 Jul 2023 17:28:00 -0700
+ -- Tarick Bedeir <tarick@bedeir.com>  Tue, 11 Jul 2023 17:30:00 -0700
 
 s3fuse (0.33) unstable; urgency=low
 

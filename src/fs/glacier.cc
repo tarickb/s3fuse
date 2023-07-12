@@ -76,7 +76,7 @@ std::list<std::unique_ptr<XAttr>> Glacier::BuildXAttrs() {
       },
       [](std::string) { return 0; }, XAttr::XM_VISIBLE));
 
-  xattrs.push_back(CallbackXAttr::Create(PACKAGE_NAME "restore_ongoing_",
+  xattrs.push_back(CallbackXAttr::Create(PACKAGE_NAME "_restore_ongoing",
                                          [this](std::string *out) {
                                            *out = restore_ongoing_;
                                            return 0;
@@ -84,7 +84,7 @@ std::list<std::unique_ptr<XAttr>> Glacier::BuildXAttrs() {
                                          [](std::string) { return 0; },
                                          XAttr::XM_VISIBLE));
 
-  xattrs.push_back(CallbackXAttr::Create(PACKAGE_NAME "restore_expiry_",
+  xattrs.push_back(CallbackXAttr::Create(PACKAGE_NAME "_restore_expiry",
                                          [this](std::string *out) {
                                            *out = restore_expiry_;
                                            return 0;
