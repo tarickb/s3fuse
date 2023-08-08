@@ -358,7 +358,7 @@ void Request::Run(int timeout_in_s) {
     throw std::runtime_error(
         "can't set input data for non-POST/non-PUT request.");
 
-  int r = CURLE_OK;
+  CURLcode r = CURLE_OK;
   int iter = 0;
   double elapsed_time = 0.0;
   uint64_t bytes_transferred = 0;
@@ -423,7 +423,8 @@ void Request::Run(int timeout_in_s) {
 
       default:
         // Do nothing.
-        error = std::string("Unrecoverable error: ") + transport_error_;
+        error = std::string("Unrecoverable error (") + curl_easy_strerror(r) +
+            "): " + transport_error_;
         break;
     }
 
