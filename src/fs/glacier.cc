@@ -146,7 +146,7 @@ void Glacier::ExtractRestoreStatus(base::Request *req) {
 
 int Glacier::QueryStorageClass(base::Request *req) {
   req->Init(base::HttpMethod::GET);
-  req->SetUrl(services::Service::bucket_url(),
+  req->SetUrl(services::Service::bucket_url() + "/",
               std::string("max-keys=1&prefix=") + base::Url::Encode(path_));
   req->Run();
   if (req->response_code() != base::HTTP_SC_OK) return -EIO;
