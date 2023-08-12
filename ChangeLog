@@ -1,8 +1,9 @@
 s3fuse (0.35) unstable; urgency=low
 
   * Include CURL error description in unrecoverable error message.
+  * Fix bug that prevented querying Glacier storage class.
 
- -- Tarick Bedeir <tarick@bedeir.com>  Tue, 08 Aug 2023 08:34:00 -0400
+ -- Tarick Bedeir <tarick@bedeir.com>  Fri, 11 Aug 2023 08:50:00 -0700
 
 s3fuse (0.34) unstable; urgency=low
 
