@@ -1,4 +1,3 @@
-find_package(GTest)
 find_package(Threads)
 
 add_executable(${PROJECT_NAME}_base_tests 

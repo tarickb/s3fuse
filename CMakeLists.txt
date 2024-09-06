@@ -38,7 +38,12 @@ option(EnableTests "Enable tests." ON)
 option(EnableMacOSBundle "Enable macOS app bundle features." OFF)
 
 if(EnableTests)
+  add_subdirectory("/usr/src/googletest" "gtest")
+  include(GoogleTest)
   enable_testing()
+  link_directories(${gtest_BINARY_DIR}/lib)
+  set(GTEST_INCLUDE_DIR "${gtest_SOURCE_DIR}/include;${gtest_SOURCE_DIR};${gmock_SOURCE_DIR}/include;${gmock_SOURCE_DIR}")
+  set(GTEST_BOTH_LIBRARIES "gtest;gtest_main")
 endif()
 
 option(EnableAwsS3 "Enable AWS S3." ON)
