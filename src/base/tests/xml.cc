@@ -85,7 +85,7 @@ TEST_F(Xml, FindListB) {
   ASSERT_TRUE(doc);
   std::list<std::string> l;
   ASSERT_EQ(doc->Find("//b", &l), 0);
-  ASSERT_EQ(l.size(), 2);
+  ASSERT_EQ(l.size(), 2ul);
   EXPECT_EQ(l.front(), "element_b_0");
   EXPECT_EQ(l.back(), "element_b_1");
 }
@@ -95,7 +95,7 @@ TEST_F(Xml, FindListC) {
   ASSERT_TRUE(doc);
   std::list<std::string> l;
   ASSERT_EQ(doc->Find("//c", &l), 0);
-  ASSERT_EQ(l.size(), 1);
+  ASSERT_EQ(l.size(), 1ul);
   EXPECT_EQ(l.front(), "element_c_0");
 }
 
@@ -104,7 +104,7 @@ TEST_F(Xml, FindListCMultiple) {
   ASSERT_TRUE(doc);
   std::list<std::string> l;
   ASSERT_EQ(doc->Find("//c", &l), 0);
-  ASSERT_EQ(l.size(), 6);
+  ASSERT_EQ(l.size(), 6ul);
   int i = 0;
   for (auto iter = l.begin(); iter != l.end(); ++iter) {
     std::string exp = "ec" + std::to_string(i++);
@@ -117,7 +117,7 @@ TEST_F(Xml, FindMissing) {
   ASSERT_TRUE(doc);
   std::list<std::string> l;
   ASSERT_EQ(doc->Find("//thiselementdoesntexist", &l), 0);
-  EXPECT_EQ(l.size(), 0);
+  EXPECT_EQ(l.size(), 0ul);
 }
 
 TEST_F(Xml, InvalidXPath) {
@@ -125,7 +125,7 @@ TEST_F(Xml, InvalidXPath) {
   ASSERT_TRUE(doc);
   std::list<std::string> l;
   ASSERT_NE(doc->Find("//().", &l), 0);
-  EXPECT_EQ(l.size(), 0);
+  EXPECT_EQ(l.size(), 0ul);
 }
 
 TEST_F(Xml, ElementMap) {
@@ -145,7 +145,7 @@ TEST_F(Xml, ElementMap) {
   ASSERT_TRUE(doc);
   std::list<std::map<std::string, std::string>> l;
   ASSERT_EQ(doc->Find("//b|//c", &l), 0);
-  ASSERT_EQ(l.size(), 3);
+  ASSERT_EQ(l.size(), 3ul);
 
   auto iter = l.begin();
   auto first = *iter++;
@@ -153,19 +153,19 @@ TEST_F(Xml, ElementMap) {
   auto third = *iter++;
   EXPECT_EQ(iter, l.end());
 
-  EXPECT_EQ(first.size(), 4);
+  EXPECT_EQ(first.size(), 4ul);
   EXPECT_EQ(first[XmlDocument::MAP_NAME_KEY], "b");
   EXPECT_EQ(first["k00"], "v00");
   EXPECT_EQ(first["k01"], "v01");
   EXPECT_EQ(first["k02"], "v02");
 
-  EXPECT_EQ(second.size(), 4);
+  EXPECT_EQ(second.size(), 4ul);
   EXPECT_EQ(second[XmlDocument::MAP_NAME_KEY], "c");
   EXPECT_EQ(second["k10"], "v10");
   EXPECT_EQ(second["k11"], "v11");
   EXPECT_EQ(second["k12"], "v12");
 
-  EXPECT_EQ(third.size(), 4);
+  EXPECT_EQ(third.size(), 4ul);
   EXPECT_EQ(third[XmlDocument::MAP_NAME_KEY], "b");
   EXPECT_EQ(third["k20"], "v20");
   EXPECT_EQ(third["k21"], "v21");
