@@ -22,6 +22,7 @@
 #include "fs/file.h"
 
 #include <atomic>
+#include <cstdint>
 #include <functional>
 #include <mutex>
 #include <string>

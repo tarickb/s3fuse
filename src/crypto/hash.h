@@ -22,8 +22,7 @@
 #ifndef S3_CRYPTO_HASH_H
 #define S3_CRYPTO_HASH_H
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <string>
 #include <vector>
 

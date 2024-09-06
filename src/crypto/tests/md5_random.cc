@@ -1,5 +1,6 @@
 #include <unistd.h>
 
+#include <cstdint>
 #include <gtest/gtest.h>
 
 #include "crypto/hash.h"

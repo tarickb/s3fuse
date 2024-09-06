@@ -1,6 +1,7 @@
 #ifndef S3_CRYPTO_TESTS_RANDOM_H
 #define S3_CRYPTO_TESTS_RANDOM_H
 
+#include <cstdint>
 #include <fstream>
 #include <stdexcept>
 #include <vector>

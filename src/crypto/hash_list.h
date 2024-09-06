@@ -22,6 +22,7 @@
 #ifndef S3_CRYPTO_HASH_LIST_H
 #define S3_CRYPTO_HASH_LIST_H
 
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <string>

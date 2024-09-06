@@ -22,6 +22,7 @@
 #ifndef S3_CRYPTO_HEX_WITH_QUOTES_H
 #define S3_CRYPTO_HEX_WITH_QUOTES_H
 
+#include <cstdint>
 #include <stdexcept>
 #include <string>
 #include <vector>

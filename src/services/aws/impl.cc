@@ -21,6 +21,7 @@
 
 #include "services/aws/impl.h"
 
+#include <cstdint>
 #include <iterator>
 #include <sstream>
 #include <string>

@@ -22,6 +22,7 @@
 #include "operations.h"
 
 #include <atomic>
+#include <cstdint>
 #include <limits>
 
 #include "base/config.h"

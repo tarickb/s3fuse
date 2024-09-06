@@ -22,8 +22,7 @@
 #ifndef S3_CRYPTO_CIPHER_H
 #define S3_CRYPTO_CIPHER_H
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <string>

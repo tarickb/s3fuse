@@ -23,6 +23,7 @@
 
 #include <openssl/evp.h>
 
+#include <cstdint>
 #include <vector>
 
 namespace s3 {

@@ -23,6 +23,7 @@
 #define S3_FS_FILE_H
 
 #include <condition_variable>
+#include <cstdint>
 #include <memory>
 #include <mutex>
 #include <string>

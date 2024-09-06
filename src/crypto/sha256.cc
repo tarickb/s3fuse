@@ -23,6 +23,8 @@
 
 #include <openssl/sha.h>
 
+#include <cstdint>
+
 namespace s3 {
 namespace crypto {
 

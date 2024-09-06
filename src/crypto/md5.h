@@ -22,8 +22,7 @@
 #ifndef S3_CRYPTO_MD5_H
 #define S3_CRYPTO_MD5_H
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <string>
 
 namespace s3 {

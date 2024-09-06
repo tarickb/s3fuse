@@ -22,8 +22,7 @@
 #ifndef S3_FS_STATIC_XATTR_H
 #define S3_FS_STATIC_XATTR_H
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>

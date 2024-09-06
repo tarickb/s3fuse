@@ -22,7 +22,6 @@
 #include "base/request.h"
 
 #include <curl/curl.h>
-#include <stdint.h>
 #include <string.h>
 
 #ifdef HAVE_GNUTLS
@@ -31,6 +30,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <cstdint>
 #include <iomanip>
 #include <mutex>
 #include <stdexcept>

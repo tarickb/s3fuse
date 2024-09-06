@@ -22,6 +22,7 @@
 #include "services/file_transfer.h"
 
 #include <atomic>
+#include <cstdint>
 #include <string>
 #include <vector>
 

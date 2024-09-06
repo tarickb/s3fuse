@@ -22,8 +22,7 @@
 #ifndef S3_CRYPTO_ENCODER_H
 #define S3_CRYPTO_ENCODER_H
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <string>
 #include <vector>
 

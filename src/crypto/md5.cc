@@ -25,6 +25,7 @@
 #include <openssl/md5.h>
 #include <unistd.h>
 
+#include <cstdint>
 #include <stdexcept>
 
 namespace s3 {

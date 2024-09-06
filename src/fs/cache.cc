@@ -22,6 +22,7 @@
 #include "fs/cache.h"
 
 #include <atomic>
+#include <cstdint>
 #include <mutex>
 
 #include "base/config.h"

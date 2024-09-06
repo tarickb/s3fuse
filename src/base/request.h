@@ -22,9 +22,9 @@
 #ifndef S3_BASE_REQUEST_H
 #define S3_BASE_REQUEST_H
 
-#include <stdint.h>
 #include <stdio.h>
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>

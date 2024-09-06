@@ -23,6 +23,8 @@
 
 #include <openssl/hmac.h>
 
+#include <cstdint>
+
 namespace s3 {
 namespace crypto {
 

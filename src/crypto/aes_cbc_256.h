@@ -22,10 +22,9 @@
 #ifndef S3_CRYPTO_AES_CBC_256_H
 #define S3_CRYPTO_AES_CBC_256_H
 
-#include <stdint.h>
-
 #include <openssl/aes.h>
 
+#include <cstdint>
 #include <memory>
 #include <stdexcept>
 #include <vector>

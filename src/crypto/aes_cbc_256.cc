@@ -23,6 +23,8 @@
 
 #include <openssl/evp.h>
 
+#include <cstdint>
+
 #include "crypto/symmetric_key.h"
 
 namespace s3 {

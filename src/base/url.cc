@@ -21,6 +21,7 @@
 
 #include "base/url.h"
 
+#include <cstdint>
 #include <string>
 
 namespace s3 {

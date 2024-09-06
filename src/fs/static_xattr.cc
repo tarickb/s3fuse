@@ -25,6 +25,7 @@
 #include <string.h>
 
 #include <cctype>
+#include <cstdint>
 #include <stdexcept>
 
 #include "crypto/base64.h"

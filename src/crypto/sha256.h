@@ -23,7 +23,8 @@
 #define S3_CRYPTO_SHA256_H
 
 #include <stddef.h>
-#include <stdint.h>
+
+#include <cstdint>
 
 namespace s3 {
 namespace crypto {

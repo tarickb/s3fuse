@@ -26,6 +26,7 @@
 #include <openssl/evp.h>
 #include <string.h>
 
+#include <cstdint>
 #include <stdexcept>
 
 namespace s3 {

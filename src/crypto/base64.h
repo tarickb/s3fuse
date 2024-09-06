@@ -22,8 +22,7 @@
 #ifndef S3_CRYPTO_BASE64_H
 #define S3_CRYPTO_BASE64_H
 
-#include <stdint.h>
-
+#include <cstdint>
 #include <string>
 #include <vector>
 

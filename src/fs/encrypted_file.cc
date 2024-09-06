@@ -22,6 +22,7 @@
 #include "fs/encrypted_file.h"
 
 #include <atomic>
+#include <cstdint>
 
 #include "base/logger.h"
 #include "base/request.h"

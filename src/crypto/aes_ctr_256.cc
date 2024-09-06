@@ -24,6 +24,8 @@
 #include <openssl/modes.h>
 #include <string.h>
 
+#include <cstdint>
+
 #include "crypto/symmetric_key.h"
 
 namespace s3 {

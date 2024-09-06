@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <sys/stat.h>
 
+#include <cstdint>
 #include <string>
 
 #include "crypto/aes_cbc_256.h"

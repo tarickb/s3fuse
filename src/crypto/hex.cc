@@ -21,6 +21,7 @@
 
 #include "crypto/hex.h"
 
+#include <cstdint>
 #include <stdexcept>
 
 namespace s3 {
