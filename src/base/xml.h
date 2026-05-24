@@ -32,7 +32,7 @@ namespace s3 {
 namespace base {
 class XmlDocument {
  public:
-  static constexpr char MAP_NAME_KEY[] = "__element_name__";
+  static inline constexpr char MAP_NAME_KEY[] = "__element_name__";
 
   static void Init();
   static std::unique_ptr<XmlDocument> Parse(std::string data);
